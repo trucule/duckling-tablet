@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createHmac } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,30 +6,35 @@ import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { loadConfig } from '../src/config.js';
 import { buildServer } from '../src/server.js';
-import { openDb } from '../src/db.js';
+import type { Db } from '../src/db.js';
+import { startCluster, type Cluster } from './pg.js';
 
-let app: FastifyInstance, dir: string;
+let cluster: Cluster, app: FastifyInstance, db: Db, dir: string;
 const mails: { to: string; text: string }[] = [];
 const tickets: any[] = [];
 let synthCalls = 0, azureUp = true;
 const ADMIN = 'admin-test-token-123456';
 const HOOK = 'hook-secret-123';
 
+beforeAll(async () => { cluster = await startCluster(); });
+afterAll(async () => { await cluster?.stop(); });
+
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'duck-'));
+  ({ db } = await cluster.newDb());
   mails.length = 0; tickets.length = 0; synthCalls = 0; azureUp = true;
   const cfg = loadConfig({
-    NODE_ENV: 'test', DATABASE_PATH: ':memory:', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local',
+    NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local',
     ADMIN_TOKEN: ADMIN, ETDUCKY_WEBHOOK_SECRET: HOOK, TTS_DAILY_CHARS_PER_DEVICE: 200, PUBLIC_URL: 'https://api.test',
   });
   ({ app } = await buildServer(cfg, {
-    db: openDb(':memory:'), logger: false,
+    db, logger: false,
     mailer: { async send(to, _s, text) { mails.push({ to, text }); } },
     synth: async (text) => { synthCalls++; await new Promise((r) => setTimeout(r, 20)); return azureUp ? Buffer.from(`mp3:${text}`) : null; },
     createTicket: async (t) => { tickets.push(t); return `T-${tickets.length}`; },
   }));
 });
-afterEach(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
+afterEach(async () => { await app.close(); await db.close(); rmSync(dir, { recursive: true, force: true }); });
 
 async function signIn(email: string) {
   await app.inject({ method: 'POST', url: '/auth/email-link', payload: { email } });

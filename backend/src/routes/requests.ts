@@ -2,43 +2,49 @@
 import type { FastifyInstance } from 'fastify';
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
-import type { Ctx } from '../context.js';
+import { audit, type Ctx } from '../context.js';
 import { parentAuth } from '../auth.js';
-import { HttpError, newId, now, safeEqual } from '../util.js';
+import { HttpError, newId, safeEqual } from '../util.js';
 
 const OPEN = ['requested', 'planned', 'building'];
 export const requestRow = (r: any) => r && ({
-  id: r.id, title: r.title, description: r.description, childGrade: r.child_grade, installWhenReady: !!r.install_when_ready,
+  id: r.id, title: r.title, description: r.description, childGrade: r.child_grade, installWhenReady: r.install_when_ready,
   status: r.status, appId: r.app_id, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
 export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx: Ctx }) {
   app.get('/requests', async (req) => {
-    const a = parentAuth(ctx, req);
-    return { requests: (ctx.db.prepare('SELECT * FROM app_request WHERE family_id = ? ORDER BY created_at DESC').all(a.familyId) as any[]).map(requestRow) };
+    const a = await parentAuth(ctx, req);
+    return ctx.db.family(a.familyId, async (q) => ({ requests: (await q.all('SELECT * FROM app_request ORDER BY created_at DESC')).map(requestRow) }));
   });
 
   app.post('/requests', async (req) => {
-    const a = parentAuth(ctx, req);
+    const a = await parentAuth(ctx, req);
     const b = z.object({
       title: z.string().trim().min(3).max(80),
       description: z.string().trim().min(10).max(2000),
       childGrade: z.string().max(10).nullable().optional(),
       installWhenReady: z.boolean().default(true),
     }).parse(req.body);
-    // One open request per family keeps the queue fair.
-    const open = ctx.db.prepare(`SELECT 1 FROM app_request WHERE family_id = ? AND status IN (${OPEN.map(() => '?').join(',')})`).get(a.familyId, ...OPEN);
-    if (open) throw new HttpError(409, 'You already have a request in progress. You can make another once it is finished.');
     const id = newId('req');
-    ctx.db.prepare(`INSERT INTO app_request (id, family_id, title, description, child_grade, install_when_ready, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, a.familyId, b.title, b.description, b.childGrade ?? null, b.installWhenReady ? 1 : 0, now(), now());
-    ctx.audit(a.familyId, `parent:${a.parentId}`, 'request.created', { id });
+    await ctx.db.family(a.familyId, async (q) => {
+      // One open request per family keeps the queue fair.
+      if (await q.one('SELECT 1 FROM app_request WHERE status = ANY($1)', [OPEN])) {
+        throw new HttpError(409, 'You already have a request in progress. You can make another once it is finished.');
+      }
+      await q.run(`INSERT INTO app_request (id, family_id, title, description, child_grade, install_when_ready) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [id, a.familyId, b.title, b.description, b.childGrade ?? null, b.installWhenReady]);
+      await audit(q, a.familyId, `parent:${a.parentId}`, 'request.created', { id });
+    });
     const ticket = await ctx.createTicket({ requestId: id, familyId: a.familyId, title: b.title, description: b.description, childGrade: b.childGrade ?? null });
-    if (ticket) ctx.db.prepare('UPDATE app_request SET etducky_ticket_id = ? WHERE id = ?').run(ticket, id);
-    return requestRow(ctx.db.prepare('SELECT * FROM app_request WHERE id = ?').get(id));
+    return ctx.db.family(a.familyId, async (q) => {
+      if (ticket) await q.run('UPDATE app_request SET etducky_ticket_id = $1 WHERE id = $2', [ticket, id]);
+      return requestRow(await q.one('SELECT * FROM app_request WHERE id = $1', [id]));
+    });
   });
 
   // ET Ducky webhook: { ticketId, status } signed with HMAC-SHA256 of the raw body (x-etducky-signature, hex).
+  // System work: the ticket id is the only key, so it runs past the policies.
   app.register(async (hooks) => {
     hooks.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => done(null, body));
     hooks.post('/hooks/etducky', async (req) => {
@@ -50,8 +56,9 @@ export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx
       const map: Record<string, string> = { new: 'requested', open: 'requested', planned: 'planned', 'in progress': 'building', building: 'building', declined: 'declined', closed: 'declined', rejected: 'declined' };
       const status = map[b.status.toLowerCase()];
       if (!status) return { ignored: true };
-      const r = ctx.db.prepare("UPDATE app_request SET status = ?, updated_at = ? WHERE etducky_ticket_id = ? AND status != 'shipped'").run(status, now(), b.ticketId);
-      return { updated: r.changes };
+      const updated = await ctx.db.system((q) =>
+        q.run("UPDATE app_request SET status = $1, updated_at = now() WHERE etducky_ticket_id = $2 AND status != 'shipped'", [status, b.ticketId]));
+      return { updated };
     });
   });
 }

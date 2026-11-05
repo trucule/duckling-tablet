@@ -1,9 +1,9 @@
 // Parent sign-in by email link: no passwords. The link opens the parent portal, which posts the token back.
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { Ctx } from '../context.js';
-import { SESSION_COOKIE, parentAuth } from '../auth.js';
-import { HttpError, hashToken, inDays, inMinutes, newId, newToken, now } from '../util.js';
+import { audit, type Ctx } from '../context.js';
+import { SESSION_COOKIE, parentAuth, sessionToken } from '../auth.js';
+import { HttpError, hashToken, inDays, inMinutes, newId, newToken } from '../util.js';
 
 export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: Ctx }) {
   const h = (t: string) => hashToken(t, ctx.cfg.SESSION_SECRET);
@@ -11,7 +11,7 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
   app.post('/auth/email-link', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
     const { email } = z.object({ email: z.string().email().max(254) }).parse(req.body);
     const token = newToken();
-    ctx.db.prepare('INSERT INTO login_token (token_hash, email, expires_at) VALUES (?, ?, ?)').run(h(token), email.trim(), inMinutes(15));
+    await ctx.db.query('SELECT create_login_token($1, $2, $3)', [h(token), email.trim(), inMinutes(15)]);
     const link = `${ctx.cfg.PORTAL_URL}/signin?token=${token}`;
     await ctx.mailer.send(email, 'Your Duckling Tablet sign-in link',
       `Tap this link to sign in to Duckling Tablet. It works once and expires in 15 minutes.\n\n${link}\n\nIf you did not ask for this, you can ignore this email.`);
@@ -20,39 +20,33 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
 
   app.post('/auth/verify', { config: { rateLimit: { max: 20, timeWindow: '15 minutes' } } }, async (req, reply) => {
     const { token } = z.object({ token: z.string().min(20).max(200) }).parse(req.body);
-    const row = ctx.db.prepare('SELECT email, expires_at, used_at FROM login_token WHERE token_hash = ?').get(h(token)) as
-      { email: string; expires_at: string; used_at: string | null } | undefined;
-    if (!row || row.used_at || row.expires_at < now()) throw new HttpError(401, 'This link has expired. Ask for a new one.');
-
-    const result = ctx.db.transaction(() => {
-      ctx.db.prepare('UPDATE login_token SET used_at = ? WHERE token_hash = ?').run(now(), h(token));
-      let parent = ctx.db.prepare('SELECT id, family_id FROM parent WHERE email = ?').get(row.email) as { id: string; family_id: string } | undefined;
-      let created = false;
-      if (!parent) {
-        const familyId = newId('fam'), parentId = newId('par');
-        ctx.db.prepare('INSERT INTO family (id, created_at) VALUES (?, ?)').run(familyId, now());
-        ctx.db.prepare('INSERT INTO parent (id, family_id, email, created_at) VALUES (?, ?, ?, ?)').run(parentId, familyId, row.email, now());
-        parent = { id: parentId, family_id: familyId };
-        created = true;
-      }
+    // One transaction: redeem the link, find or create the parent, then scope to the family and open the session.
+    const result = await ctx.db.app(async (q) => {
+      const link = await q.one<{ email: string }>('SELECT email FROM redeem_login_token($1)', [h(token)]);
+      if (!link) throw new HttpError(401, 'This link has expired. Ask for a new one.');
+      const parent = (await q.one<{ parent_id: string; family_id: string; created: boolean }>(
+        'SELECT parent_id, family_id, created FROM find_or_create_parent($1, $2, $3)', [link.email, newId('fam'), newId('par')]))!;
+      await q.setFamily(parent.family_id);
       const session = newToken();
-      ctx.db.prepare('INSERT INTO session (token_hash, parent_id, created_at, expires_at) VALUES (?, ?, ?, ?)').run(h(session), parent.id, now(), inDays(30));
-      return { session, parent, created };
-    })();
+      await q.run('INSERT INTO session (token_hash, parent_id, family_id, expires_at) VALUES ($1, $2, $3, $4)', [h(session), parent.parent_id, parent.family_id, inDays(30)]);
+      await audit(q, parent.family_id, `parent:${parent.parent_id}`, parent.created ? 'family.created' : 'parent.signed_in');
+      return { session, parentId: parent.parent_id, familyId: parent.family_id, created: parent.created };
+    });
 
-    ctx.audit(result.parent.family_id, `parent:${result.parent.id}`, result.created ? 'family.created' : 'parent.signed_in');
     reply.setCookie(SESSION_COOKIE, result.session, {
       path: '/', httpOnly: true, sameSite: 'lax', secure: ctx.cfg.NODE_ENV === 'production', maxAge: 30 * 86400,
     });
-    return { sessionToken: result.session, parentId: result.parent.id, familyId: result.parent.family_id, newFamily: result.created };
+    return { sessionToken: result.session, parentId: result.parentId, familyId: result.familyId, newFamily: result.created };
   });
 
   app.post('/auth/logout', async (req, reply) => {
-    const auth = parentAuth(ctx, req);
-    const token = req.headers.authorization?.split(' ')[1] ?? req.cookies?.[SESSION_COOKIE];
-    if (token) ctx.db.prepare('DELETE FROM session WHERE token_hash = ?').run(h(token));
+    const a = await parentAuth(ctx, req);
+    const token = sessionToken(req);
+    await ctx.db.family(a.familyId, async (q) => {
+      if (token) await q.run('DELETE FROM session WHERE token_hash = $1', [h(token)]);
+      await audit(q, a.familyId, `parent:${a.parentId}`, 'parent.signed_out');
+    });
     reply.clearCookie(SESSION_COOKIE, { path: '/' });
-    ctx.audit(auth.familyId, `parent:${auth.parentId}`, 'parent.signed_out');
     return { ok: true };
   });
 }

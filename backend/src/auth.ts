@@ -1,7 +1,8 @@
 // Three kinds of caller: a parent (session cookie or bearer), a device (Device token), and the admin (you).
+// Parent and device lookups happen before the family is known, so they go through SECURITY DEFINER functions.
 import type { FastifyRequest } from 'fastify';
 import type { Ctx } from './context.js';
-import { HttpError, hashToken, now, safeEqual } from './util.js';
+import { HttpError, hashToken, safeEqual } from './util.js';
 
 export const SESSION_COOKIE = 'dt_session';
 
@@ -14,27 +15,28 @@ function bearer(req: FastifyRequest, scheme: string): string | null {
   return s?.toLowerCase() === scheme.toLowerCase() && v ? v : null;
 }
 
-export function parentAuth(ctx: Ctx, req: FastifyRequest): ParentAuth {
-  const token = bearer(req, 'Bearer') ?? req.cookies?.[SESSION_COOKIE];
-  if (!token) throw new HttpError(401, 'Sign in required');
-  const row = ctx.db.prepare(`SELECT p.id, p.family_id, p.email, s.expires_at FROM session s JOIN parent p ON p.id = s.parent_id
-    WHERE s.token_hash = ?`).get(hashToken(token, ctx.cfg.SESSION_SECRET)) as { id: string; family_id: string; email: string; expires_at: string } | undefined;
-  if (!row || row.expires_at < now()) throw new HttpError(401, 'Session expired');
-  return { parentId: row.id, familyId: row.family_id, email: row.email };
+export function sessionToken(req: FastifyRequest): string | null {
+  return bearer(req, 'Bearer') ?? req.cookies?.[SESSION_COOKIE] ?? null;
 }
 
-export function deviceAuth(ctx: Ctx, req: FastifyRequest): DeviceAuth {
+export async function parentAuth(ctx: Ctx, req: FastifyRequest): Promise<ParentAuth> {
+  const token = sessionToken(req);
+  if (!token) throw new HttpError(401, 'Sign in required');
+  const [row] = await ctx.db.query<{ parent_id: string; family_id: string; email: string }>(
+    'SELECT parent_id, family_id, email FROM auth_session($1)', [hashToken(token, ctx.cfg.SESSION_SECRET)]);
+  if (!row) throw new HttpError(401, 'Session expired');
+  return { parentId: row.parent_id, familyId: row.family_id, email: row.email };
+}
+
+export async function deviceAuth(ctx: Ctx, req: FastifyRequest): Promise<DeviceAuth> {
   const token = bearer(req, 'Device');
   if (!token) throw new HttpError(401, 'Device token required');
-  const hash = hashToken(token, ctx.cfg.SESSION_SECRET);
-  const row = ctx.db.prepare('SELECT id, family_id, child_id, state FROM device WHERE token_hash = ?').get(hash) as
-    { id: string; family_id: string; child_id: string | null; state: string } | undefined;
-  if (!row) {
-    // A device whose family was deleted is told to release itself, once.
-    if (ctx.db.prepare('SELECT 1 FROM device_tombstone WHERE token_hash = ?').get(hash)) throw new HttpError(410, 'release');
-    throw new HttpError(401, 'Unknown device');
-  }
-  return { deviceId: row.id, familyId: row.family_id, childId: row.child_id, state: row.state };
+  const [row] = await ctx.db.query<{ device_id: string | null; family_id: string; child_id: string | null; state: string; released: boolean }>(
+    'SELECT device_id, family_id, child_id, state, released FROM auth_device($1)', [hashToken(token, ctx.cfg.SESSION_SECRET)]);
+  if (!row) throw new HttpError(401, 'Unknown device');
+  // A device whose family was deleted is told to release itself, once.
+  if (row.released || !row.device_id) throw new HttpError(410, 'release');
+  return { deviceId: row.device_id, familyId: row.family_id, childId: row.child_id, state: row.state };
 }
 
 export function adminAuth(ctx: Ctx, req: FastifyRequest): void {

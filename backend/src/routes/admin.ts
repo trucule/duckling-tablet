@@ -1,12 +1,14 @@
 // Your admin calls: publish app versions, pre-generate their voice lines, see requests. Bearer ADMIN_TOKEN.
+// Everything here is system work (the catalog is global and publishing touches every family), so it runs as
+// duckling_system through ctx.db.system().
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { Ctx } from '../context.js';
+import { audit, type Ctx } from '../context.js';
 import { adminAuth } from '../auth.js';
 import { compareVersions } from '../catalog.js';
 import { requestRow } from './requests.js';
 import type { makeVoiceCache } from './tts.js';
-import { badRequest, notFound, now, sha256 } from '../util.js';
+import { badRequest, notFound, sha256 } from '../util.js';
 import { normalizeLine } from './tts.js';
 
 const appId = z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}$/);
@@ -22,10 +24,10 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
       subjects: z.array(z.string().max(20)).max(6).default([]), ageMin: z.number().int().min(2).max(14).nullable().default(null),
       ageMax: z.number().int().min(2).max(14).nullable().default(null), starter: z.boolean().default(false),
     }).parse(req.body);
-    ctx.db.prepare(`INSERT INTO app (id, name, description, subjects, age_min, age_max, starter, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    await ctx.db.system((q) => q.run(`INSERT INTO app (id, name, description, subjects, age_min, age_max, starter) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
       ON CONFLICT (id) DO UPDATE SET name = excluded.name, description = excluded.description, subjects = excluded.subjects,
-      age_min = excluded.age_min, age_max = excluded.age_max, starter = excluded.starter`)
-      .run(id, b.name, b.description, JSON.stringify(b.subjects), b.ageMin, b.ageMax, b.starter ? 1 : 0, now());
+      age_min = excluded.age_min, age_max = excluded.age_max, starter = excluded.starter`,
+      [id, b.name, b.description, JSON.stringify(b.subjects), b.ageMin, b.ageMax, b.starter]));
     return { id };
   });
 
@@ -36,35 +38,44 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
       (_req, body, done) => done(null, body));
     up.post<{ Params: { id: string } }>('/admin/apps/:id/versions', async (req) => {
       const id = appId.parse(req.params.id);
-      if (!ctx.db.prepare('SELECT 1 FROM app WHERE id = ?').get(id)) throw notFound('Create the app first (PUT /admin/apps/:id)');
       const qs = z.object({
         version, signature: z.string().min(40).max(200), minShell: z.string().max(20).optional(),
         permissions: z.string().optional(), request: z.string().optional(),
       }).parse(req.query);
       const body = req.body as Buffer;
       if (!Buffer.isBuffer(body) || body.length < 22) throw badRequest('Send the package zip as the request body');
-      if (ctx.db.prepare('SELECT 1 FROM app_version WHERE app_id = ? AND version = ?').get(id, qs.version)) throw badRequest('That version is already published');
-      const latest = (ctx.db.prepare('SELECT version FROM app_version WHERE app_id = ?').all(id) as any[]).map((r) => r.version).sort(compareVersions).pop();
-      if (latest && compareVersions(qs.version, latest) <= 0) throw badRequest(`Version must be above ${latest}`);
+
+      await ctx.db.system(async (q) => {
+        if (!(await q.one('SELECT 1 FROM app WHERE id = $1', [id]))) throw notFound('Create the app first (PUT /admin/apps/:id)');
+        const versions = (await q.all('SELECT version FROM app_version WHERE app_id = $1', [id])).map((r) => r.version as string);
+        if (versions.includes(qs.version)) throw badRequest('That version is already published');
+        const latest = versions.sort(compareVersions).pop();
+        if (latest && compareVersions(qs.version, latest) <= 0) throw badRequest(`Version must be above ${latest}`);
+        if (qs.request && !(await q.one('SELECT 1 FROM app_request WHERE id = $1', [qs.request]))) throw notFound('No such request');
+      });
+
+      // The upload happens outside any transaction; the insert below is what publishes the version.
       const key = `packages/${id}/${qs.version}.zip`;
       await ctx.storage.put(key, body, 'application/zip', true);
       const perms = (qs.permissions ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-      ctx.db.prepare(`INSERT INTO app_version (app_id, version, package_key, sha256, signature, size, min_shell, permissions, published_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, qs.version, key, sha256(body), qs.signature, body.length, qs.minShell ?? null, JSON.stringify(perms), now());
 
-      // A version that fulfils a request: mark it shipped and install it where the family asked for that.
-      let installedFor = 0;
-      if (qs.request) {
-        const r = ctx.db.prepare('SELECT * FROM app_request WHERE id = ?').get(qs.request) as any;
-        if (!r) throw notFound('No such request');
-        ctx.db.prepare("UPDATE app_request SET status = 'shipped', app_id = ?, updated_at = ? WHERE id = ?").run(id, now(), r.id);
-        if (r.install_when_ready) {
-          const devices = ctx.db.prepare("SELECT id FROM device WHERE family_id = ? AND state = 'active'").all(r.family_id) as any[];
-          const ins = ctx.db.prepare('INSERT OR IGNORE INTO device_app (device_id, app_id, installed_at) VALUES (?, ?, ?)');
-          for (const d of devices) installedFor += ins.run(d.id, id, now()).changes;
+      const installedFor = await ctx.db.system(async (q) => {
+        await q.run(`INSERT INTO app_version (app_id, version, package_key, sha256, signature, size, min_shell, permissions)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`, [id, qs.version, key, sha256(body), qs.signature, body.length, qs.minShell ?? null, JSON.stringify(perms)]);
+        // A version that fulfils a request: mark it shipped and install it where the family asked for that.
+        let installed = 0;
+        if (qs.request) {
+          const r = await q.one('SELECT * FROM app_request WHERE id = $1', [qs.request]);
+          if (!r) throw notFound('No such request');
+          await q.run("UPDATE app_request SET status = 'shipped', app_id = $1, updated_at = now() WHERE id = $2", [id, r.id]);
+          if (r.install_when_ready) {
+            installed = await q.run(`INSERT INTO device_app (family_id, device_id, app_id)
+              SELECT family_id, id, $1 FROM device WHERE family_id = $2 AND state = 'active' ON CONFLICT DO NOTHING`, [id, r.family_id]);
+          }
+          await audit(q, r.family_id, 'admin', 'request.shipped', { request: r.id, app: id });
         }
-        ctx.audit(r.family_id, 'admin', 'request.shipped', { request: r.id, app: id });
-      }
+        return installed;
+      });
       return { app: id, version: qs.version, url: ctx.storage.publicUrl(key), size: body.length, installedFor };
     });
   });
@@ -82,15 +93,15 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
     return { created, cached, failed };
   });
 
-  app.get('/admin/requests', async () => ({
-    requests: (ctx.db.prepare('SELECT * FROM app_request ORDER BY created_at DESC LIMIT 200').all() as any[]).map((r) => ({ ...requestRow(r), familyId: r.family_id, ticket: r.etducky_ticket_id })),
-  }));
+  app.get('/admin/requests', async () => ctx.db.system(async (q) => ({
+    requests: (await q.all('SELECT * FROM app_request ORDER BY created_at DESC LIMIT 200')).map((r) => ({ ...requestRow(r), familyId: r.family_id, ticket: r.etducky_ticket_id })),
+  })));
 
-  app.get('/admin/stats', async () => ({
-    families: (ctx.db.prepare('SELECT COUNT(*) n FROM family').get() as any).n,
-    devices: ctx.db.prepare("SELECT platform, COUNT(*) n FROM device WHERE state = 'active' GROUP BY platform").all(),
-    apps: (ctx.db.prepare('SELECT COUNT(*) n FROM app').get() as any).n,
-    voiceClips: (ctx.db.prepare('SELECT COUNT(*) n, COALESCE(SUM(hits), 0) hits FROM voice_clip').get() as any),
-    openRequests: (ctx.db.prepare("SELECT COUNT(*) n FROM app_request WHERE status IN ('requested','planned','building')").get() as any).n,
-  }));
+  app.get('/admin/stats', async () => ctx.db.system(async (q) => ({
+    families: (await q.one('SELECT COUNT(*)::int AS n FROM family'))!.n,
+    devices: await q.all("SELECT platform, COUNT(*)::int AS n FROM device WHERE state = 'active' GROUP BY platform ORDER BY platform"),
+    apps: (await q.one('SELECT COUNT(*)::int AS n FROM app'))!.n,
+    voiceClips: await q.one('SELECT COUNT(*)::int AS n, COALESCE(SUM(hits), 0)::int AS hits FROM voice_clip'),
+    openRequests: (await q.one("SELECT COUNT(*)::int AS n FROM app_request WHERE status IN ('requested', 'planned', 'building')"))!.n,
+  })));
 }

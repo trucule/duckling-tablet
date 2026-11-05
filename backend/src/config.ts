@@ -9,7 +9,11 @@ const schema = z.object({
   PUBLIC_URL: z.string().url().default('https://api.ducklingtablet.com'),
   PORTAL_URL: z.string().url().default('https://parents.ducklingtablet.com'),
   APP_URL: z.string().url().default('https://app.ducklingtablet.com'),
-  DATABASE_PATH: z.string().default('./data/duckling.db'),
+  // PostgreSQL: duckling_app for requests (row-level security applies), duckling_system for system work.
+  // Both default to a local cluster for development; production sets the DigitalOcean strings and the CA file.
+  DATABASE_URL_APP: z.string().default('postgresql://duckling_app:duckling@127.0.0.1:5432/duckling'),
+  DATABASE_URL_SYSTEM: z.string().default('postgresql://duckling_system:duckling@127.0.0.1:5432/duckling'),
+  DATABASE_CA_CERT: z.string().default(''),
 
   // Files: 'local' writes under LOCAL_STORAGE_DIR (development and tests); 's3' uses DigitalOcean Spaces.
   STORAGE: z.enum(['local', 's3']).default('local'),
@@ -50,7 +54,8 @@ export type Config = z.infer<typeof schema>;
 export function loadConfig(overrides: Partial<Record<keyof Config, unknown>> = {}): Config {
   const cfg = schema.parse({ ...process.env, ...overrides });
   if (cfg.NODE_ENV === 'production') {
-    const missing = (['SESSION_SECRET', 'ADMIN_TOKEN'] as const).filter((k) => !cfg[k] || cfg[k].startsWith('dev-only'));
+    const missing = (['SESSION_SECRET', 'ADMIN_TOKEN', 'DATABASE_URL_APP', 'DATABASE_URL_SYSTEM'] as const)
+      .filter((k) => !cfg[k] || cfg[k].startsWith('dev-only') || cfg[k].includes('@127.0.0.1:5432/duckling'));
     if (missing.length) throw new Error(`Missing production settings: ${missing.join(', ')}`);
   }
   return cfg;

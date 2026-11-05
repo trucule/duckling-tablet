@@ -6,6 +6,6 @@ import { listCatalog } from '../catalog.js';
 export default async function catalogRoutes(app: FastifyInstance, { ctx }: { ctx: Ctx }) {
   app.get('/catalog', async (_req, reply) => {
     reply.header('Cache-Control', 'public, max-age=300');
-    return { apps: listCatalog(ctx) };
+    return { apps: await listCatalog(ctx) };
   });
 }

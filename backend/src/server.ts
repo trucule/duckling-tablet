@@ -7,12 +7,12 @@ import { ZodError } from 'zod';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, normalize } from 'node:path';
 import type { Config } from './config.js';
-import { openDb, type DB } from './db.js';
+import { Db } from './db.js';
 import { makeStorage, type Storage } from './storage.js';
 import { makeMailer, type Mailer } from './mailer.js';
 import { makeAzureSynth, type Synth } from './azure.js';
 import { makeEtDucky, type CreateTicket } from './etducky.js';
-import { makeAudit, type Ctx } from './context.js';
+import type { Ctx } from './context.js';
 import { HttpError } from './util.js';
 import authRoutes from './routes/auth.js';
 import familyRoutes from './routes/family.js';
@@ -22,19 +22,18 @@ import ttsRoutes, { makeVoiceCache } from './routes/tts.js';
 import requestRoutes from './routes/requests.js';
 import adminRoutes from './routes/admin.js';
 
-export interface BuildOptions { db?: DB; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; logger?: boolean }
+export interface BuildOptions { db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; logger?: boolean }
 
 export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise<{ app: FastifyInstance; ctx: Ctx }> {
   const app = Fastify({ logger: opts.logger ?? cfg.NODE_ENV !== 'test', trustProxy: true, bodyLimit: 1024 * 1024 });
   const log = (m: string) => app.log.info(m);
-  const db = opts.db ?? openDb(cfg.DATABASE_PATH);
+  const db = opts.db ?? new Db({ appUrl: cfg.DATABASE_URL_APP, systemUrl: cfg.DATABASE_URL_SYSTEM, caCert: cfg.DATABASE_CA_CERT || undefined });
   const ctx: Ctx = {
     cfg, db,
     storage: opts.storage ?? makeStorage(cfg),
     mailer: opts.mailer ?? makeMailer(cfg, log),
     synth: opts.synth ?? makeAzureSynth(cfg),
     createTicket: opts.createTicket ?? makeEtDucky(cfg, log),
-    audit: makeAudit(db),
   };
   const voice = makeVoiceCache(ctx);
 
@@ -51,7 +50,7 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
   });
 
   app.get('/health', async () => {
-    db.prepare('SELECT 1').get();
+    await db.query('SELECT 1');
     return { ok: true, time: new Date().toISOString() };
   });
 
@@ -71,6 +70,6 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
     });
   }
 
-  app.addHook('onClose', async () => { if (!opts.db) db.close(); });
+  app.addHook('onClose', async () => { if (!opts.db) await db.close(); });
   return { app, ctx };
 }
