@@ -7,7 +7,7 @@ apps. The product plan is the "Duckling Tablet: Product Plan" doc; setup and ope
 | Folder | Contents | State |
 | --- | --- | --- |
 | `backend/` | API on Node 22 + Fastify + PostgreSQL (row-level security per family): accounts, devices, catalog, settings, voice cache, app requests, admin publishing | Phase 1 core done, tested on PostgreSQL |
-| `deploy/` | Droplet setup, systemd units, nginx and Caddy configs, `deploy.ps1` | Ready |
+| `deploy/` | `setup-droplet.sh`, `deploy-remote.sh` (runs on the droplet: pull, build, migrate, restart), `deploy.ps1` (ssh wrapper), systemd unit, nginx and Caddy configs | Ready |
 | `web/` | Child web app: home screen and Store | Next |
 | `portal/` | Parent portal | Next |
 | `android/`, `ios/`, `windows/` | Platform shells | Later phases |
