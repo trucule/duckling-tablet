@@ -11,6 +11,7 @@
 import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { pgConfig } from './pgconfig.js';
 import { pathToFileURL } from 'node:url';
 import pg, { type Client } from 'pg';
 
@@ -45,8 +46,7 @@ export function connectionUrl(adminUrl: string, role: string, password: string):
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const adminUrl = process.env.DATABASE_URL_ADMIN;
   if (!adminUrl) { console.error('Set DATABASE_URL_ADMIN to the doadmin connection string.'); process.exit(2); }
-  const ca = process.env.DATABASE_CA_CERT;
-  const client = new pg.Client({ connectionString: adminUrl, ssl: ca ? { ca: readFileSync(ca, 'utf8'), rejectUnauthorized: true } : undefined });
+  const client = new pg.Client(pgConfig(adminUrl, process.env.DATABASE_CA_CERT || undefined));
   await client.connect();
   const systemPassword = newPassword(), appPassword = newPassword();
   await bootstrap(client, { systemPassword, appPassword });

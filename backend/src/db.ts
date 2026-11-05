@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg, { type Pool, type PoolClient, type PoolConfig } from 'pg';
+import { pgConfig } from './pgconfig.js';
 
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
@@ -34,10 +35,9 @@ export class Db {
   readonly systemPool: Pool;
 
   constructor(opts: DbOptions) {
-    const ssl = opts.caCert ? { ca: readFileSync(opts.caCert, 'utf8'), rejectUnauthorized: true } : undefined;
-    const base: PoolConfig = { ssl, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 10_000 };
-    this.appPool = new pg.Pool({ ...base, connectionString: opts.appUrl, max: opts.appPoolSize ?? 8 });
-    this.systemPool = new pg.Pool({ ...base, connectionString: opts.systemUrl, max: opts.systemPoolSize ?? 3 });
+    const base: PoolConfig = { idleTimeoutMillis: 30_000, connectionTimeoutMillis: 10_000 };
+    this.appPool = new pg.Pool({ ...base, ...pgConfig(opts.appUrl, opts.caCert), max: opts.appPoolSize ?? 8 });
+    this.systemPool = new pg.Pool({ ...base, ...pgConfig(opts.systemUrl, opts.caCert), max: opts.systemPoolSize ?? 3 });
   }
 
   // A single statement as duckling_app with no family set: health checks, catalog reads, SECURITY DEFINER lookups.
