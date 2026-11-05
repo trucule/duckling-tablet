@@ -2,3 +2,6 @@ _to_delete/
 node_modules/
 dist/
 .env
+
+# The managed database CA certificate, copied to the droplet by setup-droplet.sh
+deploy/ca-certificate.crt
