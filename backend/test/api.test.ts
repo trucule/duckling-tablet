@@ -185,6 +185,15 @@ describe('app requests', () => {
     const good = await app.inject({ method: 'POST', url: '/hooks/etducky', headers: { 'content-type': 'application/json', 'x-etducky-signature': sig }, payload: body });
     expect(good.json().updated).toBe(1);
     expect((await app.inject({ method: 'GET', url: '/requests', headers: p.auth })).json().requests[0].status).toBe('building');
+    // A redelivery of the same event changes nothing, whether identified by eventId, by the delivery header or by body.
+    const again = await app.inject({ method: 'POST', url: '/hooks/etducky', headers: { 'content-type': 'application/json', 'x-etducky-signature': sig }, payload: body });
+    expect(again.json()).toEqual({ duplicate: true, updated: 0 });
+    const withId = JSON.stringify({ eventId: 'evt-7', ticketId: 'T-1', status: 'Planned' });
+    const sigId = createHmac('sha256', HOOK).update(withId).digest('hex');
+    const h = { 'content-type': 'application/json', 'x-etducky-signature': sigId };
+    expect((await app.inject({ method: 'POST', url: '/hooks/etducky', headers: h, payload: withId })).json().updated).toBe(1);
+    expect((await app.inject({ method: 'POST', url: '/hooks/etducky', headers: h, payload: withId })).json().duplicate).toBe(true);
+    expect((await app.inject({ method: 'GET', url: '/requests', headers: p.auth })).json().requests[0].status).toBe('planned');
 
     const shipped = await publish('dino-dig', '1.0.0', { request: req1.json().id });
     expect(shipped.json().installedFor).toBe(1);
@@ -202,5 +211,53 @@ describe('account deletion', () => {
     const r = await app.inject({ method: 'GET', url: '/device/config', headers: d.dev });
     expect(r.statusCode).toBe(410); expect(r.json().error).toBe('release');
     expect((await app.inject({ method: 'GET', url: '/family', headers: p.auth })).statusCode).toBe(401);
+  });
+});
+
+describe('logs', () => {
+  it('carry no tokens, query strings, child names or email bodies', async () => {
+    const lines: string[] = [];
+    const stream = { write(chunk: string) { lines.push(chunk); } };
+    const { db: db2 } = await cluster.newDb();
+    const cfg = loadConfig({ NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files2'), STORAGE: 'local', ADMIN_TOKEN: ADMIN, TTS_DAILY_CHARS_PER_DEVICE: 200 });
+    const { app: app2 } = await buildServer(cfg, {
+      db: db2, logger: { level: 'info', stream },
+      mailer: { async send(to, _s, text) { mails.push({ to, text }); } },
+      synth: async (text) => Buffer.from(`mp3:${text}`), createTicket: async () => null,
+    });
+    // A 500 is logged without the driver's detail text (which can carry row values).
+    app2.get('/boom', async () => { const e = new Error('duplicate key value violates unique constraint') as Error & { detail?: string }; e.detail = 'Key (email)=(logs@example.com) already exists.'; throw e; });
+    let token = '', session = '', code = '', deviceToken = '';
+    try {
+      await app2.inject({ method: 'POST', url: '/auth/email-link', payload: { email: 'logs@example.com' } });
+      token = mails.filter((m) => m.to === 'logs@example.com').at(-1)!.text.match(/token=([\w-]+)/)![1];
+      const v = await app2.inject({ method: 'POST', url: '/auth/verify', payload: { token } });
+      session = v.json().sessionToken as string;
+      const auth = { authorization: `Bearer ${session}`, cookie: `dt_session=${session}` };
+      const child = (await app2.inject({ method: 'POST', url: '/children', headers: auth, payload: { firstName: 'Scarlettina' } })).json();
+      code = (await app2.inject({ method: 'POST', url: '/devices/pairing-codes', headers: auth, payload: { childId: child.id } })).json().code;
+      deviceToken = (await app2.inject({ method: 'POST', url: '/devices/pair', payload: { code, platform: 'android', name: 'Tablet' } })).json().deviceToken;
+      await app2.inject({ method: 'GET', url: '/tts?text=' + encodeURIComponent('Hello Scarlettina, spell cat.'), headers: { authorization: `Device ${deviceToken}` } });
+      await app2.inject({ method: 'GET', url: '/nope?token=' + token, headers: { authorization: 'Bearer leaked-token-value-123456' } });
+      expect((await app2.inject({ method: 'GET', url: '/boom?pin=1234' })).statusCode).toBe(500);
+    } finally { await app2.close(); await db2.close(); }
+
+    const out = lines.join('');
+    expect(out).toContain('"url":"/auth/verify"');
+    expect(out).toContain('"url":"/tts"');
+    expect(out).toContain('request failed');
+    expect(out).toContain('route not found');
+    expect(out).toContain('duplicate key value');
+    expect(token && session && code && deviceToken).toBeTruthy();
+    for (const secret of [token, session, deviceToken, code, 'leaked-token-value-123456', 'Scarlettina', 'logs@example.com', 'pin=1234', 'Tap this link', 'already exists']) {
+      expect(out, `log output must not contain ${secret}`).not.toContain(secret);
+    }
+  });
+
+  it('production settings refuse to run without SMTP, so sign-in links never go to the log', () => {
+    const prod = { NODE_ENV: 'production', SESSION_SECRET: 'x'.repeat(40), ADMIN_TOKEN: 'y'.repeat(40), DATABASE_URL_APP: 'postgresql://a:b@db.internal:25060/duckling', DATABASE_URL_SYSTEM: 'postgresql://c:d@db.internal:25060/duckling' };
+    expect(() => loadConfig({ ...prod, SMTP_HOST: '' })).toThrow(/SMTP_HOST/);
+    expect(() => loadConfig({ ...prod, SMTP_HOST: 'smtp.sendgrid.net' })).not.toThrow();
+    expect(() => loadConfig({ ...prod, SMTP_HOST: 'smtp.sendgrid.net', DATABASE_URL_APP: 'postgresql://duckling_app:duckling@127.0.0.1:5432/duckling' })).toThrow(/DATABASE_URL_APP/);
   });
 });

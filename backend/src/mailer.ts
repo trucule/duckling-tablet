@@ -1,4 +1,5 @@
-// Sends parent sign-in links. Without SMTP settings the message is logged instead (development).
+// Sends parent sign-in links. Without SMTP settings the message is logged instead; loadConfig refuses that in
+// production, so a sign-in link never reaches the journal there.
 import nodemailer from 'nodemailer';
 import type { Config } from './config.js';
 

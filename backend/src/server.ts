@@ -14,6 +14,7 @@ import { makeAzureSynth, type Synth } from './azure.js';
 import { makeEtDucky, type CreateTicket } from './etducky.js';
 import type { Ctx } from './context.js';
 import { HttpError } from './util.js';
+import { loggerOptions, pathOnly, redactText } from './logging.js';
 import authRoutes from './routes/auth.js';
 import familyRoutes from './routes/family.js';
 import deviceRoutes from './routes/devices.js';
@@ -22,10 +23,12 @@ import ttsRoutes, { makeVoiceCache } from './routes/tts.js';
 import requestRoutes from './routes/requests.js';
 import adminRoutes from './routes/admin.js';
 
-export interface BuildOptions { db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; logger?: boolean }
+export interface BuildOptions { db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; logger?: boolean | Record<string, unknown> }
 
 export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise<{ app: FastifyInstance; ctx: Ctx }> {
-  const app = Fastify({ logger: opts.logger ?? cfg.NODE_ENV !== 'test', trustProxy: true, bodyLimit: 1024 * 1024 });
+  const wantLog = opts.logger ?? cfg.NODE_ENV !== 'test';
+  const logger = wantLog === false ? false : loggerOptions(typeof wantLog === 'object' ? wantLog : {});
+  const app = Fastify({ logger, trustProxy: true, bodyLimit: 1024 * 1024 });
   const log = (m: string) => app.log.info(m);
   const db = opts.db ?? new Db({ appUrl: cfg.DATABASE_URL_APP, systemUrl: cfg.DATABASE_URL_SYSTEM, caCert: cfg.DATABASE_CA_CERT || undefined });
   const ctx: Ctx = {
@@ -41,12 +44,20 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
   await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL], credentials: true });
   await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
 
-  app.setErrorHandler((err, _req, reply) => {
+  app.setErrorHandler((err, req, reply) => {
     if (err instanceof ZodError) return reply.code(400).send({ error: 'Invalid request', issues: err.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });
     if (err instanceof HttpError) return reply.code(err.statusCode).send({ error: err.message });
-    const status = (err as { statusCode?: number }).statusCode ?? 500;
-    if (status >= 500) app.log.error(err);
-    return reply.code(status).send({ error: status >= 500 ? 'Something went wrong' : (err as Error).message });
+    const e = err as Error & { statusCode?: number; code?: string };
+    const status = e.statusCode ?? 500;
+    // Only the error's type, code and a masked message: driver errors can carry row values in their details.
+    if (status >= 500) app.log.error({ err: { type: e.name, code: e.code, message: redactText(e.message) }, url: pathOnly(req.url) }, 'request failed');
+    return reply.code(status).send({ error: status >= 500 ? 'Something went wrong' : e.message });
+  });
+
+  // Fastify's own 404 handler logs the full URL, query string included; this one logs the path.
+  app.setNotFoundHandler((req, reply) => {
+    req.log.info({ url: pathOnly(req.url) }, 'route not found');
+    return reply.code(404).send({ error: 'Not found' });
   });
 
   app.get('/health', async () => {

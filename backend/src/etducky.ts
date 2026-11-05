@@ -1,8 +1,10 @@
 // App requests become tickets in ET Ducky. Status changes come back through POST /hooks/etducky.
 // The ticket API contract is small on purpose: ET Ducky needs one create endpoint that accepts this JSON
-// and returns { id }, and one outgoing webhook that sends { ticketId, status, message? } signed with
-// ETDUCKY_WEBHOOK_SECRET (header x-etducky-signature: hex HMAC-SHA256 of the raw body).
+// and returns { id }, and one outgoing webhook that sends { eventId, ticketId, status, message? } signed with
+// ETDUCKY_WEBHOOK_SECRET (header x-etducky-signature: hex HMAC-SHA256 of the raw body). eventId is unique per
+// delivery attempt's underlying event, so a retry of the same event is skipped here (webhook_event).
 import type { Config } from './config.js';
+import { redactText } from './logging.js';
 
 export interface TicketInput {
   requestId: string; familyId: string; title: string; description: string; childGrade: string | null;
@@ -26,6 +28,6 @@ export function makeEtDucky(cfg: Config, log: (msg: string) => void): CreateTick
       if (!r.ok) { log(`ET Ducky ticket create failed: ${r.status}`); return null; }
       const j = (await r.json()) as { id?: string | number };
       return j.id != null ? String(j.id) : null;
-    } catch (e) { log(`ET Ducky ticket create error: ${(e as Error).message}`); return null; }
+    } catch (e) { log(`ET Ducky ticket create error: ${redactText((e as Error).message)}`); return null; }
   };
 }

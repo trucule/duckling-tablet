@@ -54,7 +54,8 @@ export type Config = z.infer<typeof schema>;
 export function loadConfig(overrides: Partial<Record<keyof Config, unknown>> = {}): Config {
   const cfg = schema.parse({ ...process.env, ...overrides });
   if (cfg.NODE_ENV === 'production') {
-    const missing = (['SESSION_SECRET', 'ADMIN_TOKEN', 'DATABASE_URL_APP', 'DATABASE_URL_SYSTEM'] as const)
+    // SMTP_HOST is required too: without it sign-in links are written to the log, which is fine in development only.
+    const missing = (['SESSION_SECRET', 'ADMIN_TOKEN', 'DATABASE_URL_APP', 'DATABASE_URL_SYSTEM', 'SMTP_HOST'] as const)
       .filter((k) => !cfg[k] || cfg[k].startsWith('dev-only') || cfg[k].includes('@127.0.0.1:5432/duckling'));
     if (missing.length) throw new Error(`Missing production settings: ${missing.join(', ')}`);
   }

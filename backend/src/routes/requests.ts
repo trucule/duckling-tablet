@@ -4,7 +4,8 @@ import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
 import { parentAuth } from '../auth.js';
-import { HttpError, newId, safeEqual } from '../util.js';
+import { HttpError, newId, safeEqual, sha256 } from '../util.js';
+import { firstDelivery } from '../webhooks.js';
 
 const OPEN = ['requested', 'planned', 'building'];
 export const requestRow = (r: any) => r && ({
@@ -43,8 +44,9 @@ export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx
     });
   });
 
-  // ET Ducky webhook: { ticketId, status } signed with HMAC-SHA256 of the raw body (x-etducky-signature, hex).
-  // System work: the ticket id is the only key, so it runs past the policies.
+  // ET Ducky webhook: { eventId, ticketId, status } signed with HMAC-SHA256 of the raw body (x-etducky-signature,
+  // hex). eventId (or the x-etducky-delivery header) makes redeliveries no-ops; without either, the body hash stands
+  // in. System work: the ticket id is the only key, so it runs past the policies.
   app.register(async (hooks) => {
     hooks.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => done(null, body));
     hooks.post('/hooks/etducky', async (req) => {
@@ -52,13 +54,19 @@ export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx
       const sig = String(req.headers['x-etducky-signature'] ?? '');
       const want = createHmac('sha256', ctx.cfg.ETDUCKY_WEBHOOK_SECRET || '\u0000').update(raw).digest('hex');
       if (!ctx.cfg.ETDUCKY_WEBHOOK_SECRET || !safeEqual(sig, want)) throw new HttpError(401, 'Bad signature');
-      const b = z.object({ ticketId: z.union([z.string(), z.number()]).transform(String), status: z.string() }).parse(JSON.parse(raw));
+      const b = z.object({
+        eventId: z.union([z.string(), z.number()]).transform(String).optional(),
+        ticketId: z.union([z.string(), z.number()]).transform(String), status: z.string(),
+      }).parse(JSON.parse(raw));
+      const eventId = b.eventId ?? (req.headers['x-etducky-delivery'] ? String(req.headers['x-etducky-delivery']) : `body:${sha256(raw)}`);
       const map: Record<string, string> = { new: 'requested', open: 'requested', planned: 'planned', 'in progress': 'building', building: 'building', declined: 'declined', closed: 'declined', rejected: 'declined' };
       const status = map[b.status.toLowerCase()];
       if (!status) return { ignored: true };
-      const updated = await ctx.db.system((q) =>
-        q.run("UPDATE app_request SET status = $1, updated_at = now() WHERE etducky_ticket_id = $2 AND status != 'shipped'", [status, b.ticketId]));
-      return { updated };
+      return ctx.db.system(async (q) => {
+        if (!(await firstDelivery(q, 'etducky', eventId))) return { duplicate: true, updated: 0 };
+        const updated = await q.run("UPDATE app_request SET status = $1, updated_at = now() WHERE etducky_ticket_id = $2 AND status != 'shipped'", [status, b.ticketId]);
+        return { updated };
+      });
     });
   });
 }
