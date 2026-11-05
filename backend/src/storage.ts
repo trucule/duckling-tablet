@@ -54,7 +54,7 @@ export class SpacesStorage implements Storage {
     } catch { return null; }
   }
   async delete(key: string) { await this.s3.send(new DeleteObjectCommand({ Bucket: this.cfg.SPACES_BUCKET, Key: safeKey(key) })); }
-  publicUrl(key: string) { return `${this.cfg.CDN_URL.replace(/\/$/, '')}/${safeKey(key)}`; }
+  publicUrl(key: string) { return `${this.cfg.SPACES_CDN_URL.replace(/\/$/, '')}/${safeKey(key)}`; }
 }
 
 export function makeStorage(cfg: Config): Storage {

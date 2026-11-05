@@ -19,7 +19,7 @@ Environment=NODE_OPTIONS=--max-old-space-size=192
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/duckling/data
+# Nothing is written to disk: files go to Spaces and data to the managed PostgreSQL.
 PrivateTmp=true
 
 [Install]

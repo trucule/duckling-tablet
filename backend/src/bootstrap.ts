@@ -1,13 +1,16 @@
 // One-time database bootstrap, run as DigitalOcean's doadmin (DATABASE_URL_ADMIN): creates the two roles with fresh
-// passwords, the schema they work in, and their search_path. Prints the two connection strings for /opt/duckling/.env;
-// nothing is written anywhere else. Running it again rotates both passwords (print, then restart the service).
+// passwords, the schema they work in, and their search_path. With --write <env file> it puts the two connection
+// strings into that file (replacing earlier DATABASE_URL_APP and DATABASE_URL_SYSTEM lines) and prints nothing
+// secret; without it, it prints them. Running it again rotates both passwords (then restart the service).
 //
-//   DATABASE_URL_ADMIN='postgresql://doadmin:...@host:25060/duckling?sslmode=require' DATABASE_CA_CERT=/opt/duckling/ca.crt \
-//     node dist/bootstrap.js
+//   DATABASE_URL_ADMIN='postgresql://doadmin:...@host:25060/duckling?sslmode=require' \
+//     DOTENV_CONFIG_PATH=/opt/duckling/.env node dist/bootstrap.js --write /opt/duckling/.env
 //
+// DATABASE_CA_CERT comes from the env file (dotenv) or the environment.
 // The tests call bootstrap() against an embedded PostgreSQL with the superuser standing in for doadmin.
+import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import pg, { type Client } from 'pg';
 
@@ -48,7 +51,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const systemPassword = newPassword(), appPassword = newPassword();
   await bootstrap(client, { systemPassword, appPassword });
   await client.end();
-  console.log('# Add these to /opt/duckling/.env, then run the migrations and restart duckling-api:');
-  console.log(`DATABASE_URL_SYSTEM=${connectionUrl(adminUrl, 'duckling_system', systemPassword)}`);
-  console.log(`DATABASE_URL_APP=${connectionUrl(adminUrl, 'duckling_app', appPassword)}`);
+  const lines = {
+    DATABASE_URL_SYSTEM: connectionUrl(adminUrl, 'duckling_system', systemPassword),
+    DATABASE_URL_APP: connectionUrl(adminUrl, 'duckling_app', appPassword),
+  };
+  const writeIdx = process.argv.indexOf('--write');
+  if (writeIdx > 0 && process.argv[writeIdx + 1]) {
+    const file = process.argv[writeIdx + 1];
+    let env = readFileSync(file, 'utf8');
+    for (const [k, v] of Object.entries(lines)) {
+      const re = new RegExp(`^${k}=.*$`, 'm');
+      env = re.test(env) ? env.replace(re, () => `${k}=${v}`) : `${env.replace(/\n?$/, '\n')}${k}=${v}\n`;
+    }
+    writeFileSync(file, env);
+    console.log(`Roles duckling_system and duckling_app are set up; DATABASE_URL_SYSTEM and DATABASE_URL_APP written to ${file}.`);
+  } else {
+    console.log('# Add these to /opt/duckling/.env, then run the migrations and restart duckling-api:');
+    for (const [k, v] of Object.entries(lines)) console.log(`${k}=${v}`);
+  }
 }

@@ -23,7 +23,7 @@ const schema = z.object({
   SPACES_BUCKET: z.string().default('duckling'),
   SPACES_KEY: z.string().default(''),
   SPACES_SECRET: z.string().default(''),
-  CDN_URL: z.string().default('https://cdn.ducklingtablet.com'),
+  SPACES_CDN_URL: z.string().default('https://duckling.nyc3.cdn.digitaloceanspaces.com'),
 
   // Email links for parent sign-in. With no SMTP_HOST, links are written to the log (development).
   SMTP_HOST: z.string().default(''),
@@ -34,7 +34,7 @@ const schema = z.object({
 
   // Azure Speech for the narrator and Story Maker voices.
   AZURE_SPEECH_KEY: z.string().default(''),
-  AZURE_SPEECH_REGION: z.string().default('westus2'),
+  AZURE_SPEECH_REGION: z.string().default('eastus'),
   NARRATOR_VOICE: z.string().default('en-US-AnaNeural'),
   TTS_DAILY_CHARS_PER_DEVICE: z.coerce.number().int().default(20000),
 
