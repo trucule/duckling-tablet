@@ -1,0 +1,10 @@
+# /etc/systemd/system/duckling-backup.service
+[Unit]
+Description=Duckling Tablet nightly database backup to Spaces
+
+[Service]
+Type=oneshot
+User=duckling
+WorkingDirectory=/opt/duckling/backend
+EnvironmentFile=/opt/duckling/.env
+ExecStart=/usr/bin/node dist/backup.js

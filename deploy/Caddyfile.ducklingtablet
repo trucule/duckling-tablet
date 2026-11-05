@@ -1,0 +1,22 @@
+# Use this if Pitch Jam is served by Caddy: add these blocks to /etc/caddy/Caddyfile, then: systemctl reload caddy
+api.ducklingtablet.com {
+	request_body {
+		max_size 200MB
+	}
+	reverse_proxy 127.0.0.1:8787
+}
+parents.ducklingtablet.com {
+	root * /opt/duckling/www/portal
+	try_files {path} /index.html
+	file_server
+}
+app.ducklingtablet.com {
+	root * /opt/duckling/www/app
+	try_files {path} /index.html
+	file_server
+}
+ducklingtablet.com, www.ducklingtablet.com {
+	root * /opt/duckling/www/site
+	try_files {path} {path}.html {path}/
+	file_server
+}

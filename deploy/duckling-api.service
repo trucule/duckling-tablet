@@ -1,0 +1,26 @@
+# /etc/systemd/system/duckling-api.service
+[Unit]
+Description=Duckling Tablet API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=duckling
+Group=duckling
+WorkingDirectory=/opt/duckling/backend
+EnvironmentFile=/opt/duckling/.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=3
+# The droplet is shared with Pitch Jam (1 GB): keep the API small and restart it before it can crowd anything out.
+MemoryMax=300M
+Environment=NODE_OPTIONS=--max-old-space-size=192
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/duckling/data
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
