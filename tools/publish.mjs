@@ -112,6 +112,8 @@ async function publish(id, requestId) {
   const meta = { name: m.name, description: m.description ?? '', subjects: m.subjects ?? [], ageMin: m.ageMin ?? null, ageMax: m.ageMax ?? null, starter: !!m.starter };
   const put = await api('PUT', `/admin/apps/${id}`, JSON.stringify(meta), { 'content-type': 'application/json' });
   if (put.status !== 200) die(`PUT /admin/apps/${id}: ${put.status} ${JSON.stringify(put.json)}`);
+  const tile = await api('PUT', `/admin/apps/${id}/tile`, readFileSync(join(APPS, id, 'tile.png')), { 'content-type': 'image/png' });
+  if (tile.status !== 200) die(`PUT tile ${id}: ${tile.status} ${JSON.stringify(tile.json)}`);
   if (existing?.latest?.version === m.version) {
     console.log(`${id} ${m.version}: already published (${existing.latest.sha256 === sha256 ? 'same' : 'DIFFERENT'} bytes); metadata updated`);
     return;

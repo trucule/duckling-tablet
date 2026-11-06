@@ -31,6 +31,24 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
     return { id };
   });
 
+  // Body: the app's tile, a PNG (image/png), 512 by 512. Stored under a content-hashed key (the CDN caches files as
+  // immutable) and shown in the catalog.
+  app.register(async (up) => {
+    up.addContentTypeParser('image/png', { parseAs: 'buffer', bodyLimit: 2 * 1024 * 1024 }, (_req, body, done) => done(null, body));
+    up.put<{ Params: { id: string } }>('/admin/apps/:id/tile', async (req) => {
+      const id = appId.parse(req.params.id);
+      const body = req.body as Buffer;
+      if (!Buffer.isBuffer(body) || body.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw badRequest('Send a PNG as the request body');
+      await ctx.db.system(async (q) => {
+        if (!(await q.one('SELECT 1 FROM app WHERE id = $1', [id]))) throw notFound('Create the app first (PUT /admin/apps/:id)');
+      });
+      const key = `tiles/${id}-${sha256(body).slice(0, 12)}.png`;
+      await ctx.storage.put(key, body, 'image/png', true);
+      await ctx.db.system((q) => q.run('UPDATE app SET tile_key = $1 WHERE id = $2', [key, id]));
+      return { id, tileUrl: ctx.storage.publicUrl(key) };
+    });
+  });
+
   // Body: the signed package zip (application/zip). Query: version, signature (base64 Ed25519 over the zip, made on
   // your machine), minShell, permissions (comma list), request (an app request this version fulfils).
   app.register(async (up) => {

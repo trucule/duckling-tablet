@@ -1,0 +1,21 @@
+{
+  "name": "duckling-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Duckling Tablet child web app: home screen, Store, app runner glue, parent area",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@preact/signals": "^1.3.4",
+    "preact": "^10.24.3"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

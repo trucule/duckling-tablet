@@ -46,6 +46,8 @@ describe.skipIf(!existsSync(join(TOOLS, 'node_modules', 'fflate')))('publish too
     expect(ids).toEqual(['count-with-me', 'draw-with-me', 'music-box', 'robot-path', 'trace-with-me', 'word-wizard']);
     for (const a of catalog) {
       expect(a.starter).toBe(true);
+      expect(a.tileUrl).toMatch(new RegExp(`/tiles/${a.id}-[0-9a-f]{12}\\.png$`));
+      expect((await fetch(a.tileUrl)).status).toBe(200);
       const zip = Buffer.from(await (await fetch(a.latest.url)).arrayBuffer());
       expect(zip.length).toBe(a.latest.size);
       // raw 32-byte Ed25519 public key -> SPKI

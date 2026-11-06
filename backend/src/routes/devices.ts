@@ -35,7 +35,7 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string) {
   const travelUntil = await getSetting<string | null>(q, deviceId, 'travel_until', null);
   return {
     deviceId, state: d.state, child,
-    apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, ...a.latest })),
+    apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, tileUrl: a.tileUrl, permissions: a.latest!.permissions, ...a.latest })),
     hidden: [...hidden],
     allowlist: await getSetting(q, deviceId, 'allowlist', [] as unknown[]),
     travel: { active: !!travelUntil && travelUntil > now(), until: travelUntil },
