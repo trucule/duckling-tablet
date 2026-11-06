@@ -13,7 +13,7 @@ let cluster: Cluster, app: FastifyInstance, db: Db, dir: string;
 const mails: { to: string; text: string }[] = [];
 const tickets: any[] = []; const attached: any[] = [];
 let synthCalls = 0, azureUp = true;
-const aiCalls: any[] = []; let aiUp: 'ok' | 'down' | 'refuse' = 'ok';
+const aiCalls: any[] = []; const pushes: { tokens: string[]; data: Record<string, string> }[] = []; let deadTokens: string[] = []; let aiUp: 'ok' | 'down' | 'refuse' = 'ok';
 const ADMIN = 'admin-test-token-123456';
 const HOOK = 'hook-secret-123';
 
@@ -23,7 +23,7 @@ afterAll(async () => { await cluster?.stop(); });
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'duck-'));
   ({ db } = await cluster.newDb());
-  mails.length = 0; tickets.length = 0; attached.length = 0; synthCalls = 0; azureUp = true; aiCalls.length = 0; aiUp = 'ok';
+  mails.length = 0; tickets.length = 0; attached.length = 0; synthCalls = 0; azureUp = true; aiCalls.length = 0; aiUp = 'ok'; pushes.length = 0; deadTokens = [];
   const cfg = loadConfig({
     NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local',
     ADMIN_TOKEN: ADMIN, ETDUCKY_WEBHOOK_SECRET: HOOK, TTS_DAILY_CHARS_PER_DEVICE: 200, PUBLIC_URL: 'https://api.test', AI_DAILY_CALLS: 'draw-with-me:3,*:1', AI_MAX_PROMPT_CHARS: 500,
@@ -34,6 +34,7 @@ beforeEach(async () => {
     synth: async (text) => { synthCalls++; await new Promise((r) => setTimeout(r, 20)); return azureUp ? Buffer.from(`mp3:${text}`) : null; },
     createTicket: async (t) => { tickets.push(t); return `T-${tickets.length}`; },
     attachToTicket: async (ticketId, url, contentType) => { attached.push({ ticketId, url, contentType }); return true; },
+    push: async (tokens, data) => { pushes.push({ tokens, data }); return { sent: tokens.length, dead: tokens.filter((t) => deadTokens.includes(t)) }; },
     complete: async (r) => {
       aiCalls.push(r);
       if (aiUp === 'down') return null;
@@ -290,6 +291,41 @@ describe('parent PIN and second parent', () => {
     expect((await app.inject({ method: 'DELETE', url: `/family/parents/${twoId}`, headers: p.auth })).json().ok).toBe(true);
     expect((await app.inject({ method: 'GET', url: '/family', headers: two })).statusCode).toBe(401);
     expect((await signIn('two@example.com')).familyId).not.toBe(p.familyId);
+  });
+});
+
+describe('push', () => {
+  it('tells the tablets concerned after a parent change, and forgets tokens FCM no longer knows', async () => {
+    const p = await signIn('push@example.com'); const d1 = await pair(p.auth); const d2 = await pair(p.auth);
+    await app.inject({ method: 'POST', url: '/device/checkin', headers: d1.dev, payload: { pushToken: 'fcm-1' } });
+    await app.inject({ method: 'POST', url: '/device/checkin', headers: d2.dev, payload: { pushToken: 'fcm-2' } });
+    await publish('music-box', '1.0.0');
+    const settle = () => new Promise((r) => setTimeout(r, 50));
+    // One device: only its token.
+    await app.inject({ method: 'PUT', url: `/devices/${d1.deviceId}/hidden/music-box`, headers: p.auth, payload: {} });
+    await settle();
+    expect(pushes).toEqual([{ tokens: ['fcm-1'], data: { type: 'config-changed' } }]);
+    // The family PIN: every device.
+    await app.inject({ method: 'PUT', url: '/family/pin', headers: p.auth, payload: { pin: '1234' } });
+    await settle();
+    expect(pushes.at(-1)!.tokens.sort()).toEqual(['fcm-1', 'fcm-2']);
+    // A child's profile: every device. A dead token is forgotten and not pushed again.
+    deadTokens = ['fcm-2'];
+    const child = (await app.inject({ method: 'POST', url: '/children', headers: p.auth, payload: { firstName: 'Ada' } })).json();
+    await app.inject({ method: 'PUT', url: `/children/${child.id}`, headers: p.auth, payload: { firstName: 'Ada B' } });
+    await settle();
+    expect(pushes.at(-1)!.tokens.sort()).toEqual(['fcm-1', 'fcm-2']);
+    await app.inject({ method: 'POST', url: `/devices/${d2.deviceId}/travel`, headers: p.auth, payload: { hours: 2 } });
+    await settle();
+    expect(pushes).toHaveLength(3);
+    // A device without a token, or a released one, gets nothing; a device's own check-in pushes nothing.
+    await app.inject({ method: 'POST', url: `/devices/${d1.deviceId}/release`, headers: p.auth, payload: {} });
+    await settle();
+    expect(pushes).toHaveLength(4);
+    await app.inject({ method: 'POST', url: '/device/released', headers: d1.dev });
+    await app.inject({ method: 'PUT', url: '/family/pin', headers: p.auth, payload: { pin: '4321' } });
+    await settle();
+    expect(pushes).toHaveLength(4);
   });
 });
 

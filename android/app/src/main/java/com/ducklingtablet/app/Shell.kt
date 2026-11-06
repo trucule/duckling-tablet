@@ -30,6 +30,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     @JavascriptInterface fun shellVersion(): String = BuildConfig.VERSION_NAME
 
     @JavascriptInterface fun getDeviceToken(): String = prefs.deviceToken
+    @JavascriptInterface fun pushToken(): String = prefs.pushToken
     @JavascriptInterface fun setDeviceToken(t: String) { prefs.deviceToken = t }
 
     @JavascriptInterface fun installedApps(): String {

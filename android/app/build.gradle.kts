@@ -2,6 +2,9 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+// Firebase (push) is wired in when app/google-services.json is present: download it from the Firebase console for
+// the Android app com.ducklingtablet.app and commit it. Without it the APK builds and runs without push.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
 
 android {
     namespace = "com.ducklingtablet.app"
@@ -43,4 +46,7 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.9.3")
     // Ed25519 signature checks on package zips (java.security has Ed25519 only from API 33).
     implementation("net.i2p.crypto:eddsa:0.3.0")
+    // Push after parent changes.
+    implementation("com.google.firebase:firebase-messaging:24.1.0")
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
 }

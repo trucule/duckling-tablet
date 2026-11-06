@@ -9,6 +9,7 @@ export interface Shell {
   shellVersion(): string;
   getDeviceToken(): string;
   setDeviceToken(token: string): void;
+  pushToken(): string; // '' when the shell has no push
   installedApps(): Record<string, string>; // id -> version
   installApp(id: string, version: string, url: string, sha256: string, signature: string, permissions: string[]): Promise<void>;
   uninstallApp(id: string): void;
@@ -33,6 +34,7 @@ interface NativeShell {
   shellVersion(): string;
   getDeviceToken(): string;
   setDeviceToken(t: string): void;
+  pushToken?(): string;
   installedApps(): string;
   installApp(id: string, version: string, url: string, sha256: string, signature: string, permissions: string): void;
   uninstallApp(id: string): void;
@@ -51,7 +53,7 @@ interface NativeShell {
 }
 
 declare global {
-  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void } }
+  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void } }
 }
 
 const pending = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
@@ -63,6 +65,8 @@ window.DucklingWeb = {
   },
   // The shell calls this when the activity comes back to the front (after a settings screen, for example).
   onResume() { window.dispatchEvent(new Event('duckling:resume')); },
+  // A push from the server (a parent changed something), or a new push token to report.
+  onPush() { window.dispatchEvent(new Event('duckling:push')); },
 };
 
 function native(n: NativeShell): Shell {
@@ -71,6 +75,7 @@ function native(n: NativeShell): Shell {
     shellVersion: () => n.shellVersion(),
     getDeviceToken: () => n.getDeviceToken() || '',
     setDeviceToken: (t) => n.setDeviceToken(t),
+    pushToken: () => { try { return n.pushToken?.() || ''; } catch { return ''; } },
     installedApps: () => { try { return JSON.parse(n.installedApps() || '{}'); } catch { return {}; } },
     installApp: (id, version, url, sha256, signature, permissions) => new Promise<void>((resolve, reject) => {
       pending.set(id, { resolve, reject });
@@ -102,6 +107,7 @@ function browser(): Shell {
     shellVersion: () => 'web-0.1.0',
     getDeviceToken: () => get('token') || '',
     setDeviceToken: (t) => set('token', t || null),
+    pushToken: () => '',
     installedApps: installed,
     async installApp(id, version) { const all = installed(); all[id] = version; set('installed', JSON.stringify(all)); },
     uninstallApp(id) { const all = installed(); delete all[id]; set('installed', JSON.stringify(all)); },

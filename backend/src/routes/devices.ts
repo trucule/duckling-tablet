@@ -7,6 +7,7 @@ import type { Q } from '../db.js';
 import { deviceAuth, parentAuth } from '../auth.js';
 import { childRow } from './family.js';
 import { listCatalog } from '../catalog.js';
+import { after } from '../notify.js';
 import { HttpError, badRequest, forbidden, hashToken, inMinutes, newId, newToken, notFound, now, pairingCode, safeEqual, sha256 } from '../util.js';
 
 // A host pattern: example.org (subdomains included) or *.example.org.
@@ -106,86 +107,86 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
   app.put<{ Params: { id: string } }>('/devices/:id', async (req) => {
     const a = await parentAuth(ctx, req);
     const b = z.object({ name: z.string().trim().min(1).max(60).optional(), childId: z.string().nullable().optional() }).parse(req.body);
-    return ctx.db.family(a.familyId, async (q) => {
+    return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
       const d = await myDevice(q, req.params.id);
       if (b.childId) await myChild(q, b.childId);
       await q.run('UPDATE device SET name = $1, child_id = $2 WHERE id = $3', [b.name ?? d.name, b.childId === undefined ? d.child_id : b.childId, d.id]);
       return deviceConfig(ctx, q, d.id);
-    });
+    }));
   });
 
   // Remove from this device (remote): the device releases the lockdown on its next check-in, then uninstalls.
   app.post<{ Params: { id: string } }>('/devices/:id/release', async (req) => {
     const a = await parentAuth(ctx, req);
-    return ctx.db.family(a.familyId, async (q) => {
+    return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
       const d = await myDevice(q, req.params.id);
       await q.run("UPDATE device SET state = 'release' WHERE id = $1", [d.id]);
       await audit(q, a.familyId, `parent:${a.parentId}`, 'device.release', { id: d.id });
       return { state: 'release' };
-    });
+    }));
   });
 
   app.put<{ Params: { id: string; app: string } }>('/devices/:id/apps/:app', async (req) => {
     const a = await parentAuth(ctx, req);
-    return ctx.db.family(a.familyId, async (q) => {
+    return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
       const d = await myDevice(q, req.params.id); await appExists(q, req.params.app);
       await q.run('DELETE FROM device_hidden_app WHERE device_id = $1 AND app_id = $2', [d.id, req.params.app]);
       await q.run('INSERT INTO device_app (family_id, device_id, app_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [a.familyId, d.id, req.params.app]);
       return { installed: true };
-    });
+    }));
   });
 
   app.delete<{ Params: { id: string; app: string } }>('/devices/:id/apps/:app', async (req) => {
     const a = await parentAuth(ctx, req);
-    return ctx.db.family(a.familyId, async (q) => {
+    return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
       const d = await myDevice(q, req.params.id);
       await q.run('DELETE FROM device_app WHERE device_id = $1 AND app_id = $2', [d.id, req.params.app]);
       return { installed: false };
-    });
+    }));
   });
 
   // Hide an app from this device's home screen and Store (and uninstall it); unhide brings it back to the Store.
   app.put<{ Params: { id: string; app: string } }>('/devices/:id/hidden/:app', async (req) => {
     const a = await parentAuth(ctx, req);
-    return ctx.db.family(a.familyId, async (q) => {
+    return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
       const d = await myDevice(q, req.params.id); await appExists(q, req.params.app);
       await q.run('INSERT INTO device_hidden_app (family_id, device_id, app_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [a.familyId, d.id, req.params.app]);
       await q.run('DELETE FROM device_app WHERE device_id = $1 AND app_id = $2', [d.id, req.params.app]);
       await audit(q, a.familyId, `parent:${a.parentId}`, 'app.hidden', { device: d.id, app: req.params.app });
       return { hidden: true };
-    });
+    }));
   });
   app.delete<{ Params: { id: string; app: string } }>('/devices/:id/hidden/:app', async (req) => {
     const a = await parentAuth(ctx, req);
-    return ctx.db.family(a.familyId, async (q) => {
+    return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
       const d = await myDevice(q, req.params.id);
       await q.run('DELETE FROM device_hidden_app WHERE device_id = $1 AND app_id = $2', [d.id, req.params.app]);
       return { hidden: false };
-    });
+    }));
   });
 
   app.put<{ Params: { id: string } }>('/devices/:id/settings', async (req) => {
     const a = await parentAuth(ctx, req);
     const b = z.object({ allowlist: z.array(allowEntry).max(200).optional(), limits: limits.optional() }).parse(req.body);
-    return ctx.db.family(a.familyId, async (q) => {
+    return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
       const d = await myDevice(q, req.params.id);
       if (b.allowlist) await setSetting(q, a.familyId, d.id, 'allowlist', b.allowlist);
       if (b.limits) await setSetting(q, a.familyId, d.id, 'limits', { ...(await getSetting(q, d.id, 'limits', {})), ...b.limits });
       await audit(q, a.familyId, `parent:${a.parentId}`, 'settings.updated', { device: d.id, keys: Object.keys(b) });
       return deviceConfig(ctx, q, d.id);
-    });
+    }));
   });
 
   // Travel mode: lifts the website allowlist for N hours (default 6); 0 ends it now.
   app.post<{ Params: { id: string } }>('/devices/:id/travel', async (req) => {
     const a = await parentAuth(ctx, req);
     const { hours } = z.object({ hours: z.number().int().min(0).max(48).default(6) }).parse(req.body ?? {});
-    return ctx.db.family(a.familyId, async (q) => {
+    return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
       const d = await myDevice(q, req.params.id);
       await setSetting(q, a.familyId, d.id, 'travel_until', hours ? new Date(Date.now() + hours * 3_600_000).toISOString() : null);
       await audit(q, a.familyId, `parent:${a.parentId}`, 'travel.set', { device: d.id, hours });
       return (await deviceConfig(ctx, q, d.id)).travel;
-    });
+    }));
   });
 
   // ---- The device itself.

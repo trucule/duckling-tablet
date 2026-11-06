@@ -3,6 +3,7 @@
 // duckling_system through ctx.db.system().
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { notifyDevices } from '../notify.js';
 import { audit, type Ctx } from '../context.js';
 import { adminAuth } from '../auth.js';
 import { compareVersions } from '../catalog.js';
@@ -77,6 +78,7 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
       await ctx.storage.put(key, body, 'application/zip', true);
       const perms = (qs.permissions ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
+      let shippedFamily: string | null = null;
       const installedFor = await ctx.db.system(async (q) => {
         await q.run(`INSERT INTO app_version (app_id, version, package_key, sha256, signature, size, min_shell, permissions)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`, [id, qs.version, key, sha256(body), qs.signature, body.length, qs.minShell ?? null, JSON.stringify(perms)]);
@@ -91,9 +93,11 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
               SELECT family_id, id, $1 FROM device WHERE family_id = $2 AND state = 'active' ON CONFLICT DO NOTHING`, [id, r.family_id]);
           }
           await audit(q, r.family_id, 'admin', 'request.shipped', { request: r.id, app: id });
+          shippedFamily = r.family_id;
         }
         return installed;
       });
+      if (shippedFamily) void notifyDevices(ctx, shippedFamily);
       return { app: id, version: qs.version, url: ctx.storage.publicUrl(key), size: body.length, installedFor };
     });
   });

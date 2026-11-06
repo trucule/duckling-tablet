@@ -14,6 +14,12 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import com.google.firebase.FirebaseApp
+import com.google.firebase.messaging.FirebaseMessaging
 import java.io.ByteArrayInputStream
 
 /**
@@ -30,6 +36,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
     var allowedHosts: Set<String> = emptySet()
 
+    // A push (or a new registration token) makes the web app check in now.
+    private val pushReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onPush && DucklingWeb.onPush()", null)
+        }
+    }
+
+    /** Asks Firebase for the registration token when the app is configured for it (google-services.json present). */
+    private fun fetchPushToken() {
+        if (FirebaseApp.getApps(this).isEmpty()) return
+        try {
+            FirebaseMessaging.getInstance().token.addOnSuccessListener { t -> if (!t.isNullOrEmpty() && t != prefs.pushToken) { prefs.pushToken = t; pushReceiver.onReceive(this, Intent(PushService.ACTION_TOKEN)) } }
+        } catch (_: Exception) { /* Firebase not available on this device; check-ins every three hours still apply */ }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +58,8 @@ class MainActivity : AppCompatActivity() {
         web = WebView(this)
         setContentView(web)
         hideSystemBars()
+        LocalBroadcastManager.getInstance(this).registerReceiver(pushReceiver, IntentFilter().apply { addAction(PushService.ACTION_PUSH); addAction(PushService.ACTION_TOKEN) })
+        fetchPushToken()
 
         with(web.settings) {
             javaScriptEnabled = true
@@ -84,6 +107,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent) }
+    override fun onDestroy() { LocalBroadcastManager.getInstance(this).unregisterReceiver(pushReceiver); super.onDestroy() }
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); web.saveState(outState) }
 
     fun isPinned(): Boolean {

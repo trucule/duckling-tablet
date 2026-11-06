@@ -48,6 +48,10 @@ const schema = z.object({
   AI_MAX_PROMPT_CHARS: z.coerce.number().int().default(24000),
   AI_TIMEOUT_MS: z.coerce.number().int().default(45000),
 
+  // Push to tablets after parent changes: a Firebase service account JSON file (FCM HTTP v1). Empty: no push.
+  FCM_SERVICE_ACCOUNT_FILE: z.string().default(''),
+  FCM_ENDPOINT: z.string().url().default('https://fcm.googleapis.com'),
+
   // ET Ducky ticket bridge for app requests. With no ETDUCKY_API_URL, requests are kept here only.
   ETDUCKY_API_URL: z.string().default(''),
   ETDUCKY_API_KEY: z.string().default(''),

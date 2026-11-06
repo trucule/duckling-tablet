@@ -24,8 +24,9 @@ import requestRoutes from './routes/requests.js';
 import adminRoutes from './routes/admin.js';
 import aiRoutes from './routes/ai.js';
 import { makeAnthropic, type Complete } from './anthropic.js';
+import { makeFcm, type Push } from './push.js';
 
-export interface BuildOptions { db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; logger?: boolean | Record<string, unknown> }
+export interface BuildOptions { db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; push?: Push; logger?: boolean | Record<string, unknown> }
 
 export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise<{ app: FastifyInstance; ctx: Ctx }> {
   const wantLog = opts.logger ?? cfg.NODE_ENV !== 'test';
@@ -41,6 +42,8 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
     createTicket: opts.createTicket ?? makeEtDucky(cfg, log),
     attachToTicket: opts.attachToTicket ?? makeEtDuckyAttach(cfg, log),
     complete: opts.complete ?? makeAnthropic(cfg),
+    push: opts.push ?? makeFcm(cfg, log),
+    log,
   };
   const voice = makeVoiceCache(ctx);
 

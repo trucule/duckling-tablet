@@ -40,7 +40,7 @@ export const api = {
   emailLink: (email: string, source: 'tablet' | 'portal' = 'portal') => call<{ sent: boolean }>('POST', '/auth/email-link', { email, source }, false),
   pair: (code: string, name: string) => call<{ deviceId: string; deviceToken: string; config: DeviceConfig }>(
     'POST', '/devices/pair', { code, platform: shell.platform === 'web' ? 'web' : shell.platform, name, shellVersion: shell.shellVersion() }, false),
-  checkin: (battery?: number) => call<DeviceConfig>('POST', '/device/checkin', { shellVersion: shell.shellVersion(), ...(battery === undefined ? {} : { battery }) }),
+  checkin: (battery?: number) => call<DeviceConfig>('POST', '/device/checkin', { shellVersion: shell.shellVersion(), ...(shell.pushToken() ? { pushToken: shell.pushToken() } : {}), ...(battery === undefined ? {} : { battery }) }),
   config: () => call<DeviceConfig>('GET', '/device/config'),
   catalog: () => call<{ apps: CatalogApp[] }>('GET', '/catalog', undefined, false),
   install: (id: string) => call<{ installed: boolean }>('PUT', `/device/apps/${id}`),

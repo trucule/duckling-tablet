@@ -12,6 +12,11 @@ class Prefs(context: Context) {
         get() = p.getString("deviceToken", "") ?: ""
         set(v) { p.edit().putString("deviceToken", v).apply() }
 
+    /** The FCM registration token; sent to the server at check-in so parent changes reach this tablet at once. */
+    var pushToken: String
+        get() = p.getString("pushToken", "") ?: ""
+        set(v) { p.edit().putString("pushToken", v).apply() }
+
     var childName: String
         get() = p.getString("childName", "") ?: ""
         set(v) { p.edit().putString("childName", v).apply() }

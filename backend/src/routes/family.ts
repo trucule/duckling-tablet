@@ -5,6 +5,7 @@ import { audit, type Ctx } from '../context.js';
 import { parentAuth } from '../auth.js';
 import { HttpError, hashToken, inDays, newId, newToken, notFound, sha256 } from '../util.js';
 import { redactText } from '../logging.js';
+import { notifyDevices } from '../notify.js';
 
 // Starting level per subject, 1 (youngest) to 10; the apps map it to their own level ladders.
 const levels = z.record(z.enum(['reading', 'math', 'science', 'art', 'music', 'logic']), z.number().int().min(1).max(10));
@@ -41,6 +42,7 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
       await q.run('UPDATE family SET pin_hash = $1, pin_sync = $2, pin_set_at = now() WHERE id = $3', [hashToken(pin, ctx.cfg.SESSION_SECRET), sha256(`duckling:${pin}`), a.familyId]);
       await audit(q, a.familyId, `parent:${a.parentId}`, 'pin.set');
     });
+    void notifyDevices(ctx, a.familyId);
     return { set: true };
   });
 
@@ -101,7 +103,7 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
         JSON.stringify(b.levels ?? cur.levels), JSON.stringify(b.theme ?? cur.theme), cur.id]);
       await audit(q, a.familyId, `parent:${a.parentId}`, 'child.updated', { id: cur.id });
       return childRow(await q.one('SELECT * FROM child WHERE id = $1', [cur.id]));
-    });
+    }).then((r) => { void notifyDevices(ctx, a.familyId); return r; });
   });
 
   app.delete<{ Params: { id: string } }>('/children/:id', async (req) => {

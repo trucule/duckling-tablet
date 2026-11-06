@@ -114,4 +114,6 @@ export function startCheckins() {
   tick();
   setInterval(tick, 3 * 3600 * 1000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - last > 10 * 60 * 1000) tick(); });
+  // A push from the server: a parent changed something, or the shell has a new push token to report.
+  window.addEventListener('duckling:push', tick);
 }
