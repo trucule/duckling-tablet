@@ -13,6 +13,7 @@ let cluster: Cluster, app: FastifyInstance, db: Db, dir: string;
 const mails: { to: string; text: string }[] = [];
 const tickets: any[] = [];
 let synthCalls = 0, azureUp = true;
+const aiCalls: any[] = []; let aiUp: 'ok' | 'down' | 'refuse' = 'ok';
 const ADMIN = 'admin-test-token-123456';
 const HOOK = 'hook-secret-123';
 
@@ -22,16 +23,22 @@ afterAll(async () => { await cluster?.stop(); });
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'duck-'));
   ({ db } = await cluster.newDb());
-  mails.length = 0; tickets.length = 0; synthCalls = 0; azureUp = true;
+  mails.length = 0; tickets.length = 0; synthCalls = 0; azureUp = true; aiCalls.length = 0; aiUp = 'ok';
   const cfg = loadConfig({
     NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local',
-    ADMIN_TOKEN: ADMIN, ETDUCKY_WEBHOOK_SECRET: HOOK, TTS_DAILY_CHARS_PER_DEVICE: 200, PUBLIC_URL: 'https://api.test',
+    ADMIN_TOKEN: ADMIN, ETDUCKY_WEBHOOK_SECRET: HOOK, TTS_DAILY_CHARS_PER_DEVICE: 200, PUBLIC_URL: 'https://api.test', AI_DAILY_CALLS: 'draw-with-me:3,*:1', AI_MAX_PROMPT_CHARS: 500,
   });
   ({ app } = await buildServer(cfg, {
     db, logger: false,
     mailer: { async send(to, _s, text) { mails.push({ to, text }); } },
     synth: async (text) => { synthCalls++; await new Promise((r) => setTimeout(r, 20)); return azureUp ? Buffer.from(`mp3:${text}`) : null; },
     createTicket: async (t) => { tickets.push(t); return `T-${tickets.length}`; },
+    complete: async (r) => {
+      aiCalls.push(r);
+      if (aiUp === 'down') return null;
+      if (aiUp === 'refuse') return { status: 400, body: { type: 'error', error: { type: 'invalid_request_error', message: 'bad' } } };
+      return { status: 200, body: { id: 'msg_1', type: 'message', role: 'assistant', model: r.model, content: [{ type: 'text', text: `{"name":"${r.messages[0].content}"}` }], stop_reason: 'end_turn', usage: { input_tokens: 120, output_tokens: 40 } } };
+    },
   }));
 });
 afterEach(async () => { await app.close(); await db.close(); rmSync(dir, { recursive: true, force: true }); });
@@ -203,6 +210,54 @@ describe('app requests', () => {
   });
 });
 
+describe('ai proxy', () => {
+  it('forwards Messages calls with the server key, limits calls per app per day, and gives failed calls back', async () => {
+    const p = await signIn('ai@example.com'); const d = await pair(p.auth);
+    const call = (appId: string, over: Record<string, unknown> = {}, headers: Record<string, string> = d.dev) => app.inject({
+      method: 'POST', url: '/ai/messages', headers: { ...headers, 'x-duckling-app': appId },
+      payload: { model: 'claude-sonnet-5-5', max_tokens: 3000, system: 'You make drawing lessons.', messages: [{ role: 'user', content: 'a monkey' }], ...over },
+    });
+    const r1 = await call('draw-with-me');
+    expect(r1.statusCode).toBe(200);
+    expect(r1.json().content[0].text).toBe('{"name":"a monkey"}');
+    expect(r1.headers['cache-control']).toBe('private, no-store');
+    expect(aiCalls[0]).toEqual({ model: 'claude-sonnet-5-5', max_tokens: 3000, system: 'You make drawing lessons.', messages: [{ role: 'user', content: 'a monkey' }] });
+    // A model outside the allowlist is served with the default model.
+    expect((await call('draw-with-me', { model: 'claude-3-opus-20240229' })).statusCode).toBe(200);
+    expect(aiCalls[1].model).toBe('claude-haiku-5-5');
+    // The third call is the last one today for this app on this device; the fourth is refused without reaching Anthropic.
+    expect((await call('draw-with-me')).statusCode).toBe(200);
+    expect((await call('draw-with-me')).statusCode).toBe(429);
+    expect(aiCalls).toHaveLength(3);
+    // Another app has its own allowance; a second device too.
+    expect((await call('story-maker')).statusCode).toBe(200);
+    expect((await call('story-maker')).statusCode).toBe(429);
+    const d2 = await pair(p.auth);
+    expect((await call('draw-with-me', {}, d2.dev)).statusCode).toBe(200);
+    // Counts only: the admin sees calls and tokens, never prompts.
+    const stats = (await app.inject({ method: 'GET', url: '/admin/stats', headers: { authorization: `Bearer ${ADMIN}` } })).json();
+    expect(stats.aiToday).toEqual([{ appId: 'draw-with-me', calls: 4, inputTokens: 480, outputTokens: 160 }, { appId: 'story-maker', calls: 1, inputTokens: 120, outputTokens: 40 }]);
+    expect(JSON.stringify(stats)).not.toContain('monkey');
+
+    // Validation: the app header, the body shape, sizes, the device token.
+    expect((await app.inject({ method: 'POST', url: '/ai/messages', headers: d2.dev, payload: { model: 'x', max_tokens: 10, messages: [{ role: 'user', content: 'hi' }] } })).statusCode).toBe(400);
+    expect((await call('music-box', { max_tokens: 99999 }, d2.dev)).statusCode).toBe(400);
+    expect((await call('music-box', { messages: [{ role: 'user', content: 'x'.repeat(400) }], system: 'y'.repeat(200) }, d2.dev)).statusCode).toBe(413);
+    expect((await call('music-box', { tools: [] }, d2.dev)).statusCode).toBe(400);
+    expect((await call('music-box', {}, {})).statusCode).toBe(401);
+    expect(aiCalls).toHaveLength(5);
+
+    // Upstream down or refusing: the child's allowance is not spent.
+    aiUp = 'down';
+    expect((await call('music-box', {}, d2.dev)).statusCode).toBe(503);
+    aiUp = 'refuse';
+    expect((await call('music-box', {}, d2.dev)).statusCode).toBe(502);
+    aiUp = 'ok';
+    expect((await call('music-box', {}, d2.dev)).statusCode).toBe(200);
+    expect((await call('music-box', {}, d2.dev)).statusCode).toBe(429);
+  });
+});
+
 describe('account deletion', () => {
   it('deletes the family and tells its devices to release', async () => {
     const p = await signIn('p@example.com'); const d = await pair(p.auth);
@@ -224,6 +279,7 @@ describe('logs', () => {
       db: db2, logger: { level: 'info', stream },
       mailer: { async send(to, _s, text) { mails.push({ to, text }); } },
       synth: async (text) => Buffer.from(`mp3:${text}`), createTicket: async () => null,
+      complete: async () => ({ status: 400, body: { type: 'error', error: { message: 'prompt-echo-Scarlettina' } } }),
     });
     // A 500 is logged without the driver's detail text (which can carry row values).
     app2.get('/boom', async () => { const e = new Error('duplicate key value violates unique constraint') as Error & { detail?: string }; e.detail = 'Key (email)=(logs@example.com) already exists.'; throw e; });
@@ -239,6 +295,10 @@ describe('logs', () => {
       deviceToken = (await app2.inject({ method: 'POST', url: '/devices/pair', payload: { code, platform: 'android', name: 'Tablet' } })).json().deviceToken;
       await app2.inject({ method: 'GET', url: '/tts?text=' + encodeURIComponent('Hello Scarlettina, spell cat.'), headers: { authorization: `Device ${deviceToken}` } });
       await app2.inject({ method: 'GET', url: '/nope?token=' + token, headers: { authorization: 'Bearer leaked-token-value-123456' } });
+      // A refused AI call is logged by status only: no prompt, no upstream message.
+      const ai = await app2.inject({ method: 'POST', url: '/ai/messages', headers: { authorization: `Device ${deviceToken}`, 'x-duckling-app': 'draw-with-me' },
+        payload: { model: 'm', max_tokens: 10, system: 'secret-system-prompt', messages: [{ role: 'user', content: 'Draw Scarlettina a cat' }] } });
+      expect(ai.statusCode).toBe(502); expect(ai.body).not.toContain('prompt-echo');
       expect((await app2.inject({ method: 'GET', url: '/boom?pin=1234' })).statusCode).toBe(500);
     } finally { await app2.close(); await db2.close(); }
 
@@ -249,7 +309,7 @@ describe('logs', () => {
     expect(out).toContain('route not found');
     expect(out).toContain('duplicate key value');
     expect(token && session && code && deviceToken).toBeTruthy();
-    for (const secret of [token, session, deviceToken, code, 'leaked-token-value-123456', 'Scarlettina', 'logs@example.com', 'pin=1234', 'Tap this link', 'already exists']) {
+    for (const secret of [token, session, deviceToken, code, 'leaked-token-value-123456', 'Scarlettina', 'logs@example.com', 'pin=1234', 'Tap this link', 'already exists', 'secret-system-prompt', 'prompt-echo']) {
       expect(out, `log output must not contain ${secret}`).not.toContain(secret);
     }
   });

@@ -4,6 +4,7 @@ import type { Storage } from './storage.js';
 import type { Mailer } from './mailer.js';
 import type { Synth } from './azure.js';
 import type { CreateTicket } from './etducky.js';
+import type { Complete } from './anthropic.js';
 
 export interface Ctx {
   cfg: Config;
@@ -12,6 +13,7 @@ export interface Ctx {
   mailer: Mailer;
   synth: Synth;
   createTicket: CreateTicket;
+  complete: Complete;
 }
 
 // Writes an audit line inside the caller's transaction. A family transaction can only write its own family's lines;

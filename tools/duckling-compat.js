@@ -8,6 +8,9 @@
       used up, the device voice speaks as before. The utterance events (start, boundary, end, error) still fire, so
       word highlighting and "then do the next thing" keep working. (Ported from the Surface project's kid-voice.js.)
    3. window.KidTablet gives apps that want it the app id, the child's first name and a say() helper.
+   4. Calls the apps make to the Anthropic Messages API (Draw With Me lessons, Story Maker scenes) go to the
+      Duckling API instead, POST /ai/messages with the device token; the server holds the key and applies the daily
+      allowance. The apps read window.DWM_CONFIG.apiKey to decide whether AI is on, so a placeholder is set there.
    The shell provides window.DucklingApp (Android: a JavascriptInterface) with appId(), deviceToken(), apiUrl(),
    childName() and voice(). In a plain browser there is no DucklingApp and only the storage namespace applies. */
 (function () {
@@ -42,6 +45,20 @@
     platform: bridge ? 'duckling' : 'browser', appId: APP_ID, childName: CHILD, narratorVoice: VOICE,
     say: function (text, opts) { var u = new SpeechSynthesisUtterance(String(text)); if (opts && opts.rate) u.rate = opts.rate; window.speechSynthesis.speak(u); return u; }
   };
+
+  // ---- 4. AI calls through the Duckling API ------------------------------------------------------------------------
+  if (bridge && TOKEN && typeof window.fetch === 'function') {
+    var realFetch = window.fetch.bind(window), ANTHROPIC = /^https:\/\/api\.anthropic\.com\/v1\/messages\/?$/;
+    window.DWM_CONFIG = Object.assign({}, window.DWM_CONFIG || {}, { apiKey: 'duckling' });
+    window.fetch = function (input, init) {
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (!ANTHROPIC.test(url)) return realFetch(input, init);
+      var headers = { 'content-type': 'application/json', authorization: 'Device ' + TOKEN, 'x-duckling-app': APP_ID };
+      var next = Object.assign({}, init || {}, { method: 'POST', headers: headers, mode: 'cors', credentials: 'omit' });
+      return realFetch(API + '/ai/messages', next);
+    };
+    window.KidTablet.ai = 'duckling';
+  }
 
   // ---- 2. The narrator --------------------------------------------------------------------------------------------
   if (!bridge || !TOKEN || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance === 'undefined') return;

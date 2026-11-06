@@ -120,6 +120,7 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
     devices: await q.all("SELECT platform, COUNT(*)::int AS n FROM device WHERE state = 'active' GROUP BY platform ORDER BY platform"),
     apps: (await q.one('SELECT COUNT(*)::int AS n FROM app'))!.n,
     voiceClips: await q.one('SELECT COUNT(*)::int AS n, COALESCE(SUM(hits), 0)::int AS hits FROM voice_clip'),
+    aiToday: await q.all("SELECT app_id AS \"appId\", SUM(calls)::int AS calls, SUM(input_tokens)::int AS \"inputTokens\", SUM(output_tokens)::int AS \"outputTokens\" FROM ai_usage WHERE day = CURRENT_DATE GROUP BY app_id ORDER BY app_id"),
     openRequests: (await q.one("SELECT COUNT(*)::int AS n FROM app_request WHERE status IN ('requested', 'planned', 'building')"))!.n,
   })));
 }

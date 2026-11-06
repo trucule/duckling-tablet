@@ -31,6 +31,15 @@ describe('duckling-compat.js', () => {
     const port = await freePort();
     const server = createServer((req, res) => {
       const url = new URL(req.url!, 'http://x');
+      if (url.pathname === '/api/ai/messages' && req.method === 'POST') {
+        let data = ''; req.on('data', (c) => { data += c; });
+        req.on('end', () => {
+          requests.push(`AI ${req.headers.authorization} ${req.headers['x-duckling-app']} ${req.headers['x-api-key'] ?? 'nokey'} ${data}`);
+          res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+          res.end(JSON.stringify({ content: [{ type: 'text', text: 'ok' }], usage: { input_tokens: 1, output_tokens: 1 } }));
+        });
+        return;
+      }
       if (url.pathname === '/api/tts') {
         requests.push(`${req.headers.authorization} ${url.search}`);
         if (refuse) { res.writeHead(429); return res.end(); }
@@ -74,12 +83,23 @@ describe('duckling-compat.js', () => {
       expect(fallback.at(-1)).toMatch(/end|error/);
       expect(requests).toHaveLength(3);
 
+      // An app's Anthropic call goes to the Duckling API with the device token and the app id, and no key.
+      expect(await a.evaluate(() => (window as any).DWM_CONFIG.apiKey)).toBe('duckling');
+      const ai = await a.evaluate(async () => {
+        const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': 'app-key', 'anthropic-version': '2023-06-01' }, body: JSON.stringify({ model: 'm', max_tokens: 5, messages: [{ role: 'user', content: 'hi' }] }) });
+        return (await r.json()).content[0].text;
+      });
+      expect(ai).toBe('ok');
+      expect(requests.at(-1)).toBe('AI Device dev-token-1 count-with-me nokey {"model":"m","max_tokens":5,"messages":[{"role":"user","content":"hi"}]}');
+      expect(requests).toHaveLength(4);
+
       // Without a shell bridge nothing is intercepted: no request leaves the page.
       const c = await ctx.newPage(); await c.goto(`${base}/apps/count-with-me/nobridge.html`);
       expect(await c.evaluate(() => window.KidTablet.platform)).toBe('browser');
       expect(await c.evaluate(() => localStorage.getItem('progress'))).toBe('level 3'); // same app id, same namespace
       await c.evaluate(() => window.sayAndWait('Hello.'));
-      expect(requests).toHaveLength(3);
+      expect(await c.evaluate(() => (window as any).DWM_CONFIG)).toBeUndefined();
+      expect(requests).toHaveLength(4);
     } finally { await browser.close(); server.close(); }
   }, 60_000);
 });

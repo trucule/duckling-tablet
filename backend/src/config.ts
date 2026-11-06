@@ -38,6 +38,16 @@ const schema = z.object({
   NARRATOR_VOICE: z.string().default('en-US-AnaNeural'),
   TTS_DAILY_CHARS_PER_DEVICE: z.coerce.number().int().default(20000),
 
+  // The AI proxy (POST /ai/messages) for Draw With Me lessons and Story Maker scenes. With no key, apps get a 503
+  // and fall back to their built-in content. Models outside AI_MODELS are served with AI_DEFAULT_MODEL.
+  ANTHROPIC_API_KEY: z.string().default(''),
+  AI_MODELS: z.string().default('claude-haiku-5-5,claude-sonnet-5-5,claude-haiku-4-5-20251001'),
+  AI_DEFAULT_MODEL: z.string().default('claude-haiku-5-5'),
+  AI_DAILY_CALLS: z.string().default('draw-with-me:25,story-maker:12,*:10'),
+  AI_MAX_TOKENS: z.coerce.number().int().default(6000),
+  AI_MAX_PROMPT_CHARS: z.coerce.number().int().default(24000),
+  AI_TIMEOUT_MS: z.coerce.number().int().default(45000),
+
   // ET Ducky ticket bridge for app requests. With no ETDUCKY_API_URL, requests are kept here only.
   ETDUCKY_API_URL: z.string().default(''),
   ETDUCKY_API_KEY: z.string().default(''),
