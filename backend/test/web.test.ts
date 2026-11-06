@@ -29,7 +29,7 @@ function serveDist(port: number): Server {
   return createServer((req, res) => {
     let p = join(DIST, decodeURIComponent((req.url ?? '/').split('?')[0]));
     if (!existsSync(p) || statSync(p).isDirectory()) p = join(DIST, 'index.html');
-    res.writeHead(200, { 'content-type': types[extname(p)] ?? 'application/octet-stream' });
+    res.writeHead(200, { 'content-type': types[extname(p)] ?? (p.endsWith('.webmanifest') ? 'application/manifest+json' : 'application/octet-stream') });
     createReadStream(p).pipe(res);
   }).listen(port, '127.0.0.1');
 }
@@ -86,6 +86,18 @@ describe.skipIf(!ready)('child web app', () => {
     p.on('console', (m) => logs.push(m.type() + ': ' + m.text()));
     p.on('requestfailed', (r) => logs.push('failed ' + r.url() + ' ' + r.failure()?.errorText));
     await p.goto(web);
+
+    // A parent who installed the app first: the tablet sends them the set-up email, worded for the phone.
+    await p.getByPlaceholder('parent@example.com').fill('new@example.com');
+    await p.getByRole('button', { name: 'Send me the link' }).click();
+    await p.getByText('Sent. Check your email').waitFor();
+    expect(mails.at(-1)).toMatch(/Open this link on your phone/);
+    expect(mails.at(-1)).toMatch(/press Add a device/);
+
+    // Installable and offline-capable: manifest and service worker are served.
+    const manifest = await (await fetch(`${web}/manifest.webmanifest`)).json();
+    expect(manifest.name).toBe('Duckling Tablet');
+    expect((await fetch(`${web}/sw.js`)).status).toBe(200);
 
     // Pair.
     await p.getByPlaceholder('000000').fill(code);

@@ -10,13 +10,15 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
   const h = (t: string) => hashToken(t, ctx.cfg.SESSION_SECRET);
 
   app.post('/auth/email-link', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
-    const { email } = z.object({ email: z.string().email().max(254) }).parse(req.body);
+    const { email, source } = z.object({ email: z.string().email().max(254), source: z.enum(['portal', 'tablet']).default('portal') }).parse(req.body);
     const token = newToken();
     await ctx.db.query('SELECT create_login_token($1, $2, $3)', [h(token), email.trim(), inMinutes(15)]);
     const link = `${ctx.cfg.PORTAL_URL}/signin?token=${token}`;
     try {
-      await ctx.mailer.send(email, 'Your Duckling Tablet sign-in link',
-        `Tap this link to sign in to Duckling Tablet. It works once and expires in 15 minutes.\n\n${link}\n\nIf you did not ask for this, you can ignore this email.`);
+      const body = source === 'tablet'
+        ? `You started setting up Duckling Tablet on a tablet. Open this link on your phone or computer to set up your family; it works once and expires in 15 minutes.\n\n${link}\n\nThen add your child, press Add a device, and type the six-digit code it shows into the tablet.\n\nIf you did not ask for this, you can ignore this email.`
+        : `Tap this link to sign in to Duckling Tablet. It works once and expires in 15 minutes.\n\n${link}\n\nIf you did not ask for this, you can ignore this email.`;
+      await ctx.mailer.send(email, source === 'tablet' ? 'Set up your Duckling Tablet family' : 'Your Duckling Tablet sign-in link', body);
     } catch (err) {
       // The address and the link stay out of the log; the mail server's own message is enough to diagnose.
       req.log.error({ err: { type: (err as Error).name, code: (err as { code?: string }).code, message: redactText((err as Error).message) } }, 'sign-in email failed');

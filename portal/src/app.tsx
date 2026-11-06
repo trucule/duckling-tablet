@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { InstallButton } from './install';
 import { session } from './api';
 import { SignIn } from './screens/SignIn';
 import { Family } from './screens/Family';
@@ -17,7 +18,7 @@ export function App() {
     <div class="wrap">
       <header class="top">
         <img src="/logo.png" alt="" /><span class="name">Duckling Tablet</span>
-        <span class="right"><a href="https://ducklingtablet.com/support">Support</a></span>
+        <span class="right"><InstallButton /><a href="https://ducklingtablet.com/support">Support</a></span>
       </header>
       {!signedIn ? <SignIn onSignedIn={() => setSignedIn(true)} />
         : device ? <Device id={device} onBack={() => { location.hash = ''; }} />

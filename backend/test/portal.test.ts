@@ -37,7 +37,7 @@ beforeAll(async () => {
   server = createServer((req, res) => {
     let p = join(DIST, decodeURIComponent((req.url ?? '/').split('?')[0]));
     if (!existsSync(p) || statSync(p).isDirectory()) p = join(DIST, 'index.html');
-    res.writeHead(200, { 'content-type': types[extname(p)] ?? 'application/octet-stream' });
+    res.writeHead(200, { 'content-type': types[extname(p)] ?? (p.endsWith('.webmanifest') ? 'application/manifest+json' : 'application/octet-stream') });
     createReadStream(p).pipe(res);
   }).listen(portalPort, '127.0.0.1');
   const { stdout: keygen } = await execFile('node', [join(TOOLS, 'publish.mjs'), 'keygen']);
@@ -63,6 +63,10 @@ describe.skipIf(!ready)('parent portal', () => {
     const p = await ctx.newPage();
     const errors: string[] = [];
     p.on('pageerror', (e) => errors.push(e.message));
+
+    const manifest = await (await fetch(`${portal}/manifest.webmanifest`)).json();
+    expect(manifest.display).toBe('standalone');
+    expect((await fetch(`${portal}/sw.js`)).status).toBe(200);
 
     await p.goto(portal);
     await p.getByLabel('Email').fill('mom@example.com');

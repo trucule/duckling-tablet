@@ -4,7 +4,18 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Duckling Tablet parent portal: sign in by email link, children, devices, pairing codes",
-  "scripts": { "dev": "vite", "build": "tsc --noEmit && vite build" },
-  "dependencies": { "preact": "^10.24.3", "@preact/signals": "^1.3.0" },
-  "devDependencies": { "@preact/preset-vite": "^2.9.1", "typescript": "^5.6.3", "vite": "^5.4.11" }
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build"
+  },
+  "dependencies": {
+    "@preact/signals": "^1.3.0",
+    "preact": "^10.24.3"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vite-plugin-pwa": "^0.21.2"
+  }
 }

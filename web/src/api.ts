@@ -36,6 +36,8 @@ async function call<T>(method: string, path: string, body?: unknown, auth = true
 }
 
 export const api = {
+  // A parent setting up from the tablet: the email tells them to finish on their phone.
+  emailLink: (email: string, source: 'tablet' | 'portal' = 'portal') => call<{ sent: boolean }>('POST', '/auth/email-link', { email, source }, false),
   pair: (code: string, name: string) => call<{ deviceId: string; deviceToken: string; config: DeviceConfig }>(
     'POST', '/devices/pair', { code, platform: shell.platform === 'web' ? 'web' : shell.platform, name, shellVersion: shell.shellVersion() }, false),
   checkin: (battery?: number) => call<DeviceConfig>('POST', '/device/checkin', { shellVersion: shell.shellVersion(), ...(battery === undefined ? {} : { battery }) }),
