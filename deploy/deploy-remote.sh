@@ -3,6 +3,9 @@
 # and builds, applies migrations as duckling_system, restarts the service and checks /health.
 #
 #   bash /opt/duckling/src/deploy/deploy-remote.sh              # every deploy
+#   bash /opt/duckling/src/deploy/deploy-remote.sh --background # the same, detached: survives the web console
+#                                                               # closing or going idle; follow it with
+#                                                               # tail -f /root/duckling-deploy.log
 #   bash /opt/duckling/src/deploy/deploy-remote.sh --bootstrap  # first deploy, or to rotate the database passwords:
 #                                                               # asks for the doadmin connection string, creates the
 #                                                               # roles and writes their URLs into /opt/duckling/.env
@@ -15,6 +18,14 @@ SRC=/opt/duckling/src
 ENV_FILE=/opt/duckling/.env
 test -f /opt/duckling/ca-certificate.crt || { echo "Missing /opt/duckling/ca-certificate.crt (see Backend-Setup.md step 3)"; exit 1; }
 test -f "$ENV_FILE" || { echo "Missing $ENV_FILE (run setup-droplet.sh first)"; exit 1; }
+
+if [ "${1:-}" = "--background" ]; then
+  shift
+  setsid nohup bash "$SRC/deploy/deploy-remote.sh" "$@" > /root/duckling-deploy.log 2>&1 < /dev/null &
+  disown
+  echo "deploy running in the background; tail -f /root/duckling-deploy.log (it ends with: deployed)"
+  exit 0
+fi
 
 cd "$SRC"
 if [ -z "${DUCKLING_PULLED:-}" ]; then
