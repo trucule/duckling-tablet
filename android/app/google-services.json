@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "764693749277",
+    "project_id": "duckling-tablet",
+    "storage_bucket": "duckling-tablet.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:764693749277:android:601bf5ba4254d27448f0f4",
+        "android_client_info": {
+          "package_name": "com.ducklingtablet.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjnIaitlg4Z7D3Hk4VYVHhJA5L9cy7YC8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
