@@ -1,0 +1,17 @@
+{
+  "id": "music-box",
+  "name": "Music Box",
+  "version": "1.0.0",
+  "description": "A tone matrix with drums and five instruments, three song slots, and a Voice Lab that turns the child's own voice into an instrument.",
+  "subjects": [
+    "music"
+  ],
+  "ageMin": 4,
+  "ageMax": 10,
+  "starter": true,
+  "permissions": [
+    "microphone"
+  ],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/music-box"
+}

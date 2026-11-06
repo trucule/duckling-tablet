@@ -1,0 +1,15 @@
+{
+  "id": "circuit-lab",
+  "name": "Circuit Lab",
+  "version": "1.0.0",
+  "description": "Wire batteries, bulbs, switches and buzzers to light a 3D house. Series bulbs glow dim, parallel bulbs glow bright.",
+  "subjects": [
+    "science"
+  ],
+  "ageMin": 7,
+  "ageMax": 9,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/circuit-lab"
+}

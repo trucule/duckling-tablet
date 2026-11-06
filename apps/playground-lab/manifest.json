@@ -1,0 +1,15 @@
+{
+  "id": "playground-lab",
+  "name": "Playground Lab",
+  "version": "1.0.0",
+  "description": "A 3D physics playground with a slingshot, catapult, seesaw, trampoline, dominoes, moon gravity and slow motion.",
+  "subjects": [
+    "science"
+  ],
+  "ageMin": 4,
+  "ageMax": 10,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/playground-lab"
+}

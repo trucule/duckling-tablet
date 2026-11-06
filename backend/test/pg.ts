@@ -16,7 +16,7 @@ const SYSTEM_PW = 'system-test-pw', APP_PW = 'app-test-pw';
 export interface TestDb { db: Db; name: string; appUrl: string; systemUrl: string; adminUrl: string }
 export interface Cluster { port: number; newDb(): Promise<TestDb>; stop(): Promise<void> }
 
-function freePort(): Promise<number> {
+export function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const s = createServer();
     s.listen(0, '127.0.0.1', () => { const { port } = s.address() as { port: number }; s.close(() => resolve(port)); });

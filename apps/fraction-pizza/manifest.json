@@ -1,0 +1,15 @@
+{
+  "id": "fraction-pizza",
+  "name": "Fraction Pizza",
+  "version": "1.0.0",
+  "description": "Cut pizzas and pies and serve slices: halves and quarters, equal fractions, adding slices, fractions on a number line.",
+  "subjects": [
+    "math"
+  ],
+  "ageMin": 7,
+  "ageMax": 9,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/fraction-pizza"
+}

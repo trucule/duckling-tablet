@@ -1,0 +1,16 @@
+{
+  "id": "pattern-machine",
+  "name": "Pattern Machine",
+  "version": "1.0.0",
+  "description": "Machines turn, flip, paint and resize shapes. Predict the output, find the hidden rule, follow chains of machines.",
+  "subjects": [
+    "math",
+    "logic"
+  ],
+  "ageMin": 5,
+  "ageMax": 8,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/pattern-machine"
+}

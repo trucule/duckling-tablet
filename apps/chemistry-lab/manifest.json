@@ -1,0 +1,15 @@
+{
+  "id": "chemistry-lab",
+  "name": "Chemistry Lab",
+  "version": "1.0.0",
+  "description": "Safe experiments followed step by step, each step read aloud, with stars for the ones finished.",
+  "subjects": [
+    "science"
+  ],
+  "ageMin": 5,
+  "ageMax": 8,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/chemistry-lab"
+}

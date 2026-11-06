@@ -1,0 +1,15 @@
+{
+  "id": "count-with-me",
+  "name": "Count With Me",
+  "version": "1.0.0",
+  "description": "Four hands-on math games: counting and ten frames, sharing into groups, place value blocks, and word problems read aloud.",
+  "subjects": [
+    "math"
+  ],
+  "ageMin": 5,
+  "ageMax": 8,
+  "starter": true,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/count-with-me"
+}

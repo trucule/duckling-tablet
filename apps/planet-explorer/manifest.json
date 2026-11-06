@@ -1,0 +1,15 @@
+{
+  "id": "planet-explorer",
+  "name": "Planet Explorer",
+  "version": "1.0.0",
+  "description": "Fly to each planet, land and jump. Gravity, day length and size come from the NASA fact sheet.",
+  "subjects": [
+    "science"
+  ],
+  "ageMin": 6,
+  "ageMax": 9,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/planet-explorer"
+}

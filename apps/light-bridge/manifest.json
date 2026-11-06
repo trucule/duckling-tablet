@@ -1,0 +1,15 @@
+{
+  "id": "light-bridge",
+  "name": "Light Bridge",
+  "version": "1.0.0",
+  "description": "Connect matching orbs with bridges that never cross. Boards grow from 4 by 4 to 9 by 9.",
+  "subjects": [
+    "logic"
+  ],
+  "ageMin": 5,
+  "ageMax": 8,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/light-bridge"
+}

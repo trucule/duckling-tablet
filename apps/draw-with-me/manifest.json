@@ -1,0 +1,15 @@
+{
+  "id": "draw-with-me",
+  "name": "Draw With Me",
+  "version": "1.0.0",
+  "description": "152 step by step drawing lessons from simple to detailed, with a drawing of the day and a surprise pick.",
+  "subjects": [
+    "art"
+  ],
+  "ageMin": 4,
+  "ageMax": 10,
+  "starter": true,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/draw-with-me"
+}

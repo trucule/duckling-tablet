@@ -1,0 +1,16 @@
+{
+  "id": "simon-orchestra",
+  "name": "Simon Orchestra",
+  "version": "1.0.0",
+  "description": "Six instruments play a tune on a 3D stage and the child plays it back, longer, faster, then backwards.",
+  "subjects": [
+    "music",
+    "logic"
+  ],
+  "ageMin": 4,
+  "ageMax": 7,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/simon-orchestra"
+}

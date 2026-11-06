@@ -1,0 +1,10 @@
+{
+  "name": "duckling-tools",
+  "private": true,
+  "type": "module",
+  "description": "Publish tool for Duckling Tablet app packages",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "fflate": "^0.8.2"
+  }
+}

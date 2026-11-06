@@ -1,0 +1,15 @@
+{
+  "id": "ecosystem-aquarium",
+  "name": "Ecosystem Aquarium",
+  "version": "1.0.0",
+  "description": "Set fish, snails, plants, light and food, then run the days and watch oxygen, algae and the food chain.",
+  "subjects": [
+    "science"
+  ],
+  "ageMin": 7,
+  "ageMax": 9,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/ecosystem-aquarium"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "word-wizard",
+  "name": "Word Wizard",
+  "version": "1.0.0",
+  "description": "Hear a word, tap the letters into place, and the right word casts a spell in a 3D world.",
+  "subjects": [
+    "reading"
+  ],
+  "ageMin": 5,
+  "ageMax": 7,
+  "starter": true,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/word-wizard"
+}

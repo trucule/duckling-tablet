@@ -1,0 +1,16 @@
+{
+  "id": "tangram-city",
+  "name": "Tangram City",
+  "version": "1.0.0",
+  "description": "Drag, turn and flip the seven tangram pieces to fill city shapes, then count area and perimeter.",
+  "subjects": [
+    "math",
+    "logic"
+  ],
+  "ageMin": 5,
+  "ageMax": 8,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/tangram-city"
+}

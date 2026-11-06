@@ -1,0 +1,15 @@
+{
+  "id": "kitchen-lab",
+  "name": "Kitchen Lab",
+  "version": "1.0.0",
+  "description": "Recipes as experiments: measure, mix and watch what changes, with each step read aloud.",
+  "subjects": [
+    "science"
+  ],
+  "ageMin": 5,
+  "ageMax": 8,
+  "starter": false,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/kitchen-lab"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "robot-path",
+  "name": "Robot Path",
+  "version": "1.0.0",
+  "description": "Program a toy robot with arrow cards to collect gems. Later levels add repeats, an if card and fewest-moves puzzles.",
+  "subjects": [
+    "logic"
+  ],
+  "ageMin": 5,
+  "ageMax": 8,
+  "starter": true,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/robot-path"
+}
