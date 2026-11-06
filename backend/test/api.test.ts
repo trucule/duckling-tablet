@@ -254,6 +254,27 @@ describe('logs', () => {
     }
   });
 
+  it('a failing mail server gives a 503 and leaks nothing into the log', async () => {
+    const lines: string[] = [];
+    const { db: db2 } = await cluster.newDb();
+    const cfg = loadConfig({ NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files3'), STORAGE: 'local', ADMIN_TOKEN: ADMIN });
+    const { app: app2 } = await buildServer(cfg, {
+      db: db2, logger: { level: 'info', stream: { write(c: string) { lines.push(c); } } },
+      mailer: { async send() { const e = new Error('connect ETIMEDOUT 1.2.3.4:587') as Error & { code?: string }; e.code = 'ETIMEDOUT'; throw e; } },
+      synth: async () => null, createTicket: async () => null,
+    });
+    try {
+      const r = await app2.inject({ method: 'POST', url: '/auth/email-link', payload: { email: 'nobody@example.com' } });
+      expect(r.statusCode).toBe(503);
+      expect(r.json().error).toMatch(/try again/);
+    } finally { await app2.close(); await db2.close(); }
+    const out = lines.join('');
+    expect(out).toContain('sign-in email failed');
+    expect(out).toContain('ETIMEDOUT');
+    expect(out).not.toContain('nobody@example.com');
+    expect(out).not.toContain('token=');
+  });
+
   it('production settings refuse to run without SMTP, so sign-in links never go to the log', () => {
     const prod = { NODE_ENV: 'production', SESSION_SECRET: 'x'.repeat(40), ADMIN_TOKEN: 'y'.repeat(40), DATABASE_URL_APP: 'postgresql://a:b@db.internal:25060/duckling', DATABASE_URL_SYSTEM: 'postgresql://c:d@db.internal:25060/duckling' };
     expect(() => loadConfig({ ...prod, SMTP_HOST: '' })).toThrow(/SMTP_HOST/);

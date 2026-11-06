@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
 import { SESSION_COOKIE, parentAuth, sessionToken } from '../auth.js';
 import { HttpError, hashToken, inDays, inMinutes, newId, newToken } from '../util.js';
+import { redactText } from '../logging.js';
 
 export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: Ctx }) {
   const h = (t: string) => hashToken(t, ctx.cfg.SESSION_SECRET);
@@ -13,8 +14,14 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
     const token = newToken();
     await ctx.db.query('SELECT create_login_token($1, $2, $3)', [h(token), email.trim(), inMinutes(15)]);
     const link = `${ctx.cfg.PORTAL_URL}/signin?token=${token}`;
-    await ctx.mailer.send(email, 'Your Duckling Tablet sign-in link',
-      `Tap this link to sign in to Duckling Tablet. It works once and expires in 15 minutes.\n\n${link}\n\nIf you did not ask for this, you can ignore this email.`);
+    try {
+      await ctx.mailer.send(email, 'Your Duckling Tablet sign-in link',
+        `Tap this link to sign in to Duckling Tablet. It works once and expires in 15 minutes.\n\n${link}\n\nIf you did not ask for this, you can ignore this email.`);
+    } catch (err) {
+      // The address and the link stay out of the log; the mail server's own message is enough to diagnose.
+      req.log.error({ err: { type: (err as Error).name, code: (err as { code?: string }).code, message: redactText((err as Error).message) } }, 'sign-in email failed');
+      throw new HttpError(503, 'We could not send the email right now. Please try again in a minute.');
+    }
     return { sent: true };
   });
 

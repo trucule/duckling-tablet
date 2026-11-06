@@ -27,7 +27,7 @@ const schema = z.object({
 
   // Email links for parent sign-in. With no SMTP_HOST, links are written to the log (development).
   SMTP_HOST: z.string().default(''),
-  SMTP_PORT: z.coerce.number().int().default(587),
+  SMTP_PORT: z.coerce.number().int().default(2525),
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
   MAIL_FROM: z.string().default('Duckling Tablet <hello@ducklingtablet.com>'),
