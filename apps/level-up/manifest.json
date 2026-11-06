@@ -1,7 +1,7 @@
 {
   "id": "level-up",
   "name": "Level Up",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Six subjects, each a ladder of levels from kindergarten to 4th grade: reading, math, color science, patterns, time and money, shapes and fractions.",
   "subjects": [
     "reading",

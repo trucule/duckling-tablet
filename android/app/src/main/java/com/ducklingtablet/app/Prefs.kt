@@ -12,6 +12,14 @@ class Prefs(context: Context) {
         get() = p.getString("deviceToken", "") ?: ""
         set(v) { p.edit().putString("deviceToken", v).apply() }
 
+    var childName: String
+        get() = p.getString("childName", "") ?: ""
+        set(v) { p.edit().putString("childName", v).apply() }
+
+    var narratorVoice: String
+        get() = p.getString("narratorVoice", "en-US-AnaNeural") ?: "en-US-AnaNeural"
+        set(v) { p.edit().putString("narratorVoice", v).apply() }
+
     var lockdownOn: Boolean
         get() = p.getBoolean("lockdownOn", false)
         set(v) { p.edit().putBoolean("lockdownOn", v).apply() }

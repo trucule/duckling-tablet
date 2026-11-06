@@ -1,7 +1,7 @@
 {
   "id": "word-wizard",
   "name": "Word Wizard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Hear a word, tap the letters into place, and the right word casts a spell in a 3D world.",
   "subjects": [
     "reading"

@@ -105,5 +105,8 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     /** Website hosts a parent allowed (from the device config); the WebView lets only these through besides Duckling's own. */
     @JavascriptInterface fun setAllowedHosts(csv: String) { activity.allowedHosts = csv.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet() }
 
+    /** The child's first name (for private narrator lines) and the narrator voice, from the device config. */
+    @JavascriptInterface fun setChildInfo(name: String, voice: String) { prefs.childName = name; if (voice.isNotEmpty()) prefs.narratorVoice = voice }
+
     @JavascriptInterface fun reload() { main.post { web.reload() } }
 }

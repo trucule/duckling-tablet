@@ -38,8 +38,8 @@ describe.skipIf(!existsSync(join(TOOLS, 'node_modules', 'fflate')))('publish too
     const env = { ...process.env, API_URL: base, ADMIN_TOKEN: ADMIN, PACKAGE_SIGNING_KEY: key, DOTENV_CONFIG_PATH: join(dir, 'none.env') };
     // The server runs in this process, so the tool must run without blocking the event loop.
     const { stdout: out } = await execFile('node', [join(TOOLS, 'publish.mjs'), 'all', '--starter'], { encoding: 'utf8', env, maxBuffer: 1 << 24 });
-    expect(out).toMatch(/count-with-me 1\.0\.0: published/);
-    expect(out).toMatch(/draw-with-me 1\.0\.0: published/);
+    expect(out).toMatch(/count-with-me \d+\.\d+\.\d+: published/);
+    expect(out).toMatch(/draw-with-me \d+\.\d+\.\d+: published/);
 
     const catalog = (await (await fetch(`${base}/catalog`)).json()).apps as any[];
     const ids = catalog.map((a) => a.id).sort();
@@ -55,6 +55,14 @@ describe.skipIf(!existsSync(join(TOOLS, 'node_modules', 'fflate')))('publish too
       const ok = verify(null, zip, createPublicKey({ key: spki, format: 'der', type: 'spki' }), Buffer.from(a.latest.signature, 'base64'));
       expect(ok, `${a.id} signature`).toBe(true);
       expect(zip.subarray(0, 2).toString()).toBe('PK');
+      // The package's index.html loads the compatibility script and no longer carries the Surface Azure block.
+      const { unzipSync, strFromU8 } = await import('fflate');
+      const entries = unzipSync(new Uint8Array(zip));
+      const html = strFromU8(entries['index.html']);
+      expect(html).toContain('<script src="duckling-compat.js"></script>');
+      expect(html).not.toMatch(/KID-VOICE|voice-config\.js/);
+      expect(entries['duckling-compat.js']).toBeDefined();
+      expect(entries['manifest.json']).toBeDefined();
     }
     expect(catalog.find((a) => a.id === 'music-box').latest.permissions).toEqual(['microphone']);
 

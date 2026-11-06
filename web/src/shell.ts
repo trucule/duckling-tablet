@@ -21,6 +21,7 @@ export interface Shell {
   openSecuritySettings(): void;
   setLockdown(on: boolean): void;
   setAllowedHosts(hosts: string[]): void;
+  setChildInfo(name: string, voice: string): void;
   release(): void;
 }
 
@@ -42,6 +43,7 @@ interface NativeShell {
   openSecuritySettings(): void;
   setLockdown(on: boolean): void;
   setAllowedHosts(csv: string): void;
+  setChildInfo(name: string, voice: string): void;
   release(): void;
 }
 
@@ -81,6 +83,7 @@ function native(n: NativeShell): Shell {
     openSecuritySettings: () => n.openSecuritySettings(),
     setLockdown: (on) => n.setLockdown(on),
     setAllowedHosts: (hosts) => n.setAllowedHosts(hosts.join(',')),
+    setChildInfo: (name, voice) => n.setChildInfo(name, voice),
     release: () => n.release(),
   };
 }
@@ -107,6 +110,7 @@ function browser(): Shell {
     openSecuritySettings() { alert('On the tablet this opens the security settings.'); },
     setLockdown() {},
     setAllowedHosts() {},
+    setChildInfo() {},
     release() { set('token', null); set('installed', null); set('pin', null); },
   };
 }

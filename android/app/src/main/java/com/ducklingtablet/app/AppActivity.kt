@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
+import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -52,6 +53,8 @@ class AppActivity : AppCompatActivity() {
             allowContentAccess = false
             userAgentString = "$userAgentString DucklingTablet/${BuildConfig.VERSION_NAME}"
         }
+        // window.DucklingApp: what duckling-compat.js inside the package needs for the narrator.
+        web.addJavascriptInterface(AppBridge(appId, Prefs(this)), "DucklingApp")
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val host = request.url.host?.lowercase() ?: return blocked()
@@ -82,6 +85,14 @@ class AppActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { finish() }
         })
+    }
+
+    class AppBridge(private val id: String, private val prefs: Prefs) {
+        @JavascriptInterface fun appId(): String = id
+        @JavascriptInterface fun deviceToken(): String = prefs.deviceToken
+        @JavascriptInterface fun apiUrl(): String = "https://api.ducklingtablet.com"
+        @JavascriptInterface fun childName(): String = prefs.childName
+        @JavascriptInterface fun voice(): String = prefs.narratorVoice
     }
 
     private fun granted(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED

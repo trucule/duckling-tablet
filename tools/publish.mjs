@@ -10,9 +10,10 @@
 // Needs ADMIN_TOKEN, PACKAGE_SIGNING_KEY (base64 PKCS8) and optionally API_URL in the environment or the env file
 // named by DOTENV_CONFIG_PATH. A version already in the catalog is skipped, so a rerun is harmless.
 //
-// Package contents: manifest.json, index.html and the app's files, tile.png, plus two stubs the Surface apps load:
-// voice-config.js (empty, so speech falls back to the device voice until the compatibility script lands) and
-// config.js (empty, for Draw With Me's optional AI key, which the backend will provide later).
+// Package contents: manifest.json, index.html and the app's files, tile.png, and duckling-compat.js (per-app
+// localStorage, the Duckling narrator, window.KidTablet). The Surface apps' own KID-VOICE block and their
+// voice-config.js reference are replaced by the compatibility script at packaging time; config.js (Draw With Me's
+// optional AI key) stays an empty stub until the AI proxy lands.
 import 'dotenv/config';
 import { createPrivateKey, createPublicKey, generateKeyPairSync, sign, createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
@@ -80,6 +81,18 @@ function validate(m, id) {
   if (problems.length) die(`apps/${id}/manifest.json: ${problems.join('; ')}`);
 }
 
+// The Surface apps carry an inline KID-VOICE block (Azure with a local key) behind <script src="voice-config.js">.
+// Both go; duckling-compat.js takes their place at the same spot, or right after <head> when an app has neither.
+export function withCompat(html, id) {
+  const tag = '<script src="duckling-compat.js"></script>';
+  let out = html.replace(/<script>\/\* KID-VOICE START \*\/[\s\S]*?\/\* KID-VOICE END \*\/<\/script>\s*/g, '');
+  if (/<script src="voice-config\.js"><\/script>/.test(out)) out = out.replace(/<script src="voice-config\.js"><\/script>/, tag);
+  else if (/<head[^>]*>/i.test(out)) out = out.replace(/<head[^>]*>/i, (m) => `${m}\n${tag}`);
+  else out = tag + '\n' + out;
+  if (/KID-VOICE START|voice-config\.js/.test(out)) die(`apps/${id}/index.html: could not replace the voice block`);
+  return out;
+}
+
 function pack(id) {
   const dir = join(APPS, id);
   if (!existsSync(join(dir, 'manifest.json'))) die(`apps/${id}/manifest.json is missing`);
@@ -89,9 +102,9 @@ function pack(id) {
   if (!existsSync(join(dir, 'tile.png'))) die(`apps/${id}/tile.png is missing`);
   const files = {};
   for (const rel of listFiles(dir)) files[rel] = [readFileSync(join(dir, rel)), { level: rel.endsWith('.png') ? 0 : 6 }];
-  const stubComment = Buffer.from('// Written by the Duckling publish tool: this package has no local voice or AI config.\n');
-  if (!files['voice-config.js']) files['voice-config.js'] = [stubComment, { level: 6 }];
-  if (!files['config.js']) files['config.js'] = [stubComment, { level: 6 }];
+  files['index.html'] = [Buffer.from(withCompat(files['index.html'][0].toString('utf8'), id)), { level: 6 }];
+  files['duckling-compat.js'] = [readFileSync(join(ROOT, 'tools', 'duckling-compat.js')), { level: 6 }];
+  if (!files['config.js']) files['config.js'] = [Buffer.from('// Written by the Duckling publish tool: no local AI config; the backend proxies AI calls.\n'), { level: 6 }];
   const zip = Buffer.from(zipSync(files, { mtime: new Date('2026-01-01T00:00:00Z') }));
   const sha256 = createHash('sha256').update(zip).digest('hex');
   const signature = sign(null, zip, privateKey).toString('base64');

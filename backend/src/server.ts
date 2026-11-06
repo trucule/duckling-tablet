@@ -41,7 +41,8 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
   const voice = makeVoiceCache(ctx);
 
   await app.register(cookie, { secret: cfg.SESSION_SECRET });
-  await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL], credentials: true });
+  // The portal, the child web app, and the origins the shells give installed packages (Android's asset loader).
+  await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL, 'https://appassets.androidplatform.net'], credentials: true });
   await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
 
   app.setErrorHandler((err, req, reply) => {
