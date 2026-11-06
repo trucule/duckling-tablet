@@ -32,14 +32,21 @@ export async function checkin(): Promise<void> {
     config.value = c;
     paired.value = true;
     lastError.value = '';
-    shell.setAllowedHosts(c.allowlist.map((w) => w.host.replace(/^\*\./, '')));
-    shell.setChildInfo(c.child?.firstName ?? '', c.narratorVoice ?? '');
+    applyConfig(c);
     if (c.state === 'release') { await releaseDevice(true); return; }
     void installMissing(c);
   } catch (e) {
     if (e instanceof ReleasedError) { await releaseDevice(false); return; }
     lastError.value = (e as Error).message;
   }
+}
+
+// What the shell needs from the config: the websites it may open, the child's name and voice for the apps, and the
+// family PIN (set on the website or on another tablet).
+function applyConfig(c: DeviceConfig) {
+  shell.setAllowedHosts(c.allowlist.map((w) => w.host.replace(/^\*\./, '')));
+  shell.setChildInfo(c.child?.firstName ?? '', c.narratorVoice ?? '');
+  if (c.pinHash) shell.setPinHash(c.pinHash);
 }
 
 // Apps the server lists for this device but the shell does not have yet (or has at an older version).
@@ -85,10 +92,17 @@ export async function releaseDevice(tellServer: boolean) {
   go('pair');
 }
 
+// The first PIN, typed on this tablet: it becomes the family PIN unless the website set one in the meantime.
+export async function setFirstPin(pin: string) {
+  await shell.setPin(pin);
+  try { await api.setPin(pin); } catch { /* already set elsewhere: the next check-in brings that one */ }
+}
+
 export async function pair(code: string, name: string) {
   const r = await api.pair(code, name);
   shell.setDeviceToken(r.deviceToken);
   config.value = r.config; paired.value = true;
+  applyConfig(r.config);
   void installMissing(r.config);
   go('home');
 }

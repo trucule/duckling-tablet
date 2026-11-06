@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api, type Family as FamilyT, type Child } from '../api';
+import { Requests } from './Requests';
 
 const GRADES = ['pre-k', 'k', '1', '2', '3', '4', '5', '6'];
 const COLORS = ['#ffb3c6', '#ffd36b', '#b3e5ff', '#c8f7c5', '#e0c3fc', '#ffcf99'];
@@ -13,6 +14,8 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
   const [newGrade, setNewGrade] = useState('1');
   const [newColor, setNewColor] = useState(COLORS[0]);
   const [, tick] = useState(0);
+  const [pin, setPin] = useState(''); const [pinAgain, setPinAgain] = useState(''); const [pinMsg, setPinMsg] = useState('');
+  const [invite, setInvite] = useState(''); const [inviteMsg, setInviteMsg] = useState('');
   const load = () => api.family().then(setFam).catch((e) => setError((e as Error).message));
   useEffect(() => { load(); const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
 
@@ -27,6 +30,18 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
   };
   const remaining = code ? Math.max(0, Math.round((code.until - Date.now()) / 1000)) : 0;
   const childName = (id: string | null) => fam?.children.find((c) => c.id === id)?.firstName ?? 'No child yet';
+
+  const savePin = async (e: Event) => {
+    e.preventDefault(); setPinMsg('');
+    if (pin !== pinAgain) { setPinMsg('The two PINs were different.'); return; }
+    try { await api.setPin(pin); setPin(''); setPinAgain(''); setPinMsg('Saved. Each tablet picks it up at its next check-in, within three hours, or when it is opened.'); await load(); }
+    catch (err) { setPinMsg((err as Error).message); }
+  };
+  const sendInvite = async (e: Event) => {
+    e.preventDefault(); setInviteMsg('');
+    try { await api.inviteParent(invite.trim()); setInviteMsg(`Invitation sent to ${invite.trim()}. The link works for 7 days.`); setInvite(''); }
+    catch (err) { setInviteMsg((err as Error).message); }
+  };
 
   if (!fam) return <div class="card">{error ? <div class="error">{error}</div> : 'Loading'}</div>;
   return (
@@ -80,6 +95,38 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
         </ul>
         <p class="muted" style={{ marginTop: 10 }}><button class="btn quiet" onClick={load}>Refresh</button></p>
       </div>
+
+      <div class="card">
+        <h2>Parent PIN</h2>
+        <p>{fam.pinSet ? 'A PIN is set. It opens the parent area on every tablet in the family. Choose a new one here if it needs changing.' : 'No PIN yet. The first tablet asks for one during setup, or set it here and every tablet uses it.'}</p>
+        <form class="row" onSubmit={savePin}>
+          <input type="password" inputMode="numeric" pattern="[0-9]{4,6}" placeholder={fam.pinSet ? 'New PIN' : 'PIN (4 to 6 digits)'} required value={pin} onInput={(e) => setPin((e.target as HTMLInputElement).value)} style={{ maxWidth: 170 }} autoComplete="off" />
+          <input type="password" inputMode="numeric" pattern="[0-9]{4,6}" placeholder="Again" required value={pinAgain} onInput={(e) => setPinAgain((e.target as HTMLInputElement).value)} style={{ maxWidth: 120 }} autoComplete="off" />
+          <button class="btn" disabled={pin.length < 4}>{fam.pinSet ? 'Change PIN' : 'Set PIN'}</button>
+        </form>
+        {pinMsg && <p class={pinMsg.startsWith('Saved') ? 'ok' : 'error'} style={{ marginTop: 10 }}>{pinMsg}</p>}
+      </div>
+
+      <div class="card">
+        <h2>Parents</h2>
+        <ul class="list">
+          {fam.parents.map((p) => (
+            <li key={p.id}>
+              <span class="grow"><strong>{p.email}</strong> <span class="muted">{p.email === fam.you ? 'you' : p.role}</span></span>
+              {p.email !== fam.you && <button class="btn quiet" onClick={async () => { if (confirm(`Remove ${p.email} from the family?`)) { try { await api.removeParent(p.id); await load(); } catch (err) { setError((err as Error).message); } } }}>Remove</button>}
+            </li>
+          ))}
+        </ul>
+        {fam.parents.length < 4 && (
+          <form class="row" onSubmit={sendInvite} style={{ marginTop: 12 }}>
+            <input type="email" placeholder="Another parent's email" required value={invite} onInput={(e) => setInvite((e.target as HTMLInputElement).value)} style={{ maxWidth: 280 }} />
+            <button class="btn" disabled={!invite.includes('@')}>Invite</button>
+          </form>
+        )}
+        {inviteMsg && <p class={inviteMsg.startsWith('Invitation sent') ? 'ok' : 'error'} style={{ marginTop: 10 }}>{inviteMsg}</p>}
+      </div>
+
+      <Requests grades={fam.children.map((c) => c.grade).filter((g): g is string => !!g)} onError={setError} />
 
       <div class="card">
         <h2>Account</h2>

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,7 +11,7 @@ import { startCluster, type Cluster } from './pg.js';
 
 let cluster: Cluster, app: FastifyInstance, db: Db, dir: string;
 const mails: { to: string; text: string }[] = [];
-const tickets: any[] = [];
+const tickets: any[] = []; const attached: any[] = [];
 let synthCalls = 0, azureUp = true;
 const aiCalls: any[] = []; let aiUp: 'ok' | 'down' | 'refuse' = 'ok';
 const ADMIN = 'admin-test-token-123456';
@@ -23,7 +23,7 @@ afterAll(async () => { await cluster?.stop(); });
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'duck-'));
   ({ db } = await cluster.newDb());
-  mails.length = 0; tickets.length = 0; synthCalls = 0; azureUp = true; aiCalls.length = 0; aiUp = 'ok';
+  mails.length = 0; tickets.length = 0; attached.length = 0; synthCalls = 0; azureUp = true; aiCalls.length = 0; aiUp = 'ok';
   const cfg = loadConfig({
     NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local',
     ADMIN_TOKEN: ADMIN, ETDUCKY_WEBHOOK_SECRET: HOOK, TTS_DAILY_CHARS_PER_DEVICE: 200, PUBLIC_URL: 'https://api.test', AI_DAILY_CALLS: 'draw-with-me:3,*:1', AI_MAX_PROMPT_CHARS: 500,
@@ -33,6 +33,7 @@ beforeEach(async () => {
     mailer: { async send(to, _s, text) { mails.push({ to, text }); } },
     synth: async (text) => { synthCalls++; await new Promise((r) => setTimeout(r, 20)); return azureUp ? Buffer.from(`mp3:${text}`) : null; },
     createTicket: async (t) => { tickets.push(t); return `T-${tickets.length}`; },
+    attachToTicket: async (ticketId, url, contentType) => { attached.push({ ticketId, url, contentType }); return true; },
     complete: async (r) => {
       aiCalls.push(r);
       if (aiUp === 'down') return null;
@@ -202,11 +203,93 @@ describe('app requests', () => {
     expect((await app.inject({ method: 'POST', url: '/hooks/etducky', headers: h, payload: withId })).json().duplicate).toBe(true);
     expect((await app.inject({ method: 'GET', url: '/requests', headers: p.auth })).json().requests[0].status).toBe('planned');
 
+    // Pictures: private in storage, read by the family's parents, and by ET Ducky through a signed link.
+    const rid = req1.json().id;
+    const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(64, 7)]);
+    const up = await app.inject({ method: 'POST', url: `/requests/${rid}/attachments`, headers: { ...p.auth, 'content-type': 'image/png' }, payload: png });
+    expect(up.statusCode).toBe(200);
+    expect(up.json()).toMatchObject({ requestId: rid, contentType: 'image/png', size: 72 });
+    expect(attached).toHaveLength(1);
+    expect(attached[0].ticketId).toBe('T-1');
+    expect(attached[0].url).toMatch(new RegExp(`^https://api.test/requests/${rid}/attachments/att_[\\w-]+\\?exp=\\d+&sig=[0-9a-f]{32}$`));
+    const listed = (await app.inject({ method: 'GET', url: '/requests', headers: p.auth })).json().requests[0];
+    expect(listed.attachments).toHaveLength(1);
+    const path = listed.attachments[0].url.replace('https://api.test', '');
+    expect((await app.inject({ method: 'GET', url: path })).statusCode).toBe(401);
+    const mine = await app.inject({ method: 'GET', url: path, headers: p.auth });
+    expect(mine.statusCode).toBe(200); expect(mine.headers['content-type']).toBe('image/png'); expect(mine.rawPayload.equals(png)).toBe(true);
+    const other = await signIn('other@example.com');
+    expect((await app.inject({ method: 'GET', url: path, headers: other.auth })).statusCode).toBe(404);
+    const signed = await app.inject({ method: 'GET', url: attached[0].url.replace('https://api.test', '') });
+    expect(signed.statusCode).toBe(200); expect(signed.rawPayload.equals(png)).toBe(true);
+    expect((await app.inject({ method: 'GET', url: attached[0].url.replace('https://api.test', '').replace(/sig=[0-9a-f]{4}/, 'sig=0000') })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'POST', url: `/requests/${rid}/attachments`, headers: { ...p.auth, 'content-type': 'text/plain' }, payload: 'hello' })).statusCode).toBe(415);
+    expect((await app.inject({ method: 'POST', url: `/requests/${rid}/attachments`, headers: { ...other.auth, 'content-type': 'image/png' }, payload: png })).statusCode).toBe(404);
+    for (let i = 0; i < 4; i++) expect((await app.inject({ method: 'POST', url: `/requests/${rid}/attachments`, headers: { ...p.auth, 'content-type': 'image/jpeg' }, payload: png })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'POST', url: `/requests/${rid}/attachments`, headers: { ...p.auth, 'content-type': 'image/jpeg' }, payload: png })).statusCode).toBe(409);
+
     const shipped = await publish('dino-dig', '1.0.0', { request: req1.json().id });
     expect(shipped.json().installedFor).toBe(1);
     expect((await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json().apps.map((a: any) => a.id)).toContain('dino-dig');
     expect((await app.inject({ method: 'GET', url: '/requests', headers: p.auth })).json().requests[0].status).toBe('shipped');
     expect((await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title: 'Next idea', description: 'Now allowed again' } })).statusCode).toBe(200);
+  });
+});
+
+describe('parent PIN and second parent', () => {
+  it('a PIN set on the website reaches every tablet; the first tablet can set it once; online checks work', async () => {
+    const p = await signIn('pin@example.com'); const d1 = await pair(p.auth);
+    expect((await app.inject({ method: 'GET', url: '/family', headers: p.auth })).json().pinSet).toBe(false);
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: d1.dev })).json().pinHash).toBeNull();
+    // The tablet sets it first.
+    expect((await app.inject({ method: 'PUT', url: '/device/pin', headers: d1.dev, payload: { pin: '12' } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'PUT', url: '/device/pin', headers: d1.dev, payload: { pin: '4321' } })).json().set).toBe(true);
+    expect((await app.inject({ method: 'PUT', url: '/device/pin', headers: d1.dev, payload: { pin: '9999' } })).statusCode).toBe(409);
+    const sha = (pin: string) => createHash('sha256').update(`duckling:${pin}`).digest('hex');
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: d1.dev })).json().pinHash).toBe(sha('4321'));
+    expect((await app.inject({ method: 'POST', url: '/device/pin/verify', headers: d1.dev, payload: { pin: '4321' } })).json().ok).toBe(true);
+    expect((await app.inject({ method: 'POST', url: '/device/pin/verify', headers: d1.dev, payload: { pin: '4322' } })).json().ok).toBe(false);
+    // The website changes it; a second tablet gets the new one.
+    expect((await app.inject({ method: 'PUT', url: '/family/pin', headers: p.auth, payload: { pin: '2468' } })).json().set).toBe(true);
+    const d2 = await pair(p.auth);
+    expect(d2.config.pinHash).toBe(sha('2468'));
+    expect((await app.inject({ method: 'GET', url: '/family', headers: p.auth })).json().pinSet).toBe(true);
+    expect((await app.inject({ method: 'PUT', url: '/family/pin', headers: p.auth, payload: { pin: 'abcd' } })).statusCode).toBe(400);
+    // Another family's PIN is its own.
+    const o = await signIn('other-pin@example.com'); const od = await pair(o.auth);
+    expect(od.config.pinHash).toBeNull();
+  });
+
+  it('invites a second parent by email link, refuses an address that has its own family, and removes a parent', async () => {
+    const p = await signIn('one@example.com');
+    const inv = await app.inject({ method: 'POST', url: '/family/parents/invite', headers: p.auth, payload: { email: 'two@example.com' } });
+    expect(inv.json().sent).toBe(true);
+    const mail = mails.filter((m) => m.to === 'two@example.com').at(-1)!;
+    expect(mail.text).toContain('one@example.com invited you');
+    const token = mail.text.match(/token=([\w-]+)/)![1];
+    const v = await app.inject({ method: 'POST', url: '/auth/verify', payload: { token } });
+    expect(v.statusCode).toBe(200);
+    expect(v.json().familyId).toBe(p.familyId); expect(v.json().newFamily).toBe(false);
+    const two = { authorization: `Bearer ${v.json().sessionToken}` };
+    const fam = (await app.inject({ method: 'GET', url: '/family', headers: two })).json();
+    expect(fam.parents.map((x: any) => [x.email, x.role])).toEqual([['one@example.com', 'owner'], ['two@example.com', 'parent']]);
+    // The link works once; a plain sign-in afterwards lands in the same family.
+    expect((await app.inject({ method: 'POST', url: '/auth/verify', payload: { token } })).statusCode).toBe(401);
+    expect((await signIn('two@example.com')).familyId).toBe(p.familyId);
+    // An address with its own family cannot be pulled into another.
+    const solo = await signIn('solo@example.com');
+    await app.inject({ method: 'POST', url: '/family/parents/invite', headers: p.auth, payload: { email: 'solo@example.com' } });
+    const t2 = mails.filter((m) => m.to === 'solo@example.com').at(-1)!.text.match(/token=([\w-]+)/)![1];
+    expect((await app.inject({ method: 'POST', url: '/auth/verify', payload: { token: t2 } })).statusCode).toBe(409);
+    expect((await signIn('solo@example.com')).familyId).toBe(solo.familyId);
+    expect((await app.inject({ method: 'POST', url: '/family/parents/invite', headers: p.auth, payload: { email: 'TWO@example.com' } })).statusCode).toBe(409);
+    // Removal.
+    const twoId = fam.parents[1].id;
+    expect((await app.inject({ method: 'DELETE', url: `/family/parents/${twoId}`, headers: two })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'DELETE', url: `/family/parents/${twoId}`, headers: solo.auth })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'DELETE', url: `/family/parents/${twoId}`, headers: p.auth })).json().ok).toBe(true);
+    expect((await app.inject({ method: 'GET', url: '/family', headers: two })).statusCode).toBe(401);
+    expect((await signIn('two@example.com')).familyId).not.toBe(p.familyId);
   });
 });
 

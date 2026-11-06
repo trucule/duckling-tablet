@@ -7,7 +7,7 @@ import type { Q } from '../db.js';
 import { deviceAuth, parentAuth } from '../auth.js';
 import { childRow } from './family.js';
 import { listCatalog } from '../catalog.js';
-import { HttpError, badRequest, forbidden, hashToken, inMinutes, newId, newToken, notFound, now, pairingCode } from '../util.js';
+import { HttpError, badRequest, forbidden, hashToken, inMinutes, newId, newToken, notFound, now, pairingCode, safeEqual, sha256 } from '../util.js';
 
 // A host pattern: example.org (subdomains included) or *.example.org.
 const host = z.string().trim().toLowerCase().regex(/^(\*\.)?([a-z0-9-]+\.)+[a-z]{2,}$/, 'Use a site name like pbskids.org');
@@ -33,8 +33,11 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string) {
   const hidden = new Set((await q.all('SELECT app_id FROM device_hidden_app WHERE device_id = $1', [deviceId])).map((r) => r.app_id as string));
   const catalog = (await listCatalog(ctx, q)).filter((a) => !hidden.has(a.id));
   const travelUntil = await getSetting<string | null>(q, deviceId, 'travel_until', null);
+  const fam = await q.one<{ pin_sync: string | null }>('SELECT pin_sync FROM family WHERE id = $1', [d.family_id]);
   return {
     deviceId, state: d.state, child,
+    // SHA-256 of "duckling:<pin>", the form the shells keep; null until a parent sets a PIN.
+    pinHash: fam?.pin_sync ?? null,
     apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, tileUrl: a.tileUrl, permissions: a.latest!.permissions, ...a.latest })),
     hidden: [...hidden],
     allowlist: await getSetting(q, deviceId, 'allowlist', [] as unknown[]),
@@ -219,6 +222,25 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
   });
 
   // Remove from this device (on the tablet, behind the parent PIN): the shell has already released the lockdown.
+  // The first tablet sets the family PIN when none exists yet; after that the website owns it.
+  app.put('/device/pin', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const { pin } = z.object({ pin: z.string().regex(/^\d{4,6}$/) }).parse(req.body);
+    return ctx.db.family(dv.familyId, async (q) => {
+      const n = await q.run('UPDATE family SET pin_hash = $1, pin_sync = $2, pin_set_at = now() WHERE id = $3 AND pin_hash IS NULL', [hashToken(pin, ctx.cfg.SESSION_SECRET), sha256(`duckling:${pin}`), dv.familyId]);
+      if (!n) throw new HttpError(409, 'The family PIN is already set; the tablet receives it at check-in.');
+      await audit(q, dv.familyId, `device:${dv.deviceId}`, 'pin.set');
+      return { set: true };
+    });
+  });
+
+  app.post('/device/pin/verify', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const { pin } = z.object({ pin: z.string().regex(/^\d{4,6}$/) }).parse(req.body);
+    const fam = await ctx.db.family(dv.familyId, (q) => q.one<{ pin_hash: string | null }>('SELECT pin_hash FROM family WHERE id = $1', [dv.familyId]));
+    return { ok: !!fam?.pin_hash && safeEqual(fam.pin_hash, hashToken(pin, ctx.cfg.SESSION_SECRET)) };
+  });
+
   app.post('/device/released', async (req) => {
     const dv = await deviceAuth(ctx, req);
     await ctx.db.family(dv.familyId, async (q) => {

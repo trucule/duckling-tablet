@@ -16,6 +16,8 @@ export interface Shell {
   hasPin(): boolean;
   setPin(pin: string): Promise<void>;
   verifyPin(pin: string): Promise<boolean>;
+  // The family PIN from the server, as SHA-256 hex of "duckling:<pin>"; replaces whatever the shell holds.
+  setPinHash(hash: string): void;
   lockdownStatus(): LockdownStatus;
   requestHomeRole(): void;
   openSecuritySettings(): void;
@@ -38,6 +40,7 @@ interface NativeShell {
   hasPin(): boolean;
   setPin(pin: string): void;
   verifyPin(pin: string): boolean;
+  setPinHash(hash: string): void;
   lockdownStatus(): string;
   requestHomeRole(): void;
   openSecuritySettings(): void;
@@ -78,6 +81,7 @@ function native(n: NativeShell): Shell {
     hasPin: () => n.hasPin(),
     setPin: async (pin) => n.setPin(pin),
     verifyPin: async (pin) => n.verifyPin(pin),
+    setPinHash: (h) => { try { n.setPinHash(h); } catch { /* older shell */ } },
     lockdownStatus: () => { try { return JSON.parse(n.lockdownStatus()); } catch { return { homeRole: false, deviceSecure: false, pinned: false, lockdownOn: false }; } },
     requestHomeRole: () => n.requestHomeRole(),
     openSecuritySettings: () => n.openSecuritySettings(),
@@ -105,6 +109,7 @@ function browser(): Shell {
     hasPin: () => !!get('pin'),
     async setPin(pin) { set('pin', await hash(pin)); },
     async verifyPin(pin) { return !!get('pin') && get('pin') === await hash(pin); },
+    setPinHash(h) { set('pin', h); },
     lockdownStatus: () => ({ homeRole: false, deviceSecure: false, pinned: false, lockdownOn: false }),
     requestHomeRole() { alert('On the tablet this opens the home app chooser.'); },
     openSecuritySettings() { alert('On the tablet this opens the security settings.'); },

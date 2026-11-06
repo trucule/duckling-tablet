@@ -3,7 +3,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
 import { parentAuth } from '../auth.js';
-import { newId, notFound } from '../util.js';
+import { HttpError, hashToken, inDays, newId, newToken, notFound, sha256 } from '../util.js';
+import { redactText } from '../logging.js';
 
 // Starting level per subject, 1 (youngest) to 10; the apps map it to their own level ladders.
 const levels = z.record(z.enum(['reading', 'math', 'science', 'art', 'music', 'logic']), z.number().int().min(1).max(10));
@@ -24,10 +25,57 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
     const a = await parentAuth(ctx, req);
     return ctx.db.family(a.familyId, async (q) => ({
       familyId: a.familyId, you: a.email,
+      pinSet: !!(await q.one<{ pin_hash: string | null }>('SELECT pin_hash FROM family WHERE id = $1', [a.familyId]))?.pin_hash,
       parents: await q.all('SELECT id, email, role FROM parent ORDER BY created_at'),
       children: (await q.all('SELECT * FROM child ORDER BY created_at')).map(childRow),
       devices: await q.all(`SELECT ${DEVICE_COLUMNS} FROM device ORDER BY created_at`),
     }));
+  });
+
+  // The parent PIN guards the parent area on every tablet. Set here or on the first tablet; the device config carries
+  // the shells' form of the hash so a change here reaches every tablet at its next check-in.
+  app.put('/family/pin', async (req) => {
+    const a = await parentAuth(ctx, req);
+    const { pin } = z.object({ pin: z.string().regex(/^\d{4,6}$/, 'Four to six digits') }).parse(req.body);
+    await ctx.db.family(a.familyId, async (q) => {
+      await q.run('UPDATE family SET pin_hash = $1, pin_sync = $2, pin_set_at = now() WHERE id = $3', [hashToken(pin, ctx.cfg.SESSION_SECRET), sha256(`duckling:${pin}`), a.familyId]);
+      await audit(q, a.familyId, `parent:${a.parentId}`, 'pin.set');
+    });
+    return { set: true };
+  });
+
+  // A second parent: the address gets a sign-in link that joins this family. Up to four parents.
+  app.post('/family/parents/invite', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
+    const a = await parentAuth(ctx, req);
+    const { email } = z.object({ email: z.string().email().max(254) }).parse(req.body);
+    const token = newToken();
+    await ctx.db.family(a.familyId, async (q) => {
+      const n = (await q.one<{ n: number }>('SELECT COUNT(*)::int AS n FROM parent'))!.n;
+      if (n >= 4) throw new HttpError(409, 'A family can have four parents.');
+      if (await q.one('SELECT 1 FROM parent WHERE lower(email) = lower($1)', [email])) throw new HttpError(409, 'That address is already in your family.');
+      await q.run('SELECT create_invite_token($1, $2, $3, $4)', [hashToken(token, ctx.cfg.SESSION_SECRET), email.trim(), inDays(7), a.familyId]);
+      await audit(q, a.familyId, `parent:${a.parentId}`, 'parent.invited');
+    });
+    const link = `${ctx.cfg.PORTAL_URL}/signin?token=${token}`;
+    try {
+      await ctx.mailer.send(email, 'You are invited to a Duckling Tablet family',
+        `${a.email} invited you to manage their family's Duckling tablets. Open this link to join; it works once and expires in 7 days.\n\n${link}\n\nIf you were not expecting this, you can ignore this email.`);
+    } catch (err) {
+      req.log.error({ err: { type: (err as Error).name, code: (err as { code?: string }).code, message: redactText((err as Error).message) } }, 'invite email failed');
+      throw new HttpError(503, 'We could not send the email right now. Please try again in a minute.');
+    }
+    return { sent: true };
+  });
+
+  app.delete<{ Params: { id: string } }>('/family/parents/:id', async (req) => {
+    const a = await parentAuth(ctx, req);
+    if (req.params.id === a.parentId) throw new HttpError(400, 'You cannot remove yourself. Another parent can, or delete the account.');
+    return ctx.db.family(a.familyId, async (q) => {
+      const n = await q.run('DELETE FROM parent WHERE id = $1', [req.params.id]);
+      if (!n) throw notFound('No such parent');
+      await audit(q, a.familyId, `parent:${a.parentId}`, 'parent.removed', { id: req.params.id });
+      return { ok: true };
+    });
   });
 
   app.post('/children', async (req) => {

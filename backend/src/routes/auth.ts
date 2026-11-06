@@ -31,14 +31,23 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
     const { token } = z.object({ token: z.string().min(20).max(200) }).parse(req.body);
     // One transaction: redeem the link, find or create the parent, then scope to the family and open the session.
     const result = await ctx.db.app(async (q) => {
-      const link = await q.one<{ email: string }>('SELECT email FROM redeem_login_token($1)', [h(token)]);
+      const link = await q.one<{ email: string; invite_family_id: string | null }>('SELECT email, invite_family_id FROM redeem_login_token($1)', [h(token)]);
       if (!link) throw new HttpError(401, 'This link has expired. Ask for a new one.');
-      const parent = (await q.one<{ parent_id: string; family_id: string; created: boolean }>(
-        'SELECT parent_id, family_id, created FROM find_or_create_parent($1, $2, $3)', [link.email, newId('fam'), newId('par')]))!;
+      let parent: { parent_id: string; family_id: string; created: boolean; joined?: boolean };
+      if (link.invite_family_id) {
+        // An invite: the address joins the inviting family. An address that already has a family of its own cannot.
+        const j = (await q.one<{ parent_id: string; family_id: string; joined: boolean }>(
+          'SELECT parent_id, family_id, joined FROM join_family($1, $2, $3)', [link.email, link.invite_family_id, newId('par')]))!;
+        if (!j.joined) throw new HttpError(409, 'This email address already has a Duckling family of its own. Sign in with it, or ask for the invite at another address.');
+        parent = { ...j, created: false };
+      } else {
+        parent = (await q.one<{ parent_id: string; family_id: string; created: boolean }>(
+          'SELECT parent_id, family_id, created FROM find_or_create_parent($1, $2, $3)', [link.email, newId('fam'), newId('par')]))!;
+      }
       await q.setFamily(parent.family_id);
       const session = newToken();
       await q.run('INSERT INTO session (token_hash, parent_id, family_id, expires_at) VALUES ($1, $2, $3, $4)', [h(session), parent.parent_id, parent.family_id, inDays(30)]);
-      await audit(q, parent.family_id, `parent:${parent.parent_id}`, parent.created ? 'family.created' : 'parent.signed_in');
+      await audit(q, parent.family_id, `parent:${parent.parent_id}`, parent.created ? 'family.created' : link.invite_family_id ? 'parent.joined' : 'parent.signed_in');
       return { session, parentId: parent.parent_id, familyId: parent.family_id, created: parent.created };
     });
 

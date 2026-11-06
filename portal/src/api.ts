@@ -4,7 +4,9 @@ export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace
 
 export interface Child { id: string; firstName: string; grade: string | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] } }
 export interface Device { id: string; childId: string | null; platform: string; name: string; state: string; shellVersion: string | null; battery: number | null; lastSeenAt: string | null }
-export interface Family { familyId: string; you: string; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
+export interface Attachment { id: string; requestId: string; contentType: string; size: number; url: string; createdAt: string }
+export interface AppRequest { id: string; title: string; description: string; childGrade: string | null; installWhenReady: boolean; status: string; appId: string | null; createdAt: string; updatedAt: string; attachments: Attachment[] }
+export interface Family { familyId: string; you: string; pinSet: boolean; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
 export interface DeviceDetail { deviceId: string; state: string; child: Child | null; apps: { id: string; name: string; version: string; tileUrl: string | null }[]; hidden: string[]; allowlist: { host: string; tile?: { name: string; url: string } }[]; travel: { active: boolean; until: string | null } }
 export interface CatalogApp { id: string; name: string; tileUrl: string | null; description: string }
 
@@ -44,5 +46,23 @@ export const api = {
   settings: (id: string, b: { allowlist?: { host: string; tile?: { name: string; url: string } }[] }) => call<DeviceDetail>('PUT', `/devices/${id}/settings`, b),
   travel: (id: string, hours: number) => call('POST', `/devices/${id}/travel`, { hours }),
   catalog: () => call<{ apps: CatalogApp[] }>('GET', '/catalog'),
+  setPin: (pin: string) => call<{ set: boolean }>('PUT', '/family/pin', { pin }),
+  inviteParent: (email: string) => call<{ sent: boolean }>('POST', '/family/parents/invite', { email }),
+  removeParent: (id: string) => call('DELETE', `/family/parents/${id}`),
+  requests: () => call<{ requests: AppRequest[] }>('GET', '/requests'),
+  createRequest: (b: { title: string; description: string; childGrade?: string | null; installWhenReady: boolean }) => call<AppRequest>('POST', '/requests', b),
+  // A picture goes up as its own bytes with the image content type.
+  attach: async (requestId: string, file: File): Promise<Attachment> => {
+    const r = await fetch(`${API}/requests/${requestId}/attachments`, { method: 'POST', headers: { 'content-type': file.type || 'image/jpeg', authorization: `Bearer ${session.get()}` }, body: file });
+    const json = await r.json().catch(() => ({}));
+    if (!r.ok) throw new ApiError(r.status, json.error ?? r.statusText);
+    return json as Attachment;
+  },
+  // Pictures are private: fetched with the session and shown from a blob URL.
+  picture: async (url: string): Promise<string> => {
+    const r = await fetch(url, { headers: { authorization: `Bearer ${session.get()}` } });
+    if (!r.ok) throw new ApiError(r.status, 'Picture unavailable');
+    return URL.createObjectURL(await r.blob());
+  },
   deleteFamily: () => call('DELETE', '/family', { confirm: 'DELETE' }),
 };

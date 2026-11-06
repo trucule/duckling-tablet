@@ -22,6 +22,8 @@ const ready = existsSync(join(DIST, 'index.html')) && existsSync(join(TOOLS, 'no
 
 let cluster: Cluster, app: FastifyInstance, db: Db, dir: string, api: string, portal: string, server: Server;
 const mails: string[] = [];
+// A 1x1 PNG.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
 beforeAll(async () => {
   if (!ready) return;
@@ -116,6 +118,39 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByText('android · release', { exact: false }).waitFor();
     const after = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
     expect(after.state).toBe('release');
+
+    // The family PIN: set here, carried to a tablet in its config.
+    await p.getByText('Back to the family').click();
+    await p.getByRole('heading', { name: 'Parent PIN' }).waitFor();
+    await p.getByPlaceholder('PIN (4 to 6 digits)').fill('2468');
+    await p.getByPlaceholder('Again').fill('2468');
+    await p.getByRole('button', { name: 'Set PIN' }).click();
+    await p.getByText('Saved.', { exact: false }).waitFor();
+    await p.getByRole('button', { name: 'Change PIN' }).waitFor();
+    await p.getByRole('button', { name: 'Make a pairing code' }).click();
+    const code2 = (await p.locator('.code').textContent())!.trim();
+    const paired2 = await (await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: code2, platform: 'android', name: 'Second tablet' }) })).json();
+    expect(paired2.config.pinHash).toMatch(/^[0-9a-f]{64}$/);
+
+    // A second parent gets an invite link.
+    await p.getByPlaceholder("Another parent's email").fill('dad@example.com');
+    await p.getByRole('button', { name: 'Invite' }).click();
+    await p.getByText('Invitation sent to dad@example.com', { exact: false }).waitFor();
+    expect(mails.at(-1)).toContain('mom@example.com invited you');
+
+    // An app request with a picture, listed with its status and the picture shown.
+    await p.getByPlaceholder('A short name, like Dinosaur dig').fill('Dinosaur dig');
+    await p.getByPlaceholder('What should it do', { exact: false }).fill('Fossils, brushing sand away, measuring bones.');
+    await p.locator('input[type=file]').first().setInputFiles({ name: 'drawing.png', mimeType: 'image/png', buffer: PNG });
+    await p.getByText('1 picture chosen').waitFor();
+    await p.getByRole('button', { name: 'Send the request' }).click();
+    await p.getByText('Received', { exact: false }).waitFor();
+    await p.locator('img[src^="blob:"]').waitFor();
+    await p.getByText('A new request can be made once this one is finished.').waitFor();
+    const reqs = await (await fetch(`${api}/requests`, { headers: { authorization: `Bearer ${await p.evaluate(() => localStorage.getItem('duckling.session'))}` } })).json();
+    expect(reqs.requests[0].attachments).toHaveLength(1);
+    expect(reqs.requests[0].attachments[0]).toMatchObject({ contentType: 'image/png', size: PNG.length });
+    await p.screenshot({ path: join(dir, 'portal-family-after.png'), fullPage: true });
     expect(errors).toEqual([]);
     await browser.close();
   }, 120_000);

@@ -10,6 +10,23 @@ export interface TicketInput {
   requestId: string; familyId: string; title: string; description: string; childGrade: string | null;
 }
 export type CreateTicket = (t: TicketInput) => Promise<string | null>;
+// A picture the parent attached after the ticket was made: POST /tickets/:id/attachments { url, contentType }.
+// The url is a signed Duckling link that works for 30 days. Nothing is retried; the picture stays visible in the portal.
+export type AttachToTicket = (ticketId: string, url: string, contentType: string) => Promise<boolean>;
+
+export function makeEtDuckyAttach(cfg: Config, log: (msg: string) => void): AttachToTicket {
+  return async (ticketId, url, contentType) => {
+    if (!cfg.ETDUCKY_API_URL) return false;
+    try {
+      const r = await fetch(`${cfg.ETDUCKY_API_URL.replace(/\/$/, '')}/tickets/${encodeURIComponent(ticketId)}/attachments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ETDUCKY_API_KEY}` },
+        body: JSON.stringify({ url, contentType }), signal: AbortSignal.timeout(10_000),
+      });
+      if (!r.ok) log(`ET Ducky attach failed: ${r.status}`);
+      return r.ok;
+    } catch (e) { log(`ET Ducky attach error: ${redactText((e as Error).message)}`); return false; }
+  };
+}
 
 export function makeEtDucky(cfg: Config, log: (msg: string) => void): CreateTicket {
   return async (t) => {

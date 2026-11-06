@@ -9,7 +9,7 @@ export interface InstalledApp { id: string; name: string; version: string; url: 
 export interface AllowEntry { host: string; tile?: { name: string; url: string; color?: string } }
 export interface DeviceConfig {
   deviceId: string; state: 'active' | 'release' | 'released'; child: Child | null; apps: InstalledApp[]; hidden: string[];
-  allowlist: AllowEntry[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; serverTime: string;
+  allowlist: AllowEntry[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string;
 }
 export interface CatalogApp {
   id: string; name: string; description: string; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; tileUrl: string | null;
@@ -46,4 +46,5 @@ export const api = {
   install: (id: string) => call<{ installed: boolean }>('PUT', `/device/apps/${id}`),
   uninstall: (id: string) => call<{ installed: boolean }>('DELETE', `/device/apps/${id}`),
   released: () => call<{ state: string }>('POST', '/device/released'),
+  setPin: (pin: string) => call<{ set: boolean }>('PUT', '/device/pin', { pin }),
 };

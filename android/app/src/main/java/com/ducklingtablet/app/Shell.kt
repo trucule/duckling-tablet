@@ -62,6 +62,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     @JavascriptInterface fun hasPin(): Boolean = prefs.hasPin()
     @JavascriptInterface fun setPin(pin: String) { prefs.setPin(pin) }
     @JavascriptInterface fun verifyPin(pin: String): Boolean = prefs.verifyPin(pin)
+    @JavascriptInterface fun setPinHash(hex: String) { prefs.setPinHash(hex) }
 
     @JavascriptInterface fun lockdownStatus(): String {
         val role = activity.getSystemService(RoleManager::class.java)

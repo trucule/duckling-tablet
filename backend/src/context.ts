@@ -3,7 +3,7 @@ import type { Db, Q } from './db.js';
 import type { Storage } from './storage.js';
 import type { Mailer } from './mailer.js';
 import type { Synth } from './azure.js';
-import type { CreateTicket } from './etducky.js';
+import type { CreateTicket, AttachToTicket } from './etducky.js';
 import type { Complete } from './anthropic.js';
 
 export interface Ctx {
@@ -13,6 +13,7 @@ export interface Ctx {
   mailer: Mailer;
   synth: Synth;
   createTicket: CreateTicket;
+  attachToTicket: AttachToTicket;
   complete: Complete;
 }
 

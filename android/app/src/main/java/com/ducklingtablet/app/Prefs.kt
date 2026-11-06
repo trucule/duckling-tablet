@@ -27,6 +27,8 @@ class Prefs(context: Context) {
     fun hasPin(): Boolean = p.contains("pinHash")
     fun setPin(pin: String) { p.edit().putString("pinHash", hash(pin)).apply() }
     fun verifyPin(pin: String): Boolean = p.getString("pinHash", null) == hash(pin)
+    /** The family PIN from the server: SHA-256 hex of "duckling:<pin>", the same form [hash] makes. */
+    fun setPinHash(hex: String) { if (hex.matches(Regex("[0-9a-f]{64}"))) p.edit().putString("pinHash", hex).apply() }
 
     fun installed(): MutableMap<String, String> {
         val out = mutableMapOf<String, String>()
