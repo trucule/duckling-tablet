@@ -10,6 +10,8 @@ apps. The product plan is the "Duckling Tablet: Product Plan" doc; setup and ope
 | `apps/` | 20 of the 23 apps from the Surface project, one folder each with `manifest.json`, `index.html` and `tile.png` | Camera Fun, Read It Say It Make It and Story Maker still to port |
 | `tools/` | `publish.mjs`: key pair, package, sign, upload to the catalog | Ready |
 | `web/` | Child web app (Preact + Vite) at app.ducklingtablet.com: pairing, home, Library, parent PIN and area, shell bridge | Phase 2 core done, browser-tested |
+| `portal/` | Parent portal (Preact + Vite) at parents.ducklingtablet.com: email-link sign-in, children, pairing codes, devices (apps, websites, travel mode, release), account deletion | First cut, browser-tested |
+| `android/` | Kotlin shell: home role, screen pinning, WebView on app.ducklingtablet.com, signed package installs, app runner with Home pill; built by GitHub Actions | PoC |
 | `site/` | Public site at ducklingtablet.com: product page, app library, privacy policy, children's privacy notice, terms, support, Windows download, Stripe return pages. Static HTML and CSS, no build step; deployed by `deploy-remote.sh` | Live |
 | `deploy/` | `setup-droplet.sh`, `deploy-remote.sh` (runs on the droplet: pull, build, migrate, restart), `deploy.ps1` (ssh wrapper), systemd unit, nginx and Caddy configs | Ready |
 | `web/` | Child web app: home screen and Store | Next |

@@ -40,6 +40,13 @@ npm run build
 mkdir -p /opt/duckling/www/app
 rsync -a --delete "$SRC/web/dist/" /opt/duckling/www/app/
 
+# The parent portal (parents.ducklingtablet.com): built here, served by nginx from /opt/duckling/www/portal.
+cd "$SRC/portal"
+npm ci --no-audit --no-fund --loglevel=error
+npm run build
+mkdir -p /opt/duckling/www/portal
+rsync -a --delete "$SRC/portal/dist/" /opt/duckling/www/portal/
+
 # The publish tool's dependencies, so `node tools/publish.mjs` works on the droplet.
 cd "$SRC/tools" && npm ci --no-audit --no-fund --loglevel=error
 cd "$SRC/backend"
