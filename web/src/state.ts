@@ -32,6 +32,7 @@ export async function checkin(): Promise<void> {
     config.value = c;
     paired.value = true;
     lastError.value = '';
+    shell.setAllowedHosts(c.allowlist.map((w) => w.host.replace(/^\*\./, '')));
     if (c.state === 'release') { await releaseDevice(true); return; }
     void installMissing(c);
   } catch (e) {

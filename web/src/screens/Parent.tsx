@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { config, checkin, releaseDevice, go, lastError, parentUnlocked } from '../state';
 import { shell, type LockdownStatus } from '../shell';
 
@@ -7,6 +7,7 @@ export function Parent() {
   const [status, setStatus] = useState<LockdownStatus>(shell.lockdownStatus());
   const [busy, setBusy] = useState(false);
   const refresh = () => setStatus(shell.lockdownStatus());
+  useEffect(() => { window.addEventListener('duckling:resume', refresh); return () => window.removeEventListener('duckling:resume', refresh); }, []);
   const c = config.value;
   const android = shell.platform === 'android';
   const release = async () => {

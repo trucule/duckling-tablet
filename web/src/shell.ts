@@ -20,6 +20,7 @@ export interface Shell {
   requestHomeRole(): void;
   openSecuritySettings(): void;
   setLockdown(on: boolean): void;
+  setAllowedHosts(hosts: string[]): void;
   release(): void;
 }
 
@@ -40,11 +41,12 @@ interface NativeShell {
   requestHomeRole(): void;
   openSecuritySettings(): void;
   setLockdown(on: boolean): void;
+  setAllowedHosts(csv: string): void;
   release(): void;
 }
 
 declare global {
-  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void } }
+  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void } }
 }
 
 const pending = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
@@ -54,6 +56,8 @@ window.DucklingWeb = {
     if (!p) return;
     ok ? p.resolve() : p.reject(new Error(message || 'Install failed'));
   },
+  // The shell calls this when the activity comes back to the front (after a settings screen, for example).
+  onResume() { window.dispatchEvent(new Event('duckling:resume')); },
 };
 
 function native(n: NativeShell): Shell {
@@ -76,6 +80,7 @@ function native(n: NativeShell): Shell {
     requestHomeRole: () => n.requestHomeRole(),
     openSecuritySettings: () => n.openSecuritySettings(),
     setLockdown: (on) => n.setLockdown(on),
+    setAllowedHosts: (hosts) => n.setAllowedHosts(hosts.join(',')),
     release: () => n.release(),
   };
 }
@@ -101,6 +106,7 @@ function browser(): Shell {
     requestHomeRole() { alert('On the tablet this opens the home app chooser.'); },
     openSecuritySettings() { alert('On the tablet this opens the security settings.'); },
     setLockdown() {},
+    setAllowedHosts() {},
     release() { set('token', null); set('installed', null); set('pin', null); },
   };
 }

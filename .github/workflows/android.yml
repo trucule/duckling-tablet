@@ -1,0 +1,37 @@
+# Builds the Android debug APK on every push that touches android/ and keeps it as a workflow artifact
+# (Actions tab > the run > Artifacts > duckling-tablet-debug). The debug keystore is committed, so each build
+# installs over the previous one.
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0 platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Build debug APK
+        working-directory: android
+        run: gradle --no-daemon assembleDebug
+      - name: Name the APK after the commit
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk duckling-tablet-${GITHUB_SHA::7}.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: duckling-tablet-debug
+          path: duckling-tablet-*.apk
+          retention-days: 30
