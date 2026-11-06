@@ -1,7 +1,7 @@
 {
   "id": "light-bridge",
   "name": "Light Bridge",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Connect matching orbs with bridges that never cross. Boards grow from 4 by 4 to 9 by 9.",
   "subjects": [
     "logic"

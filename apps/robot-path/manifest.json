@@ -1,7 +1,7 @@
 {
   "id": "robot-path",
   "name": "Robot Path",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Program a toy robot with arrow cards to collect gems. Later levels add repeats, an if card and fewest-moves puzzles.",
   "subjects": [
     "logic"

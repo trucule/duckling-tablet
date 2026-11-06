@@ -10,8 +10,8 @@ import java.security.MessageDigest
 /** The package signing public key. Packages are accepted only when their Ed25519 signature verifies against it. */
 object Signing {
     // Raw 32-byte Ed25519 public key, base64. Printed by `node tools/publish.mjs keygen`.
-    // Development key, made on the droplet on 2026-11-05; replaced by Chris's production key before the pilot.
-    const val PUBLIC_KEY_B64 = "huL2WUqpvCs3aUL7XwibPESwhEe+JDDDJAJDPospU38="
+    // Production key, made on the droplet on 2026-11-06 (private half in /opt/duckling/.env only).
+    const val PUBLIC_KEY_B64 = "WjahKRLoQJBt/V1D48hazYaoVJaWkON81N0FeIMLols="
 
     fun verify(data: ByteArray, signatureB64: String): Boolean {
         return try {

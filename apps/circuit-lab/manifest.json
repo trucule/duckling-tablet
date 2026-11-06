@@ -1,7 +1,7 @@
 {
   "id": "circuit-lab",
   "name": "Circuit Lab",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Wire batteries, bulbs, switches and buzzers to light a 3D house. Series bulbs glow dim, parallel bulbs glow bright.",
   "subjects": [
     "science"

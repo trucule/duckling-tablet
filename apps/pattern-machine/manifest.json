@@ -1,7 +1,7 @@
 {
   "id": "pattern-machine",
   "name": "Pattern Machine",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Machines turn, flip, paint and resize shapes. Predict the output, find the hidden rule, follow chains of machines.",
   "subjects": [
     "math",

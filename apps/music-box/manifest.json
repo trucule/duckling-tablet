@@ -1,7 +1,7 @@
 {
   "id": "music-box",
   "name": "Music Box",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A tone matrix with drums and five instruments, three song slots, and a Voice Lab that turns the child's own voice into an instrument.",
   "subjects": [
     "music"

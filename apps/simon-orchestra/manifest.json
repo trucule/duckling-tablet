@@ -1,7 +1,7 @@
 {
   "id": "simon-orchestra",
   "name": "Simon Orchestra",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Six instruments play a tune on a 3D stage and the child plays it back, longer, faster, then backwards.",
   "subjects": [
     "music",

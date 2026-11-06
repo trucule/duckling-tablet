@@ -1,7 +1,7 @@
 {
   "id": "planet-explorer",
   "name": "Planet Explorer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Fly to each planet, land and jump. Gravity, day length and size come from the NASA fact sheet.",
   "subjects": [
     "science"
