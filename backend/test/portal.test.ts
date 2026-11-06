@@ -109,7 +109,7 @@ describe.skipIf(!ready)('parent portal', () => {
 
     p.once('dialog', (d) => d.accept());
     await p.getByRole('button', { name: 'Release device' }).click();
-    await p.getByText('release', { exact: false }).first().waitFor();
+    await p.getByText('android · release', { exact: false }).waitFor();
     const after = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
     expect(after.state).toBe('release');
     expect(errors).toEqual([]);
