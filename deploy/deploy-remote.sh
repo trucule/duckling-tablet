@@ -29,6 +29,10 @@ npm run build
 npm prune --omit=dev --no-audit --no-fund --loglevel=error
 chown -R root:root "$SRC"
 
+# The public site: static files that nginx serves from /opt/duckling/www/site.
+mkdir -p /opt/duckling/www/site
+if command -v rsync >/dev/null; then rsync -a --delete "$SRC/site/" /opt/duckling/www/site/; else rm -rf /opt/duckling/www/site/* && cp -r "$SRC/site/." /opt/duckling/www/site/; fi
+
 if [ "${1:-}" = "--bootstrap" ]; then
   read -rsp 'doadmin connection string (postgresql://doadmin:...@private-host:25060/duckling?sslmode=require): ' DATABASE_URL_ADMIN; echo
   export DATABASE_URL_ADMIN
