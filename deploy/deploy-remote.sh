@@ -17,9 +17,13 @@ test -f /opt/duckling/ca-certificate.crt || { echo "Missing /opt/duckling/ca-cer
 test -f "$ENV_FILE" || { echo "Missing $ENV_FILE (run setup-droplet.sh first)"; exit 1; }
 
 cd "$SRC"
-git fetch --quiet origin main
-git reset --quiet --hard origin/main
-echo "source at $(git rev-parse --short HEAD): $(git log -1 --pretty=%s)"
+if [ -z "${DUCKLING_PULLED:-}" ]; then
+  git fetch --quiet origin main
+  git reset --quiet --hard origin/main
+  echo "source at $(git rev-parse --short HEAD): $(git log -1 --pretty=%s)"
+  # bash reads a script as it runs, so the rest of this run must use the file that was just pulled, not the old one.
+  DUCKLING_PULLED=1 exec bash "$SRC/deploy/deploy-remote.sh" "$@"
+fi
 
 cd "$SRC/backend"
 # The droplet has 1 GB shared with Pitch Jam: keep npm and tsc small.
