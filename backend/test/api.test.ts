@@ -203,9 +203,13 @@ describe('app requests', () => {
     const good = await app.inject({ method: 'POST', url: '/hooks/etducky', headers: { 'content-type': 'application/json', 'x-etducky-signature': sig }, payload: body });
     expect(good.json().updated).toBe(1);
     expect((await app.inject({ method: 'GET', url: '/requests', headers: p.auth })).json().requests[0].status).toBe('building');
-    // A redelivery of the same event changes nothing, whether identified by eventId, by the delivery header or by body.
+    // ET Ducky's automation webhook cannot sign: the secret as a bearer token works too, a wrong one does not.
+    expect((await app.inject({ method: 'POST', url: '/hooks/etducky', headers: { 'content-type': 'application/json', authorization: 'Bearer not-it' }, payload: body })).statusCode).toBe(401);
+    const unsigned = await app.inject({ method: 'POST', url: '/hooks/etducky', headers: { 'content-type': 'application/json', authorization: `Bearer ${HOOK}` }, payload: body });
+    expect(unsigned.json().updated).toBe(1);
+    // A delivery that names an event is applied once; one without an eventId is applied as it comes.
     const again = await app.inject({ method: 'POST', url: '/hooks/etducky', headers: { 'content-type': 'application/json', 'x-etducky-signature': sig }, payload: body });
-    expect(again.json()).toEqual({ duplicate: true, updated: 0 });
+    expect(again.json()).toEqual({ updated: 1 });
     const withId = JSON.stringify({ eventId: 'evt-7', ticketId: 'T-1', status: 'Planned' });
     const sigId = createHmac('sha256', HOOK).update(withId).digest('hex');
     const h = { 'content-type': 'application/json', 'x-etducky-signature': sigId };

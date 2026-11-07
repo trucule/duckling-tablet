@@ -1,8 +1,8 @@
 // App requests become tickets in ET Ducky. Status changes come back through POST /hooks/etducky.
-// The ticket API contract is small on purpose: ET Ducky needs one create endpoint that accepts this JSON
-// and returns { id }, and one outgoing webhook that sends { eventId, ticketId, status, message? } signed with
-// ETDUCKY_WEBHOOK_SECRET (header x-etducky-signature: hex HMAC-SHA256 of the raw body). eventId is unique per
-// delivery attempt's underlying event, so a retry of the same event is skipped here (webhook_event).
+// The ticket API contract is small on purpose: ET Ducky needs one create endpoint that accepts this JSON and returns
+// { id }, an attachments endpoint, and an outgoing webhook sending { ticketId, status, eventId? } with the shared
+// secret as a bearer token (or an HMAC-SHA256 signature in x-etducky-signature). The full contract is in
+// D:\Ducking_Docs\ET-Ducky-App-Request-Tickets-Spec.md.
 import type { Config } from './config.js';
 import { redactText } from './logging.js';
 

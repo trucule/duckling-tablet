@@ -102,21 +102,28 @@ export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx
   // in. System work: the ticket id is the only key, so it runs past the policies.
   app.register(async (hooks) => {
     hooks.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => done(null, body));
+    // ET Ducky's automation webhook action sends a body template with custom headers and cannot sign the body, so the
+    // secret travels as a bearer token. A sender that can sign may instead send x-etducky-signature (hex HMAC-SHA256
+    // of the raw body under the same secret). A delivery that names an eventId is applied once; one without is applied
+    // as it comes, which is harmless because the update is idempotent.
     hooks.post('/hooks/etducky', async (req) => {
       const raw = String(req.body ?? '');
+      const secret = ctx.cfg.ETDUCKY_WEBHOOK_SECRET;
       const sig = String(req.headers['x-etducky-signature'] ?? '');
-      const want = createHmac('sha256', ctx.cfg.ETDUCKY_WEBHOOK_SECRET || '\u0000').update(raw).digest('hex');
-      if (!ctx.cfg.ETDUCKY_WEBHOOK_SECRET || !safeEqual(sig, want)) throw new HttpError(401, 'Bad signature');
+      const bearer = String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+      const signed = !!sig && safeEqual(sig, createHmac('sha256', secret || '\u0000').update(raw).digest('hex'));
+      const authorized = !!secret && (signed || (!!bearer && safeEqual(bearer, secret)));
+      if (!authorized) throw new HttpError(401, 'Bad signature');
       const b = z.object({
         eventId: z.union([z.string(), z.number()]).transform(String).optional(),
         ticketId: z.union([z.string(), z.number()]).transform(String), status: z.string(),
       }).parse(JSON.parse(raw));
-      const eventId = b.eventId ?? (req.headers['x-etducky-delivery'] ? String(req.headers['x-etducky-delivery']) : `body:${sha256(raw)}`);
+      const eventId = b.eventId ?? (req.headers['x-etducky-delivery'] ? String(req.headers['x-etducky-delivery']) : null);
       const map: Record<string, string> = { new: 'requested', open: 'requested', planned: 'planned', 'in progress': 'building', building: 'building', declined: 'declined', closed: 'declined', rejected: 'declined' };
-      const status = map[b.status.toLowerCase()];
+      const status = map[b.status.trim().toLowerCase()];
       if (!status) return { ignored: true };
       return ctx.db.system(async (q) => {
-        if (!(await firstDelivery(q, 'etducky', eventId))) return { duplicate: true, updated: 0 };
+        if (eventId && !(await firstDelivery(q, 'etducky', eventId))) return { duplicate: true, updated: 0 };
         const updated = await q.run("UPDATE app_request SET status = $1, updated_at = now() WHERE etducky_ticket_id = $2 AND status != 'shipped'", [status, b.ticketId]);
         return { updated };
       });
