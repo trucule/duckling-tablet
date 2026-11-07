@@ -40,6 +40,17 @@ describe('duckling-compat.js', () => {
         });
         return;
       }
+      if (url.pathname.startsWith('/api/device/child/')) {
+        let data = ''; req.on('data', (c) => { data += c; });
+        req.on('end', () => {
+          requests.push(`HOME ${req.method} ${url.pathname} ${req.headers.authorization} ${req.headers['content-type'] ?? '-'} ${data.slice(0, 120)}`);
+          res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+          if (url.pathname.endsWith('/avatar') && req.method === 'GET') return res.end(JSON.stringify({ design: { hair: 'bob' }, owned: [], spent: 2, savedAt: 5, earned: 9, earnedByApp: { 'word-wizard': 6, 'count-with-me': 3 } }));
+          if (url.pathname.endsWith('/stars')) return res.end(JSON.stringify({ earned: 11 }));
+          res.end('{}');
+        });
+        return;
+      }
       if (url.pathname === '/api/tts') {
         requests.push(`${req.headers.authorization} ${url.search}`);
         if (refuse) { res.writeHead(429); return res.end(); }
@@ -65,23 +76,24 @@ describe('duckling-compat.js', () => {
       expect(await a.evaluate(() => window.KidTablet.childName)).toBe('Ada');
 
       // A spoken line: one request with the token, then start, word boundaries and end from the real clip.
+      const tts = () => requests.filter((r) => r.startsWith('Device '));
       const events = await a.evaluate(() => window.sayAndWait('Tap the red one.'));
-      expect(requests).toHaveLength(1);
-      expect(requests[0]).toMatch(/^Device dev-token-1 \?text=Tap%20the%20red%20one\.&rate=0&voice=en-US-AnaNeural$/);
+      expect(tts()).toHaveLength(1);
+      expect(tts()[0]).toMatch(/^Device dev-token-1 \?text=Tap%20the%20red%20one\.&rate=0&voice=en-US-AnaNeural$/);
       expect(events[0]).toBe('start');
       expect(events.filter((e: string) => e.startsWith('boundary'))).toEqual(['boundary:0', 'boundary:4', 'boundary:8', 'boundary:12']);
       expect(events.at(-1)).toBe('end');
       // The same line again comes from the cache: no new request.
       await a.evaluate(() => window.sayAndWait('Tap the red one.'));
-      expect(requests).toHaveLength(1);
+      expect(tts()).toHaveLength(1);
       // A line with the child's name is marked private.
       await a.evaluate(() => window.sayAndWait('Well done, Ada!'));
-      expect(requests.at(-1)).toMatch(/text=Well%20done%2C%20Ada!&rate=0&voice=en-US-AnaNeural&private=1$/);
+      expect(tts().at(-1)).toMatch(/text=Well%20done%2C%20Ada!&rate=0&voice=en-US-AnaNeural&private=1$/);
       // The daily allowance is used up: the device voice takes over and the utterance still finishes.
       refuse = true;
       const fallback = await a.evaluate(() => window.sayAndWait('Try the blue one.'));
       expect(fallback.at(-1)).toMatch(/end|error/);
-      expect(requests).toHaveLength(3);
+      expect(tts()).toHaveLength(3);
 
       // An app's Anthropic call goes to the Duckling API with the device token and the app id, and no key.
       expect(await a.evaluate(() => (window as any).DWM_CONFIG.apiKey)).toBe('duckling');
@@ -91,7 +103,27 @@ describe('duckling-compat.js', () => {
       });
       expect(ai).toBe('ok');
       expect(requests.at(-1)).toBe('AI Device dev-token-1 count-with-me nokey {"model":"m","max_tokens":5,"messages":[{"role":"user","content":"hi"}]}');
-      expect(requests).toHaveLength(4);
+
+      // The Surface home-screen service (KidHome) is answered by the child's profile: the avatar comes from the API,
+      // a saved design and portrait go to it, and the star count adds the other apps' stars from the server.
+      await a.waitForFunction(() => (window as any).KID_STARS && (window as any).KID_STARS.earned() === 9);
+      await a.evaluate(() => { localStorage.setItem('math-progress', JSON.stringify({ level: 4, stars: 5 })); });
+      await a.waitForFunction(() => (window as any).KID_STARS.earned() === 11); // 6 (word-wizard) + max(5 local, 3 served)
+      // The report goes a moment after the save (one report for a burst of saves).
+      await expect.poll(() => requests.filter((r) => r.includes('/device/child/stars')), { timeout: 5000 }).toContain('HOME POST /api/device/child/stars Device dev-token-1 application/json {"appId":"count-with-me","earned":5}');
+      const home = await a.evaluate(async () => {
+        const got = await (await fetch('http://127.0.0.1:47821/avatar')).json();
+        await fetch('http://127.0.0.1:47821/avatar', { method: 'POST', body: JSON.stringify({ design: { hair: 'bun' }, owned: ['bun'], spent: 3, savedAt: 7 }) });
+        await fetch('http://127.0.0.1:47821/portrait', { method: 'POST', body: 'data:image/png;base64,iVBORw0KGgo=' });
+        return got;
+      });
+      expect(home.design).toEqual({ hair: 'bob' });
+      expect(requests.filter((r) => r.startsWith('HOME')).slice(-3)).toEqual([
+        'HOME GET /api/device/child/avatar Device dev-token-1 - ',
+        'HOME PUT /api/device/child/avatar Device dev-token-1 application/json {"design":{"hair":"bun"},"owned":["bun"],"spent":3,"savedAt":7}',
+        'HOME PUT /api/device/child/portrait Device dev-token-1 text/plain data:image/png;base64,iVBORw0KGgo=',
+      ]);
+      const before = requests.length;
 
       // Without a shell bridge nothing is intercepted: no request leaves the page.
       const c = await ctx.newPage(); await c.goto(`${base}/apps/count-with-me/nobridge.html`);
@@ -99,7 +131,8 @@ describe('duckling-compat.js', () => {
       expect(await c.evaluate(() => localStorage.getItem('progress'))).toBe('level 3'); // same app id, same namespace
       await c.evaluate(() => window.sayAndWait('Hello.'));
       expect(await c.evaluate(() => (window as any).DWM_CONFIG)).toBeUndefined();
-      expect(requests).toHaveLength(4);
+      expect(await c.evaluate(() => (window as any).KID_STARS)).toBeUndefined();
+      expect(requests).toHaveLength(before);
     } finally { await browser.close(); server.close(); }
   }, 60_000);
 });

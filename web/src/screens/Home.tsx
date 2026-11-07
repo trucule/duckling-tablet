@@ -10,7 +10,11 @@ export function Home() {
   return (
     <div class="screen">
       <div class="topbar">
-        <h1>{childName.value ? `${childName.value}'s tablet` : 'Duckling'}</h1>
+        <span class="who">
+          {c?.child?.portraitUrl ? <img class="portrait" src={c.child.portraitUrl} alt="" /> : null}
+          <h1>{childName.value ? `${childName.value}'s tablet` : 'Duckling'}</h1>
+        </span>
+        {c?.child?.stars ? <span class="stars" title="Stars earned in the apps">&#11088; {c.child.stars.balance}</span> : null}
       </div>
       {setupNeeded.value && (
         <button class="setup" onClick={() => go('pin')}>

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
 import type { Q } from '../db.js';
 import { deviceAuth, parentAuth } from '../auth.js';
-import { childRow } from './family.js';
+import { childRow, portraitUrl, starsOf } from './family.js';
 import { listCatalog } from '../catalog.js';
 import { after } from '../notify.js';
 import { HttpError, badRequest, forbidden, hashToken, inMinutes, newId, newToken, notFound, now, pairingCode, safeEqual, sha256 } from '../util.js';
@@ -29,7 +29,8 @@ async function setSetting(q: Q, familyId: string, deviceId: string, key: string,
 export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string) {
   const d = await q.one('SELECT * FROM device WHERE id = $1', [deviceId]);
   if (!d) throw notFound('No such device');
-  const child = d.child_id ? childRow(await q.one('SELECT * FROM child WHERE id = $1', [d.child_id])) : null;
+  const childRaw = d.child_id ? await q.one('SELECT * FROM child WHERE id = $1', [d.child_id]) : null;
+  const child = childRaw ? { ...childRow(childRaw), portraitUrl: portraitUrl(ctx.cfg, childRaw.id, childRaw.portrait_key), stars: await starsOf(q, childRaw.id, childRaw.avatar) } : null;
   const installed = new Set((await q.all('SELECT app_id FROM device_app WHERE device_id = $1', [deviceId])).map((r) => r.app_id as string));
   const hidden = new Set((await q.all('SELECT app_id FROM device_hidden_app WHERE device_id = $1', [deviceId])).map((r) => r.app_id as string));
   const catalog = (await listCatalog(ctx, q)).filter((a) => !hidden.has(a.id));
@@ -238,6 +239,73 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
   });
 
   // Remove from this device (on the tablet, behind the parent PIN): the shell has already released the lockdown.
+  // ---- The child's avatar, portrait and stars (My Avatar and the stars counter in every app, through the
+  // compatibility script). All of it lives on the child profile, so it is the same on every tablet she uses.
+  const withChild = async (dv: { familyId: string; childId: string | null }) => {
+    if (!dv.childId) throw new HttpError(409, 'This tablet has no child assigned yet');
+    return dv.childId;
+  };
+
+  app.get('/device/child/avatar', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    if (!dv.childId) return { design: null, owned: [], spent: 0, savedAt: 0, earned: 0, earnedByApp: {} };
+    return ctx.db.family(dv.familyId, async (q) => {
+      const c = await q.one<{ avatar: any; avatar_saved_at: string | null }>('SELECT avatar, avatar_saved_at FROM child WHERE id = $1', [dv.childId]);
+      const rows = await q.all<{ app_id: string; earned: number }>('SELECT app_id, earned FROM child_stars WHERE child_id = $1', [dv.childId]);
+      const earnedByApp = Object.fromEntries(rows.map((r) => [r.app_id, r.earned]));
+      const a = c?.avatar ?? {};
+      return { design: a.design ?? null, owned: a.owned ?? [], spent: a.spent ?? 0, savedAt: a.savedAt ?? 0, earned: rows.reduce((n, r) => n + r.earned, 0), earnedByApp };
+    });
+  });
+
+  app.put('/device/child/avatar', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const childId = await withChild(dv);
+    const b = z.object({ design: z.record(z.unknown()), owned: z.array(z.string().max(64)).max(500).default([]), spent: z.number().int().min(0).max(1_000_000).default(0), savedAt: z.number().min(0).default(0) }).parse(req.body);
+    if (JSON.stringify(b).length > 32 * 1024) throw new HttpError(413, 'Avatar too large');
+    await ctx.db.family(dv.familyId, async (q) => {
+      // A newer save on another tablet is kept; the app restores from the server when it sees a later savedAt.
+      const n = await q.run('UPDATE child SET avatar = $2, avatar_saved_at = now() WHERE id = $1 AND (avatar IS NULL OR COALESCE((avatar->>\'savedAt\')::numeric, 0) <= $3)', [childId, JSON.stringify(b), b.savedAt]);
+      if (n) await audit(q, dv.familyId, `device:${dv.deviceId}`, 'child.avatar', { child: childId });
+    });
+    return { saved: true };
+  });
+
+  app.post('/device/child/stars', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const childId = await withChild(dv);
+    const b = z.object({ appId: z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}$/), earned: z.number().int().min(0).max(1_000_000) }).parse(req.body);
+    return ctx.db.family(dv.familyId, async (q) => {
+      await q.run(`INSERT INTO child_stars (family_id, child_id, app_id, earned) VALUES ($1, $2, $3, $4)
+        ON CONFLICT (child_id, app_id) DO UPDATE SET earned = GREATEST(child_stars.earned, excluded.earned), updated_at = now()`, [dv.familyId, childId, b.appId, b.earned]);
+      const total = (await q.one<{ n: number }>('SELECT COALESCE(SUM(earned), 0)::int AS n FROM child_stars WHERE child_id = $1', [childId]))!.n;
+      return { earned: total };
+    });
+  });
+
+  // The portrait: a 384-pixel PNG as a data URL (what My Avatar's portrait() returns), up to 600 KB.
+  app.register(async (pics) => {
+    pics.addContentTypeParser('text/plain', { parseAs: 'string', bodyLimit: 900 * 1024 }, (_req, body, done) => done(null, body));
+    pics.put('/device/child/portrait', async (req) => {
+      const dv = await deviceAuth(ctx, req);
+      const childId = await withChild(dv);
+      const raw = typeof req.body === 'string' ? req.body : '';
+      const m = raw.match(/^data:image\/png;base64,([A-Za-z0-9+/=\s]+)$/);
+      if (!m) throw new HttpError(415, 'Send a PNG data URL');
+      const png = Buffer.from(m[1].replace(/\s/g, ''), 'base64');
+      if (png.length < 100 || png.length > 600 * 1024 || png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw new HttpError(400, 'Not a PNG, or too large');
+      const key = `portraits/${childId}-${sha256(png).slice(0, 12)}.png`;
+      await ctx.storage.put(key, png, 'image/png', false);
+      const old = await ctx.db.family(dv.familyId, async (q) => {
+        const prev = await q.one<{ portrait_key: string | null }>('SELECT portrait_key FROM child WHERE id = $1', [childId]);
+        await q.run('UPDATE child SET portrait_key = $2, portrait_updated_at = now() WHERE id = $1', [childId, key]);
+        return prev?.portrait_key ?? null;
+      });
+      if (old && old !== key) { try { await ctx.storage.delete(old); } catch { /* a stale file costs little */ } }
+      return { portraitUrl: portraitUrl(ctx.cfg, childId, key) };
+    });
+  });
+
   // The first tablet sets the family PIN when none exists yet; after that the website owns it.
   app.put('/device/pin', async (req) => {
     const dv = await deviceAuth(ctx, req);

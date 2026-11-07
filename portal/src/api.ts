@@ -2,7 +2,7 @@
 // cookie, but the portal and the API are on different hosts so the bearer header is what counts).
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
 
-export interface Child { id: string; firstName: string; grade: string | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] } }
+export interface Child { id: string; firstName: string; grade: string | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; stars?: { earned: number; spent: number; balance: number }; portraitUrl?: string | null }
 export interface Device { id: string; childId: string | null; platform: string; name: string; state: string; shellVersion: string | null; battery: number | null; lastSeenAt: string | null }
 export interface Attachment { id: string; requestId: string; contentType: string; size: number; url: string; createdAt: string }
 export interface AppRequest { id: string; title: string; description: string; childGrade: string | null; installWhenReady: boolean; status: string; appId: string | null; createdAt: string; updatedAt: string; attachments: Attachment[] }

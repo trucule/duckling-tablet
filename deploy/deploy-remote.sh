@@ -82,4 +82,10 @@ fi
 DOTENV_CONFIG_PATH="$ENV_FILE" node dist/migrate.js
 systemctl restart duckling-api
 sleep 2
-if curl -fsS http://127.0.0.1:8787/health; then echo; echo "deployed"; else echo; journalctl -u duckling-api -n 30 --no-pager; exit 1; fi
+if curl -fsS http://127.0.0.1:8787/health; then echo; else echo; journalctl -u duckling-api -n 30 --no-pager; exit 1; fi
+
+# Apps: any app or version in apps/ that the catalog does not have yet is packaged, signed and published. Versions the
+# catalog already has are left alone, so this is cheap on a deploy with no app changes.
+cd "$SRC"
+DOTENV_CONFIG_PATH="$ENV_FILE" node tools/publish.mjs all | grep -v 'already published' || true
+echo "deployed"

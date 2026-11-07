@@ -43,7 +43,7 @@ describe.skipIf(!existsSync(join(TOOLS, 'node_modules', 'fflate')))('publish too
 
     const catalog = (await (await fetch(`${base}/catalog`)).json()).apps as any[];
     const ids = catalog.map((a) => a.id).sort();
-    expect(ids).toEqual(['count-with-me', 'draw-with-me', 'music-box', 'robot-path', 'trace-with-me', 'word-wizard']);
+    expect(ids).toEqual(['count-with-me', 'draw-with-me', 'music-box', 'my-avatar', 'robot-path', 'trace-with-me', 'word-wizard']);
     for (const a of catalog) {
       expect(a.starter).toBe(true);
       expect(a.tileUrl).toMatch(new RegExp(`/tiles/${a.id}-[0-9a-f]{12}\\.png$`));

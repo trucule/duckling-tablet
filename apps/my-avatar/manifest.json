@@ -1,0 +1,15 @@
+{
+  "id": "my-avatar",
+  "name": "My Avatar",
+  "version": "1.0.2",
+  "description": "Design your own character: hair, eyes, outfits, hats and places. Stars earned in the other apps buy new items, and your portrait shows on the home screen.",
+  "subjects": [
+    "art"
+  ],
+  "ageMin": 4,
+  "ageMax": 10,
+  "starter": true,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/my-avatar"
+}

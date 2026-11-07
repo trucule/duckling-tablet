@@ -11,6 +11,9 @@
    4. Calls the apps make to the Anthropic Messages API (Draw With Me lessons, Story Maker scenes) go to the
       Duckling API instead, POST /ai/messages with the device token; the server holds the key and applies the daily
       allowance. The apps read window.DWM_CONFIG.apiKey to decide whether AI is on, so a placeholder is set there.
+      Calls to the Surface home screen's local service (KidHome, 127.0.0.1:47821) are answered by the child's profile
+      on the server: the avatar, the portrait, the stars.
+   5. window.KID_STARS counts this app's stars and reports them; the server adds the other apps' stars.
    The shell provides window.DucklingApp (Android: a JavascriptInterface) with appId(), deviceToken(), apiUrl(),
    childName() and voice(). In a plain browser there is no DucklingApp and only the storage namespace applies. */
 (function () {
@@ -46,18 +49,85 @@
     say: function (text, opts) { var u = new SpeechSynthesisUtterance(String(text)); if (opts && opts.rate) u.rate = opts.rate; window.speechSynthesis.speak(u); return u; }
   };
 
-  // ---- 4. AI calls through the Duckling API ------------------------------------------------------------------------
-  if (bridge && TOKEN && typeof window.fetch === 'function') {
-    var realFetch = window.fetch.bind(window), ANTHROPIC = /^https:\/\/api\.anthropic\.com\/v1\/messages\/?$/;
+  // ---- 4. Services the Surface apps expected, served by the Duckling API ------------------------------------------
+  // Anthropic calls (Draw With Me, Story Maker) go to POST /ai/messages. The Surface home screen's small local
+  // service (KidHome at 127.0.0.1:47821: the avatar, the portrait, the star total) is answered by the child's profile
+  // on the server, so My Avatar and the stars counter in every app work with no change, and the same avatar and stars
+  // follow the child to any tablet.
+  var realFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
+  if (bridge && TOKEN && realFetch) {
+    var ANTHROPIC = /^https:\/\/api\.anthropic\.com\/v1\/messages\/?$/, KIDHOME = /^https?:\/\/127\.0\.0\.1:47821(\/[^?#]*)?/;
+    var AUTH = { authorization: 'Device ' + TOKEN, 'x-duckling-app': APP_ID };
+    var api = function (method, path, body, type) {
+      var h = Object.assign({}, AUTH); if (type) h['content-type'] = type;
+      return realFetch(API + path, { method: method, headers: h, body: body, mode: 'cors', credentials: 'omit' });
+    };
     window.DWM_CONFIG = Object.assign({}, window.DWM_CONFIG || {}, { apiKey: 'duckling' });
     window.fetch = function (input, init) {
       var url = typeof input === 'string' ? input : (input && input.url) || '';
-      if (!ANTHROPIC.test(url)) return realFetch(input, init);
-      var headers = { 'content-type': 'application/json', authorization: 'Device ' + TOKEN, 'x-duckling-app': APP_ID };
-      var next = Object.assign({}, init || {}, { method: 'POST', headers: headers, mode: 'cors', credentials: 'omit' });
-      return realFetch(API + '/ai/messages', next);
+      init = init || {};
+      if (ANTHROPIC.test(url)) {
+        var headers = Object.assign({ 'content-type': 'application/json' }, AUTH);
+        return realFetch(API + '/ai/messages', Object.assign({}, init, { method: 'POST', headers: headers, mode: 'cors', credentials: 'omit' }));
+      }
+      var home = KIDHOME.exec(url);
+      if (home) {
+        var path = home[1] || '/', method = String(init.method || 'GET').toUpperCase(), body = init.body;
+        if (path === '/avatar' && method === 'GET') return api('GET', '/device/child/avatar');
+        if (path === '/avatar') return api('PUT', '/device/child/avatar', body, 'application/json');
+        if (path === '/portrait') return api('PUT', '/device/child/portrait', body, 'text/plain');
+        if (path === '/stars') { var e = 0; try { e = JSON.parse(body).earned | 0; } catch (err) {} return api('POST', '/device/child/stars', JSON.stringify({ appId: APP_ID, earned: e }), 'application/json'); }
+        return api('GET', '/device/child/avatar');
+      }
+      return realFetch(input, init);
     };
     window.KidTablet.ai = 'duckling';
+
+    // ---- 5. Stars: this app's earned stars from its own saved progress, the rest from the server --------------------
+    // The Surface version read every app's progress from one shared storage; here each app sees only its own, so each
+    // app reports its own count and the server keeps the total per child. Defined before the apps' own copy runs, which
+    // steps aside when window.KID_STARS exists.
+    var starsIn = function (key, raw) {
+      var v; try { v = JSON.parse(raw); } catch (e) { return 0; }
+      var n = function (x) { return typeof x === 'number' && isFinite(x) && x > 0 ? Math.floor(x) : 0; };
+      if (/^lab-done-/.test(key)) return Array.isArray(v) ? v.length : 0;
+      if (/-stars$/.test(key)) return n(v);
+      if (!v || typeof v !== 'object' || Array.isArray(v)) return 0;
+      if (typeof v.stars === 'number') return n(v.stars);
+      var sum = 0;
+      for (var k in v) if (v[k] && typeof v[k] === 'object' && typeof v[k].stars === 'number') sum += n(v[k].stars);
+      return sum;
+    };
+    var served = { byApp: {} }, lastMine = -1, starsTimer = null;
+    var mine = function () {
+      var total = 0, per = {}, st = window.localStorage;
+      try { for (var i = 0; i < st.length; i++) { var k = st.key(i); if (!k || /^kid-avatar/.test(k)) continue; var n = starsIn(k, st.getItem(k)); if (n) { per[k] = n; total += n; } } } catch (e) {}
+      return { total: total, per: per };
+    };
+    var earnedAll = function () {
+      var m = mine().total, total = 0;
+      for (var a in served.byApp) if (a !== APP_ID) total += served.byApp[a] | 0;
+      return total + Math.max(m, served.byApp[APP_ID] | 0);
+    };
+    var reportStars = function (force) {
+      var m = mine().total;
+      if (!force && m === lastMine) return Promise.resolve(earnedAll());
+      lastMine = m;
+      return api('POST', '/device/child/stars', JSON.stringify({ appId: APP_ID, earned: m }), 'application/json')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j) { served.byApp[APP_ID] = Math.max(m, served.byApp[APP_ID] | 0); } window.dispatchEvent(new Event('kid-stars')); return earnedAll(); }, function () { return earnedAll(); });
+    };
+    window.KID_STARS = { earned: earnedAll, breakdown: function () { return mine().per; }, report: reportStars, starsIn: starsIn, base: 'http://127.0.0.1:47821' };
+    // Saves in this app report a moment later (one report for a burst of saves).
+    try {
+      var st0 = window.localStorage, setItem0 = st0.setItem;
+      st0.setItem = function (k, v) { setItem0.call(st0, k, v); if (!/^kid-avatar/.test(String(k))) { clearTimeout(starsTimer); starsTimer = setTimeout(reportStars, 800); } };
+    } catch (e) {}
+    // The other apps' stars, from the server, as soon as the page opens.
+    api('GET', '/device/child/avatar').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (j && j.earnedByApp) { served.byApp = j.earnedByApp; window.dispatchEvent(new Event('kid-stars')); }
+      setTimeout(function () { reportStars(true); }, 1200);
+    }, function () {});
   }
 
   // ---- 2. The narrator --------------------------------------------------------------------------------------------

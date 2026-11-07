@@ -2,8 +2,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
+import type { Q } from '../db.js';
 import { parentAuth } from '../auth.js';
-import { HttpError, hashToken, inDays, newId, newToken, notFound, sha256 } from '../util.js';
+import { HttpError, hashToken, inDays, newId, newToken, notFound, safeEqual, sha256 } from '../util.js';
 import { redactText } from '../logging.js';
 import { notifyDevices } from '../notify.js';
 
@@ -19,6 +20,24 @@ const childBody = z.object({
 
 export const childRow = (r: any) => r && ({ id: r.id, firstName: r.first_name, grade: r.grade, levels: r.levels, theme: r.theme });
 
+// Stars earned across apps minus what the avatar shop spent; null when the child has no avatar or stars yet.
+export const starsOf = async (q: Q, childId: string, avatar: { spent?: number } | null) => {
+  const earned = (await q.one<{ n: number }>('SELECT COALESCE(SUM(earned), 0)::int AS n FROM child_stars WHERE child_id = $1', [childId]))!.n;
+  return { earned, spent: Math.max(0, Number(avatar?.spent ?? 0) | 0), balance: Math.max(0, earned - (Number(avatar?.spent ?? 0) | 0)) };
+};
+
+// The portrait is private in storage. Signed links (30 days) go into device configs and portal rows.
+export const portraitPath = (childId: string) => `/children/${childId}/portrait`;
+export const portraitSign = (secret: string, childId: string, key: string, exp: number) => hashToken(`${childId}/${key}/${exp}`, secret).slice(0, 32);
+export const portraitUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, key: string | null) => {
+  if (!key) return null;
+  const exp = Date.now() + 30 * 86_400_000;
+  return `${cfg.PUBLIC_URL}${portraitPath(childId)}?exp=${exp}&sig=${portraitSign(cfg.SESSION_SECRET, childId, key, exp)}`;
+};
+
+// A child row for parents: profile, stars, portrait link.
+export const childWithExtras = async (ctx: Ctx, q: Q, r: any) => ({ ...childRow(r), stars: await starsOf(q, r.id, r.avatar), portraitUrl: portraitUrl(ctx.cfg, r.id, r.portrait_key), avatarSavedAt: r.avatar_saved_at ?? null });
+
 const DEVICE_COLUMNS = `id, child_id AS "childId", platform, name, state, shell_version AS "shellVersion", battery, last_seen_at AS "lastSeenAt"`;
 
 export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx: Ctx }) {
@@ -28,7 +47,7 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
       familyId: a.familyId, you: a.email,
       pinSet: !!(await q.one<{ pin_hash: string | null }>('SELECT pin_hash FROM family WHERE id = $1', [a.familyId]))?.pin_hash,
       parents: await q.all('SELECT id, email, role FROM parent ORDER BY created_at'),
-      children: (await q.all('SELECT * FROM child ORDER BY created_at')).map(childRow),
+      children: await Promise.all((await q.all('SELECT * FROM child ORDER BY created_at')).map((r) => childWithExtras(ctx, q, r))),
       devices: await q.all(`SELECT ${DEVICE_COLUMNS} FROM device ORDER BY created_at`),
     }));
   });
@@ -78,6 +97,25 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
       await audit(q, a.familyId, `parent:${a.parentId}`, 'parent.removed', { id: req.params.id });
       return { ok: true };
     });
+  });
+
+  // The child's portrait, drawn in My Avatar: parents with a session, and signed links from configs and portal rows.
+  app.get<{ Params: { id: string }; Querystring: { exp?: string; sig?: string } }>('/children/:id/portrait', async (req, reply) => {
+    const { id } = req.params;
+    const exp = Number(req.query.exp), sig = String(req.query.sig ?? '');
+    let row: { portrait_key: string | null } | null | undefined;
+    if (Number.isFinite(exp) && exp > Date.now() && sig.length === 32) {
+      row = await ctx.db.system((q) => q.one('SELECT portrait_key FROM child WHERE id = $1', [id]));
+      if (!row?.portrait_key || !safeEqual(sig, portraitSign(ctx.cfg.SESSION_SECRET, id, row.portrait_key, exp))) throw notFound('No portrait');
+    } else {
+      const a = await parentAuth(ctx, req);
+      row = await ctx.db.family(a.familyId, (q) => q.one('SELECT portrait_key FROM child WHERE id = $1', [id]));
+    }
+    if (!row?.portrait_key) throw notFound('No portrait');
+    const bytes = await ctx.storage.get(row.portrait_key);
+    if (!bytes) throw notFound('No portrait');
+    reply.header('Cache-Control', 'private, max-age=3600').type('image/png');
+    return reply.send(bytes);
   });
 
   app.post('/children', async (req) => {

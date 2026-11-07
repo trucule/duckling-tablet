@@ -307,6 +307,52 @@ describe('parent PIN and second parent', () => {
   });
 });
 
+describe('child avatar and stars', () => {
+  it('keeps the avatar, portrait and stars on the child profile, shared by her tablets and shown to parents', async () => {
+    const p = await signIn('avatar@example.com');
+    const ada = (await app.inject({ method: 'POST', url: '/children', headers: p.auth, payload: { firstName: 'Ada' } })).json();
+    const t1 = await pair(p.auth, ada.id), t2 = await pair(p.auth, ada.id), none = await pair(p.auth);
+    // Nothing yet.
+    expect((await app.inject({ method: 'GET', url: '/device/child/avatar', headers: t1.dev })).json()).toEqual({ design: null, owned: [], spent: 0, savedAt: 0, earned: 0, earnedByApp: {} });
+    expect((await app.inject({ method: 'PUT', url: '/device/child/avatar', headers: none.dev, payload: { design: {} } })).statusCode).toBe(409);
+    // Stars from two apps, the larger value wins on a repeat, and the total is per child.
+    expect((await app.inject({ method: 'POST', url: '/device/child/stars', headers: t1.dev, payload: { appId: 'count-with-me', earned: 7 } })).json().earned).toBe(7);
+    expect((await app.inject({ method: 'POST', url: '/device/child/stars', headers: t2.dev, payload: { appId: 'word-wizard', earned: 5 } })).json().earned).toBe(12);
+    expect((await app.inject({ method: 'POST', url: '/device/child/stars', headers: t1.dev, payload: { appId: 'count-with-me', earned: 3 } })).json().earned).toBe(12);
+    // The avatar saved on one tablet is read on the other; an older save does not overwrite a newer one.
+    const design = { hair: 'hair-bob', hairColor: '#3b2a1a', outfit: 'astronaut', place: 'moon' };
+    expect((await app.inject({ method: 'PUT', url: '/device/child/avatar', headers: t1.dev, payload: { design, owned: ['hair-bob', 'astronaut'], spent: 4, savedAt: 2000 } })).json().saved).toBe(true);
+    await app.inject({ method: 'PUT', url: '/device/child/avatar', headers: t2.dev, payload: { design: { hair: 'old' }, savedAt: 1000 } });
+    const got = (await app.inject({ method: 'GET', url: '/device/child/avatar', headers: t2.dev })).json();
+    expect(got).toMatchObject({ design, owned: ['hair-bob', 'astronaut'], spent: 4, savedAt: 2000, earned: 12, earnedByApp: { 'count-with-me': 7, 'word-wizard': 5 } });
+    expect((await app.inject({ method: 'PUT', url: '/device/child/avatar', headers: t1.dev, payload: { design: { x: 'y'.repeat(40000) } } })).statusCode).toBe(413);
+    // The portrait: a PNG data URL in, a signed link out, the same picture for parents and in the device config.
+    const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(200, 9)]);
+    expect((await app.inject({ method: 'PUT', url: '/device/child/portrait', headers: { ...t1.dev, 'content-type': 'text/plain' }, payload: 'data:image/jpeg;base64,AAAA' })).statusCode).toBe(415);
+    const up = await app.inject({ method: 'PUT', url: '/device/child/portrait', headers: { ...t1.dev, 'content-type': 'text/plain' }, payload: `data:image/png;base64,${png.toString('base64')}` });
+    expect(up.statusCode).toBe(200);
+    const link: string = up.json().portraitUrl;
+    expect(link).toMatch(new RegExp(`^https://api.test/children/${ada.id}/portrait\\?exp=\\d+&sig=[0-9a-f]{32}$`));
+    const signed = await app.inject({ method: 'GET', url: link.replace('https://api.test', '') });
+    expect(signed.statusCode).toBe(200); expect(signed.headers['content-type']).toBe('image/png'); expect(signed.rawPayload.equals(png)).toBe(true);
+    expect((await app.inject({ method: 'GET', url: link.replace('https://api.test', '').replace(/sig=[0-9a-f]{4}/, 'sig=0000') })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: `/children/${ada.id}/portrait` })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: `/children/${ada.id}/portrait`, headers: p.auth })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: `/children/${ada.id}/portrait`, headers: (await signIn('else@example.com')).auth })).statusCode).toBe(404);
+    const cfg = (await app.inject({ method: 'GET', url: '/device/config', headers: t2.dev })).json();
+    expect(cfg.child.stars).toEqual({ earned: 12, spent: 4, balance: 8 });
+    expect(cfg.child.portraitUrl).toMatch(/\/portrait\?exp=/);
+    const fam = (await app.inject({ method: 'GET', url: '/family', headers: p.auth })).json();
+    expect(fam.children[0]).toMatchObject({ firstName: 'Ada', stars: { earned: 12, spent: 4, balance: 8 } });
+    expect(fam.children[0].portraitUrl).toMatch(/\/portrait\?exp=/);
+    // A new portrait replaces the old file.
+    const png2 = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(200, 1)]);
+    const up2 = await app.inject({ method: 'PUT', url: '/device/child/portrait', headers: { ...t1.dev, 'content-type': 'text/plain' }, payload: `data:image/png;base64,${png2.toString('base64')}` });
+    expect((await app.inject({ method: 'GET', url: up2.json().portraitUrl.replace('https://api.test', '') })).rawPayload.equals(png2)).toBe(true);
+    expect((await app.inject({ method: 'GET', url: link.replace('https://api.test', '') })).statusCode).toBe(404);
+  });
+});
+
 describe('push', () => {
   it('tells the tablets concerned after a parent change, and forgets tokens FCM no longer knows', async () => {
     const p = await signIn('push@example.com'); const d1 = await pair(p.auth); const d2 = await pair(p.auth);

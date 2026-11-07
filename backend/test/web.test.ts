@@ -108,7 +108,7 @@ describe.skipIf(!ready)('child web app', () => {
     for (const name of ['Count With Me', 'Draw With Me', 'Music Box', 'Robot Path', 'Trace With Me', 'Word Wizard']) {
       await p.getByRole('button', { name }).waitFor();
     }
-    await p.waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem('duckling.installed') || '{}')).length === 6);
+    await p.waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem('duckling.installed') || '{}')).length === 7);
     const theme = await p.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--c1').trim());
     expect(theme).toBe('#ffb3c6');
     await p.screenshot({ path: join(dir, 'home.png') });
@@ -116,7 +116,7 @@ describe.skipIf(!ready)('child web app', () => {
     // Library: every starter app shows Open; removing one and installing it again round-trips through the server.
     await p.getByRole('button', { name: 'Library' }).click();
     await p.getByRole('heading', { name: 'Library' }).waitFor();
-    expect(await p.getByRole('button', { name: 'Open' }).count()).toBe(6);
+    expect(await p.getByRole('button', { name: 'Open' }).count()).toBe(7);
     p.once('dialog', (d) => d.accept());
     await p.locator('.store-row', { hasText: 'Music Box' }).getByRole('button', { name: 'Remove' }).click();
     await p.locator('.store-row', { hasText: 'Music Box' }).getByRole('button', { name: 'Install' }).waitFor();

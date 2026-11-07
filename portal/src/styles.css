@@ -36,3 +36,6 @@ input, select { font: inherit; padding: 9px 12px; border: 2px solid var(--line);
 .tiles .t.off { opacity: 0.5; }
 .tiles .t button { border: 0; background: none; color: var(--pond); cursor: pointer; font-size: 13px; padding: 0; }
 .swatch { width: 22px; height: 22px; border-radius: 50%; display: inline-block; border: 1px solid var(--line); vertical-align: middle; }
+
+/* A child's portrait from My Avatar, in place of the colour swatch once she has drawn one */
+.portrait { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #fff; border: 1px solid var(--line); flex: none; }

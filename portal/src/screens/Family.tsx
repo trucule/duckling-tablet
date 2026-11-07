@@ -55,8 +55,8 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
         <ul class="list">
           {fam.children.map((c: Child) => (
             <li key={c.id}>
-              <span class="swatch" style={{ background: c.theme?.colors?.[0] ?? '#eee' }} />
-              <span class="grow"><strong>{c.firstName}</strong> <span class="muted">{c.grade ? `grade ${c.grade}` : ''}</span></span>
+              {c.portraitUrl ? <img class="portrait" src={c.portraitUrl} alt="" /> : <span class="swatch" style={{ background: c.theme?.colors?.[0] ?? '#eee' }} />}
+              <span class="grow"><strong>{c.firstName}</strong> <span class="muted">{c.grade ? `grade ${c.grade}` : ''}{c.stars ? ` · ${c.stars.earned} stars earned, ${c.stars.balance} to spend` : ''}</span></span>
               <button class="btn quiet" onClick={async () => { if (confirm(`Remove ${c.firstName}'s profile?`)) { await api.deleteChild(c.id); load(); } }}>Remove</button>
             </li>
           ))}

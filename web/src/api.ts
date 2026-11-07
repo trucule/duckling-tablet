@@ -4,7 +4,7 @@ import { shell } from './shell';
 
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
 
-export interface Child { id: string; firstName: string; grade: string | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] } }
+export interface Child { id: string; firstName: string; grade: string | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; portraitUrl?: string | null; stars?: { earned: number; spent: number; balance: number } }
 export interface InstalledApp { id: string; name: string; version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[]; tileUrl: string | null }
 export interface AllowEntry { host: string; tile?: { name: string; url: string; color?: string } }
 export interface DeviceConfig {

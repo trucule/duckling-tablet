@@ -93,7 +93,7 @@ describe.skipIf(!ready)('parent portal', () => {
     const paired = await (await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, platform: 'android', name: 'Kitchen tablet' }) })).json();
     expect(paired.deviceToken).toBeTruthy();
     expect(paired.config.child.firstName).toBe('Ada');
-    expect(paired.config.apps.length).toBe(6);
+    expect(paired.config.apps.length).toBe(7);
     await p.getByRole('button', { name: 'Refresh' }).click();
     await p.getByText('Kitchen tablet').waitFor();
     await p.screenshot({ path: join(dir, 'portal-family.png'), fullPage: true });
