@@ -144,8 +144,8 @@ describe.skipIf(!ready)('child web app', () => {
     expect(dev.apps.map((a: { id: string }) => a.id)).not.toContain('music-box');
     await p.locator('.store-row', { hasText: 'Music Box' }).getByRole('button', { name: 'Install' }).click();
     await p.locator('.store-row', { hasText: 'Music Box' }).getByRole('button', { name: 'Open' }).waitFor();
-    dev = await (await fetch(`${api}/devices/${deviceId}`, { headers: auth })).json();
-    expect(dev.apps.map((a: { id: string }) => a.id)).toContain('music-box');
+    // The tablet installs first and tells the server right after.
+    await expect.poll(async () => ((await (await fetch(`${api}/devices/${deviceId}`, { headers: auth })).json()).apps as { id: string }[]).map((a) => a.id)).toContain('music-box');
     await p.screenshot({ path: join(dir, 'library.png') });
 
     // Parent area: the PIN is set on first use, and a direct jump to #/parent goes back to the PIN screen.
