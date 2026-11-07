@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api, type DeviceDetail, type CatalogApp, type Family as FamilyT } from '../api';
+import { useAppFilter } from '../appfilter';
 
 // One device: child, apps (install or hide), websites, travel mode, release.
 export function Device({ id, onBack }: { id: string; onBack: () => void }) {
   const [d, setD] = useState<DeviceDetail | null>(null);
   const [fam, setFam] = useState<FamilyT | null>(null);
   const [catalog, setCatalog] = useState<CatalogApp[]>([]);
+  const filter = useAppFilter(catalog);
   const [error, setError] = useState('');
   const [host, setHost] = useState('');
   const [siteName, setSiteName] = useState('');
@@ -37,8 +39,9 @@ export function Device({ id, onBack }: { id: string; onBack: () => void }) {
       <div class="card">
         <h2>Apps</h2>
         <p>Installed apps are on the home screen. Hidden apps disappear from this device's Library and home screen until you unhide them. Everything else the child can install from the Library.</p>
+        {filter.bar}
         <div class="tiles">
-          {catalog.map((a) => (
+          {filter.apps.map((a) => (
             <span class={`t ${hidden.has(a.id) ? 'off' : ''}`} key={a.id}>
               {a.tileUrl && <img src={a.tileUrl} alt="" />}
               <span>{a.name}{installed.has(a.id) ? ' · installed' : ''}{hidden.has(a.id) ? ' · hidden' : ''} <a href={`#/app/${a.id}`}>About</a></span>

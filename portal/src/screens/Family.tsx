@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { api, type Family as FamilyT, type Child, type CatalogApp } from '../api';
 import { Requests } from './Requests';
 import { InstallCard } from '../install';
+import { useAppFilter, ageText } from '../appfilter';
 
 const GRADES = ['pre-k', 'k', '1', '2', '3', '4', '5', '6'];
 const COLORS = ['#ffb3c6', '#ffd36b', '#b3e5ff', '#c8f7c5', '#e0c3fc', '#ffcf99'];
@@ -18,8 +19,9 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
   const [pin, setPin] = useState(''); const [pinAgain, setPinAgain] = useState(''); const [pinMsg, setPinMsg] = useState('');
   const [invite, setInvite] = useState(''); const [inviteMsg, setInviteMsg] = useState('');
   const [catalog, setCatalog] = useState<CatalogApp[]>([]);
+  const filter = useAppFilter(catalog);
   const load = () => api.family().then(setFam).catch((e) => setError((e as Error).message));
-  useEffect(() => { load(); const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
+  useEffect(() => { load(); api.catalog().then((c) => setCatalog(c.apps)).catch(() => {}); const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
 
   const addChild = async (e: Event) => {
     e.preventDefault();
@@ -131,12 +133,19 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
 
       <div class="card">
         <h2>Apps</h2>
-        <p>Every app, with what it trains and how it grows with your child. Open a tablet above to choose what is installed there.</p>
-        <div class="tiles">
-          {catalog.map((a) => (
-            <a class="t" key={a.id} href={`#/app/${a.id}`}>{a.tileUrl && <img src={a.tileUrl} alt="" />}<span>{a.name}</span></a>
+        <p>Every app, with what it trains and how it grows with your child. Open one to read about it and put it on a tablet.</p>
+        {filter.bar}
+        <ul class="list apps">
+          {filter.apps.map((a) => (
+            <li key={a.id}>
+              <a href={`#/app/${a.id}`} class="row" style={{ alignItems: 'center', textDecoration: 'none', color: 'inherit', flex: 1 }}>
+                {a.tileUrl && <img src={a.tileUrl} alt="" style={{ width: 48, height: 48, borderRadius: 12 }} />}
+                <span class="grow"><strong>{a.name}</strong> <span class="muted">{[ageText(a) && `ages ${ageText(a)}`, ...a.subjects].filter(Boolean).join(' · ')}</span><br /><span class="muted">{a.description}</span></span>
+              </a>
+            </li>
           ))}
-        </div>
+          {catalog.length > 0 && filter.apps.length === 0 && <li><span class="muted">No app matches. Try fewer words or another subject.</span></li>}
+        </ul>
       </div>
 
       <InstallCard />

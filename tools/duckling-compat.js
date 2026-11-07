@@ -12,7 +12,8 @@
       Duckling API instead, POST /ai/messages with the device token; the server holds the key and applies the daily
       allowance. The apps read window.DWM_CONFIG.apiKey to decide whether AI is on, so a placeholder is set there.
       Calls to the Surface home screen's local service (KidHome, 127.0.0.1:47821) are answered by the child's profile
-      on the server: the avatar, the portrait, the stars.
+      on the server: the avatar, the portrait, the stars. Story Maker's direct Azure calls for its cast of voices
+      become narrator requests with the voice and the speaking style.
    5. window.KID_STARS counts this app's stars and reports them; the server adds the other apps' stars.
    The shell provides window.DucklingApp (Android: a JavascriptInterface) with appId(), deviceToken(), apiUrl(),
    childName() and voice(). In a plain browser there is no DucklingApp and only the storage namespace applies. */
@@ -62,10 +63,32 @@
       var h = Object.assign({}, AUTH); if (type) h['content-type'] = type;
       return realFetch(API + path, { method: method, headers: h, body: body, mode: 'cors', credentials: 'omit' });
     };
-    window.DWM_CONFIG = Object.assign({}, window.DWM_CONFIG || {}, { apiKey: 'duckling' });
+    // Story Maker's cast: it speaks to Azure directly with the key from DWM_CONFIG.tts; here the "key" is a marker and
+    // the region "duckling", so its requests land on the Duckling API's narrator endpoint with the voice and style.
+    window.DWM_CONFIG = Object.assign({}, window.DWM_CONFIG || {}, { apiKey: 'duckling', tts: { provider: 'azure', key: 'duckling', region: 'duckling' } });
+    var AZURE_TTS = /^https:\/\/duckling\.tts\.speech\.microsoft\.com\/cognitiveservices\/(v1|voices\/list)\/?$/;
+    var CAST = [['en-US-AnaNeural', 'Female', 'Child'], ['en-US-JennyNeural', 'Female', ''], ['en-US-AriaNeural', 'Female', ''], ['en-US-SaraNeural', 'Female', ''], ['en-US-NancyNeural', 'Female', ''], ['en-US-MichelleNeural', 'Female', ''], ['en-US-AmberNeural', 'Female', ''], ['en-US-AshleyNeural', 'Female', ''], ['en-US-CoraNeural', 'Female', ''], ['en-US-MonicaNeural', 'Female', ''], ['en-US-GuyNeural', 'Male', ''], ['en-US-DavisNeural', 'Male', ''], ['en-US-JasonNeural', 'Male', ''], ['en-US-TonyNeural', 'Male', ''], ['en-US-ChristopherNeural', 'Male', ''], ['en-US-EricNeural', 'Male', ''], ['en-US-BrandonNeural', 'Male', ''], ['en-US-JacobNeural', 'Male', ''], ['en-US-RogerNeural', 'Male', ''], ['en-US-SteffanNeural', 'Male', '']];
+    var unesc = function (t) { return t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&'); };
+    var ssmlToTts = function (ssml) {
+      var voice = (/<voice[^>]*name="([^"]+)"/.exec(ssml) || [])[1] || VOICE;
+      var rate = parseInt((/<prosody[^>]*rate="([-+]?\d+)%"/.exec(ssml) || [])[1] || '0', 10) || 0;
+      var style = (/express-as[^>]*style="([a-z-]+)"/.exec(ssml) || [])[1];
+      var text = unesc(String(ssml).replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
+      var qs = 'text=' + encodeURIComponent(text) + '&rate=' + rate + '&voice=' + encodeURIComponent(voice) + (style ? '&style=' + encodeURIComponent(style) : '') + (CHILD && text.indexOf(CHILD) !== -1 ? '&private=1' : '');
+      return api('GET', '/tts?' + qs).then(function (r) {
+        if (!r.ok) return new Response(null, { status: r.status });
+        return r.arrayBuffer().then(function (buf) { return new Response(buf, { status: 200, headers: { 'content-type': 'audio/mpeg' } }); });
+      });
+    };
     window.fetch = function (input, init) {
       var url = typeof input === 'string' ? input : (input && input.url) || '';
       init = init || {};
+      var az = AZURE_TTS.exec(url);
+      if (az) {
+        if (az[1] === 'v1') return ssmlToTts(String(init.body || ''));
+        var list = CAST.map(function (v) { return { ShortName: v[0], Locale: 'en-US', VoiceType: 'Neural', Gender: v[1], VoiceTag: v[2] ? { VoicePersonalities: [v[2]] } : {} }; });
+        return Promise.resolve(new Response(JSON.stringify(list), { status: 200, headers: { 'content-type': 'application/json' } }));
+      }
       if (ANTHROPIC.test(url)) {
         var headers = Object.assign({ 'content-type': 'application/json' }, AUTH);
         return realFetch(API + '/ai/messages', Object.assign({}, init, { method: 'POST', headers: headers, mode: 'cors', credentials: 'omit' }));

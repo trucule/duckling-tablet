@@ -118,6 +118,8 @@ const SCRIPTS = {
   'planet-explorer': async (page) => { await sleep(1800); await tapText(page, /Look closer/, 1500); const b = await canvasBox(page, '#gl'); await tapFrac(page, b, 0.5, 0.5, 700); await tapSel(page, 'button.ans', 1500); },
   'playground-lab': async (page) => { await sleep(1500); await tapText(page, /🎳/u, 600); const b = await canvasBox(page, '#c'); await tapFrac(page, b, 0.55, 0.6, 400); await tapSel(page, '#fire', 2200); await tapSel(page, '#slow', 400); await tapSel(page, '#fire', 1500); },
   'read-it-say-it': async (page) => { await sleep(1800); await tapSel(page, '#listen', 1500); await tapSel(page, '#mic', 1200); const b = await canvasBox(page); await tapFrac(page, b, 0.3, 0.4, 500); await tapFrac(page, b, 0.5, 0.4, 500); await tapFrac(page, b, 0.7, 0.4, 700); },
+  'story-maker': async (page) => { await sleep(1500); await tapText(page, /Spark/, 500); await tapText(page, /Luna/, 500); await tapText(page, /moon/, 700); for (let i = 0; i < 3; i++) { const c = (await candidates(page)).filter((x) => x.b.y > 60); if (!c.length) break; const pick = c.find((x) => /start|go|tell|make|begin|read/i.test(x.text)) || c[0]; await tapAt(page, pick.b.x + pick.b.width / 2, pick.b.y + pick.b.height / 2); await sleep(900); } },
+  'camera-fun': async (page) => { await sleep(2200); await tapText(page, /Comic/, 900); await tapText(page, /Stamps/, 700); const c = (await candidates(page)).filter((x) => x.b.y > 540 && x.b.x < 700); if (c[1]) { await tapAt(page, c[1].b.x + c[1].b.width / 2, c[1].b.y + c[1].b.height / 2); await sleep(500); } await tapAt(page, 420, 300); await sleep(500); await tapSel(page, '#snap', 1500); },
   'robot-path': async (page) => { await sleep(1300); for (const re of [/\u27a1/, /\u27a1/, /\u2b06/, /\u27a1/]) { await tapText(page, re, 220); } await tapSel(page, '#go', 3800); },
   'simon-orchestra': async (page) => { await sleep(2600); const pads = page.locator('button.pad'); for (const i of [0, 1, 2, 1]) { await tap(page, pads.nth(i)); await sleep(500); } await sleep(800); },
   'tangram-city': async (page) => { await sleep(1500); const b = await canvasBox(page, '#c'); await drag(page, b, [[0.15, 0.75], [0.45, 0.45]]); await sleep(300); await tapSel(page, '#flipBtn', 400); await drag(page, b, [[0.85, 0.75], [0.55, 0.5]]); await sleep(300); await drag(page, b, [[0.15, 0.4], [0.5, 0.6]]); await sleep(500); await tapSel(page, '#hintBtn', 800); },
@@ -126,7 +128,8 @@ const SCRIPTS = {
   'word-wizard': async (page) => { await sleep(1800); await tapSel(page, '#hear', 600); const tiles = page.locator('button.tile'); const n = await tiles.count(); for (let i = 0; i < Math.min(3, n); i++) { await tap(page, tiles.nth(i)); await sleep(600); } await sleep(800); },
 };
 
-const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
+// A synthetic camera and microphone, so Camera Fun shows a picture instead of a permission screen.
+const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
 for (const id of ids) {
   const root = path.join(APPS, id);
   const srv = http.createServer((req, res) => {

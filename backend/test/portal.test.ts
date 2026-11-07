@@ -120,6 +120,16 @@ describe.skipIf(!ready)('parent portal', () => {
     const after = await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } });
     expect(after.status).toBe(410);
 
+    // Finding an app: words match the About text, chips narrow by subject.
+    await p.locator('.list.apps li').first().waitFor();
+    await p.getByPlaceholder('Search apps', { exact: false }).first().fill('robot arrow');
+    await expect.poll(() => p.locator('.list.apps li').count()).toBe(1);
+    expect(await p.locator('.list.apps li strong').first().textContent()).toBe('Robot Path');
+    await p.getByPlaceholder('Search apps', { exact: false }).first().fill('');
+    await p.getByRole('button', { name: 'Music' }).first().click();
+    expect(await p.locator('.list.apps li strong').allTextContents()).toEqual(['Music Box']);
+    await p.getByRole('button', { name: 'All subjects' }).first().click();
+
     // The About page for an app: the recording, the three sections, and Install for a paired tablet.
     await p.goto(`${portal}/#/app/robot-path`);
     await p.getByRole('heading', { name: 'Robot Path' }).waitFor();

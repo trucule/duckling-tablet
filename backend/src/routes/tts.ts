@@ -10,15 +10,15 @@ import { HttpError, sha256 } from '../util.js';
 
 const VOICE = /^[a-z]{2}-[A-Z]{2}-[A-Za-z]+Neural$/;
 
-export const clipKey = (voice: string, rate: number, text: string) => sha256(`${voice}|${rate}|${text}`);
+export const clipKey = (voice: string, rate: number, text: string, style = '') => sha256(style ? `${voice}|${rate}|${style}|${text}` : `${voice}|${rate}|${text}`);
 export const normalizeLine = (t: string) => t.replace(/\s+/g, ' ').trim();
 
 export function makeVoiceCache(ctx: Ctx) {
   const inflight = new Map<string, Promise<Buffer | null>>();
 
   // Returns the stored clip's public URL, synthesizing and storing it on a miss. null = Azure unavailable.
-  async function ensure(text: string, voice: string, rate: number): Promise<{ hash: string; url: string; created: boolean } | null> {
-    const hash = clipKey(voice, rate, text), key = `voice/${hash}.mp3`;
+  async function ensure(text: string, voice: string, rate: number, style = ''): Promise<{ hash: string; url: string; created: boolean } | null> {
+    const hash = clipKey(voice, rate, text, style), key = `voice/${hash}.mp3`;
     const [row] = await ctx.db.query('SELECT hash FROM voice_clip WHERE hash = $1', [hash]);
     if (row && await ctx.storage.exists(key)) {
       await ctx.db.system((q) => q.run('UPDATE voice_clip SET hits = hits + 1 WHERE hash = $1', [hash]));
@@ -27,7 +27,7 @@ export function makeVoiceCache(ctx: Ctx) {
     // One Azure call per line, however many devices ask at once.
     let p = inflight.get(hash);
     if (!p) {
-      p = ctx.synth(text, voice, rate).then(async (mp3) => {
+      p = ctx.synth(text, voice, rate, style || undefined).then(async (mp3) => {
         if (mp3) {
           await ctx.storage.put(key, mp3, 'audio/mpeg', true);
           await ctx.db.system((q) => q.run('INSERT INTO voice_clip (hash, voice, rate, chars) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [hash, voice, rate, text.length]));
@@ -47,6 +47,7 @@ export default async function ttsRoutes(app: FastifyInstance, { ctx, voice }: { 
     text: z.string().min(1).max(1000),
     voice: z.string().regex(VOICE).optional(),
     rate: z.coerce.number().int().min(-50).max(100).default(0),
+    style: z.string().regex(/^[a-z-]{1,30}$/).optional(),
     private: z.enum(['0', '1']).default('0'),
   });
 
@@ -65,16 +66,16 @@ export default async function ttsRoutes(app: FastifyInstance, { ctx, voice }: { 
 
     if (p.private === '1') {
       await charge(dv.familyId, dv.deviceId, text.length);
-      const mp3 = await ctx.synth(text, v, p.rate);
+      const mp3 = await ctx.synth(text, v, p.rate, p.style);
       if (!mp3) throw new HttpError(503, 'Voice unavailable');
       reply.header('Cache-Control', 'private, no-store').type('audio/mpeg');
       return reply.send(mp3);
     }
 
-    const hash = clipKey(v, p.rate, text);
+    const hash = clipKey(v, p.rate, text, p.style ?? '');
     const [cached] = await ctx.db.query('SELECT 1 FROM voice_clip WHERE hash = $1', [hash]);
     if (!cached) await charge(dv.familyId, dv.deviceId, text.length);
-    const clip = await voice.ensure(text, v, p.rate);
+    const clip = await voice.ensure(text, v, p.rate, p.style ?? '');
     if (!clip) throw new HttpError(503, 'Voice unavailable');
     reply.header('Cache-Control', 'public, max-age=86400');
     return reply.redirect(clip.url, 302);

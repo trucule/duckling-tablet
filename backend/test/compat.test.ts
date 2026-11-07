@@ -51,6 +51,10 @@ describe('duckling-compat.js', () => {
         });
         return;
       }
+      if (url.pathname === '/api/tts' && url.searchParams.get('voice') === 'en-US-GuyNeural') {
+        requests.push(`CAST ${url.search}`);
+        res.writeHead(200, { 'content-type': 'audio/mpeg', 'access-control-allow-origin': '*' }); return res.end(TONE);
+      }
       if (url.pathname === '/api/tts') {
         requests.push(`${req.headers.authorization} ${url.search}`);
         if (refuse) { res.writeHead(429); return res.end(); }
@@ -123,9 +127,20 @@ describe('duckling-compat.js', () => {
         'HOME PUT /api/device/child/avatar Device dev-token-1 application/json {"design":{"hair":"bun"},"owned":["bun"],"spent":3,"savedAt":7}',
         'HOME PUT /api/device/child/portrait Device dev-token-1 text/plain data:image/png;base64,iVBORw0KGgo=',
       ]);
-      const before = requests.length;
 
-      // Without a shell bridge nothing is intercepted: no request leaves the page.
+      // Story Maker's cast: its Azure calls (voice list, then SSML with a voice, a rate and a style) are answered by
+      // the narrator endpoint, and a line with the child's name is private.
+      const cast = await a.evaluate(async () => {
+        const list = await (await fetch('https://duckling.tts.speech.microsoft.com/cognitiveservices/voices/list', { headers: { 'Ocp-Apim-Subscription-Key': 'duckling' } })).json();
+        const ssml = '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-US"><voice name="en-US-GuyNeural"><prosody rate="-6%"><mstts:express-as style="cheerful">Hello, Ada &amp; friends!</mstts:express-as></prosody></voice></speak>';
+        const r = await fetch('https://duckling.tts.speech.microsoft.com/cognitiveservices/v1', { method: 'POST', headers: { 'Content-Type': 'application/ssml+xml' }, body: ssml });
+        return { voices: list.map((v: any) => v.ShortName), ok: r.ok, type: r.headers.get('content-type'), bytes: (await r.arrayBuffer()).byteLength, tts: (window as any).DWM_CONFIG.tts };
+      });
+      expect(cast.voices).toContain('en-US-AnaNeural');
+      expect(cast).toMatchObject({ ok: true, type: 'audio/mpeg', tts: { provider: 'azure', region: 'duckling' } });
+      expect(cast.bytes).toBeGreaterThan(100);
+      expect(requests.filter((r) => r.startsWith('CAST')).at(-1)).toBe('CAST ?text=Hello%2C%20Ada%20%26%20friends!&rate=-6&voice=en-US-GuyNeural&style=cheerful&private=1');
+      const before = requests.length;
       const c = await ctx.newPage(); await c.goto(`${base}/apps/count-with-me/nobridge.html`);
       expect(await c.evaluate(() => window.KidTablet.platform)).toBe('browser');
       expect(await c.evaluate(() => localStorage.getItem('progress'))).toBe('level 3'); // same app id, same namespace

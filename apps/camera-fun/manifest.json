@@ -1,0 +1,28 @@
+{
+  "id": "camera-fun",
+  "name": "Camera Fun",
+  "version": "1.0.2",
+  "description": "A camera with filters, face stickers that follow the face, stamps, a timer and a gallery. Pictures stay on the tablet.",
+  "subjects": [
+    "art"
+  ],
+  "ageMin": 4,
+  "ageMax": 10,
+  "starter": false,
+  "permissions": [
+    "camera",
+    "microphone"
+  ],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/camera-fun",
+  "about": {
+    "concept": "Composition and play with the self-image. Framing a shot, choosing a filter, placing a sticker and waiting for a timer are small design decisions; seeing the result at once closes the loop. The face tracking runs on the tablet and the pictures never leave it.",
+    "progression": "Point and tap comes first. Then the timer (set it, get in place, hold still), stickers that need the face in frame, and the gallery, where a child looks back at what worked and takes another.",
+    "lifeSkills": [
+      "Framing and composition",
+      "Patience with a timer",
+      "Looking at one's own work and trying again",
+      "Care with other people's pictures"
+    ]
+  }
+}
