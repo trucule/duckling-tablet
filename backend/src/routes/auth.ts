@@ -5,6 +5,8 @@ import { audit, type Ctx } from '../context.js';
 import { SESSION_COOKIE, parentAuth, sessionToken } from '../auth.js';
 import { HttpError, hashToken, inDays, inMinutes, newId, newToken } from '../util.js';
 import { redactText } from '../logging.js';
+import { randomInt } from 'node:crypto';
+import { deviceConfig } from './devices.js';
 
 export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: Ctx }) {
   const h = (t: string) => hashToken(t, ctx.cfg.SESSION_SECRET);
@@ -27,6 +29,56 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
     return { sent: true };
   });
 
+  // ---- One-device signup from a tablet: a six-digit code by email, then the tablet is paired in the same step.
+  app.post('/auth/code', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
+    const { email } = z.object({ email: z.string().email().max(254) }).parse(req.body);
+    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    await ctx.db.query('SELECT create_login_code($1, $2, $3, $4)', [newId('lc'), email.trim(), h(code), inMinutes(10)]);
+    try {
+      await ctx.mailer.send(email, `${code.slice(0, 3)} ${code.slice(3)} is your Duckling Tablet code`,
+        `Type this code on the tablet to finish setting up Duckling Tablet:\n\n    ${code.slice(0, 3)} ${code.slice(3)}\n\nIt works once and expires in 10 minutes. If you did not ask for this, you can ignore this email.`);
+    } catch (err) {
+      req.log.error({ err: { type: (err as Error).name, code: (err as { code?: string }).code, message: redactText((err as Error).message) } }, 'code email failed');
+      throw new HttpError(503, 'We could not send the email right now. Please try again in a minute.');
+    }
+    return { sent: true };
+  });
+
+  // The code, the child's first name and the tablet's details in one call: the family exists (new, with its free
+  // trial, or the parent's existing one), the child is there, and the tablet is paired with the starter apps.
+  app.post('/auth/code/pair', { config: { rateLimit: { max: 20, timeWindow: '15 minutes' } } }, async (req) => {
+    const b = z.object({
+      email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/),
+      childFirstName: z.string().trim().min(1).max(40).optional(),
+      platform: z.enum(['android', 'ios', 'windows', 'web']), name: z.string().trim().min(1).max(60), shellVersion: z.string().max(30).optional(),
+    }).parse(req.body);
+    const devId = newId('dev'), devToken = newToken();
+    // The code check commits on its own, so a miss is counted and a match is used up whatever happens next.
+    const [{ ok }] = await ctx.db.query('SELECT redeem_login_code($1, $2) AS ok', [b.email.trim(), h(b.code)]) as { ok: boolean }[];
+    if (!ok) throw new HttpError(401, 'That code is not right or has expired. Check the email, or ask for a new code.');
+    return ctx.db.app(async (q) => {
+      const parent = (await q.one<{ parent_id: string; family_id: string; created: boolean }>(
+        'SELECT parent_id, family_id, created FROM find_or_create_parent($1, $2, $3)', [b.email.trim(), newId('fam'), newId('par')]))!;
+      if (parent.created) await q.run('SELECT start_trial($1, $2)', [parent.family_id, ctx.cfg.TRIAL_DAYS]);
+      await q.setFamily(parent.family_id);
+      let childId: string | null = null;
+      if (b.childFirstName) {
+        const existing = await q.one<{ id: string }>('SELECT id FROM child WHERE lower(first_name) = lower($1) ORDER BY created_at LIMIT 1', [b.childFirstName]);
+        if (existing) childId = existing.id;
+        else {
+          childId = newId('chd');
+          await q.run("INSERT INTO child (id, family_id, first_name, levels, theme) VALUES ($1, $2, $3, '{}'::jsonb, '{}'::jsonb)", [childId, parent.family_id, b.childFirstName]);
+          await audit(q, parent.family_id, `parent:${parent.parent_id}`, 'child.created', { id: childId });
+        }
+      }
+      await q.run(`INSERT INTO device (id, family_id, child_id, platform, name, token_hash, shell_version, last_seen_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, now())`, [devId, parent.family_id, childId, b.platform, b.name, hashToken(devToken, ctx.cfg.SESSION_SECRET), b.shellVersion ?? null]);
+      await q.run('INSERT INTO device_app (family_id, device_id, app_id) SELECT $1, $2, id FROM app WHERE starter ON CONFLICT DO NOTHING', [parent.family_id, devId]);
+      await audit(q, parent.family_id, `device:${devId}`, parent.created ? 'family.created' : 'device.paired', { platform: b.platform, name: b.name, via: 'code' });
+      return { deviceId: devId, deviceToken: devToken, newFamily: parent.created, config: await deviceConfig(ctx, q, devId) };
+    });
+  });
+
   app.post('/auth/verify', { config: { rateLimit: { max: 20, timeWindow: '15 minutes' } } }, async (req, reply) => {
     const { token } = z.object({ token: z.string().min(20).max(200) }).parse(req.body);
     // One transaction: redeem the link, find or create the parent, then scope to the family and open the session.
@@ -43,6 +95,7 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
       } else {
         parent = (await q.one<{ parent_id: string; family_id: string; created: boolean }>(
           'SELECT parent_id, family_id, created FROM find_or_create_parent($1, $2, $3)', [link.email, newId('fam'), newId('par')]))!;
+        if (parent.created) await q.run('SELECT start_trial($1, $2)', [parent.family_id, ctx.cfg.TRIAL_DAYS]);
       }
       await q.setFamily(parent.family_id);
       const session = newToken();

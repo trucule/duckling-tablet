@@ -38,6 +38,9 @@ const schema = z.object({
   NARRATOR_VOICE: z.string().default('en-US-AnaNeural'),
   TTS_DAILY_CHARS_PER_DEVICE: z.coerce.number().int().default(20000),
 
+  // The free trial a new family gets, in days, with no card. Subscriptions (A3) take over at its end.
+  TRIAL_DAYS: z.coerce.number().int().min(1).max(3650).default(7),
+
   // The AI proxy (POST /ai/messages) for Draw With Me lessons and Story Maker scenes. With no key, apps get a 503
   // and fall back to their built-in content. Models outside AI_MODELS are served with AI_DEFAULT_MODEL.
   ANTHROPIC_API_KEY: z.string().default(''),

@@ -6,6 +6,7 @@ import { audit, type Ctx } from '../context.js';
 import type { Q } from '../db.js';
 import { deviceAuth, parentAuth } from '../auth.js';
 import { childRow, portraitUrl, starsOf } from './family.js';
+import { entitlementOf } from '../entitlement.js';
 import { listCatalog } from '../catalog.js';
 import { after } from '../notify.js';
 import { HttpError, badRequest, forbidden, hashToken, inMinutes, newId, newToken, notFound, now, pairingCode, safeEqual, sha256 } from '../util.js';
@@ -40,6 +41,7 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string) {
     deviceId, state: d.state, child,
     // SHA-256 of "duckling:<pin>", the form the shells keep; null until a parent sets a PIN.
     pinHash: fam?.pin_sync ?? null,
+    entitlement: await entitlementOf(q, d.family_id),
     apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, tileUrl: a.tileUrl, permissions: a.latest!.permissions, ...a.latest })),
     hidden: [...hidden],
     allowlist: await getSetting(q, deviceId, 'allowlist', [] as unknown[]),

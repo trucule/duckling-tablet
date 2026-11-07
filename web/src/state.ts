@@ -99,13 +99,21 @@ export async function setFirstPin(pin: string) {
 }
 
 export async function pair(code: string, name: string) {
-  const r = await api.pair(code, name);
+  adopt(await api.pair(code, name));
+}
+
+// The tablet is paired: keep the token, apply the config, start the starter downloads, and carry on with the PIN
+// and the lockdown steps (on a tablet the parent who typed the code is holding it).
+function adopt(r: { deviceToken: string; config: DeviceConfig }) {
   shell.setDeviceToken(r.deviceToken);
   config.value = r.config; paired.value = true;
   applyConfig(r.config);
   void installMissing(r.config);
-  // On a tablet the parent who typed the code is holding it: carry on with the PIN and the lockdown steps.
   go(shell.platform === 'web' ? 'home' : 'pin');
+}
+
+export async function pairWithCode(email: string, code: string, childFirstName: string | undefined, name: string) {
+  adopt(await api.pairWithCode(email, code, childFirstName, name));
 }
 
 // True while a tablet still needs the lockdown steps (the Home banner and the parent area's setup wording).

@@ -10,7 +10,7 @@ import type { Db } from '../src/db.js';
 import { startCluster, type Cluster } from './pg.js';
 
 let cluster: Cluster, app: FastifyInstance, db: Db, dir: string;
-const mails: { to: string; text: string }[] = [];
+const mails: { to: string; subject?: string; text: string }[] = [];
 const tickets: any[] = []; const attached: any[] = [];
 let synthCalls = 0, azureUp = true;
 const aiCalls: any[] = []; const pushes: { tokens: string[]; data: Record<string, string> }[] = []; let deadTokens: string[] = []; let aiUp: 'ok' | 'down' | 'refuse' = 'ok';
@@ -30,7 +30,7 @@ beforeEach(async () => {
   });
   ({ app } = await buildServer(cfg, {
     db, logger: false,
-    mailer: { async send(to, _s, text) { mails.push({ to, text }); } },
+    mailer: { async send(to, subject, text) { mails.push({ to, subject, text }); } },
     synth: async (text) => { synthCalls++; await new Promise((r) => setTimeout(r, 20)); return azureUp ? Buffer.from(`mp3:${text}`) : null; },
     createTicket: async (t) => { tickets.push(t); return `T-${tickets.length}`; },
     attachToTicket: async (ticketId, url, contentType) => { attached.push({ ticketId, url, contentType }); return true; },
@@ -265,6 +265,46 @@ describe('app requests', () => {
     expect((await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json().apps.map((a: any) => a.id)).toContain('dino-dig');
     expect((await app.inject({ method: 'GET', url: '/requests', headers: p.auth })).json().requests[0].status).toBe('shipped');
     expect((await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title: 'Next idea', description: 'Now allowed again' } })).statusCode).toBe(200);
+  });
+});
+
+describe('one-device signup', () => {
+  it('pairs a tablet from an emailed code, creating the family, the child and the free trial in one step', async () => {
+    await publish('music-box', '1.0.0', { starter: true });
+    expect((await app.inject({ method: 'POST', url: '/auth/code', payload: { email: 'code@example.com' } })).json().sent).toBe(true);
+    const mail = mails.filter((m) => m.to === 'code@example.com').at(-1)!;
+    const code = mail.subject!.match(/^(\d{3}) (\d{3}) is your/)!.slice(1).join('');
+    expect(mail.text).toContain(`${code.slice(0, 3)} ${code.slice(3)}`);
+    const tablet = { platform: 'android', name: 'Kitchen tablet', shellVersion: '1.0.0' };
+    // Wrong codes count; the right one works once.
+    expect((await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'code@example.com', code: code === '000000' ? '000001' : '000000', ...tablet } })).statusCode).toBe(401);
+    const r = await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'code@example.com', code, childFirstName: 'Ada', ...tablet } });
+    expect(r.statusCode).toBe(200);
+    const j = r.json();
+    expect(j.newFamily).toBe(true);
+    expect(j.config.child.firstName).toBe('Ada');
+    expect(j.config.apps.map((a: any) => a.id)).toContain('music-box');
+    expect(j.config.entitlement).toMatchObject({ status: 'trial', source: 'trial', daysLeft: 7 });
+    expect((await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'code@example.com', code, ...tablet } })).statusCode).toBe(401);
+    // The parent signs in to the portal later and finds the same family, child and trial.
+    const p = await signIn('code@example.com');
+    const fam = (await app.inject({ method: 'GET', url: '/family', headers: p.auth })).json();
+    expect(fam.children.map((c: any) => c.firstName)).toEqual(['Ada']);
+    expect(fam.devices.map((d: any) => d.name)).toEqual(['Kitchen tablet']);
+    expect(fam.subscription).toMatchObject({ status: 'trial', daysLeft: 7 });
+    // A second tablet with the same email and child name joins the existing family and child; five misses end a code.
+    await app.inject({ method: 'POST', url: '/auth/code', payload: { email: 'code@example.com' } });
+    const code2 = mails.filter((m) => m.to === 'code@example.com').at(-1)!.subject!.match(/^(\d{3}) (\d{3})/)!.slice(1).join('');
+    const r2 = (await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'CODE@example.com', code: code2, childFirstName: 'ada', ...tablet, name: 'Car tablet' } })).json();
+    expect(r2.newFamily).toBe(false);
+    expect(r2.config.child.id).toBe(j.config.child.id);
+    await app.inject({ method: 'POST', url: '/auth/code', payload: { email: 'code@example.com' } });
+    const code3 = mails.filter((m) => m.to === 'code@example.com').at(-1)!.subject!.match(/^(\d{3}) (\d{3})/)!.slice(1).join('');
+    for (let i = 0; i < 5; i++) await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'code@example.com', code: code3 === '111111' ? '111112' : '111111', ...tablet } });
+    expect((await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'code@example.com', code: code3, ...tablet } })).statusCode).toBe(401);
+    // A family made from the portal gets the trial too.
+    const other = await signIn('portal-trial@example.com');
+    expect((await app.inject({ method: 'GET', url: '/family', headers: other.auth })).json().subscription.status).toBe('trial');
   });
 });
 

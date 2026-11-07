@@ -28,6 +28,17 @@ export function Parent() {
         </div>
       )}
 
+      <div class="card">
+        <h2>Included with Duckling</h2>
+        <p>{c?.entitlement?.status === 'trial' && c.entitlement.daysLeft !== null ? `Free trial: ${c.entitlement.daysLeft} day${c.entitlement.daysLeft === 1 ? '' : 's'} left, then $5 a month for every tablet in the family.` : c?.entitlement?.status === 'active' ? 'Subscribed: $5 a month covers every tablet in the family.' : c?.entitlement?.status === 'ended' ? 'The free trial has ended. Subscribe in the parent portal to keep everything running.' : 'Free for 7 days, then $5 a month for every tablet in the family.'}</p>
+        <ul class="included">
+          <li><strong>Ask for an app, at no extra cost.</strong> Describe an app you wish existed; the ET Ducky team builds it for every family. Ask from the parent portal.</li>
+          <li>24 learning apps and every new one, with the narrator voice.</li>
+          <li>The child's avatar, stars and progress on every tablet she uses.</li>
+          <li>The parent portal: apps, websites, a second parent, and this tablet from your phone.</li>
+        </ul>
+      </div>
+
       {android && (
         <div class="card">
           <h2>Lockdown</h2>

@@ -102,6 +102,15 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
       </div>
 
       <div class="card">
+        <h2>Subscription</h2>
+        {fam.subscription.status === 'trial' && <p>Free trial: <strong>{fam.subscription.daysLeft} day{fam.subscription.daysLeft === 1 ? '' : 's'} left</strong>{fam.subscription.periodEnd ? ` (until ${new Date(fam.subscription.periodEnd).toLocaleDateString()})` : ''}. After that, $5 a month covers every tablet in the family, on any platform. No card is needed during the trial.</p>}
+        {fam.subscription.status === 'active' && <p>Subscribed. $5 a month covers every tablet in the family.</p>}
+        {fam.subscription.status === 'grace' && <p class="error">The last payment did not go through. Everything keeps working while the store retries; update the card where you subscribed.</p>}
+        {(fam.subscription.status === 'ended' || fam.subscription.status === 'none') && <p class="error">The free trial has ended. Subscribing is not open yet; your tablets keep working until it is.</p>}
+        <p class="muted">Included: 24 learning apps and every new one, the narrator voice, the avatar and stars across tablets, this portal, and app requests at no extra cost (below).</p>
+      </div>
+
+      <div class="card">
         <h2>Parent PIN</h2>
         <p>{fam.pinSet ? 'A PIN is set. It opens the parent area on every tablet in the family. Choose a new one here if it needs changing.' : 'No PIN yet. The first tablet asks for one during setup, or set it here and every tablet uses it.'}</p>
         <form class="row" onSubmit={savePin}>

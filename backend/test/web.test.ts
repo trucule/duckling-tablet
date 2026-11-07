@@ -74,12 +74,16 @@ describe.skipIf(!ready)('child web app', () => {
 
     // The build points at api.ducklingtablet.com; requests to that host are rewritten to the local API.
     const b2 = await chromium.launch();
-    const ctx = await b2.newContext({ viewport: { width: 1280, height: 800 } });
-    await ctx.route('https://api.ducklingtablet.com/**', async (route) => {
-      const req = route.request();
-      const r = await fetch(req.url().replace('https://api.ducklingtablet.com', api), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() ?? undefined });
-      await route.fulfill({ status: r.status, headers: Object.fromEntries(r.headers), body: Buffer.from(await r.arrayBuffer()) });
-    });
+    const routed = async () => {
+      const c = await b2.newContext({ viewport: { width: 1280, height: 800 } });
+      await c.route('https://api.ducklingtablet.com/**', async (route) => {
+        const req = route.request();
+        const r = await fetch(req.url().replace('https://api.ducklingtablet.com', api), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() ?? undefined });
+        await route.fulfill({ status: r.status, headers: Object.fromEntries(r.headers), body: Buffer.from(await r.arrayBuffer()) });
+      });
+      return c;
+    };
+    const ctx = await routed();
     const p = await ctx.newPage();
     const errors: string[] = [], logs: string[] = [];
     p.on('pageerror', (e) => errors.push(e.message));
@@ -87,12 +91,25 @@ describe.skipIf(!ready)('child web app', () => {
     p.on('requestfailed', (r) => logs.push('failed ' + r.url() + ' ' + r.failure()?.errorText));
     await p.goto(web);
 
-    // A parent who installed the app first: the tablet sends them the set-up email, worded for the phone.
-    await p.getByPlaceholder('parent@example.com').fill('new@example.com');
-    await p.getByRole('button', { name: 'Send me the link' }).click();
-    await p.getByText('Sent. Check your email').waitFor();
-    expect(mails.at(-1)).toMatch(/Open this link on your phone/);
-    expect(mails.at(-1)).toMatch(/press Add a device/);
+    // A parent who installed the app first sets up everything on the tablet: email, the six-digit code, the child.
+    // (A second browser context, so the main flow below still exercises the pairing code from the website.)
+    const fresh = await routed();
+    const t = await fresh.newPage(); await t.goto(web);
+    await t.getByPlaceholder('parent@example.com').fill('new@example.com');
+    await t.getByRole('button', { name: 'Send the code' }).click();
+    await t.getByRole('heading', { name: 'Type the code' }).waitFor();
+    const six = mails.at(-1)!.match(/(\d{3}) (\d{3})/)!.slice(1).join('');
+    await t.getByPlaceholder('000000').fill(six);
+    await t.getByRole('button', { name: 'Next' }).click();
+    await t.getByPlaceholder('Ada').fill('Noor');
+    await t.getByRole('button', { name: 'Finish setup' }).click();
+    await t.getByRole('heading', { name: "Noor's tablet" }).waitFor();
+    await t.getByRole('button', { name: 'Parent' }).click();
+    for (const d of '1357') await t.getByRole('button', { name: d, exact: true }).click();
+    for (const d of '1357') await t.getByRole('button', { name: d, exact: true }).click();
+    await t.getByText('Free trial: 7 days left', { exact: false }).waitFor();
+    await t.getByText('Ask for an app, at no extra cost.').waitFor();
+    await fresh.close();
 
     // Installable and offline-capable: manifest and service worker are served.
     const manifest = await (await fetch(`${web}/manifest.webmanifest`)).json();
@@ -100,6 +117,7 @@ describe.skipIf(!ready)('child web app', () => {
     expect((await fetch(`${web}/sw.js`)).status).toBe(200);
 
     // Pair.
+    await p.getByRole('button', { name: 'I have a code from the website' }).click();
     await p.getByPlaceholder('000000').fill(code);
     await p.getByRole('button', { name: 'Pair' }).click();
     try { await p.getByRole('heading', { name: "Ada's tablet" }).waitFor({ timeout: 8000 }); }
@@ -162,7 +180,7 @@ describe.skipIf(!ready)('child web app', () => {
     // Release: back to pairing, and the server shows the device as released.
     p.once('dialog', (d) => d.accept());
     await p.getByRole('button', { name: 'Remove Duckling from this device' }).click();
-    await p.getByRole('heading', { name: 'Pair this tablet' }).waitFor();
+    await p.getByRole('heading', { name: 'Set up Duckling' }).waitFor();
     cfg = await (await fetch(`${api}/devices`, { headers: auth })).json();
     expect(cfg.devices[0].state).toBe('released');
     expect(errors).toEqual([]);

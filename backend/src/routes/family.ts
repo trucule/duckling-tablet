@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
 import type { Q } from '../db.js';
+import { entitlementOf } from '../entitlement.js';
 import { parentAuth } from '../auth.js';
 import { HttpError, hashToken, inDays, newId, newToken, notFound, safeEqual, sha256 } from '../util.js';
 import { redactText } from '../logging.js';
@@ -46,6 +47,7 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
     return ctx.db.family(a.familyId, async (q) => ({
       familyId: a.familyId, you: a.email,
       pinSet: !!(await q.one<{ pin_hash: string | null }>('SELECT pin_hash FROM family WHERE id = $1', [a.familyId]))?.pin_hash,
+      subscription: await entitlementOf(q, a.familyId),
       parents: await q.all('SELECT id, email, role FROM parent ORDER BY created_at'),
       children: await Promise.all((await q.all('SELECT * FROM child ORDER BY created_at')).map((r) => childWithExtras(ctx, q, r))),
       devices: await q.all(`SELECT ${DEVICE_COLUMNS} FROM device ORDER BY created_at`),

@@ -34,7 +34,7 @@ export function Requests({ grades, onError }: { grades: string[]; onError: (m: s
 
   return (
     <div class="card">
-      <h2>Ask for an app</h2>
+      <h2>Ask for an app <span class="muted" style={{ fontWeight: 400, fontSize: 14 }}>included with your subscription</span></h2>
       {list === null && <p>Loading</p>}
       {list && list.length > 0 && (
         <ul class="list">
@@ -54,7 +54,7 @@ export function Requests({ grades, onError }: { grades: string[]; onError: (m: s
       )}
       {list && !open && (
         <form onSubmit={submit} style={{ marginTop: 12 }}>
-          <p>Describe the app you would like. One request at a time; it becomes a ticket for the ET Ducky team and you can follow it here. When it is ready it installs on your tablets.</p>
+          <p>Describe an app you wish existed and the ET Ducky team builds it, for your family and every other, at no extra cost. One request at a time; you can follow it here, and when it is ready it installs on your tablets.</p>
           <div class="row">
             <input placeholder="A short name, like Dinosaur dig" required minLength={3} maxLength={80} value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} style={{ flex: 1, minWidth: 220 }} />
             <select value={grade} onChange={(e) => setGrade((e.target as HTMLSelectElement).value)} style={{ maxWidth: 140 }}>
