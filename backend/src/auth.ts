@@ -33,9 +33,9 @@ export async function deviceAuth(ctx: Ctx, req: FastifyRequest): Promise<DeviceA
   if (!token) throw new HttpError(401, 'Device token required');
   const [row] = await ctx.db.query<{ device_id: string | null; family_id: string; child_id: string | null; state: string; released: boolean }>(
     'SELECT device_id, family_id, child_id, state, released FROM auth_device($1)', [hashToken(token, ctx.cfg.SESSION_SECRET)]);
-  if (!row) throw new HttpError(401, 'Unknown device');
-  // A device whose family was deleted is told to release itself, once.
-  if (row.released || !row.device_id) throw new HttpError(410, 'release');
+  // A token that matches nothing belongs to a device a parent removed (or a family that was deleted): the tablet is
+  // told to release itself, the same as a device whose family was deleted while the record still existed.
+  if (!row || row.released || !row.device_id) throw new HttpError(410, 'release');
   return { deviceId: row.device_id, familyId: row.family_id, childId: row.child_id, state: row.state };
 }
 

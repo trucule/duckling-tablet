@@ -1,36 +1,32 @@
 import { useEffect, useState } from 'preact/hooks';
-import { config, checkin, releaseDevice, go, lastError, parentUnlocked } from '../state';
+import { config, checkin, releaseDevice, go, lastError, parentUnlocked, setupNeeded, refreshSetup, instantUpdates } from '../state';
 import { shell, type LockdownStatus } from '../shell';
 
 // Behind the PIN: lockdown steps for this platform, a check-in button, and Remove from this device.
 export function Parent() {
   const [status, setStatus] = useState<LockdownStatus>(shell.lockdownStatus());
   const [busy, setBusy] = useState(false);
-  const refresh = () => setStatus(shell.lockdownStatus());
+  const refresh = () => { setStatus(shell.lockdownStatus()); refreshSetup(); };
   useEffect(() => { window.addEventListener('duckling:resume', refresh); return () => window.removeEventListener('duckling:resume', refresh); }, []);
   const c = config.value;
   const android = shell.platform === 'android';
   const release = async () => {
-    if (!confirm('Remove Duckling from this device? The lockdown is lifted first, then the apps are removed. The family account keeps its settings.')) return;
+    if (!confirm('Remove Duckling from this device? The lockdown is lifted, the apps and data are removed, and Android then asks whether to uninstall Duckling. The family account keeps its settings.')) return;
     setBusy(true);
     await releaseDevice(true);
   };
   return (
     <div class="screen">
       <div class="topbar">
-        <h1>Parent area</h1>
+        <h1>{android && setupNeeded.value ? 'Set up this tablet' : 'Parent area'}</h1>
         <button class="pill" onClick={() => { parentUnlocked.value = false; go('home'); }}>Done</button>
       </div>
 
-      <div class="card">
-        <h2>This device</h2>
-        <p>{c?.child ? `${c.child.firstName}'s` : 'Unassigned'} {shell.platform === 'web' ? 'browser' : 'tablet'} · id {c?.deviceId ?? '?'} · shell {shell.shellVersion()}</p>
-        <p>Child profile, website list, time limits and the subscription are managed in the parent portal at parents.ducklingtablet.com.</p>
-        <div class="row">
-          <button class="pill" disabled={busy} onClick={async () => { setBusy(true); await checkin(); setBusy(false); refresh(); }}>Check in now</button>
+      {android && setupNeeded.value && (
+        <div class="card">
+          <p>The PIN is set. One more thing before handing the tablet over: the three lockdown steps below. Until they are done, a child can leave Duckling with the Home button.</p>
         </div>
-        {lastError.value && <div class="error">{lastError.value}</div>}
-      </div>
+      )}
 
       {android && (
         <div class="card">
@@ -51,8 +47,18 @@ export function Parent() {
       )}
 
       <div class="card">
+        <h2>This device</h2>
+        <p>{c?.child ? `${c.child.firstName}'s` : 'Unassigned'} {shell.platform === 'web' ? 'browser' : 'tablet'} · id {c?.deviceId ?? '?'} · shell {shell.shellVersion()}</p>
+        <p>Apps, the website list, the child's profile, time limits and the subscription are chosen in the parent portal at parents.ducklingtablet.com. Changes made there reach this tablet {instantUpdates() ? 'within seconds while it is on and online' : 'when it is opened, and every three hours'}; the button below fetches them now.</p>
+        <div class="row">
+          <button class="pill" disabled={busy} onClick={async () => { setBusy(true); await checkin(); setBusy(false); refresh(); }}>Sync with the website</button>
+        </div>
+        {lastError.value && <div class="error">{lastError.value}</div>}
+      </div>
+
+      <div class="card">
         <h2>Remove from this device</h2>
-        <p>Lifts the lockdown, tells the server, and clears Duckling's data on this device. You can pair it again later.</p>
+        <p>Lifts the lockdown, tells the website, clears the apps and data, and then Android asks whether to uninstall Duckling. You can pair the tablet again later.</p>
         <div class="row"><button class="pill danger" disabled={busy} onClick={release}>Remove Duckling from this device</button></div>
       </div>
     </div>

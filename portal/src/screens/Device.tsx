@@ -68,9 +68,9 @@ export function Device({ id, onBack }: { id: string; onBack: () => void }) {
       </div>
 
       <div class="card">
-        <h2>Remove Duckling from this device</h2>
-        <p>The device lifts its lockdown on its next check-in and then shows the pairing screen again.</p>
-        <button class="btn danger" onClick={() => { if (confirm('Release this device?')) act(() => api.releaseDevice(id)); }}>Release device</button>
+        <h2>Remove this tablet</h2>
+        <p>Takes the tablet out of the family. The next time it is online (within seconds when it is on), it lifts its lockdown, clears Duckling's apps and data, and offers to uninstall. It can be paired again later with a new code.</p>
+        <button class="btn danger" onClick={async () => { if (confirm('Remove this tablet from the family?')) { try { await api.removeDevice(id); onBack(); } catch (e) { setError((e as Error).message); } } }}>Remove this tablet</button>
       </div>
     </>
   );

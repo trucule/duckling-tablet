@@ -4,6 +4,7 @@ import android.app.KeyguardManager
 import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -94,13 +95,21 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
         main.post { if (on) activity.pin() else activity.unpin() }
     }
 
-    /** Lifts the lockdown and forgets everything: device token, PIN, installed apps. Then opens the home chooser. */
+    /**
+     * Lifts the lockdown and forgets everything: device token, PIN, installed apps. Then asks Android to uninstall
+     * Duckling; when the parent confirms, the home role goes back to the device's own launcher. If they cancel, the
+     * app stays, released and unlocked, and the home chooser is one tap away in the pairing screen.
+     */
     @JavascriptInterface fun release() {
         main.post {
             activity.unpin()
             prefs.clearAll()
             packages.root.deleteRecursively()
-            try { activity.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) } catch (_: Exception) {}
+            try {
+                activity.startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:${activity.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            } catch (_: Exception) {
+                try { activity.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) } catch (_: Exception) {}
+            }
         }
     }
 

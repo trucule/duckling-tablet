@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Remove Duckling from this device ends with Android's own uninstall dialog. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- Not needed for data-only push; declared so FCM does not ask for it on Android 13 and later. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:node="remove" />
 

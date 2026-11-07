@@ -104,8 +104,30 @@ export async function pair(code: string, name: string) {
   config.value = r.config; paired.value = true;
   applyConfig(r.config);
   void installMissing(r.config);
-  go('home');
+  // On a tablet the parent who typed the code is holding it: carry on with the PIN and the lockdown steps.
+  go(shell.platform === 'web' ? 'home' : 'pin');
 }
+
+// True while a tablet still needs the lockdown steps (the Home banner and the parent area's setup wording).
+export const setupNeeded = signal<boolean>(false);
+export function refreshSetup() {
+  if (shell.platform === 'web') { setupNeeded.value = false; return; }
+  const s = shell.lockdownStatus();
+  setupNeeded.value = !(s.homeRole && s.lockdownOn);
+}
+window.addEventListener('duckling:resume', refreshSetup);
+refreshSetup();
+
+// A tile the child taps before its download finished, or after a failed one: try again.
+export async function retryInstall(id: string) {
+  const a = config.value?.apps.find((x) => x.id === id);
+  if (!a || installed.value[a.id] === a.version) return;
+  lastError.value = '';
+  await installPackage(a.id, a.version, a.url, a.sha256, a.signature, a.permissions ?? []);
+}
+
+// Whether the shell can receive pushes (parent changes arrive within seconds instead of at the next sync).
+export const instantUpdates = () => !!shell.pushToken();
 
 // Check in on load and every 3 hours, and whenever the page comes back to the foreground after a while.
 let last = 0;

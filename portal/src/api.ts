@@ -41,6 +41,7 @@ export const api = {
   device: (id: string) => call<DeviceDetail>('GET', `/devices/${id}`),
   renameDevice: (id: string, b: { name?: string; childId?: string | null }) => call<DeviceDetail>('PUT', `/devices/${id}`, b),
   releaseDevice: (id: string) => call('POST', `/devices/${id}/release`, {}),
+  removeDevice: (id: string) => call('DELETE', `/devices/${id}`),
   hideApp: (id: string, app: string, hidden: boolean) => call(hidden ? 'PUT' : 'DELETE', `/devices/${id}/hidden/${app}`, hidden ? {} : undefined),
   installApp: (id: string, app: string) => call('PUT', `/devices/${id}/apps/${app}`, {}),
   settings: (id: string, b: { allowlist?: { host: string; tile?: { name: string; url: string } }[] }) => call<DeviceDetail>('PUT', `/devices/${id}/settings`, b),

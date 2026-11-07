@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api, type Family as FamilyT, type Child } from '../api';
 import { Requests } from './Requests';
+import { InstallCard } from '../install';
 
 const GRADES = ['pre-k', 'k', '1', '2', '3', '4', '5', '6'];
 const COLORS = ['#ffb3c6', '#ffd36b', '#b3e5ff', '#c8f7c5', '#e0c3fc', '#ffcf99'];
@@ -90,6 +91,7 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
             <li key={d.id}>
               <span class="grow"><strong>{d.name}</strong> <span class="muted">{d.platform} · {childName(d.childId)} · {d.state}{d.lastSeenAt ? ` · seen ${new Date(d.lastSeenAt).toLocaleString()}` : ''}{d.battery != null ? ` · ${d.battery}%` : ''}</span></span>
               <button class="btn" onClick={() => onOpenDevice(d.id)}>Open</button>
+              <button class="btn quiet" onClick={async () => { if (confirm(`Remove ${d.name} from the family? It lifts its lockdown and returns to the pairing screen the next time it is online.`)) { try { await api.removeDevice(d.id); await load(); } catch (err) { setError((err as Error).message); } } }}>Remove</button>
             </li>
           ))}
         </ul>
@@ -125,6 +127,8 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
         )}
         {inviteMsg && <p class={inviteMsg.startsWith('Invitation sent') ? 'ok' : 'error'} style={{ marginTop: 10 }}>{inviteMsg}</p>}
       </div>
+
+      <InstallCard />
 
       <Requests grades={fam.children.map((c) => c.grade).filter((g): g is string => !!g)} onError={setError} />
 

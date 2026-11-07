@@ -1,4 +1,4 @@
-import { config, installed, installing, childName, go } from '../state';
+import { config, installed, installing, childName, go, setupNeeded, retryInstall } from '../state';
 import { shell } from '../shell';
 import type { InstalledApp } from '../api';
 
@@ -6,12 +6,17 @@ import type { InstalledApp } from '../api';
 export function Home() {
   const c = config.value;
   const apps = [...(c?.apps ?? [])].sort((a, b) => a.name.localeCompare(b.name));
-  const open = (a: InstalledApp) => { if (installed.value[a.id]) shell.openApp(a.id); };
+  const open = (a: InstalledApp) => { if (installed.value[a.id]) shell.openApp(a.id); else if (!installing.value[a.id]) void retryInstall(a.id); };
   return (
     <div class="screen">
       <div class="topbar">
         <h1>{childName.value ? `${childName.value}'s tablet` : 'Duckling'}</h1>
       </div>
+      {setupNeeded.value && (
+        <button class="setup" onClick={() => go('pin')}>
+          <strong>This tablet is not locked down yet.</strong> A child can still leave Duckling. Finish setup in the parent area.
+        </button>
+      )}
       <div class="grid">
         {apps.map((a) => {
           const ready = !!installed.value[a.id];

@@ -123,6 +123,15 @@ describe('children, devices and apps', () => {
     const d = await pair(a.auth);
     const child = (await app.inject({ method: 'POST', url: '/children', headers: a.auth, payload: { firstName: 'Kid' } })).json();
     expect((await app.inject({ method: 'POST', url: `/devices/${d.deviceId}/release`, headers: b.auth })).statusCode).toBe(404);
+    // Removal: the record goes, the tablet's token answers 410 from then on, and its push token is used once more.
+    const d2 = await pair(a.auth);
+    await app.inject({ method: 'POST', url: '/device/checkin', headers: d2.dev, payload: { pushToken: 'fcm-gone' } });
+    expect((await app.inject({ method: 'DELETE', url: `/devices/${d2.deviceId}`, headers: b.auth })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'DELETE', url: `/devices/${d2.deviceId}`, headers: a.auth })).json().ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(pushes.at(-1)).toEqual({ tokens: ['fcm-gone'], data: { type: 'config-changed' } });
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: d2.dev })).statusCode).toBe(410);
+    expect((await app.inject({ method: 'GET', url: '/devices', headers: a.auth })).json().devices.map((x: any) => x.id)).not.toContain(d2.deviceId);
     expect((await app.inject({ method: 'PUT', url: `/children/${child.id}`, headers: b.auth, payload: { firstName: 'X' } })).statusCode).toBe(404);
     expect((await app.inject({ method: 'POST', url: '/devices/pairing-codes', headers: b.auth, payload: { childId: child.id } })).statusCode).toBe(404);
   });

@@ -114,13 +114,13 @@ describe.skipIf(!ready)('parent portal', () => {
     expect(cfg.allowlist[0]).toMatchObject({ host: 'pbskids.org', tile: { name: 'PBS Kids', url: 'https://pbskids.org' } });
 
     p.once('dialog', (d) => d.accept());
-    await p.getByRole('button', { name: 'Release device' }).click();
-    await p.getByText('android · release', { exact: false }).waitFor();
-    const after = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
-    expect(after.state).toBe('release');
+    await p.getByRole('button', { name: 'Remove this tablet' }).click();
+    await p.getByRole('heading', { name: 'Devices' }).waitFor();
+    await p.getByText('Keep this page on your phone').waitFor();
+    const after = await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } });
+    expect(after.status).toBe(410);
 
     // The family PIN: set here, carried to a tablet in its config.
-    await p.getByText('Back to the family').click();
     await p.getByRole('heading', { name: 'Parent PIN' }).waitFor();
     await p.getByPlaceholder('PIN (4 to 6 digits)').fill('2468');
     await p.getByPlaceholder('Again').fill('2468');

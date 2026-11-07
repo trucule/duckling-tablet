@@ -145,6 +145,7 @@ describe.skipIf(!ready)('child web app', () => {
     await p.getByText('That is not the PIN.').waitFor();
     for (const d of '2468') await p.getByRole('button', { name: d, exact: true }).click();
     await p.getByRole('heading', { name: 'Parent area' }).waitFor();
+    await p.getByRole('button', { name: 'Sync with the website' }).waitFor();
     await p.screenshot({ path: join(dir, 'parent.png') });
     // The PIN typed on the tablet became the family PIN; a change on the website reaches the tablet at its next check-in.
     expect((await (await fetch(`${api}/family`, { headers: auth })).json()).pinSet).toBe(true);

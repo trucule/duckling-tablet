@@ -6,7 +6,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Ctx } from '../context.js';
 import { deviceAuth } from '../auth.js';
-import { HttpError, sha256, today } from '../util.js';
+import { HttpError, sha256 } from '../util.js';
 
 const VOICE = /^[a-z]{2}-[A-Z]{2}-[A-Za-z]+Neural$/;
 
@@ -52,10 +52,10 @@ export default async function ttsRoutes(app: FastifyInstance, { ctx, voice }: { 
 
   // Counts uncached characters against the device's daily cap, inside the device's family transaction.
   const charge = (familyId: string, deviceId: string, chars: number) => ctx.db.family(familyId, async (t) => {
-    const used = (await t.one<{ chars: number }>('SELECT chars FROM tts_usage WHERE device_id = $1 AND day = $2 FOR UPDATE', [deviceId, today()]))?.chars ?? 0;
+    const used = (await t.one<{ chars: number }>('SELECT chars FROM tts_usage WHERE device_id = $1 AND day = CURRENT_DATE FOR UPDATE', [deviceId]))?.chars ?? 0;
     if (used + chars > ctx.cfg.TTS_DAILY_CHARS_PER_DEVICE) throw new HttpError(429, 'Daily voice limit reached; the device voice will be used');
-    await t.run(`INSERT INTO tts_usage (family_id, device_id, day, chars) VALUES ($1, $2, $3, $4)
-      ON CONFLICT (device_id, day) DO UPDATE SET chars = tts_usage.chars + excluded.chars`, [familyId, deviceId, today(), chars]);
+    await t.run(`INSERT INTO tts_usage (family_id, device_id, day, chars) VALUES ($1, $2, CURRENT_DATE, $3)
+      ON CONFLICT (device_id, day) DO UPDATE SET chars = tts_usage.chars + excluded.chars`, [familyId, deviceId, chars]);
   });
 
   app.get('/tts', async (req, reply) => {
