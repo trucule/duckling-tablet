@@ -11,5 +11,15 @@
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/robot-path"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/robot-path",
+  "about": {
+    "concept": "Sequencing and abstraction, the foundations of programming. Arrow cards move a robot; the child plans the whole path before running it, then shortens it with repeats and conditions.",
+    "progression": "Straight paths lead to turns, then obstacles, then a repeat card, an if card, and puzzles that must be solved in the fewest moves.",
+    "lifeSkills": [
+      "Planning a sequence of actions",
+      "Finding and fixing mistakes",
+      "Thinking about efficiency",
+      "Giving clear instructions"
+    ]
+  }
 }

@@ -12,5 +12,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/tangram-city"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/tangram-city",
+  "about": {
+    "concept": "Geometry by hand. Seven pieces fill a shape only when turned and flipped the right way; the child learns rotation, reflection, how shapes compose, and then counts area and perimeter on what was built.",
+    "progression": "Outlined pieces show where each one goes. Later shapes show only the silhouette, then rotated silhouettes, then measurement questions about the finished figure.",
+    "lifeSkills": [
+      "Spatial reasoning",
+      "Fitting things together (packing, building)",
+      "Trying another orientation",
+      "Measuring"
+    ]
+  }
 }

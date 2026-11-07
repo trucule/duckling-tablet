@@ -14,5 +14,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/level-up"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/level-up",
+  "about": {
+    "concept": "Mastery in small steps across six subjects. Each subject is a ladder of levels; a level is passed by getting a run of answers right, so the child always works at the edge of what they know.",
+    "progression": "Ladders run from kindergarten to fourth grade in reading, math, color science, patterns, time and money, and shapes and fractions. The child sees the next rung and what it needs.",
+    "lifeSkills": [
+      "Telling time and counting money",
+      "Reading for meaning",
+      "Sticking with practice",
+      "Seeing progress as a series of steps"
+    ]
+  }
 }

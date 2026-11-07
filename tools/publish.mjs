@@ -62,6 +62,9 @@ const privateKey = createPrivateKey({ key: Buffer.from(KEY, 'base64'), format: '
 function listFiles(dir, base = dir) {
   const out = [];
   for (const name of readdirSync(dir).sort()) {
+    // demo.gif is for the portal's About page and goes to storage on its own; recorder scratch folders are skipped.
+    if (dir === base && name === 'demo.gif') continue;
+    if (name.startsWith('.demo-')) continue;
     const p = join(dir, name);
     if (statSync(p).isDirectory()) out.push(...listFiles(p, base));
     else out.push(relative(base, p).replace(/\\/g, '/'));
@@ -77,6 +80,7 @@ function validate(m, id) {
   if (!/^\d+\.\d+\.\d+$/.test(m.version ?? '')) problems.push('version must be x.y.z');
   if ((m.description ?? '').length > 500) problems.push('description over 500 characters');
   for (const s of m.subjects ?? []) if (!['reading', 'math', 'science', 'art', 'music', 'logic'].includes(s)) problems.push(`unknown subject ${s}`);
+  if (m.about && !(typeof m.about.concept === 'string' && typeof m.about.progression === 'string' && Array.isArray(m.about.lifeSkills) && m.about.lifeSkills.length)) problems.push('about needs concept, progression and lifeSkills');
   for (const p of m.permissions ?? []) if (!['microphone', 'camera'].includes(p)) problems.push(`unknown permission ${p}`);
   if (problems.length) die(`apps/${id}/manifest.json: ${problems.join('; ')}`);
 }
@@ -122,11 +126,20 @@ async function publish(id, requestId) {
   const { manifest: m, zip, sha256, signature } = pack(id);
   const catalog = (await (await fetch(`${API}/catalog`)).json()).apps;
   const existing = catalog.find((a) => a.id === id);
-  const meta = { name: m.name, description: m.description ?? '', subjects: m.subjects ?? [], ageMin: m.ageMin ?? null, ageMax: m.ageMax ?? null, starter: !!m.starter };
+  const meta = { name: m.name, description: m.description ?? '', subjects: m.subjects ?? [], ageMin: m.ageMin ?? null, ageMax: m.ageMax ?? null, starter: !!m.starter, about: m.about ?? null };
   const put = await api('PUT', `/admin/apps/${id}`, JSON.stringify(meta), { 'content-type': 'application/json' });
   if (put.status !== 200) die(`PUT /admin/apps/${id}: ${put.status} ${JSON.stringify(put.json)}`);
   const tile = await api('PUT', `/admin/apps/${id}/tile`, readFileSync(join(APPS, id, 'tile.png')), { 'content-type': 'image/png' });
   if (tile.status !== 200) die(`PUT tile ${id}: ${tile.status} ${JSON.stringify(tile.json)}`);
+  // The About page's recording (tools/demos.mjs makes it); uploaded when its bytes changed, like the tile.
+  if (existsSync(join(APPS, id, 'demo.gif'))) {
+    const gif = readFileSync(join(APPS, id, 'demo.gif'));
+    const gifKey = `demos/${id}-${createHash('sha256').update(gif).digest('hex').slice(0, 12)}.gif`;
+    if (!existing?.demoUrl || !existing.demoUrl.endsWith(gifKey)) {
+      const demo = await api('PUT', `/admin/apps/${id}/demo`, gif, { 'content-type': 'image/gif' });
+      if (demo.status !== 200) die(`PUT demo ${id}: ${demo.status} ${JSON.stringify(demo.json)}`);
+    }
+  }
   if (existing?.latest?.version === m.version) {
     console.log(`${id} ${m.version}: already published (${existing.latest.sha256 === sha256 ? 'same' : 'DIFFERENT'} bytes); metadata updated`);
     return;

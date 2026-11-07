@@ -120,6 +120,16 @@ describe.skipIf(!ready)('parent portal', () => {
     const after = await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } });
     expect(after.status).toBe(410);
 
+    // The About page for an app: the recording, the three sections, and Install for a paired tablet.
+    await p.goto(`${portal}/#/app/robot-path`);
+    await p.getByRole('heading', { name: 'Robot Path' }).waitFor();
+    await p.getByRole('heading', { name: 'What it trains' }).waitFor();
+    await p.getByRole('heading', { name: 'How it grows with your child' }).waitFor();
+    await p.getByText('Planning a sequence of actions').waitFor();
+    await p.locator('img.demo').waitFor();
+    await p.getByText('Back').first().click();
+    await p.getByRole('heading', { name: 'Parent PIN' }).waitFor();
+
     // The family PIN: set here, carried to a tablet in its config.
     await p.getByRole('heading', { name: 'Parent PIN' }).waitFor();
     await p.getByPlaceholder('PIN (4 to 6 digits)').fill('2468');

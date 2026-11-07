@@ -11,5 +11,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/chemistry-lab"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/chemistry-lab",
+  "about": {
+    "concept": "Following a procedure and observing cause and effect. Each experiment is a short sequence of steps, read aloud, with a change to notice at the end: a color shifts, a gas forms, something floats or sinks.",
+    "progression": "Early experiments have two or three steps and one visible result. Later ones have more steps, ask the child to predict before acting, and compare two runs with one thing changed.",
+    "lifeSkills": [
+      "Following instructions in order",
+      "Predicting and then checking",
+      "Noticing details",
+      "Safe handling of materials"
+    ]
+  }
 }

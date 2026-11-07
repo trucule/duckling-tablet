@@ -34,8 +34,16 @@ input, select { font: inherit; padding: 9px 12px; border: 2px solid var(--line);
 .tiles img { width: 44px; height: 44px; border-radius: 12px; display: block; }
 .tiles .t { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px 6px 6px; background: var(--white); font-size: 14px; }
 .tiles .t.off { opacity: 0.5; }
+a.tiles, .tiles a.t { color: inherit; text-decoration: none; }
 .tiles .t button { border: 0; background: none; color: var(--pond); cursor: pointer; font-size: 13px; padding: 0; }
 .swatch { width: 22px; height: 22px; border-radius: 50%; display: inline-block; border: 1px solid var(--line); vertical-align: middle; }
 
 /* A child's portrait from My Avatar, in place of the colour swatch once she has drawn one */
 .portrait { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #fff; border: 1px solid var(--line); flex: none; }
+
+/* The About page for an app */
+.about .demo { display: block; width: 100%; max-width: 560px; border-radius: 14px; border: 1px solid var(--line); background: #fff; }
+.about .demo.tile { width: 160px; }
+.about h2 { margin: 18px 0 6px; }
+.skills { margin: 0; padding-left: 20px; }
+.skills li { margin: 4px 0; }

@@ -8,7 +8,7 @@ export interface Attachment { id: string; requestId: string; contentType: string
 export interface AppRequest { id: string; title: string; description: string; childGrade: string | null; installWhenReady: boolean; status: string; appId: string | null; createdAt: string; updatedAt: string; attachments: Attachment[] }
 export interface Family { familyId: string; you: string; pinSet: boolean; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
 export interface DeviceDetail { deviceId: string; state: string; child: Child | null; apps: { id: string; name: string; version: string; tileUrl: string | null }[]; hidden: string[]; allowlist: { host: string; tile?: { name: string; url: string } }[]; travel: { active: boolean; until: string | null } }
-export interface CatalogApp { id: string; name: string; tileUrl: string | null; description: string }
+export interface CatalogApp { id: string; name: string; tileUrl: string | null; description: string; demoUrl: string | null; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; about: { concept: string; progression: string; lifeSkills: string[] } | null }
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 

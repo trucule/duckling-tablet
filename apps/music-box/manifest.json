@@ -13,5 +13,15 @@
     "microphone"
   ],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/music-box"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/music-box",
+  "about": {
+    "concept": "Pattern and rhythm. A tone matrix turns a grid of choices into a repeating melody, so the child hears how changing one cell changes the whole, and learns beats, bars and layers by building them.",
+    "progression": "A single instrument on a short loop leads to drums plus melody, then several instruments, saved songs, and the Voice Lab, where the child's own voice becomes an instrument.",
+    "lifeSkills": [
+      "Listening closely",
+      "Composing and revising",
+      "Keeping a steady beat",
+      "Expressing a mood through sound"
+    ]
+  }
 }

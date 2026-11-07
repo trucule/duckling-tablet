@@ -1,0 +1,27 @@
+{
+  "id": "read-it-say-it",
+  "name": "Read It Say It Make It",
+  "version": "1.0.2",
+  "description": "Read a passage out loud and the tablet listens, marking each word as it is read; then answer about it and make something from it. Speech checking runs on the tablet, offline.",
+  "subjects": [
+    "reading"
+  ],
+  "ageMin": 5,
+  "ageMax": 9,
+  "starter": false,
+  "permissions": [
+    "microphone"
+  ],
+  "minShell": "1.0.0",
+  "source": "trucule/Surface-Pro-X-KidSetup apps/read-it-say-it",
+  "about": {
+    "concept": "Reading fluency with feedback. The child reads a passage aloud and each word lights up as the recognizer hears it, so reading becomes an activity with an immediate, visible result rather than a silent one. Questions and a making step afterwards check that the meaning landed.",
+    "progression": "Passages grow from a few short sentences with common words to paragraphs with longer words and dialogue. Early passages accept a slow pace; later ones ask for smoother reading and harder questions.",
+    "lifeSkills": [
+      "Reading aloud with confidence",
+      "Clear speaking",
+      "Understanding what was read",
+      "Turning what was read into something made"
+    ]
+  }
+}

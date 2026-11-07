@@ -11,5 +11,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/planet-explorer"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/planet-explorer",
+  "about": {
+    "concept": "Scale and physical law. Each planet's gravity, size and day length come from NASA's fact sheet, so jumping on Mars or waiting out a day on Venus shows differences as feelings, not only numbers.",
+    "progression": "The child first visits and compares two planets by jumping. Later visits ask for predictions (where will a jump go highest), ordering planets by size or day length, and reading the fact cards.",
+    "lifeSkills": [
+      "Comparing and ordering",
+      "Reading reference information",
+      "Curiosity about how the world works",
+      "Connecting numbers to experience"
+    ]
+  }
 }

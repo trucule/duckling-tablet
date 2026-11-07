@@ -11,5 +11,15 @@
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/draw-with-me"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/draw-with-me",
+  "about": {
+    "concept": "Decomposing a complex shape into simple strokes, in order. Each lesson shows one line at a time, so the child learns that a detailed picture is a sequence of small, repeatable moves.",
+    "progression": "Lessons run from four-stroke animals to detailed scenes with shading. A drawing of the day and a surprise pick keep the child moving along the sequence rather than repeating a favorite.",
+    "lifeSkills": [
+      "Fine motor control",
+      "Breaking a big task into steps",
+      "Patience with a long task",
+      "Confidence to make something from nothing"
+    ]
+  }
 }

@@ -11,5 +11,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/ecosystem-aquarium"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/ecosystem-aquarium",
+  "about": {
+    "concept": "Feedback loops and balance. Fish, snails, plants, light and food all affect oxygen, algae and each other; the child changes one thing, runs the days, and reads what happened.",
+    "progression": "The first tanks balance with one or two changes. Later tanks have more species and tighter limits, and the child is asked to keep a tank healthy for longer runs and to explain a crash.",
+    "lifeSkills": [
+      "Caring for living things",
+      "Thinking about consequences over time",
+      "Reading a chart",
+      "Adjusting a plan from evidence"
+    ]
+  }
 }

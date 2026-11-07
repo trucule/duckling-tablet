@@ -11,5 +11,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/playground-lab"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/playground-lab",
+  "about": {
+    "concept": "Intuitive physics by experiment. A slingshot, catapult, seesaw, trampoline and dominoes let the child vary force, angle, mass and gravity and watch the result, in slow motion when it helps.",
+    "progression": "Free play comes first. Challenges then ask for a target to be hit, a balance to be found, or a domino run to be completed, and moon gravity and slow motion invite comparing the same setup two ways.",
+    "lifeSkills": [
+      "Cause and effect",
+      "Adjusting one thing at a time",
+      "Aiming and judging distance",
+      "Learning from a failed attempt"
+    ]
+  }
 }

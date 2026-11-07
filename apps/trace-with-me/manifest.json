@@ -11,5 +11,15 @@
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/trace-with-me"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/trace-with-me",
+  "about": {
+    "concept": "Handwriting as movement memory. Letters, numbers and words are traced stroke by stroke with the correct order and direction shown, then written from memory, so the motor pattern and the spelling are learned together.",
+    "progression": "Shapes and single letters come first, then numbers, then words to trace and spell from memory, then cursive with a pen that shows each stroke joining the next.",
+    "lifeSkills": [
+      "Legible handwriting",
+      "Spelling",
+      "Pencil control",
+      "Finishing a task with care"
+    ]
+  }
 }

@@ -41,7 +41,7 @@ export function Device({ id, onBack }: { id: string; onBack: () => void }) {
           {catalog.map((a) => (
             <span class={`t ${hidden.has(a.id) ? 'off' : ''}`} key={a.id}>
               {a.tileUrl && <img src={a.tileUrl} alt="" />}
-              <span>{a.name}{installed.has(a.id) ? ' · installed' : ''}{hidden.has(a.id) ? ' · hidden' : ''}</span>
+              <span>{a.name}{installed.has(a.id) ? ' · installed' : ''}{hidden.has(a.id) ? ' · hidden' : ''} <a href={`#/app/${a.id}`}>About</a></span>
               {!installed.has(a.id) && !hidden.has(a.id) && <button onClick={() => act(() => api.installApp(id, a.id))}>Install</button>}
               <button onClick={() => act(() => api.hideApp(id, a.id, !hidden.has(a.id)))}>{hidden.has(a.id) ? 'Unhide' : 'Hide'}</button>
             </span>

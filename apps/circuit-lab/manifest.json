@@ -11,5 +11,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/circuit-lab"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/circuit-lab",
+  "about": {
+    "concept": "Systems thinking with electricity: a circuit works only when the loop is closed, and how parts are arranged changes what happens. Series and parallel are seen as dim and bright bulbs before the words are introduced.",
+    "progression": "The first boards ask for one bulb and one battery. Later boards add switches, buzzers, two bulbs in series or parallel, and faults to find, ending with wiring a whole house.",
+    "lifeSkills": [
+      "Troubleshooting step by step",
+      "Understanding how household things work",
+      "Planning a layout before building",
+      "Persistence when the first try does not work"
+    ]
+  }
 }

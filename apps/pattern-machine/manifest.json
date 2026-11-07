@@ -12,5 +12,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/pattern-machine"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/pattern-machine",
+  "about": {
+    "concept": "Functions and inference. A machine applies a rule to a shape; the child predicts the output, works out a hidden rule from examples, and follows a chain of machines, which is the shape of algebraic thinking.",
+    "progression": "Single machines that turn or paint lead to two-step machines, hidden rules found from three examples, and chains where the order of machines matters.",
+    "lifeSkills": [
+      "Working out rules from examples",
+      "Predicting outcomes",
+      "Following multi-step processes",
+      "Checking an answer against evidence"
+    ]
+  }
 }

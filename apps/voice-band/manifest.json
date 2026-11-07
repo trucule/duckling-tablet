@@ -13,5 +13,15 @@
     "microphone"
   ],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/voice-band"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/voice-band",
+  "about": {
+    "concept": "Pitch and structure made visible. Singing a melody shows its notes on screen, so the child connects what she hears and does with how music is written; the looper shows how layers combine into a piece.",
+    "progression": "Seeing a single sung note leads to melodies, then voice effects that change timbre, then a four-track looper where parts are recorded, timed and layered.",
+    "lifeSkills": [
+      "Using the voice with control",
+      "Listening for pitch",
+      "Building something in layers",
+      "Performing without fear"
+    ]
+  }
 }

@@ -5,7 +5,7 @@ import type { Q } from './db.js';
 
 export interface CatalogApp {
   id: string; name: string; description: string; subjects: string[]; ageMin: number | null; ageMax: number | null;
-  starter: boolean; tileUrl: string | null; latest: null | { version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[]; publishedAt: Date };
+  starter: boolean; tileUrl: string | null; demoUrl: string | null; about: { concept: string; progression: string; lifeSkills: string[] } | null; latest: null | { version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[]; publishedAt: Date };
 }
 
 // Versions compare numerically by dot-separated parts (1.10.0 > 1.9.2).
@@ -26,6 +26,7 @@ export async function listCatalog(ctx: Ctx, q?: Q): Promise<CatalogApp[]> {
     return {
       id: a.id, name: a.name, description: a.description, subjects: a.subjects, ageMin: a.age_min, ageMax: a.age_max,
       starter: a.starter, tileUrl: a.tile_key ? ctx.storage.publicUrl(a.tile_key) : null,
+      demoUrl: a.demo_key ? ctx.storage.publicUrl(a.demo_key) : null, about: a.about ?? null,
       latest: v ? { version: v.version, url: ctx.storage.publicUrl(v.package_key), sha256: v.sha256, signature: v.signature, size: v.size,
         minShell: v.min_shell, permissions: v.permissions, publishedAt: v.published_at } : null,
     };

@@ -11,5 +11,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/kitchen-lab"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/kitchen-lab",
+  "about": {
+    "concept": "Measurement and change of state. A recipe is a procedure with quantities; mixing, heating and cooling change texture, volume and color in ways the child can predict and see.",
+    "progression": "Early recipes measure whole cups and spoons and have one visible change. Later ones use halves and quarters, several stages, and comparisons between two versions.",
+    "lifeSkills": [
+      "Measuring accurately",
+      "Reading and following a recipe",
+      "Kitchen safety habits",
+      "Noticing how things change when combined"
+    ]
+  }
 }

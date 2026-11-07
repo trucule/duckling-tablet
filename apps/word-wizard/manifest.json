@@ -11,5 +11,15 @@
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/word-wizard"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/word-wizard",
+  "about": {
+    "concept": "Phonics and spelling with immediate feedback. The child hears a word, places its letters in order, and sees the right spelling act in a 3D world, so sound-to-letter mapping is practiced word by word.",
+    "progression": "Three-letter words with short vowels lead to blends, digraphs, long vowels and longer words, with spoken words drawn from the child's reading level.",
+    "lifeSkills": [
+      "Sounding out words",
+      "Spelling",
+      "Listening carefully",
+      "Reading signs and labels"
+    ]
+  }
 }

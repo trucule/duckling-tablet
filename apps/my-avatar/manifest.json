@@ -11,5 +11,15 @@
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/my-avatar"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/my-avatar",
+  "about": {
+    "concept": "Identity, choice and delayed reward. The child designs a character that stands for her, and the stars earned across the other apps are the currency for new items, so effort elsewhere has a visible result here.",
+    "progression": "Everything basic is free. Hair, outfits, hats, glasses, backgrounds and frames cost stars, with prices rising for the more elaborate items, so saving for something becomes a choice the child makes.",
+    "lifeSkills": [
+      "Saving toward a goal",
+      "Making and owning choices",
+      "Self-expression",
+      "Connecting effort to reward"
+    ]
+  }
 }

@@ -11,5 +11,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/fraction-pizza"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/fraction-pizza",
+  "about": {
+    "concept": "Fractions as parts of a whole and as positions on a line. Cutting and serving slices makes equal parts, equivalent fractions and adding fractions concrete before they are written.",
+    "progression": "Halves and quarters come first, then thirds, sixths and eighths, then matching equal fractions, adding slices with the same denominator, and placing fractions on a number line.",
+    "lifeSkills": [
+      "Dividing food and time fairly",
+      "Reading recipes and measurements",
+      "Comparing portions",
+      "Explaining why two amounts are the same"
+    ]
+  }
 }

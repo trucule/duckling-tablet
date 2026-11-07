@@ -11,5 +11,15 @@
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/count-with-me"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/count-with-me",
+  "about": {
+    "concept": "Number sense: quantities as groups you can see and move, not only symbols. Ten frames, sharing into equal groups, place value blocks and spoken word problems each build the same idea from a different side.",
+    "progression": "Counting to ten and matching a numeral leads to making tens, then to tens and ones in two-digit numbers, then to word problems that need a choice of operation.",
+    "lifeSkills": [
+      "Counting and estimating amounts",
+      "Fair sharing",
+      "Handling money and quantities",
+      "Listening to a problem and picking what to do"
+    ]
+  }
 }

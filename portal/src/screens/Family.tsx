@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { api, type Family as FamilyT, type Child } from '../api';
+import { api, type Family as FamilyT, type Child, type CatalogApp } from '../api';
 import { Requests } from './Requests';
 import { InstallCard } from '../install';
 
@@ -17,6 +17,7 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
   const [, tick] = useState(0);
   const [pin, setPin] = useState(''); const [pinAgain, setPinAgain] = useState(''); const [pinMsg, setPinMsg] = useState('');
   const [invite, setInvite] = useState(''); const [inviteMsg, setInviteMsg] = useState('');
+  const [catalog, setCatalog] = useState<CatalogApp[]>([]);
   const load = () => api.family().then(setFam).catch((e) => setError((e as Error).message));
   useEffect(() => { load(); const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
 
@@ -126,6 +127,16 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
           </form>
         )}
         {inviteMsg && <p class={inviteMsg.startsWith('Invitation sent') ? 'ok' : 'error'} style={{ marginTop: 10 }}>{inviteMsg}</p>}
+      </div>
+
+      <div class="card">
+        <h2>Apps</h2>
+        <p>Every app, with what it trains and how it grows with your child. Open a tablet above to choose what is installed there.</p>
+        <div class="tiles">
+          {catalog.map((a) => (
+            <a class="t" key={a.id} href={`#/app/${a.id}`}>{a.tileUrl && <img src={a.tileUrl} alt="" />}<span>{a.name}</span></a>
+          ))}
+        </div>
       </div>
 
       <InstallCard />

@@ -11,5 +11,15 @@
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
-  "source": "trucule/Surface-Pro-X-KidSetup apps/light-bridge"
+  "source": "trucule/Surface-Pro-X-KidSetup apps/light-bridge",
+  "about": {
+    "concept": "Spatial planning under constraints. Matching orbs must be joined by bridges that never cross, so the child plans routes, looks ahead, and revises when two paths collide.",
+    "progression": "Boards grow from 4 by 4 with two pairs to 9 by 9 with many, and later boards need a route to be found that leaves room for every other route.",
+    "lifeSkills": [
+      "Planning before acting",
+      "Holding several goals in mind",
+      "Undoing and trying another way",
+      "Patience with puzzles"
+    ]
+  }
 }

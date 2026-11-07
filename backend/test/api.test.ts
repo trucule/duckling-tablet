@@ -156,6 +156,24 @@ describe('catalog and publishing', () => {
   });
 });
 
+describe('app about and demo', () => {
+  it('keeps the About text and the recording on the catalog entry', async () => {
+    const about = { concept: 'Sequencing.', progression: 'Turns, then repeats.', lifeSkills: ['Planning', 'Fixing mistakes'] };
+    const h = { authorization: `Bearer ${ADMIN}` };
+    await publish('robot-path', '1.0.0');
+    expect((await app.inject({ method: 'PUT', url: '/admin/apps/robot-path', headers: h, payload: { name: 'Robot Path', about } })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'PUT', url: '/admin/apps/robot-path', headers: h, payload: { name: 'Robot Path', about: { concept: 'x' } } })).statusCode).toBe(400);
+    const gif = Buffer.concat([Buffer.from('GIF89a'), Buffer.alloc(64, 0)]);
+    expect((await app.inject({ method: 'PUT', url: '/admin/apps/robot-path/demo', headers: { ...h, 'content-type': 'image/gif' }, payload: Buffer.alloc(64, 0) })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'PUT', url: '/admin/apps/robot-path/demo', headers: { ...h, 'content-type': 'image/gif' }, payload: gif })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'PUT', url: '/admin/apps/robot-path/demo', headers: { 'content-type': 'image/gif' }, payload: gif })).statusCode).toBe(401);
+    const a = (await (await app.inject({ method: 'GET', url: '/catalog' })).json()).apps.find((x: any) => x.id === 'robot-path');
+    expect(a.about).toEqual(about);
+    expect(a.demoUrl).toMatch(/^https:\/\/api\.test\/files\/demos\/robot-path-[0-9a-f]{12}\.gif$/);
+    expect((await app.inject({ method: 'GET', url: a.demoUrl.replace('https://api.test', '') })).statusCode).toBe(200);
+  });
+});
+
 describe('voice cache', () => {
   it('synthesizes a line once for every device, keeps private lines out of the cache, caps uncached text', async () => {
     const p = await signIn('p@example.com'); const d1 = await pair(p.auth); const d2 = await pair(p.auth);

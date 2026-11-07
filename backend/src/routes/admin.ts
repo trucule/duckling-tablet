@@ -24,11 +24,13 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
       name: z.string().min(1).max(60), description: z.string().max(500).default(''),
       subjects: z.array(z.string().max(20)).max(6).default([]), ageMin: z.number().int().min(2).max(14).nullable().default(null),
       ageMax: z.number().int().min(2).max(14).nullable().default(null), starter: z.boolean().default(false),
+      // The About page: the cognitive concept, how the app grows with the child, the life skills it serves.
+      about: z.object({ concept: z.string().min(1).max(1200), progression: z.string().min(1).max(1200), lifeSkills: z.array(z.string().min(1).max(80)).min(1).max(8) }).nullable().default(null),
     }).parse(req.body);
-    await ctx.db.system((q) => q.run(`INSERT INTO app (id, name, description, subjects, age_min, age_max, starter) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+    await ctx.db.system((q) => q.run(`INSERT INTO app (id, name, description, subjects, age_min, age_max, starter, about) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8::jsonb)
       ON CONFLICT (id) DO UPDATE SET name = excluded.name, description = excluded.description, subjects = excluded.subjects,
-      age_min = excluded.age_min, age_max = excluded.age_max, starter = excluded.starter`,
-      [id, b.name, b.description, JSON.stringify(b.subjects), b.ageMin, b.ageMax, b.starter]));
+      age_min = excluded.age_min, age_max = excluded.age_max, starter = excluded.starter, about = excluded.about`,
+      [id, b.name, b.description, JSON.stringify(b.subjects), b.ageMin, b.ageMax, b.starter, b.about ? JSON.stringify(b.about) : null]));
     return { id };
   });
 
@@ -47,6 +49,23 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
       await ctx.storage.put(key, body, 'image/png', true);
       await ctx.db.system((q) => q.run('UPDATE app SET tile_key = $1 WHERE id = $2', [key, id]));
       return { id, tileUrl: ctx.storage.publicUrl(key) };
+    });
+  });
+
+  // Body: a short recording of the app in action, a GIF (image/gif) up to 8 MB, for the portal's About page.
+  app.register(async (up) => {
+    up.addContentTypeParser('image/gif', { parseAs: 'buffer', bodyLimit: 8 * 1024 * 1024 }, (_req, body, done) => done(null, body));
+    up.put<{ Params: { id: string } }>('/admin/apps/:id/demo', async (req) => {
+      const id = appId.parse(req.params.id);
+      const body = req.body as Buffer;
+      if (!Buffer.isBuffer(body) || !/^GIF8[79]a/.test(body.subarray(0, 6).toString('latin1'))) throw badRequest('Send a GIF as the request body');
+      await ctx.db.system(async (q) => {
+        if (!(await q.one('SELECT 1 FROM app WHERE id = $1', [id]))) throw notFound('Create the app first (PUT /admin/apps/:id)');
+      });
+      const key = `demos/${id}-${sha256(body).slice(0, 12)}.gif`;
+      await ctx.storage.put(key, body, 'image/gif', true);
+      await ctx.db.system((q) => q.run('UPDATE app SET demo_key = $1 WHERE id = $2', [key, id]));
+      return { id, demoUrl: ctx.storage.publicUrl(key) };
     });
   });
 
