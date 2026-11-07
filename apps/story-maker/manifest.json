@@ -1,20 +1,20 @@
 {
   "id": "story-maker",
   "name": "Story Maker",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Choose characters, a place and a kind of story, and a new story is written scene by scene and read aloud by a cast of voices, with choices along the way.",
   "subjects": [
     "reading"
   ],
   "ageMin": 4,
-  "ageMax": 9,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/story-maker",
   "about": {
     "concept": "Narrative and comprehension. A story the child helped shape is read aloud by different voices for different characters, with the words shown; at the turning points the child chooses what happens next, so listening stays active and the structure of a story (setting, problem, choice, ending) is felt from the inside.",
-    "progression": "Little stories are short, with simple words and one choice. Longer settings bring more scenes, richer vocabulary, several choices with consequences, and questions about what happened and why.",
+    "progression": "Seven reading levels run from pre-K to 8th grade: short read-aloud stories with simple words and two choices grow into longer stories with grade vocabulary worked in, figurative language, foreshadowing, choices that change the plot, and a moral dilemma, told at 8th grade by an unreliable narrator. From 1st grade the story ends with questions about it, and from 5th grade with a reflection question and one check question the writer sets.",
     "lifeSkills": [
       "Listening for meaning",
       "Vocabulary",

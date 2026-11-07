@@ -82,6 +82,9 @@ describe('duckling-compat.js', () => {
       // 2nd grade where the app used to start everyone); an unknown subject reads as 2nd grade.
       expect(await a.evaluate(() => [(window as any).KidTablet.grade('math'), (window as any).KidTablet.grade('reading'), (window as any).KidTablet.grade('music')])).toEqual([5, -1, 2]);
       expect(await a.evaluate(() => { const lf = (window as any).KidTablet.levelFor; return [lf('reading', 11, 2), lf('music', 11, 2), lf('math', 11, 2), lf('math', 1, 0)]; })).toEqual([0, 2, 6, 0]);
+      // rungFor: the app names the grade of each rung; the child opens on the first rung at her grade, or the first
+      // above it, or the top when none is above.
+      expect(await a.evaluate(() => { const rf = (window as any).KidTablet.rungFor; const G = [-1, 0, 0, 1, 2, 2, 3, 4, 6, 8]; return [rf('reading', G), rf('music', G), rf('math', G), rf('math', [-1, 0, 1]), rf('math', [])]; })).toEqual([0, 4, 8, 2, 0]);
 
       // A spoken line: one request with the token, then start, word boundaries and end from the real clip.
       const tts = () => requests.filter((r) => r.startsWith('Device '));

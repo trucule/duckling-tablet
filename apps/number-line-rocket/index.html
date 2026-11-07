@@ -215,7 +215,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Number Line Rocket</title>
 <!--
-  Number Line Rocket. Send the rocket to a number on a line that zooms from 0 to 10 up to 0 to 1000, then fractions and numbers below zero.
+  Number Line Rocket. Send the rocket to a number on a line that zooms from 0 to 10 up to 0 to 1000, then fractions, decimals,
+  numbers below zero, integer jumps, changing scales, inequalities, square roots and powers of ten on a log scale.
   Third-party pieces bundled in this file: three.js r149 (MIT, Copyright 2010-2023 Three.js Authors).
   The MIT license lets anyone use, copy and change the library as long as this notice stays with it.
   Every 3D model here is built in code. Sounds are synthesized with Web Audio. Nothing is loaded from the network.
@@ -241,6 +242,8 @@
   .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1; margin: 0 4px; font-weight: 900; }
   .frac b { display: block; padding: 0 6px 2px; border-bottom: 4px solid currentColor; }
   .frac i { display: block; font-style: normal; padding-top: 2px; }
+  #prompt sup { font-size: 0.6em; vertical-align: super; line-height: 0; }
+  #prompt .root span { text-decoration: overline; text-decoration-thickness: 3px; }
   #dock { position: fixed; z-index: 4; left: 0; right: 0; bottom: max(16px, env(safe-area-inset-bottom)); display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 0 16px; pointer-events: none; }
   #dock > * { pointer-events: auto; }
   .big, .choice { min-width: 96px; min-height: 76px; padding: 8px 22px; border-radius: 24px; border: 4px solid var(--ink); font: 900 30px "Segoe UI", system-ui, sans-serif; color: var(--ink); cursor: pointer; box-shadow: 0 6px 0 var(--ink); transition: transform 0.08s; touch-action: manipulation; }
@@ -436,15 +439,22 @@ function screenOf(v) { const p = (v.isVector3 ? v : new THREE.Vector3(...v)).clo
 function label(text, opts = {}) {
   const fs = opts.size || 72, cv = document.createElement('canvas'), g = cv.getContext('2d');
   const font = `900 ${fs}px "Segoe UI", system-ui, sans-serif`; g.font = font;
+  // "3/4" is drawn stacked; "1 3/4" (a mixed number) puts the whole number beside the stack.
+  const mixed = opts.frac !== false && text.match(/^(-?\d+) (\d+)\/(\d+)$/);
   const frac = /^-?\d+\/\d+$/.test(text) && opts.frac !== false;
-  let w, h;
-  if (frac) { const [n, d] = text.split('/'); w = Math.max(g.measureText(n).width, g.measureText(d).width) + fs * 0.7; h = fs * 2.3; }
+  let w, h, ww = 0;
+  if (mixed) { ww = g.measureText(mixed[1]).width + fs * 0.15; text = `${mixed[2]}/${mixed[3]}`; }
+  if (frac || mixed) { const [n, d] = text.split('/'); w = Math.max(g.measureText(n).width, g.measureText(d).width) + fs * 0.7 + ww; h = fs * 2.3; }
   else { w = g.measureText(text).width + fs * 0.7; h = fs * 1.35; }
   cv.width = Math.ceil(w); cv.height = Math.ceil(h); g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
   if (opts.bg) { g.fillStyle = opts.bg; g.strokeStyle = '#2B2140'; g.lineWidth = fs * 0.12; const r = fs * 0.3; g.beginPath(); g.roundRect(g.lineWidth, g.lineWidth, cv.width - 2 * g.lineWidth, cv.height - 2 * g.lineWidth, r); g.fill(); g.stroke(); }
   g.fillStyle = opts.color || '#2B2140'; g.strokeStyle = opts.outline || 'transparent'; g.lineWidth = fs * 0.14; g.lineJoin = 'round';
   const put = (s, x, y) => { if (opts.outline) g.strokeText(s, x, y); g.fillText(s, x, y); };
-  if (frac) { const [n, d] = text.split('/'); put(n, w / 2, h * 0.27); put(d, w / 2, h * 0.75); g.fillRect(fs * 0.3, h / 2 - fs * 0.05, w - fs * 0.6, fs * 0.1); }
+  if (frac || mixed) {
+    const [n, d] = text.split('/'), cx = (w + ww) / 2;
+    if (mixed) put(mixed[1], fs * 0.35 + ww / 2 - fs * 0.07, h / 2 + fs * 0.04);
+    put(n, cx, h * 0.27); put(d, cx, h * 0.75); g.fillRect(fs * 0.3 + ww, h / 2 - fs * 0.05, w - fs * 0.6 - ww, fs * 0.1);
+  }
   else put(text, w / 2, h / 2 + fs * 0.04);
   const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: opts.depthTest !== false, transparent: true }));
@@ -499,14 +509,38 @@ function kitStart() {
 
 // ---------------------------------------------------------------------------
 // Number Line Rocket. She taps a spot on a glowing number line, then launches the rocket there. The line zooms
-// from 0 to 10 up to 0 to 1000, then fractions and numbers below zero. Guesses are scored by how close they land.
+// from 0 to 10 up to 0 to 1000, then fractions, decimals, numbers below zero, integer jumps, changing scales,
+// inequalities, square roots and powers of ten. Guesses are scored by how close they land.
 // Progress is kept in localStorage (key number-line-rocket-v1).
 // ---------------------------------------------------------------------------
 // Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
-const APP = { key: 'number-line-rocket-v1', get start() { return (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', LEVELS.length, 2) : 2); } };
+// 2nd grade opens at rung 6 (hundreds to 1000). Pre-K to 1st spread below it, 3rd to 8th above it.
+const APP = { key: 'number-line-rocket-v1', get start() { return (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('math', RUNG_GRADES) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', LEVELS.length, 6) : 6)); } };
 // min/max of the line, step between tick marks, which ticks get numbers, and how a tap snaps.
 // snap 0 means free placement (an estimate). Fraction lines use a denominator d.
 const LV = (name, o) => ({ name, gen() { return makeTask(o); }, o });
+// The ladder, bottom to top, with the grade band each rung is written for:
+//   0  Zero to ten          pre-K      whole numbers 1 to 9 on a labelled 0 to 10 line
+//   1  Count the jumps      pre-K, K   0 to 10 with only 0, 5 and 10 labelled
+//   2  Up to twenty         K          0 to 20, labels every 10
+//   3  Tens to one hundred  K, 1st     tens on a 0 to 100 line
+//   4  Guess on 0 to 100    1st        estimate any number on 0 to 100 with marks at 0, 50 and 100
+//   5  Where did it land?   1st, 2nd   watch the rocket land on 0 to 100 and read the number
+//   6  Hundreds to 1000     2nd        hundreds on a 0 to 1000 line
+//   7  Guess on 0 to 1000   2nd, 3rd   estimate on 0 to 1000 with marks at 0, 500 and 1000
+//   8  Fractions of one     3rd        halves, thirds, fourths, sixths and eighths on 0 to 1
+//   9  Fractions to two     3rd, 4th   halves, thirds and fourths on 0 to 2
+//  10  Below zero           4th        whole numbers on -10 to 10
+//  11  Way below zero       4th        estimate on -100 to 100
+//  12  Tenths               4th, 5th   decimals like 0.7 and 3.4 on a line with tenth marks
+//  13  Hundredths           5th        decimals like 2.35 on a line with marks every 0.05
+//  14  Mixed numbers        5th        improper fractions and mixed numbers on 0 to 3 or 0 to 4
+//  15  Fifty each way       6th        negatives on -50 to 50, exact and estimated
+//  16  Integer jumps        6th, 7th   start at -3, jump +7, land on 4, across zero
+//  17  Changing scales      7th        marks every 25, 0.5, 250 or 2.5 and an estimate between them
+//  18  Inequalities         7th, 8th   tap where x > 2.5 holds, and |x| = 4 as distance from zero
+//  19  Square roots         8th        place the square root of 20 between 4 and 5
+//  20  Powers of ten        8th        3 times 10 to the fourth on a log scale with labelled powers of ten
 const LEVELS = [
   LV('Zero to ten', { min: 0, max: 10, tick: 1, labelEvery: 1, snap: 1, pick: () => rand(1, 9) }),
   LV('Count the jumps', { min: 0, max: 10, tick: 1, labelEvery: 5, snap: 1, pick: () => pick([1, 2, 3, 4, 6, 7, 8, 9]) }),
@@ -520,7 +554,18 @@ const LEVELS = [
   LV('Fractions to two', { min: 0, max: 2, frac: [2, 3, 4], labelEvery: 1, pick: d => rand(1, 2 * d - 1) }),
   LV('Below zero', { min: -10, max: 10, tick: 1, labelEvery: 5, snap: 1, pick: () => pick([-9, -8, -7, -6, -4, -3, -2, -1, -1, -3, 2, 3, 7]) }),
   LV('Way below zero', { min: -100, max: 100, tick: 50, labelEvery: 100, snap: 0, pick: () => rand(-95, 95) }),
+  { name: 'Tenths', gen: genTenths },
+  { name: 'Hundredths', gen: genHundredths },
+  { name: 'Mixed numbers', gen: genMixed },
+  { name: 'Fifty each way', gen: genFifty },
+  { name: 'Integer jumps', gen: genJumps },
+  { name: 'Changing scales', gen: genScales },
+  { name: 'Inequalities', gen: genInequality },
+  { name: 'Square roots', gen: genRoots },
+  { name: 'Powers of ten', gen: genPowers },
 ];
+// The grade each rung is for (-1 pre-K, 0 K, 1..8), in ladder order. The child opens on the first rung at her math grade.
+const RUNG_GRADES = [-1, -1, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8];
 function makeTask(o) {
   const t = Object.assign({ kind: o.read ? 'read' : 'fly' }, o);
   if (o.frac) { const d = pick(o.frac); t.d = d; t.tick = 1 / d; t.snap = 1 / d; t.n = o.pick(d); t.value = t.n / d; t.text = `${t.n}/${d}`; }
@@ -529,26 +574,192 @@ function makeTask(o) {
   if (t.read) { const s = new Set([t.value]); for (const dv of shuffle([-5, 5, -10, 10, 15, -15, 20])) { if (s.size >= 4) break; const v = t.value + dv; if (v > o.min && v < o.max) s.add(v); } t.choices = [...s].sort((a, b) => a - b); }
   return t;
 }
+// The upper rungs build their task directly. Every task has min, max, tick, labelEvery, value and text; snap is the
+// grid a tap lands on (0 for an estimate) or snaps lists the exact marks (the log scale). Extras: dec (decimal
+// places), d and n (fractions), mixed, from and jump (integer jumps), scaleNote, region, truths, root, sci.
+const rnd = (v, dec = 0) => Math.round(v * 10 ** dec) / 10 ** dec;
+const range1 = (a, b) => [...Array(b - a + 1).keys()].map(i => i + a);
+const SUP = b => String(b).replace(/\d/g, ch => '⁰¹²³⁴⁵⁶⁷⁸⁹'[ch]).replace('-', '⁻');
+const numText = v => Number.isInteger(v) ? String(v) : String(rnd(v, 2));
+function lineTask(o) {
+  const t = Object.assign({ kind: 'fly' }, o);
+  if (t.labelEvery === undefined) t.labelEvery = t.tick;
+  if (t.text === undefined) t.text = fmt(t, t.value);
+  t.estimate = !t.snap && !t.snaps;
+  return t;
+}
+function genTenths() {
+  const whole = pick([0, 0, 1, 2, 3, 4, 5]);
+  const min = whole, max = whole === 0 && Math.random() < 0.4 ? 2 : whole + 1;
+  const k = pick(range1(1, Math.round((max - min) * 10) - 1).filter(i => i % 5));
+  return lineTask({ min, max, tick: 0.1, labelEvery: 0.5, snap: 0.1, dec: 1, value: rnd(min + k / 10, 1) });
+}
+function genHundredths() {
+  const min = pick([0, 0, 1, 2, 3, 4]), max = min + 1;
+  const k = pick(range1(1, 19).filter(i => i % 5));
+  return lineTask({ min, max, tick: 0.05, labelEvery: 0.25, snap: 0.05, dec: 2, value: rnd(min + k * 0.05, 2) });
+}
+function genMixed() {
+  const d = pick([2, 3, 4]), max = d === 4 ? 3 : 4;
+  const n = pick(range1(d + 1, max * d - 1).filter(i => i % d));
+  const mixed = Math.random() < 0.5;
+  return lineTask({ min: 0, max, tick: 1 / d, labelEvery: 1, snap: 1 / d, d, n, mixed, value: n / d, text: mixed ? `${Math.floor(n / d)} ${n % d}/${d}` : `${n}/${d}` });
+}
+function genFifty() {
+  if (Math.random() < 0.6) return lineTask({ min: -50, max: 50, tick: 5, labelEvery: 25, snap: 5, value: pick([-45, -40, -35, -30, -20, -15, -10, -5, 5, 10, 15, 20, 30, 35, 40, 45]) });
+  let v = 7; for (let i = 0; i < 50; i++) { v = rand(-49, 49); if (v % 5 !== 0 && Math.abs(v) > 2) break; }
+  return lineTask({ min: -50, max: 50, tick: 10, labelEvery: 50, snap: 0, value: v });
+}
+function genJumps() {
+  const wide = Math.random() < 0.4, R = wide ? 20 : 10;
+  let from = -3, jump = 7, value = 4;
+  for (let i = 0; i < 200; i++) {
+    const f = rand(-R + 1, R - 1), j = pick([-1, 1]) * rand(2, wide ? 18 : 12), v = f + j;
+    if (f === 0 || v < -R || v > R) continue;
+    if ((f < 0) === (v < 0) && v !== 0 && Math.random() < 0.7) continue;   // mostly cross zero
+    from = f; jump = j; value = v; break;
+  }
+  return lineTask({ min: -R, max: R, tick: 1, labelEvery: wide ? 10 : 5, snap: 1, from, jump, value, text: String(value) });
+}
+const SCALES = [
+  { min: 0, max: 100, tick: 25, labelEvery: 25, unit: 1 },
+  { min: 0, max: 200, tick: 25, labelEvery: 50, unit: 1 },
+  { min: 0, max: 1000, tick: 250, labelEvery: 250, unit: 10 },
+  { min: 0, max: 2000, tick: 250, labelEvery: 500, unit: 10 },
+  { min: 0, max: 5, tick: 0.5, labelEvery: 1, unit: 0.1, dec: 1 },
+  { min: 0, max: 10, tick: 2.5, labelEvery: 5, unit: 0.5, dec: 1 },
+  { min: -100, max: 100, tick: 25, labelEvery: 50, unit: 1 },
+];
+function genScales() {
+  const s = pick(SCALES), steps = Math.round((s.max - s.min) / s.unit);
+  let v = rnd(s.min + Math.round(steps * 0.37) * s.unit, s.dec || 0);
+  for (let i = 0; i < 200; i++) {
+    const c = rnd(s.min + rand(Math.ceil(steps * 0.04), Math.floor(steps * 0.96)) * s.unit, s.dec || 0);
+    const onTick = Math.abs(c / s.tick - Math.round(c / s.tick)) < 1e-9;
+    if (!onTick && c !== 0) { v = c; break; }
+  }
+  return lineTask({ min: s.min, max: s.max, tick: s.tick, labelEvery: s.labelEvery, dec: s.dec, snap: 0, value: v, scaleNote: true });
+}
+const OPW = { '>': 'greater than', '<': 'less than', '≥': 'greater than or equal to', '≤': 'less than or equal to' };
+function genInequality() {
+  const half = Math.random() < 0.4;
+  const base = half ? { min: -5, max: 5, tick: 0.5, labelEvery: 1, snap: 0.5, dec: 1 } : { min: -10, max: 10, tick: 1, labelEvery: 5, snap: 1 };
+  const r = Math.random();
+  if (r < 0.6) {
+    const op = pick(['>', '<', '≥', '≤']);
+    const c = half ? rnd(rand(-7, 7) / 2, 1) : (Math.random() < 0.5 ? rand(-7, 7) : rand(-7, 6) + 0.5);
+    const open = op === '>' || op === '<';
+    const region = op === '>' || op === '≥' ? { lo: c, hi: Infinity, loOpen: open, hiOpen: true } : { lo: -Infinity, hi: c, loOpen: true, hiOpen: open };
+    return lineTask(Object.assign({}, base, { region, value: c, text: `x ${op} ${numText(c)}`, ineq: { op, c } }));
+  }
+  if (r < 0.85) {
+    const k = half ? rnd(rand(1, 9) / 2, 1) : rand(1, 9);
+    return lineTask(Object.assign({}, base, { truths: [k, -k], value: k, text: `|x| = ${numText(k)}`, abs: { k } }));
+  }
+  const k = half ? rnd(rand(2, 8) / 2, 1) : rand(2, 8), op = pick(['<', '≤']), open = op === '<';
+  return lineTask(Object.assign({}, base, { region: { lo: -k, hi: k, loOpen: open, hiOpen: open }, value: k, text: `|x| ${op} ${numText(k)}`, absRegion: { k, op } }));
+}
+function genRoots() {
+  const big = Math.random() < 0.25, max = big ? 12 : 10;
+  let n = 20;
+  for (let i = 0; i < 100; i++) { const c = big ? rand(50, 143) : rand(2, 99); if (!Number.isInteger(Math.sqrt(c))) { n = c; break; } }
+  return lineTask({ min: 0, max, tick: 1, labelEvery: big ? 2 : 1, snap: 0, dec: 1, value: Math.sqrt(n), text: `√${n}`, root: n });
+}
+function genPowers() {
+  const b0 = rand(0, 3), min = b0, max = b0 + 3, snaps = [], snapInfo = [];
+  for (let b = b0; b <= max; b++) for (let a = 1; a <= 9; a++) { const p = b + Math.log10(a); if (p <= max + 1e-9) { snaps.push(p); snapInfo.push({ a, b }); } }
+  const a = rand(2, 9), b = rand(b0, b0 + 2);
+  return lineTask({ min, max, log: true, tick: 1, labelEvery: 1, snaps, snapInfo, value: b + Math.log10(a), text: `${a} × 10${SUP(b)}`, sci: { a, b } });
+}
+// Every spot a tap can land on (used by the self-check and by the region tasks).
+function positions(t) {
+  if (t.snaps) return t.snaps.slice();
+  if (!t.snap) return [];
+  const n = Math.round((t.max - t.min) / t.snap); return range1(0, n).map(i => t.min + i * t.snap);
+}
+function nearestSnap(t, v) { let best = 0; for (let i = 1; i < t.snaps.length; i++) if (Math.abs(t.snaps[i] - v) < Math.abs(t.snaps[best] - v)) best = i; return best; }
+function inRegion(t, v) { const r = t.region; return (r.loOpen ? v > r.lo + 1e-9 : v >= r.lo - 1e-9) && (r.hiOpen ? v < r.hi - 1e-9 : v <= r.hi + 1e-9); }
 // Stars by closeness. For an estimate the error is a share of the whole line; for tick lines it is whole jumps.
 function score(t, v) {
-  const err = Math.abs(v - t.value), range = t.max - t.min;
+  if (t.region) { const ok = inRegion(t, v); return { stars: ok ? 3 : 0, err: ok ? 0 : 1, right: ok }; }
+  if (t.snaps) { const jumps = Math.abs(nearestSnap(t, v) - nearestSnap(t, t.value)); return { stars: jumps === 0 ? 3 : jumps === 1 ? 1 : 0, err: Math.abs(v - t.value), right: jumps === 0 }; }
+  const truths = t.truths || [t.value], range = t.max - t.min;
+  const err = Math.min(...truths.map(u => Math.abs(v - u)));
   if (!t.estimate) { const jumps = Math.round(err / t.snap); return { stars: jumps === 0 ? 3 : jumps === 1 ? 1 : 0, err, right: jumps === 0 }; }
   const share = err / range, stars = share <= 0.02 ? 3 : share <= 0.05 ? 2 : share <= 0.1 ? 1 : 0;
   return { stars, err, right: stars >= 2 };
 }
 const fmt = (t, v) => {
-  if (!t.d) return String(Math.round(v));
-  const n = Math.round(v * t.d); return n % t.d === 0 ? String(n / t.d) : `${n}/${t.d}`;
+  if (t.log) { const { a, b } = t.snapInfo[nearestSnap(t, v)]; return a === 1 ? `10${SUP(b)}` : `${a} × 10${SUP(b)}`; }
+  if (t.d) { const n = Math.round(v * t.d); if (n % t.d === 0) return String(n / t.d); return t.mixed && Math.abs(n) > t.d ? `${Math.trunc(n / t.d)} ${Math.abs(n) % t.d}/${t.d}` : `${n}/${t.d}`; }
+  if (t.dec) { const r = rnd(v, t.dec); return Number.isInteger(r) ? String(r) : r.toFixed(t.dec); }
+  return String(Math.round(v));
 };
 const NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen'];
 const ORD = { 2: ['half', 'halves'], 3: ['third', 'thirds'], 4: ['fourth', 'fourths'], 6: ['sixth', 'sixths'], 8: ['eighth', 'eighths'] };
-const speakVal = t => t.d ? `${NUMW[t.n]} ${t.n === 1 ? ORD[t.d][0] : ORD[t.d][1]}` : t.value < 0 ? `negative ${-t.value}` : String(t.value);
+const fracWords = (n, d) => `${NUMW[n] || n} ${n === 1 ? ORD[d][0] : ORD[d][1]}`;
+// How a number is spoken: "negative 3", "2 point 3 5".
+function sayNum(v) {
+  if (v < 0) return `negative ${sayNum(-v)}`;
+  if (Number.isInteger(v)) return String(v);
+  const [i, f] = String(rnd(v, 2)).split('.'); return `${i} point ${f.split('').join(' ')}`;
+}
+function speakVal(t) {
+  if (t.d) { if (t.mixed && t.n > t.d) return `${NUMW[Math.floor(t.n / t.d)]} and ${fracWords(t.n % t.d, t.d)}`; return fracWords(t.n, t.d); }
+  if (t.root) return `the square root of ${t.root}`;
+  if (t.sci) return `${t.sci.a} times 10 to the power of ${t.sci.b}`;
+  return sayNum(t.value);
+}
+// What the child is looking for, as spoken in "Find ..." lines.
+function speakGoal(t) {
+  if (t.ineq) return `a spot where x is ${OPW[t.ineq.op]} ${sayNum(t.ineq.c)}`;
+  if (t.abs) return `a spot ${sayNum(t.abs.k)} away from zero`;
+  if (t.absRegion) return `a spot ${t.absRegion.op === '<' ? 'less than' : 'at most'} ${sayNum(t.absRegion.k)} away from zero`;
+  return speakVal(t);
+}
+function valueHTML(t) {
+  const big = s => `<b style="font-size:34px">${s}</b>`;
+  if (t.d && t.mixed && t.n > t.d) return `${big(Math.floor(t.n / t.d))}${fracHTML(t.n % t.d, t.d)}`;
+  if (t.d) return fracHTML(t.n, t.d);
+  if (t.root) return big(`<span class="root">&radic;<span>${t.root}</span></span>`);
+  if (t.sci) return big(`${t.sci.a} × 10<sup>${t.sci.b}</sup>`);
+  return big(t.text);
+}
+// The prompt on screen and the line spoken with it. Pure, so the self-check can build it too.
+function promptFor(t) {
+  if (t.kind === 'read') return { html: 'Where did the rocket land?', speak: 'Watch the rocket. Where did it land?' };
+  if (t.from !== undefined) return { html: `Start at <b style="font-size:34px">${t.from}</b>. Jump <b style="font-size:34px">${t.jump > 0 ? '+' : '-'}${Math.abs(t.jump)}</b>`, speak: `Start at ${sayNum(t.from)}. Jump ${t.jump > 0 ? 'forward' : 'back'} ${Math.abs(t.jump)}. Tap where the rocket lands. Then launch!` };
+  if (t.ineq) return { html: `Tap any spot where <b style="font-size:34px">x ${t.ineq.op === '>' ? '&gt;' : t.ineq.op === '<' ? '&lt;' : t.ineq.op} ${numText(t.ineq.c)}</b>`, speak: `Tap any spot where x is ${OPW[t.ineq.op]} ${sayNum(t.ineq.c)}. Then launch!` };
+  if (t.abs) return { html: `Fly to a spot where <b style="font-size:34px">|x| = ${numText(t.abs.k)}</b>`, speak: `Tap a spot that is ${sayNum(t.abs.k)} away from zero. There are two. Then launch!` };
+  if (t.absRegion) return { html: `Tap any spot where <b style="font-size:34px">|x| ${t.absRegion.op === '<' ? '&lt;' : '≤'} ${numText(t.absRegion.k)}</b>`, speak: `Tap any spot ${t.absRegion.op === '<' ? 'less than' : 'at most'} ${sayNum(t.absRegion.k)} away from zero. Then launch!` };
+  const lead = t.scaleNote ? `The marks count by ${numText(t.tick)}. ` : '';
+  return { html: `${lead}Fly the rocket to ${valueHTML(t)}`, speak: `${lead}Tap the line where ${speakVal(t)} goes. Then launch!` };
+}
+// What is said after a miss.
+function missSpeech(t, v, sc) {
+  if (t.region) return `${fmt(t, v)} is not in the green part. That is where ${speakGoal(t).replace(/^a spot /, '')} holds.`;
+  if (t.abs) return `You landed on ${fmt(t, v)}. ${sayNum(t.abs.k)} and negative ${sayNum(t.abs.k)} are both ${sayNum(t.abs.k)} from zero. The gold stars show them.`;
+  const off = t.estimate ? `You were ${fmt(t, sc.err)} away.` : `You landed on ${fmt(t, v)}.`;
+  if (t.root) { const f = Math.floor(t.value); return `${off} ${speakVal(t)} is about ${sayNum(rnd(t.value, 1))}. It sits between ${f} and ${f + 1}, at the gold star.`; }
+  return `${off} ${speakVal(t)} is at the gold star.`;
+}
+// The tick marks of a line: value, whether it carries a number, and that number. Pure, so the self-check can read it.
+function tickList(t) {
+  const out = [];
+  if (t.log) { t.snaps.forEach((v, i) => { const lab = t.snapInfo[i].a === 1; out.push({ v, isLab: lab, text: lab ? fmt(t, v) : '' }); }); return out; }
+  const steps = Math.round((t.max - t.min) / t.tick);
+  for (let i = 0; i <= steps; i++) {
+    const v = t.min + i * t.tick, isLab = t.d ? Math.abs(v - Math.round(v)) < 1e-9 : Math.abs(v / t.labelEvery - Math.round(v / t.labelEvery)) < 1e-9;
+    out.push({ v, isLab, text: isLab ? fmt(t, v) : '' });
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // 3D: space, a glowing number line, a rocket and its pad.
 // ---------------------------------------------------------------------------
 const L = 13, X0 = -L / 2, LINE_Y = 0.35;
-let lineGroup, rocket, flame, marker, pad, reveal, picked = null, flying = false, curRange = null;
+let lineGroup, rocket, flame, marker, markerLabel = null, markerText = '', pad, reveal, picked = null, flying = false, curRange = null;
 const xOf = (t, v) => X0 + (v - t.min) / (t.max - t.min) * L;
 const vOf = (t, x) => t.min + (x - X0) / L * (t.max - t.min);
 function space() {
@@ -596,21 +807,25 @@ function makePad() {
   return shadowy(g);
 }
 const PAD_AT = new THREE.Vector3(-8.1, 0, -1.6);
+// Where the rocket waits: the pad, or the start number of an integer jump.
+const HOME = new THREE.Vector3(PAD_AT.x, 0.36, PAD_AT.z);
 function buildLine(t) {
   clearGroup(lineGroup);
   const bar = new THREE.Mesh(new THREE.BoxGeometry(L + 0.8, 0.3, 0.55), mat(0x00E5FF, { emissive: 0x00C8FF, emissiveIntensity: 0.55, roughness: 0.3 }));
   bar.position.set(0, LINE_Y, 0); lineGroup.add(shadowy(bar));
   for (const sx of [-1, 1]) { const tip = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 16), bar.material); tip.rotation.z = -sx * Math.PI / 2; tip.position.set(sx * (L / 2 + 0.6), LINE_Y, 0); lineGroup.add(tip); }
-  const steps = Math.round((t.max - t.min) / t.tick), items = [];
-  for (let i = 0; i <= steps; i++) {
-    const v = t.min + i * t.tick, x = xOf(t, v), isLab = t.d ? Math.abs(v - Math.round(v)) < 1e-9 : Math.abs(v / t.labelEvery - Math.round(v / t.labelEvery)) < 1e-9;
+  const items = [], ticks = tickList(t), dense = ticks.length > 24;
+  for (const { v, isLab, text } of ticks) {
+    const x = xOf(t, v);
     const zero = Math.abs(v) < 1e-9 && t.min < 0;
-    const tk = new THREE.Mesh(new THREE.BoxGeometry(isLab ? 0.12 : 0.08, isLab ? 0.95 : 0.6, 0.12), mat(zero ? 0xFFE14D : isLab ? 0xFF3DBB : 0xFFFFFF, { emissive: zero ? 0xFFE14D : isLab ? 0xFF3DBB : 0x8888ff, emissiveIntensity: 0.4 }));
+    const tk = new THREE.Mesh(new THREE.BoxGeometry(isLab ? 0.12 : 0.08, isLab ? 0.95 : dense ? 0.5 : 0.6, 0.12), mat(zero ? 0xFFE14D : isLab ? 0xFF3DBB : 0xFFFFFF, { emissive: zero ? 0xFFE14D : isLab ? 0xFF3DBB : 0x8888ff, emissiveIntensity: 0.4 }));
     tk.position.set(x, LINE_Y + (isLab ? 0.25 : 0.12), 0.24); tk.userData.x = x; lineGroup.add(tk); items.push(tk);
-    if (isLab) { const lb = label(fmt(t, v), { height: 0.75, color: '#fff', outline: '#2B2140' }); lb.position.set(x, LINE_Y + 0.25, 1.25); lb.userData.x = x; lineGroup.add(lb); items.push(lb); }
+    if (isLab) { const lb = label(text, { height: text.length > 3 ? 0.66 : 0.75, color: '#fff', outline: '#2B2140' }); lb.position.set(x, LINE_Y + 0.25, 1.25); lb.userData.x = x; lineGroup.add(lb); items.push(lb); }
   }
+  // An integer jump starts on the line: a small flag shows the start number.
+  if (t.from !== undefined) { const lb = label(String(t.from), { height: 0.6, bg: '#FFE14D', depthTest: false }); lb.position.set(xOf(t, t.from), LINE_Y + 3.0, 0.3); lb.userData.x = xOf(t, t.from); lineGroup.add(lb); items.push(lb); }
   // Zoom: when the range changes, the marks spread out from the left end like a camera zooming.
-  const key = `${t.min},${t.max},${t.tick}`;
+  const key = `${t.min},${t.max},${t.tick},${t.log ? 'log' : ''}`;
   if (curRange !== null && curRange !== key) { for (const it of items) it.position.x = X0 + (it.userData.x - X0) * 0.08; tween(900, e => { for (const it of items) it.position.x = X0 + (it.userData.x - X0) * (0.08 + 0.92 * e); }, null, ease.back); SFX.whoosh(0.7); }
   curRange = key;
   // A wide invisible strip catches taps along the line.
@@ -622,32 +837,44 @@ function makeMarker() {
   const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.6, 18), mat(0x7CFF4F, { emissive: 0x7CFF4F, emissiveIntensity: 0.6 })); arrow.rotation.x = Math.PI; arrow.position.y = LINE_Y + 1.5; g.add(arrow); g.userData.arrow = arrow;
   return g;
 }
+// On lines with marks the picked number floats over the marker, so a dense scale is readable. Estimates stay blank.
+function setMarkerLabel(t, v) {
+  const want = t.snap || t.snaps ? fmt(t, v) : '';
+  if (want === markerText) return; markerText = want;
+  if (markerLabel) { marker.remove(markerLabel); disposeTree(markerLabel); markerLabel = null; }
+  if (!want) return;
+  markerLabel = label(want, { height: /\d\/\d/.test(want) ? 1.05 : 0.6, bg: '#7CFF4F', depthTest: false }); markerLabel.position.set(0, LINE_Y + 2.4, 0.3); marker.add(markerLabel);
+}
 function resetRocket() {
-  rocket.position.copy(PAD_AT).setY(0.36); rocket.rotation.set(0, 0, 0); flame.visible = false; flying = false;
+  const jump = T && T.from !== undefined;
+  if (jump) HOME.set(xOf(T, T.from), LINE_Y + 0.12, 0); else HOME.set(PAD_AT.x, 0.36, PAD_AT.z);
+  pad.visible = !jump;
+  rocket.position.copy(HOME); rocket.rotation.set(0, 0, 0); flame.visible = false; flying = false;
 }
 
 // ---------------------------------------------------------------------------
 // Showing a task
 // ---------------------------------------------------------------------------
 function show(t) {
-  buildLine(t); picked = null; marker.visible = false; resetRocket();
+  buildLine(t); picked = null; marker.visible = false; setMarkerLabel(t, 0); resetRocket();
   if (reveal) { scene.remove(reveal); disposeTree(reveal); reveal = null; }
+  const p = promptFor(t);
   if (t.kind === 'read') {
-    setPrompt('Where did the rocket land?', 'Watch the rocket. Where did it land?');
+    setPrompt(p.html, p.speak);
     dock([]);
     setTimeout(() => { if (T === t) fly(t, t.value, () => { if (T === t) dock(t.choices.map(v => ({ html: String(v), cls: 'choice', data: { v }, on: b => readPick(t, v, b) }))); }); }, 600);
     return;
   }
-  const valHTML = t.d ? fracHTML(t.n, t.d) : `<b style="font-size:34px">${t.text}</b>`;
-  setPrompt(`Fly the rocket to ${valHTML}`, `Tap the line where ${speakVal(t)} goes. Then launch!`);
+  setPrompt(p.html, p.speak);
   dock([{ html: '🚀 Launch!', id: 'launchBtn', on: () => launch(t) }]);
   $('launchBtn').disabled = true; $('launchBtn').style.opacity = 0.5;
 }
 function setPick(t, x) {
   let v = vOf(t, Math.max(X0, Math.min(X0 + L, x)));
-  if (t.snap) v = Math.round((v - t.min) / t.snap) * t.snap + t.min;
+  if (t.snaps) v = t.snaps[nearestSnap(t, v)];
+  else if (t.snap) v = Math.round((v - t.min) / t.snap) * t.snap + t.min;
   v = Math.max(t.min, Math.min(t.max, v)); picked = v;
-  marker.visible = true; marker.position.x = xOf(t, v); SFX.tick();
+  marker.visible = true; marker.position.x = xOf(t, v); setMarkerLabel(t, v); SFX.tick();
   const b = $('launchBtn'); if (b) { b.disabled = false; b.style.opacity = 1; }
 }
 function fly(t, v, done) {
@@ -664,17 +891,41 @@ function fly(t, v, done) {
 function launch(t) {
   if (t.done || flying || picked === null) return;
   const v = picked; $('launchBtn').disabled = true; $('launchBtn').style.opacity = 0.5;
+  marker.visible = false;   // the rocket shows the pick now; the marker comes back for a second try
   fly(t, v, () => afterLanding(t, v));
 }
-function showTruth(t, guess) {
-  // A gold star drops onto the real spot. A bar shows the gap between the guess and the real spot.
-  reveal = new THREE.Group(); scene.add(reveal);
+function goldStar() {
   const s = new THREE.Shape(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 0.22 : 0.5, a = Math.PI / 2 + i * Math.PI / 5; i ? s.lineTo(Math.cos(a) * r, Math.sin(a) * r) : s.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
-  const star = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.18, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04, bevelSegments: 1 }), mat(0xFFD60A, { emissive: 0xFFB000, emissiveIntensity: 0.6, metalness: 0.3, roughness: 0.3 }));
-  const x = xOf(t, t.value); star.position.set(x, 6, 0.5); reveal.add(star);
-  tween(500, e => { star.position.y = 6 + (LINE_Y + 1.1 - 6) * e; star.rotation.y = e * Math.PI * 2; }, null, ease.back);
-  const lb = label(t.text, { height: t.d ? 1.3 : 0.95, bg: '#FFE14D', depthTest: false }); lb.position.set(x, LINE_Y + (t.d ? 3.4 : 3.1), 0.5); reveal.add(lb);
-  if (guess !== undefined && Math.abs(guess - t.value) > 1e-9) {
+  return new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.18, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04, bevelSegments: 1 }), mat(0xFFD60A, { emissive: 0xFFB000, emissiveIntensity: 0.6, metalness: 0.3, roughness: 0.3 }));
+}
+function showTruth(t, guess) {
+  // A gold star drops onto the real spot (two for |x| = k). A bar shows the gap between the guess and the real spot.
+  // An inequality shows its answers as a green band along the line, with an open ring or a filled dot at the edge.
+  reveal = new THREE.Group(); scene.add(reveal);
+  if (t.region) {
+    const r = t.region, lo = Math.max(t.min, r.lo), hi = Math.min(t.max, r.hi);
+    const x1 = xOf(t, lo) - (r.lo < t.min ? 0.6 : 0), x2 = xOf(t, hi) + (r.hi > t.max ? 0.6 : 0);
+    const band = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.05, x2 - x1), 0.55, 1.0), new THREE.MeshBasicMaterial({ color: 0x7CFF4F, transparent: true, opacity: 0.55 }));
+    band.position.set((x1 + x2) / 2, LINE_Y + 0.1, 0.25); band.scale.x = 0.01; reveal.add(band);
+    tween(500, e => { band.scale.x = Math.max(0.01, e); }, null, ease.back);
+    for (const [v, open] of [[r.lo, r.loOpen], [r.hi, r.hiOpen]]) {
+      if (!Number.isFinite(v)) continue;
+      const m = open ? new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.09, 10, 28), mat(0xFFD60A, { emissive: 0xFFB000, emissiveIntensity: 0.6 })) : new THREE.Mesh(new THREE.SphereGeometry(0.36, 20, 14), mat(0xFFD60A, { emissive: 0xFFB000, emissiveIntensity: 0.6 }));
+      m.position.set(xOf(t, v), LINE_Y + 0.85, 0.4); reveal.add(m);
+    }
+    const lx = Number.isFinite(r.lo) && Number.isFinite(r.hi) ? (xOf(t, lo) + xOf(t, hi)) / 2 : xOf(t, Number.isFinite(r.lo) ? r.lo : r.hi);
+    const lb = label(t.text, { height: 0.95, bg: '#FFE14D', depthTest: false }); lb.position.set(lx, LINE_Y + 3.1, 0.5); reveal.add(lb);
+    return;
+  }
+  const truths = t.truths || [t.value];
+  for (const u of truths) {
+    const star = goldStar(), x = xOf(t, u); star.position.set(x, 6, 0.5); reveal.add(star);
+    tween(500, e => { star.position.y = 6 + (LINE_Y + 1.1 - 6) * e; star.rotation.y = e * Math.PI * 2; }, null, ease.back);
+    const text = truths.length > 1 ? fmt(t, u) : t.root ? `${t.text} ≈ ${rnd(t.value, 1)}` : t.text;
+    const lb = label(text, { height: t.d ? 1.3 : 0.95, bg: '#FFE14D', depthTest: false }); lb.position.set(x, LINE_Y + (t.d ? 3.4 : 3.1), 0.5); reveal.add(lb);
+  }
+  const x = xOf(t, t.value);
+  if (truths.length === 1 && guess !== undefined && Math.abs(guess - t.value) > 1e-9) {
     const gx = xOf(t, guess), gap = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(gx - x), 0.12, 0.12), mat(0xFF2E55, { emissive: 0xFF2E55, emissiveIntensity: 0.6 }));
     gap.position.set((gx + x) / 2, LINE_Y + 0.3, 0.45); reveal.add(gap);
   }
@@ -682,15 +933,14 @@ function showTruth(t, guess) {
 function afterLanding(t, v) {
   const sc = score(t, v); t.result = sc; showTruth(t, v);
   const stars = '⭐'.repeat(sc.stars) || '💫';
-  if (sc.right) { answer(true, `${stars} ${sc.stars === 3 ? 'Bullseye!' : 'So close!'}`); burst(new THREE.Vector3(xOf(t, t.value), LINE_Y + 1.5, 0.5), 60, 1.4); return; }
-  const off = t.estimate ? `You were ${Math.round(sc.err)} away.` : `You landed on ${fmt(t, v)}.`;
+  if (sc.right) { answer(true, `${stars} ${sc.stars === 3 ? 'Bullseye!' : 'So close!'}`); burst(new THREE.Vector3(xOf(t, t.region || t.truths ? v : t.value), LINE_Y + 1.5, 0.5), 60, 1.4); return; }
   const firstTry = t.tries === 0;
   answer(false);
   if (!t.done) toast(`${stars} ${sc.stars ? 'Close!' : 'Keep trying!'}`, 1600);
-  say(`${off} ${speakVal(t)} is at the gold star.`);
+  say(missSpeech(t, v, sc));
   if (T !== t || t.done) return;
   if (t.estimate || !firstTry) { t.done = true; clearTimeout(ADV); if (!HOLD) ADV = setTimeout(() => { if (T === t) newTask(); }, 2800); }
-  else setTimeout(() => { if (T === t && !t.done) { resetRocket(); if (reveal) { scene.remove(reveal); disposeTree(reveal); reveal = null; } say(`Try again. Find ${speakVal(t)}.`); const b = $('launchBtn'); if (b) { b.disabled = false; b.style.opacity = 1; } } }, 2400);
+  else setTimeout(() => { if (T === t && !t.done) { resetRocket(); if (reveal) { scene.remove(reveal); disposeTree(reveal); reveal = null; } marker.visible = picked !== null; say(`Try again. Find ${speakGoal(t)}.`); const b = $('launchBtn'); if (b) { b.disabled = false; b.style.opacity = 1; } } }, 2400);
 }
 function readPick(t, v, btn) {
   if (t.done) return;
@@ -714,7 +964,7 @@ marker = makeMarker(); scene.add(marker); marker.visible = false;
 ONFRAME.push(now => {
   if (flame.visible) { flame.scale.set(1, 0.8 + Math.random() * 0.5, 1); }
   if (marker.visible) { marker.userData.arrow.position.y = LINE_Y + 1.5 + Math.sin(now / 200) * 0.15; }
-  if (!flying && T && !T.done && rocket.position.distanceTo(PAD_AT) < 1) rocket.position.y = 0.36 + Math.max(0, Math.sin(now / 160)) * 0.02;
+  if (!flying && T && !T.done && rocket.position.distanceTo(HOME) < 1) rocket.position.y = HOME.y + Math.max(0, Math.sin(now / 160)) * 0.02;
 });
 let dragging = false;
 function lineTouch(ev) {
@@ -729,6 +979,48 @@ renderer.domElement.addEventListener('pointermove', ev => { if (dragging) lineTo
 const stopDrag = () => { dragging = false; };
 renderer.domElement.addEventListener('pointerup', stopDrag); renderer.domElement.addEventListener('pointercancel', stopDrag);
 kitStart();
+
+// ---------------------------------------------------------------------------
+// Self-check: builds tasks at a rung without the DOM and throws on a malformed one. tools/ladder-check.mjs --drive
+// runs it. A task is good when its numbers are finite and on the line, its target sits on the snap grid, its region
+// has some right spots and some wrong ones, its read choices include the answer, and no text carries NaN.
+// ---------------------------------------------------------------------------
+function checkTask(t) {
+  const fin = v => typeof v === 'number' && Number.isFinite(v);
+  const bad = m => { throw new Error(`${m}: ${JSON.stringify({ text: t.text, min: t.min, max: t.max, value: t.value, from: t.from })}`); };
+  if (!fin(t.min) || !fin(t.max) || !(t.max > t.min)) bad('bad range');
+  if (!fin(t.tick) || !(t.tick > 0)) bad('bad tick');
+  if (!fin(t.value) || t.value < t.min - 1e-9 || t.value > t.max + 1e-9) bad('value off the line');
+  const p = promptFor(t), texts = [t.text, p.html, p.speak, speakGoal(t), missSpeech(t, t.min, { err: t.value - t.min, stars: 0 })];
+  for (const tk of tickList(t)) if (tk.isLab) texts.push(tk.text);
+  for (const s of texts) if (typeof s !== 'string' || !s.trim() || /NaN|undefined|null|Infinity|\[object/.test(s)) bad(`bad text "${s}"`);
+  const ticks = tickList(t).length; if (ticks < 2 || ticks > 60) bad(`${ticks} tick marks`);
+  if (t.snaps) { if (!t.snaps.some(s => Math.abs(s - t.value) < 1e-9)) bad('value is not on a mark'); }
+  else if (t.snap && !t.region) { const k = (t.value - t.min) / t.snap; if (Math.abs(k - Math.round(k)) > 1e-6) bad('value is off the snap grid'); }
+  else if (!t.snap && t.snap !== 0) bad('no snap');
+  if (t.estimate && (t.snap || t.snaps)) bad('estimate with a snap');
+  if (t.from !== undefined) { if (!fin(t.from) || !fin(t.jump) || t.from < t.min || t.from > t.max || t.from === t.value || Math.abs(t.from + t.jump - t.value) > 1e-9) bad('bad jump'); }
+  if (t.region) { const grid = positions(t), yes = grid.filter(v => inRegion(t, v)).length; if (!grid.length || !yes || yes === grid.length) bad('region with no right spot or no wrong spot'); }
+  if (t.truths) { if (!t.truths.length) bad('no truths'); for (const u of t.truths) if (!fin(u) || u < t.min || u > t.max) bad('truth off the line'); }
+  if (t.kind === 'read') { if (!Array.isArray(t.choices) || t.choices.length < 2 || !t.choices.includes(t.value) || new Set(t.choices).size !== t.choices.length) bad('bad choices'); }
+  if (t.d) { if (!fin(t.n) || !ORD[t.d] || Math.abs(t.n / t.d - t.value) > 1e-9) bad('bad fraction'); }
+  // A right answer must score as right.
+  const best = t.region ? positions(t).find(v => inRegion(t, v)) : t.value;
+  if (!score(t, best).right) bad('the right answer does not score as right');
+}
+const describeTask = t => `${t.text}${t.from !== undefined ? ` from ${t.from}` : ''} on ${numText(t.min)} to ${numText(t.max)}${t.log ? ' (log)' : ''}`;
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => APP.start,
+  label: () => LEVELS[P.lv].name,
+  exercise: (i, n) => {
+    if (!LEVELS[i]) throw new Error(`no rung ${i}`);
+    const out = [], seen = new Set();
+    for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); checkTask(t); const d = describeTask(t); seen.add(d); out.push(d); }
+    if (n >= 20 && seen.size < Math.min(8, n / 4)) throw new Error(`rung ${i} repeats: only ${seen.size} different tasks in ${n}`);
+    return out;
+  },
+};
 
 // Test hook.
 window.NUMBER_LINE_ROCKET = {

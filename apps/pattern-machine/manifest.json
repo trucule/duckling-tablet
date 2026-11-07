@@ -1,21 +1,21 @@
 {
   "id": "pattern-machine",
   "name": "Pattern Machine",
-  "version": "1.0.2",
-  "description": "Machines turn, flip, paint and resize shapes. Predict the output, find the hidden rule, follow chains of machines.",
+  "version": "1.0.3",
+  "description": "Machines turn, flip, paint and resize shapes, then work on numbers. Predict the output, find the hidden rule, follow chains of machines, and climb to function tables, sequences and lines.",
   "subjects": [
     "math",
     "logic"
   ],
-  "ageMin": 5,
-  "ageMax": 8,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/pattern-machine",
   "about": {
     "concept": "Functions and inference. A machine applies a rule to a shape; the child predicts the output, works out a hidden rule from examples, and follows a chain of machines, which is the shape of algebraic thinking.",
-    "progression": "Single machines that turn or paint lead to two-step machines, hidden rules found from three examples, and chains where the order of machines matters.",
+    "progression": "Single machines that turn or paint lead to two-step machines, hidden rules found from examples, and chains of three machines. The machine then works on numbers: patterns with one and two operations, function machines, growing shape patterns, expressions such as 2n + 3, sequences with negatives and fractions, arithmetic and geometric sequences, the nth term, lines from tables and graphs, and recursive rules by 8th grade.",
     "lifeSkills": [
       "Working out rules from examples",
       "Predicting outcomes",

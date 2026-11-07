@@ -1,20 +1,20 @@
 {
   "id": "number-line-rocket",
   "name": "Number Line Rocket",
-  "version": "1.0.2",
-  "description": "Tap a spot on the number line and the rocket flies there, from 0 to 10 up to 0 to 1000, then fractions and negatives.",
+  "version": "1.0.3",
+  "description": "Tap a spot on the number line and the rocket flies there, from 0 to 10 up to fractions, decimals, negatives, inequalities, square roots and powers of ten.",
   "subjects": [
     "math"
   ],
-  "ageMin": 5,
-  "ageMax": 9,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/number-line-rocket",
   "about": {
     "concept": "Magnitude and position. Numbers live at places on a line; tapping where 37 should be, and seeing the rocket land, builds an internal sense of distance between numbers.",
-    "progression": "The line runs 0 to 10, then 0 to 20, 100 and 1000, then unlabeled lines where position must be estimated, then fractions between whole numbers and negative numbers left of zero.",
+    "progression": "The line starts at 0 to 10 for pre-K and grows to 20, 100 and 1000 through 2nd grade, then shows fractions, numbers below zero, tenths, hundredths and mixed numbers through 5th. From 6th it adds negatives to 50, integer jumps across zero, changing scales, inequalities and absolute value, square roots between whole numbers, and powers of ten on a log scale for 8th.",
     "lifeSkills": [
       "Estimating",
       "Reading scales, rulers and thermometers",

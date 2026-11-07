@@ -221,7 +221,10 @@
     1 Three letters        2 Three letters plus extra tiles   3 Four letters   4 Five letters
     5 Two-word spells      6 Endings -s -er -est             7 un- and re-    8 Compound words with word parts
     9 Compound words with letters   10 Words with endings and beginnings, letter by letter
-  New players start at level 4 (2nd grade).
+    11 Vowel teams   12 Syllables   13 Prefixes and suffixes   14 Homophones   15 Greek and Latin roots
+    16 Academic words   17 Spelling demons on a letter keyboard   18 Shades of meaning (connotation, figurative language)
+  New players start where the child's reading grade puts them (level 4 for 2nd grade). The grade band of each
+  rung is listed above the LEVELS array.
   three.js r149 is included below under its MIT license: Copyright 2010-2023 three.js authors, https://threejs.org,
   SPDX-License-Identifier: MIT.
 -->
@@ -263,6 +266,23 @@
   #next.on { display: block; }
   #panel.won #tray { display: none; }
   @media (max-height: 760px) { .slot, .tile { height: 70px; font-size: 40px; min-width: 64px; } #slots { min-height: 76px; } }
+  /* Upper rungs: long prompts wrap, long words shrink their slots and tiles, word choices and the letter keyboard get their own sizes. */
+  #ask.long { font-size: 24px; white-space: normal; line-height: 1.2; padding: 8px 20px 8px 12px; width: max-content; max-width: min(94%, 900px); }
+  #ask.long #prompt { text-align: left; }
+  #panel[data-size="sm"] .slot { min-width: 58px; height: 68px; font-size: 36px; padding: 0 6px; border-radius: 14px; }
+  #panel[data-size="sm"] .tile { min-width: 62px; height: 68px; font-size: 36px; padding: 0 10px; border-radius: 14px; }
+  #panel[data-size="sm"] #slots { gap: 6px; min-height: 74px; }
+  #panel[data-size="sm"] #tray { gap: 8px; }
+  #panel[data-size="xs"] .slot { min-width: 46px; height: 60px; font-size: 30px; padding: 0 4px; border-radius: 12px; border-width: 3px; }
+  #panel[data-size="xs"] .tile { min-width: 54px; height: 60px; font-size: 30px; padding: 0 8px; border-radius: 12px; }
+  #panel[data-size="xs"] #slots { gap: 5px; min-height: 66px; }
+  #panel[data-size="xs"] #tray { gap: 7px; }
+  #panel[data-size="word"] .slot { font-size: 32px; height: 72px; padding: 0 18px; }
+  #panel[data-size="word"] .tile { font-size: 28px; height: 68px; padding: 0 20px; }
+  #panel[data-kind="keys"] .tile { min-width: 60px; width: 60px; height: 54px; font-size: 27px; padding: 0; border-radius: 12px; box-shadow: 0 4px 0 #2B2140; }
+  #panel[data-kind="keys"] .tile.back { width: 92px; background: #fff; }
+  #panel[data-kind="keys"] #tray { gap: 6px; max-width: 980px; }
+  #panel[data-kind="keys"] .brk { flex-basis: 100%; height: 0; }
 </style>
 </head>
 <body>
@@ -776,31 +796,205 @@ function letterTask(word, o) {
 }
 let lastWord = '';
 function fresh(pool, key) { let x, guard = 0; do { x = pick(pool); } while (key(x) === lastWord && guard++ < 20); lastWord = key(x); return x; }
+
+// ---------------------------------------------------------------------------
+// Upper rungs, 3rd grade to 8th. Every bank has at least 24 items. Each item names a picture and, where one fits,
+// a spell the stage already knows how to cast; otherwise the win casts a small celebration spell.
+// ---------------------------------------------------------------------------
+const FUN_SPELLS = ['fun', 'happy', 'dance', 'glow', 'spin', 'rainbow', 'fire', 'sunny', 'hop', 'pop', 'jump', 'sing', 'grow', 'float', 'big', 'tiny'];
+const spellFor = (w, given) => given || (spellKind({ spell: w }) ? w : pick(FUN_SPELLS));
+const blank = (s, w) => s.replace('___', w);
+const others = (pool, n, not) => shuffle(pool.filter(x => !not.includes(x))).filter((v, i, s) => s.indexOf(v) === i).slice(0, n);
+const chunksOf = bank => bank.flatMap(x => x[0]).filter((v, i, s) => s.indexOf(v) === i);
+
+// Vowel teams: word, team, picture, spell. The team is one tile; two other teams are the decoys.
+const VOWEL_TEAMS = ['ai', 'ay', 'ea', 'ee', 'oa', 'ow', 'igh', 'ie', 'oo'];
+const VT = [
+  ['rain', 'ai', '🌧️'], ['train', 'ai', '🚂'], ['snail', 'ai', '🐌'], ['paint', 'ai', '🎨', 'rainbow'], ['sail', 'ai', '⛵', 'sailboat'], ['tail', 'ai', '🐒', 'hop'],
+  ['nail', 'ai', '🔨'], ['mail', 'ai', '📬'], ['chain', 'ai', '⛓️'], ['brain', 'ai', '🧠'], ['wait', 'ai', '⏳'], ['braid', 'ai', '🎀'],
+  ['leaf', 'ea', '🍃', 'tree'], ['seal', 'ea', '🦭', 'swim'], ['beach', 'ea', '🏖️', 'sunny'], ['peach', 'ea', '🍑'], ['bean', 'ea', '🫘', 'grow'], ['team', 'ea', '👥'],
+  ['dream', 'ea', '💭', 'night'], ['read', 'ea', '📖'], ['eat', 'ea', '🍽️'], ['sea', 'ea', '🌊', 'whale'], ['tea', 'ea', '🍵', 'cup'], ['meal', 'ea', '🍲'],
+  ['boat', 'oa', '🚤'], ['goat', 'oa', '🐐', 'sheep'], ['coat', 'oa', '🧥'], ['road', 'oa', '🛣️', 'car'], ['toad', 'oa', '🐸', 'frog'], ['soap', 'oa', '🧼', 'wet'],
+  ['toast', 'oa', '🍞'], ['float', 'oa', '🎈'], ['oak', 'oa', '🌳', 'tree'], ['coach', 'oa', '🚌', 'bus'], ['loaf', 'oa', '🍞', 'cake'], ['goal', 'oa', '🥅', 'ball'],
+  ['light', 'igh', '💡', 'lamp'], ['night', 'igh', '🌃'], ['high', 'igh', '🪁', 'kite'], ['bright', 'igh', '✨', 'glow'], ['right', 'igh', '➡️'], ['sight', 'igh', '👀'],
+  ['tight', 'igh', '🪢'], ['flight', 'igh', '✈️', 'jet'], ['knight', 'igh', '🛡️', 'crown'], ['might', 'igh', '💪', 'giant'], ['fright', 'igh', '👻', 'ghost'], ['sigh', 'igh', '😮‍💨', 'sleep'],
+];
+// Syllables: the chunks in order, picture, spell. Many are r-controlled (ar, er, ir, or, ur).
+const SYL = [
+  [['gar', 'den'], '🌷', 'flower'], [['win', 'ter'], '⛄', 'snow'], [['cor', 'ner'], '📐'], [['pur', 'ple'], '🟣', 'purple'], [['tur', 'tle'], '🐢'], [['mar', 'ket'], '🛒'],
+  [['sis', 'ter'], '👧', 'happy'], [['doc', 'tor'], '🩺'], [['far', 'mer'], '🚜', 'pig'], [['birth', 'day'], '🎂', 'cake'], [['car', 'pet'], '🧶'], [['morn', 'ing'], '🌅', 'sunny'],
+  [['num', 'ber'], '🔢'], [['let', 'ter'], '✉️'], [['but', 'ter'], '🧈'], [['pic', 'nic'], '🧺', 'apple'], [['rab', 'bit'], '🐰', 'bunny'], [['bas', 'ket'], '🧺'],
+  [['pump', 'kin'], '🎃', 'pumpkin'], [['thun', 'der'], '⛈️', 'storm'], [['sum', 'mer'], '☀️', 'sunny'], [['din', 'ner'], '🍽️'], [['sil', 'ver'], '🥈'], [['cir', 'cle'], '⭕', 'spin'],
+  [['for', 'est'], '🌲', 'tree'], [['ham', 'ster'], '🐹'], [['spi', 'der'], '🕷️'], [['pa', 'per'], '📄'], [['ti', 'ger'], '🐯'], [['dol', 'phin'], '🐬', 'whale'],
+  [['but', 'ter', 'fly'], '🦋', 'butterfly'], [['to', 'ma', 'to'], '🍅'], [['ba', 'na', 'na'], '🍌'], [['di', 'no', 'saur'], '🦕', 'dragon'], [['el', 'e', 'phant'], '🐘', 'giant'],
+  [['um', 'brel', 'la'], '☂️', 'rain'], [['com', 'pu', 'ter'], '💻', 'robot'], [['hel', 'i', 'cop', 'ter'], '🚁', 'jet'], [['wa', 'ter', 'mel', 'on'], '🍉'], [['oc', 'to', 'pus'], '🐙', 'swim'], [['kan', 'ga', 'roo'], '🦘', 'jump'],
+];
+// Prefixes and suffixes: the parts, a hint sentence that says the word, picture, spell.
+const AFFIX_PARTS = ['dis', 'pre', 'mis', 'ful', 'less', 'ness', 'ion', 'ment', 'ly'];
+const AFFIX = [
+  [['hope', 'ful'], 'She is full of hope. She is hopeful.', '🌟', 'glow'], [['help', 'ful'], 'He likes to help. He is helpful.', '🤝'], [['play', 'ful'], 'The puppy loves to play. It is playful.', '🐶', 'dog'],
+  [['color', 'ful'], 'The kite has many colors. It is colorful.', '🪁', 'kite'], [['thank', 'ful'], 'We give thanks. We are thankful.', '🙏', 'happy'], [['care', 'ful'], 'Take care on the ice. Be careful.', '🧊', 'snow'],
+  [['care', 'less'], 'He did not take care. He was careless.', '🙈'], [['fear', 'less'], 'She has no fear. She is fearless.', '🦁'], [['end', 'less'], 'The road has no end. It is endless.', '🛣️', 'car'],
+  [['use', 'less'], 'A broken pen has no use. It is useless.', '🖊️'], [['sleep', 'less'], 'He got no sleep. It was a sleepless night.', '🌙', 'night'], [['cloud', 'less'], 'There are no clouds. The sky is cloudless.', '☀️', 'sunny'],
+  [['kind', 'ness'], 'Being kind is kindness.', '💗', 'happy'], [['dark', 'ness'], 'When it is dark, there is darkness.', '🌑', 'night'], [['soft', 'ness'], 'The pillow is soft. Feel its softness.', '🛏️', 'sleep'],
+  [['sad', 'ness'], 'Being sad is sadness.', '😢', 'rain'], [['ill', 'ness'], 'When you are ill, you have an illness.', '🤒'], [['bright', 'ness'], 'The lamp is bright. Turn down its brightness.', '💡', 'lamp'],
+  [['dis', 'agree'], 'They do not agree. They disagree.', '🙅'], [['dis', 'like'], 'I do not like peas. I dislike them.', '🫛'], [['dis', 'appear'], 'The ghost is gone. It can disappear.', '👻', 'ghost'],
+  [['dis', 'honest'], 'He told a lie. That was dishonest.', '🤥'], [['dis', 'connect'], 'Unplug the cord. Disconnect it.', '🔌', 'zap'], [['dis', 'obey'], 'The dog did not obey. He chose to disobey.', '🐕', 'dog'],
+  [['pre', 'heat'], 'Heat the oven before you bake. Preheat it.', '🔥', 'fire'], [['pre', 'view'], 'See the movie early. Watch a preview.', '🎬'], [['pre', 'pay'], 'Pay before the trip. Prepay for it.', '💳'],
+  [['pre', 'school'], 'School before kindergarten is preschool.', '🏫'], [['pre', 'game'], 'Before the game we warm up. That is pregame.', '⚽', 'ball'], [['pre', 'historic'], 'Dinosaurs lived before history. They are prehistoric.', '🦕', 'dragon'],
+  [['mis', 'spell'], 'To spell a word wrong is to misspell it.', '✏️'], [['mis', 'place'], 'I put my keys in the wrong place. I misplace them.', '🔑'], [['mis', 'behave'], 'The monkey acted badly. It began to misbehave.', '🐒', 'hop'],
+  [['mis', 'read'], 'She read the sign wrong. She misread it.', '🪧'], [['mis', 'match'], 'The socks do not match. They mismatch.', '🧦'], [['mis', 'count'], 'He got the count wrong. Do not miscount.', '🔢'],
+  [['act', 'ion'], 'When you act, you take action.', '🎬', 'dance'], [['invent', 'ion'], 'Something new you invent is an invention.', '💡', 'lamp'], [['direct', 'ion'], 'The way you go is your direction.', '🧭'],
+  [['collect', 'ion'], 'The shells she collects are her collection.', '🐚', 'shell'], [['protect', 'ion'], 'A helmet gives your head protection.', '⛑️'], [['connect', 'ion'], 'Two wires connect. That is a connection.', '🔌', 'zap'],
+  [['elect', 'ion'], 'People vote to elect a leader in an election.', '🗳️', 'crown'], [['attract', 'ion'], 'A magnet can attract. That pull is attraction.', '🧲'], [['suggest', 'ion'], 'When you suggest a game, you make a suggestion.', '💭'],
+  [['inspect', 'ion'], 'The judge will inspect the cake. That is an inspection.', '🎂', 'cake'], [['care', 'less', 'ness'], 'Carelessness is not taking care.', '🙈'], [['hope', 'ful', 'ness'], 'Hopefulness is being full of hope.', '🌟', 'glow'],
+];
+// Homophones: a sentence with a blank, the right spelling, the other spellings.
+const HOMO = [
+  ['They left ___ shoes by the door.', 'their', ['there', "they're"]], ['Put the box over ___.', 'there', ['their', "they're"]], ['___ going to love this game.', "they're", ['their', 'there']],
+  ['I want ___ go to the park.', 'to', ['two', 'too']], ['She has ___ cats.', 'two', ['to', 'too']], ['Can I come ___?', 'too', ['to', 'two']],
+  ['Is this ___ backpack?', 'your', ["you're", 'yore']], ['___ the best friend ever.', "you're", ['your', 'yore']], ['The dog wagged ___ tail.', 'its', ["it's", 'is']], ['___ raining again.', "it's", ['its', 'is']],
+  ['Did you ___ that noise?', 'hear', ['here', 'hair']], ['Please sit ___ next to me.', 'here', ['hear', 'hair']], ['What will you ___ to the party?', 'wear', ['where', 'were']], ['___ did you put the keys?', 'where', ['wear', 'were']],
+  ['Please ___ your name on the line.', 'write', ['right', 'rite']], ['Turn ___ at the corner.', 'right', ['write', 'rite']], ['Do you ___ the answer?', 'know', ['no', 'now']], ['___, thank you.', 'no', ['know', 'now']],
+  ['The ___ is sunny today.', 'weather', ['whether', 'wether']], ['I wonder ___ it will snow.', 'whether', ['weather', 'wether']], ['May I have a ___ of cake?', 'piece', ['peace', 'peas']], ['The quiet room was full of ___.', 'peace', ['piece', 'peas']],
+  ['Be careful not to ___ the glass.', 'break', ['brake', 'brick']], ['Push the ___ to stop the bike.', 'brake', ['break', 'brick']], ['We ___ the library on our walk.', 'passed', ['past', 'paste']], ['Dinosaurs lived in the ___.', 'past', ['passed', 'paste']],
+  ['She ate the ___ pizza.', 'whole', ['hole', 'hall']], ['The rabbit dug a ___.', 'hole', ['whole', 'hall']], ['He ___ the ball to me.', 'threw', ['through', 'thorough']], ['We walked ___ the tunnel.', 'through', ['threw', 'thorough']],
+  ['First we eat, ___ we play.', 'then', ['than', 'thin']], ['A whale is bigger ___ a fish.', 'than', ['then', 'thin']], ['I am too ___ to lift it.', 'weak', ['week', 'wake']], ['See you next ___.', 'week', ['weak', 'wake']],
+  ['The ___ is deep and blue.', 'sea', ['see', 'say']], ['I can ___ the moon.', 'see', ['sea', 'say']], ['Mix the ___ and eggs.', 'flour', ['flower', 'floor']], ['The bee landed on a ___.', 'flower', ['flour', 'floor']],
+  ['The ___ flew over the clouds.', 'plane', ['plain', 'plan']], ['He likes ___ toast with no jam.', 'plain', ['plane', 'plan']], ['Reading ___ means reading out loud.', 'aloud', ['allowed', 'loud']], ['Dogs are not ___ in the store.', 'allowed', ['aloud', 'loud']],
+  ['The ___ of the school gave a speech.', 'principal', ['principle', 'prince']], ['Honesty is a good ___ to live by.', 'principle', ['principal', 'prince']], ['Write the letter on nice ___.', 'stationery', ['stationary', 'station']], ['The parked car was ___.', 'stationary', ['stationery', 'station']],
+];
+const HOMO_WORDS = HOMO.map(h => h[1]);
+// Greek and Latin roots: the chunks, a definition, picture, spell.
+const ROOTS = [
+  [['tele', 'phone'], 'A device for talking to someone far away.', '📞', 'sing'], [['tele', 'scope'], 'A tool for seeing things that are far away.', '🔭', 'moon'], [['tele', 'vision'], 'A screen that shows pictures sent from far away.', '📺'],
+  [['micro', 'scope'], 'A tool for seeing very small things.', '🔬', 'tiny'], [['micro', 'phone'], 'A tool that makes a small sound loud.', '🎤', 'sing'], [['bio', 'logy'], 'The study of living things.', '🌱', 'grow'],
+  [['bio', 'graphy'], 'The true story of a real person\'s life.', '📖'], [['geo', 'graphy'], 'The study of the earth and its places.', '🗺️'], [['geo', 'logy'], 'The study of rocks and the earth.', '🪨', 'rock'],
+  [['aqua', 'rium'], 'A glass tank for water animals.', '🐠', 'goldfish'], [['aqua', 'tic'], 'Living or growing in water.', '🐸', 'frog'], [['trans', 'port'], 'To carry people or things from place to place.', '🚚', 'train'],
+  [['ex', 'port'], 'To send goods out to another country.', '🚢', 'ship'], [['im', 'port'], 'To bring goods in from another country.', '📦', 'box'], [['port', 'able'], 'Easy to carry around.', '🎒'],
+  [['pre', 'dict'], 'To say what will happen before it happens.', '🔮', 'glow'], [['dict', 'ate'], 'To say words out loud for someone to write down.', '🗣️'], [['con', 'struct'], 'To build something.', '🏗️', 'tower'],
+  [['de', 'struct', 'ion'], 'The act of knocking something down.', '💥', 'shake'], [['struct', 'ure'], 'Something that has been built.', '🏛️', 'house'], [['auto', 'graph'], 'A famous person\'s name, written by hand.', '✍️'],
+  [['auto', 'mobile'], 'A car. It moves on its own.', '🚗', 'car'], [['photo', 'graph'], 'A picture made with a camera.', '📷'], [['thermo', 'meter'], 'A tool that measures how hot or cold it is.', '🌡️', 'snow'],
+  [['peri', 'meter'], 'The distance all the way around a shape.', '📐'], [['tri', 'angle'], 'A shape with three sides and three angles.', '🔺'], [['tri', 'cycle'], 'A bike with three wheels.', '🚲'],
+  [['bi', 'cycle'], 'A bike with two wheels.', '🚲'], [['uni', 'corn'], 'A horse with one horn.', '🦄', 'horse'], [['astro', 'naut'], 'A person who travels into space.', '🧑‍🚀', 'rocket'],
+  [['astro', 'nomy'], 'The study of stars and planets.', '🌌', 'star'], [['sub', 'marine'], 'A ship that travels under the sea.', '🚢', 'whale'], [['chrono', 'logy'], 'Events listed in the order they happened.', '📅'],
+  [['audi', 'ence'], 'The people who listen to and watch a show.', '🎭'], [['vis', 'ible'], 'Able to be seen.', '👀', 'glow'], [['spect', 'ator'], 'A person who watches an event.', '🏟️'], [['multi', 'ply'], 'To make something many times larger.', '✖️', 'grow'],
+];
+// Academic words: the word and its definition. The other choices come from the same list.
+const VOCAB = [
+  ['analyze', 'To study the parts of something closely.'], ['evidence', 'Facts that show something is true.'], ['contrast', 'To show how two things are different.'], ['hypothesis', 'An idea that you can test with an experiment.'],
+  ['summarize', 'To tell the main points in a short way.'], ['infer', 'To figure out something that is not said directly.'], ['conclude', 'To decide something after looking at the facts.'], ['predict', 'To say what will probably happen next.'],
+  ['compare', 'To show how two things are alike.'], ['significant', 'Important enough to notice.'], ['accurate', 'Correct in every detail.'], ['relevant', 'Connected to what you are talking about.'],
+  ['justify', 'To give good reasons for a choice.'], ['interpret', 'To explain what something means.'], ['sequence', 'The order in which things happen.'], ['perspective', 'The way one person sees things.'],
+  ['theme', 'The big idea a story is about.'], ['context', 'The words and events around something that help explain it.'], ['variable', 'Something that can change in an experiment.'], ['procedure', 'The steps for doing something.'],
+  ['claim', 'A statement that a writer argues is true.'], ['cite', 'To name the source of a fact or a quote.'], ['emphasize', 'To give extra attention to something.'], ['precise', 'Exact and careful.'],
+  ['evaluate', 'To judge how good or useful something is.'], ['distinguish', 'To tell the difference between two things.'], ['demonstrate', 'To show clearly how something works.'], ['alternative', 'Another choice.'],
+  ['consequence', 'What happens as a result of an action.'], ['assume', 'To believe something without proof.'], ['approximate', 'Close to the real number but not exact.'], ['abstract', 'An idea rather than a thing you can touch.'],
+];
+// Spelling demons: the word and a hint sentence. Typed on the letter keyboard.
+const DEMONS = [
+  ['necessary', 'It is necessary to wear a helmet.'], ['separate', 'Keep the two piles separate.'], ['rhythm', 'Clap to the rhythm of the song.', 'dance'], ['conscience', 'Her conscience told her to tell the truth.'],
+  ['occurrence', 'A double rainbow is a rare occurrence.', 'rainbow'], ['definitely', 'I will definitely be there.'], ['embarrass', 'Do not embarrass your brother.'], ['accommodate', 'The tent can accommodate four people.'],
+  ['receive', 'Did you receive my letter?'], ['believe', 'I believe you.'], ['achieve', 'Work hard to achieve your goal.'], ['weird', 'That is a weird noise.', 'ghost'],
+  ['foreign', 'She speaks a foreign language.'], ['government', 'The government makes the laws.'], ['independent', 'The cat is very independent.', 'cat'], ['restaurant', 'We ate at a restaurant.'],
+  ['vacuum', 'Please vacuum the rug.'], ['beginning', 'Start at the beginning.'], ['calendar', 'Mark the date on the calendar.'], ['committee', 'The committee planned the fair.'],
+  ['grateful', 'I am grateful for your help.', 'happy'], ['privilege', 'Driving is a privilege.', 'car'], ['recommend', 'I recommend this book.'], ['exaggerate', 'Do not exaggerate the size of the fish.', 'whale'],
+  ['maintenance', 'The elevator is closed for maintenance.'], ['mischievous', 'The mischievous puppy hid my shoe.', 'dog'], ['noticeable', 'The stain is barely noticeable.'], ['lightning', 'Lightning flashed across the sky.', 'storm'],
+  ['environment', 'Recycling helps the environment.', 'tree'], ['pronunciation', 'Her pronunciation is clear.'], ['questionnaire', 'Fill out the questionnaire.'], ['acquaintance', 'He is an acquaintance from work.'],
+  ['conscious', 'The patient is awake and conscious.'], ['existence', 'Dinosaurs went out of existence.', 'dragon'], ['familiar', 'That song sounds familiar.', 'sing'], ['guarantee', 'I cannot guarantee it will work.'],
+  ['immediately', 'Come here immediately.'], ['knowledge', 'Reading builds knowledge.'], ['library', 'The library is quiet.'], ['license', 'She got her driving license.', 'car'],
+  ['occasion', 'A birthday is a special occasion.', 'cake'], ['parallel', 'The train tracks are parallel.', 'train'], ['possession', 'The ball is in our possession.', 'ball'], ['tomorrow', 'See you tomorrow.', 'sunny'],
+  ['twelfth', 'This is the twelfth day.'], ['vegetable', 'A carrot is a vegetable.', 'bunny'], ['argument', 'They had an argument about the rules.'], ['athlete', 'The athlete trains every day.', 'run'],
+];
+const KEYS = 'abcdefghijklmnopqrstuvwxyz'.split('');
+// Connotation and figurative language: a sentence with a blank, the word that fits, the words that do not.
+const CONN = [
+  ['The dancer was ___ and graceful.', 'slender', ['scrawny', 'skinny']], ['The puppy was ___ and sweet.', 'curious', ['nosy', 'prying']],
+  ['The lawyer gave a ___ speech and won the case.', 'confident', ['arrogant', 'cocky']], ['She saves her money because she is ___.', 'thrifty', ['cheap', 'stingy']],
+  ['The castle was ___ and full of history.', 'ancient', ['decrepit', 'outdated']], ['The soup had a ___ smell that filled the kitchen.', 'rich', ['overpowering', 'strong']],
+  ['The captain was ___ and stood by her plan.', 'determined', ['stubborn', 'pigheaded']], ['The student gave a ___ answer with lots of detail.', 'thorough', ['long-winded', 'rambling']],
+  ['The cabin was ___ and easy to relax in.', 'cozy', ['cramped', 'poky']], ['He is ___ with his money and gives to others.', 'generous', ['wasteful', 'extravagant']],
+  ['The hike was ___ and we felt proud at the top.', 'challenging', ['grueling', 'punishing']], ['The new coach is ___ and sets clear goals.', 'assertive', ['bossy', 'pushy']],
+  ['The old farmhouse had a ___ charm.', 'quaint', ['shabby', 'run-down']], ['The chef used ___ spices from a secret recipe.', 'unique', ['weird', 'odd']],
+  ['My brother is ___ and always tells the truth.', 'honest', ['blunt', 'tactless']], ['The spy gave a ___ smile before he lied.', 'sly', ['clever', 'bright']],
+  ['The ___ child grabbed every toy in the room.', 'greedy', ['eager', 'excited']], ['The ___ teenager rolled his eyes at every rule.', 'defiant', ['independent', 'confident']],
+  ['The ___ crowd knocked over the fence.', 'unruly', ['lively', 'energetic']], ['Her ___ remark hurt his feelings.', 'cutting', ['direct', 'frank']],
+  ['Time is a ___ that steals our days.', 'thief', ['clock', 'friend']], ['The snow was a ___ laid over the town.', 'blanket', ['pile', 'sheet']],
+  ['The classroom was a ___ when the teacher stepped out.', 'zoo', ['room', 'school']], ['His harsh words were ___ that stung.', 'daggers', ['pencils', 'notes']],
+  ['The moon was a ___ hanging in the night sky.', 'lantern', ['rock', 'circle']], ['He ran like ___ across the field.', 'the wind', ['a turtle', 'a rock']],
+  ['The test was a ___ and everyone finished early.', 'breeze', ['storm', 'mountain']], ['Raining cats and dogs means it is raining ___.', 'hard', ['animals', 'softly']],
+  ['To let the cat out of the bag is to ___.', 'tell a secret', ['lose a pet', 'open a bag']], ['Butterflies in your stomach means you feel ___.', 'nervous', ['hungry', 'sleepy']],
+  ['Break a leg means ___.', 'good luck', ['be careful', 'sit down']], ['Her laugh was ___ that filled the room.', 'music', ['noise', 'sound']],
+  ['The city at night was a ___ of lights.', 'sea', ['bucket', 'cup']], ['The toddler was a ___ bouncing off the walls.', 'tornado', ['breeze', 'cloud']],
+];
+// A chunk task: the pieces are tiles, with decoy chunks mixed in.
+function chunkTask(units, decoys, o) {
+  return { kind: 'chunks', word: units.join(''), units, fixed: [], groups: [units.length], tiles: shuffle(units.concat(decoys)), prompt: o.prompt, say: o.say, emoji: o.emoji, spell: o.spell, setup: null };
+}
+// A choice task: one slot, the answer and the other words as tiles.
+function choiceTask(answer, choices, o) {
+  return { kind: 'choice', word: answer, units: [answer], fixed: [], groups: [1], tiles: shuffle(choices), prompt: o.prompt, say: o.say, emoji: o.emoji, spell: o.spell, setup: null };
+}
+// A keyboard task: the letters are typed on a letter keyboard, so the tiles are the whole alphabet and are reused.
+function keysTask(word, o) {
+  return { kind: 'keys', reuse: true, word, units: word.split(''), fixed: [], groups: [word.length], tiles: KEYS.slice(), prompt: o.prompt, say: o.say, emoji: o.emoji, spell: o.spell, setup: null };
+}
+
+// Rungs and grade bands (index: name, band):
+//   0 Three letters, pre-K        1 Three letters, extra tiles, K     2 Four letters, K to 1st        3 Five letters, 1st to 2nd
+//   4 Two-word spells, 2nd        5 Endings -s -er -est, 2nd          6 Beginnings un- re-, 2nd to 3rd
+//   7 Compound words, 3rd         8 Compound words, letter by letter, 3rd        9 Endings and beginnings, letter by letter, 3rd
+//   10 Vowel teams, 3rd           11 Syllables, 3rd to 4th            12 Prefixes and suffixes, 4th   13 Homophones, 4th to 5th
+//   14 Greek and Latin roots, 5th to 6th     15 Academic words, 6th to 7th     16 Spelling demons, 7th to 8th
+//   17 Shades of meaning (connotation and figurative language), 8th
+// Rung 3 is where a 2nd grader starts (the levelFor call below).
 const LEVELS = [
-  { name: 'Three letters', gen() { const x = fresh(W3, x => x.w); return letterTask(x.w, { emoji: x.e }); } },
-  { name: 'Three letters, extra tiles', gen() { const x = fresh(W3, x => x.w); return letterTask(x.w, { emoji: x.e, decoys: 2 }); } },
-  { name: 'Four letters', gen() { const x = fresh(W4, x => x.w); return letterTask(x.w, { emoji: x.e, decoys: 1 }); } },
-  { name: 'Five letters', gen() { const x = fresh(W5, x => x.w); return letterTask(x.w, { emoji: x.e, decoys: 2 }); } },
-  { name: 'Two-word spells', gen() { const n = fresh(NOUN, x => x.w); const a = pick(ADJ.filter(a => a.length + n.w.length <= 10)); const w = a + ' ' + n.w;
+  { name: 'Three letters', g: -1, gen() { const x = fresh(W3, x => x.w); return letterTask(x.w, { emoji: x.e }); } },
+  { name: 'Three letters, extra tiles', g: 0, gen() { const x = fresh(W3, x => x.w); return letterTask(x.w, { emoji: x.e, decoys: 2 }); } },
+  { name: 'Four letters', g: 0, gen() { const x = fresh(W4, x => x.w); return letterTask(x.w, { emoji: x.e, decoys: 1 }); } },
+  { name: 'Five letters', g: 1, gen() { const x = fresh(W5, x => x.w); return letterTask(x.w, { emoji: x.e, decoys: 2 }); } },
+  { name: 'Two-word spells', g: 2, gen() { const n = fresh(NOUN, x => x.w); const a = pick(ADJ.filter(a => a.length + n.w.length <= 10)); const w = a + ' ' + n.w;
     return letterTask(w, { emoji: n.e, prompt: `Make ${article(a)} ${a} ${n.w}!` }); } },
-  { name: 'Endings -s -er -est', gen() { const [b, e, q, pic] = fresh(ENDS, x => x[0] + x[1]);
+  { name: 'Endings -s -er -est', g: 2, gen() { const [b, e, q, pic] = fresh(ENDS, x => x[0] + x[1]);
     const decoys = shuffle(['s', 'er', 'est', 'ing', 'ed'].filter(x => x !== e)).slice(0, 2);
     return { kind: 'chunks', word: b + e, units: [b, e], fixed: [0], groups: [2], tiles: shuffle([e, ...decoys]), prompt: q, emoji: pic, spell: b + e, setup: b + e }; } },
-  { name: 'Beginnings un- re-', gen() { const [p, b, q, pic] = fresh(PRE, x => x[0] + x[1]);
+  { name: 'Beginnings un- re-', g: 2, gen() { const [p, b, q, pic] = fresh(PRE, x => x[0] + x[1]);
     const other = pick(PRE.filter(x => x[1] !== b))[1];
     return { kind: 'chunks', word: p + b, units: [p, b], fixed: [], groups: [2], tiles: shuffle([p, b, p === 'un' ? 're' : 'un', other]), prompt: q, emoji: pic, spell: p + b, setup: p + b }; } },
-  { name: 'Compound words', gen() { const [a, b, pic] = fresh(COMP, x => x[0] + x[1]);
+  { name: 'Compound words', g: 3, gen() { const [a, b, pic] = fresh(COMP, x => x[0] + x[1]);
     const others = shuffle(COMP.filter(x => x[0] !== a && x[1] !== b && x[0] !== b && x[1] !== a).map(x => pick([x[0], x[1]]))).filter((v, i, s) => s.indexOf(v) === i && v !== a && v !== b).slice(0, 2);
     return { kind: 'chunks', word: a + b, units: [a, b], fixed: [], groups: [2], tiles: shuffle([a, b, ...others]), prompt: compPrompt(a + b), emoji: pic, spell: a + b }; } },
-  { name: 'Compound words, letter by letter', gen() { const [a, b, pic] = fresh(COMP_SHORT, x => x[0] + x[1]);
+  { name: 'Compound words, letter by letter', g: 3, gen() { const [a, b, pic] = fresh(COMP_SHORT, x => x[0] + x[1]);
     const t = letterTask(a + ' ' + b, { emoji: pic, decoys: 2, prompt: compPrompt(a + b) });
     t.word = a + b; t.spell = a + b; t.joined = true; return t; } },
-  { name: 'Endings and beginnings, letter by letter', gen() {
+  { name: 'Endings and beginnings, letter by letter', g: 3, gen() {
     const all = ENDS.map(([b, e, q, p]) => [b + e, q, p, b + e]).concat(PRE.filter(x => (x[0] + x[1]).length <= 7).map(([p, b, q, pic]) => [p + b, q, pic, p + b]));
     const [w, q, pic, setup] = fresh(all, x => x[0]); return letterTask(w, { emoji: pic, decoys: 2, prompt: q, setup }); } },
+  { name: 'Vowel teams', g: 3, gen() { const [w, team, pic, sp] = fresh(VT, x => x[0]);
+    const at = w.indexOf(team), units = [...w.slice(0, at), team, ...w.slice(at + team.length)];
+    const spell = spellFor(w, sp), own = spell === w, prompt = own ? promptFor(w) : `Spell ${w}.`;
+    const say = (own ? `${prompt} Spell ${w}.` : `The word is ${w}. Spell ${w}.`) + ' Listen for the vowel team.';
+    const t = chunkTask(units, others(VOWEL_TEAMS, 2, [team]), { prompt, say, emoji: pic, spell });
+    t.tiles = shuffle(t.tiles.concat(decoyLetters(w, 1))); return t; } },
+  { name: 'Syllables', g: 4, gen() { const [parts, pic, sp] = fresh(SYL, x => x[0].join('')); const w = parts.join('');
+    return chunkTask(parts.slice(), others(chunksOf(SYL), 2, parts), { prompt: `Build ${w}.`, say: `${w}. Build ${w} from its syllables.`, emoji: pic, spell: spellFor(w, sp) }); } },
+  { name: 'Prefixes and suffixes', g: 4, gen() { const [parts, q, pic, sp] = fresh(AFFIX, x => x[0].join('')); const w = parts.join('');
+    return chunkTask(parts.slice(), others(AFFIX_PARTS, 2, parts), { prompt: q, say: `${q} Build ${w}.`, emoji: pic, spell: spellFor(w, sp) }); } },
+  { name: 'Homophones', g: 5, gen() { const [s, a, alts] = fresh(HOMO, x => x[0]);
+    const choices = [a, ...alts]; if (choices.length < 3) choices.push(...others(HOMO_WORDS, 3 - choices.length, choices));
+    return choiceTask(a, choices, { prompt: s, say: `${blank(s, a)} Tap the right spelling of ${a}.`, emoji: '🗣️', spell: pick(FUN_SPELLS) }); } },
+  { name: 'Greek and Latin roots', g: 5, gen() { const [parts, q, pic, sp] = fresh(ROOTS, x => x[0].join('')); const w = parts.join('');
+    return chunkTask(parts.slice(), others(chunksOf(ROOTS), 2, parts), { prompt: q, say: `${q} Build ${w} from its word parts.`, emoji: pic, spell: spellFor(w, sp) }); } },
+  { name: 'Academic words', g: 6, gen() { const [w, q] = fresh(VOCAB, x => x[0]);
+    return choiceTask(w, [w, ...others(VOCAB.map(v => v[0]), 3, [w])], { prompt: q, say: `${q} Tap the word that means this.`, emoji: '📚', spell: pick(FUN_SPELLS) }); } },
+  { name: 'Spelling demons', g: 7, gen() { const [w, q, sp] = fresh(DEMONS, x => x[0]);
+    return keysTask(w, { prompt: q, say: `${q} Type ${w}.`, emoji: '✏️', spell: spellFor(w, sp) }); } },
+  { name: 'Shades of meaning', g: 8, gen() { const [s, a, alts] = fresh(CONN, x => x[0]);
+    return choiceTask(a, [a, ...alts], { prompt: s, say: `${blank(s, 'blank')} Tap the word that fits best.`, emoji: '💬', spell: pick(FUN_SPELLS) }); } },
 ];
 // Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
-const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('reading', LEVELS.length, 3) : 3);
+// g is the grade each rung is for (-1 pre-K, 0 K, 1..8). The child opens on the first rung at her reading grade.
+const START = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('reading', LEVELS.map(l => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('reading', LEVELS.length, 3) : 3));
 
 // ---------------------------------------------------------------------------
 // Progress
@@ -1005,11 +1199,21 @@ function newRound(speak = true) {
   if (task.setup) setup(task.setup);
   render(); badge();
   $('pic').textContent = task.emoji || '🪄'; $('prompt').textContent = task.prompt;
+  $('ask').classList.toggle('long', task.prompt.length > 30);
   $('ask').classList.remove('pulse'); void $('ask').offsetWidth; $('ask').classList.add('pulse');
   if (speak) hear();
 }
-function hear() { const t = task; say(t.prompt + (t.kind === 'chunks' && t.fixed.length ? ' Pick the ending.' : ' Spell ' + (t.joined ? t.word : t.spell) + '.')); }
+function hear() { const t = task; say(t.say || (t.prompt + (t.kind === 'chunks' && t.fixed.length ? ' Pick the ending.' : ' Spell ' + (t.joined ? t.word : t.spell) + '.'))); }
+// How big the slots and tiles are: long words and long chunks shrink, word choices use a word size.
+function sizeFor(t) {
+  if (t.kind === 'choice') return 'word';
+  const n = t.units.length + t.groups.length - 1, w = t.units.reduce((a, u) => a + u.length, 0);
+  if (n >= 12 || w >= 14) return 'xs';
+  if (n >= 9 || w >= 10) return 'sm';
+  return '';
+}
 function render() {
+  $('panel').dataset.size = sizeFor(task); $('panel').dataset.kind = task.kind;
   const sl = $('slots'); sl.innerHTML = ''; let k = 0;
   task.groups.forEach((n, gi) => {
     if (gi) { const g = document.createElement('div'); g.className = 'gap'; g.textContent = task.joined ? '+' : ''; sl.appendChild(g); }
@@ -1021,18 +1225,24 @@ function render() {
   });
   const tr = $('tray'); tr.innerHTML = '';
   task.tiles.forEach((t, i) => { const b = document.createElement('button'); b.className = 'tile' + (task.tileState[i] ? ' used' : ''); b.textContent = t; b.style.background = TILE_COLORS[i % TILE_COLORS.length]; b.dataset.i = i; b.onpointerdown = e => { e.preventDefault(); placeTile(i); }; tr.appendChild(b); });
+  if (task.kind === 'keys') { // a backspace key takes the last letter back; the keyboard breaks after m
+    const br = document.createElement('div'); br.className = 'brk'; tr.insertBefore(br, tr.children[13] || null);
+    const b = document.createElement('button'); b.className = 'tile back'; b.textContent = '⌫'; b.title = 'Back';
+    b.onpointerdown = e => { e.preventDefault(); const last = slots.map((s, i) => s.u && !s.fixed ? i : -1).filter(i => i >= 0).pop(); if (last !== undefined) unplace(last); };
+    tr.appendChild(b);
+  }
   $('panel').classList.toggle('won', phase === 'won'); $('next').classList.toggle('on', phase === 'won');
 }
 function badge() { $('badge').textContent = `Level ${P.lv + 1}: ${LEVELS[P.lv].name}`; $('stars').textContent = '⭐ ' + P.stars; }
 function placeTile(i) {
   if (phase !== 'play' || task.tileState[i]) return;
   const k = slots.findIndex(s => !s.fixed && !s.u); if (k < 0) return;
-  slots[k] = { u: task.tiles[i], tile: i }; task.tileState[i] = true; sfx('place'); render();
+  slots[k] = { u: task.tiles[i], tile: i }; if (!task.reuse) task.tileState[i] = true; sfx('place'); render();
   if (slots.every(s => s.u)) { phase = 'check'; setTimeout(check, 260); }
 }
 function unplace(k) {
   if (phase !== 'play') return; const s = slots[k]; if (s.fixed || !s.u) return;
-  task.tileState[s.tile] = false; slots[k] = { u: null, tile: -1 }; sfx('back'); render();
+  if (!task.reuse) task.tileState[s.tile] = false; slots[k] = { u: null, tile: -1 }; sfx('back'); render();
 }
 async function check() {
   const els = [...document.querySelectorAll('.slot')];
@@ -1076,6 +1286,32 @@ window.WORD_WIZARD = {
   state: () => ({ level: P.lv, stars: P.stars, streak: P.st.streak, miss: P.st.miss, phase, missed, slots: slots.map(s => s.u) }),
   setLevel(i) { P.lv = i; P.st = { streak: 0, miss: 0 }; persist(); newRound(false); }, newRound,
   tap(i) { const b = document.querySelector(`.tile[data-i="${i}"]`); b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); },
+};
+
+// Ladder self-check (tools/ladder-check.mjs --drive): build problems at a rung without touching the screen and
+// throw on any that could not be solved or would show broken text.
+function checkTask(t, i) {
+  const bad = m => { throw new Error(`rung ${i} (${LEVELS[i].name}): ${m}`); };
+  const text = [t.prompt, t.say || '', t.word, t.spell, t.emoji || '', ...t.units, ...t.tiles].map(String).join(' | ');
+  if (/undefined|NaN|\bnull\b|\u2014/.test(text)) bad('bad text: ' + text);
+  if (typeof t.prompt !== 'string' || !t.prompt.trim()) bad('no prompt');
+  if (!Array.isArray(t.units) || !t.units.length || t.units.some(u => typeof u !== 'string' || !u)) bad('bad units');
+  if (!Array.isArray(t.tiles) || t.tiles.some(x => typeof x !== 'string' || !x)) bad('bad tiles');
+  if (t.units.join('').replace(/ /g, '') !== t.word.replace(/ /g, '')) bad(`units do not spell ${t.word}`);
+  if (t.groups.reduce((a, b) => a + b, 0) !== t.units.length) bad('groups do not match units');
+  if (t.fixed.some(k => k < 0 || k >= t.units.length)) bad('fixed slot out of range');
+  const need = t.units.filter((u, k) => !t.fixed.includes(k));
+  if (t.kind === 'keys') { if (t.tiles.length !== 26 || need.some(u => !/^[a-z]$/.test(u))) bad('keyboard cannot type ' + t.word); }
+  else { const pool = t.tiles.slice(); for (const u of need) { const j = pool.indexOf(u); if (j < 0) bad(`no tile for ${u}`); pool.splice(j, 1); } }
+  if (t.kind === 'choice' && (t.tiles.length < 3 || new Set(t.tiles).size !== t.tiles.length || !t.tiles.includes(t.word))) bad('bad choices for ' + t.word);
+  if (t.tiles.length > 26) bad('too many tiles');
+  if (!spellKind(t)) bad(`no spell for ${t.spell}`);
+}
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START,
+  label: () => LEVELS[P.lv].name,
+  exercise: (i, n) => { const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); checkTask(t, i); out.push(`${t.word}: ${t.prompt}`); } return out; },
 };
 </script>
 </body>

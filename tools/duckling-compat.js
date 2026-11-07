@@ -41,6 +41,15 @@
     if (g <= 2) idx = Math.round(s * (g + 1) / 3); else idx = Math.round(s + (count - 1 - s) * (g - 2) / 6);
     return Math.max(0, Math.min(count - 1, idx));
   };
+  // Where a ladder starts when the app says which grade each rung is for: `grades` is one grade per rung, in ladder
+  // order (-1 pre-K .. 8), and the child opens on the first rung meant for her grade. With no rung at her grade she
+  // opens on the first rung above it, or the top rung when there is none above.
+  var rungFor = function (subject, grades) {
+    if (!grades || !grades.length) return 0;
+    var g = grade(subject), i;
+    for (i = 0; i < grades.length; i++) if (grades[i] >= g) return i;
+    return grades.length - 1;
+  };
 
   // ---- 1. Per-app localStorage ------------------------------------------------------------------------------------
   try {
@@ -59,7 +68,7 @@
 
   // ---- 3. The small bridge for apps that look for it -----------------------------------------------------------------
   window.KidTablet = {
-    platform: bridge ? 'duckling' : 'browser', appId: APP_ID, childName: CHILD, narratorVoice: VOICE, levels: LEVELS, grade: grade, levelFor: levelFor,
+    platform: bridge ? 'duckling' : 'browser', appId: APP_ID, childName: CHILD, narratorVoice: VOICE, levels: LEVELS, grade: grade, levelFor: levelFor, rungFor: rungFor,
     say: function (text, opts) { var u = new SpeechSynthesisUtterance(String(text)); if (opts && opts.rate) u.rate = opts.rate; window.speechSynthesis.speak(u); return u; }
   };
 

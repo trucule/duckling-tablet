@@ -1,20 +1,20 @@
 {
   "id": "word-wizard",
   "name": "Word Wizard",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Hear a word, tap the letters into place, and the right word casts a spell in a 3D world.",
   "subjects": [
     "reading"
   ],
-  "ageMin": 5,
-  "ageMax": 7,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/word-wizard",
   "about": {
     "concept": "Phonics and spelling with immediate feedback. The child hears a word, places its letters in order, and sees the right spelling act in a 3D world, so sound-to-letter mapping is practiced word by word.",
-    "progression": "Three-letter words with short vowels lead to blends, digraphs, long vowels and longer words, with spoken words drawn from the child's reading level.",
+    "progression": "Three-letter words with short vowels lead to blends, longer words, two-word spells, endings, prefixes and compound words, then vowel teams, syllables, prefixes and suffixes, homophones chosen from a spoken sentence, Greek and Latin roots, academic vocabulary from a spoken definition, spelling demons typed on a letter keyboard, and word connotation and figurative language at 8th grade. The child starts at the rung that matches the reading grade a parent set and climbs with four right in a row.",
     "lifeSkills": [
       "Sounding out words",
       "Spelling",

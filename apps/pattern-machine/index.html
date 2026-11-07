@@ -219,10 +219,13 @@
   A machine can turn a shape a quarter turn, turn it a half turn, flip it like a mirror, paint it a new color, make it
   bigger or make it smaller. The shapes are block shapes with no mirror or turn symmetry, so every turn and flip shows.
   The ladder: predict what comes out of one machine, then find the hidden rule from two examples, then chains of two
-  and three machines, then a hidden pair of rules and a missing machine in the middle of a chain.
+  and three machines, then a hidden pair of rules and a missing machine in the middle of a chain. From level 10 the
+  machine works on numbers: number patterns, function machines, growing shape patterns, expressions, sequences with
+  negatives and fractions, arithmetic and geometric sequences, the nth term, lines from tables and graphs, and
+  recursive rules. Choice answers sit in the strip at the bottom; typed answers use the number pad at the right.
   Every question is checked when it is made: exactly one choice is right, and no two choices look the same.
   Four right first try in a row moves up a level; two missed questions in a row moves down.
-  Progress is kept in localStorage (key pattern-machine-v1). New players start at a 2nd grade level.
+  Progress is kept in localStorage (key pattern-machine-v1). New players start where the child's logic grade says.
   Bundled: three.js r149, https://threejs.org, MIT License, Copyright 2010-2023 Three.js Authors.
   The full notice: Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
   associated documentation files, to deal in the Software without restriction, subject to the condition that the
@@ -238,10 +241,10 @@
   #app { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; }
   /* The right 210px of the header stays clear: the Home pill sits there. */
   header { display: flex; align-items: center; gap: 12px; padding: 10px 210px 10px 14px; min-height: 56px; }
-  header h1 { font-size: 28px; margin: 0; font-weight: 900; color: #fff; text-shadow: 0 3px 0 var(--ink); white-space: nowrap; }
-  #badge { font-size: 18px; font-weight: 900; background: var(--sun); border: 3px solid var(--ink); border-radius: 999px; padding: 6px 14px; white-space: nowrap; }
+  header h1 { font-size: 26px; margin: 0; font-weight: 900; color: #fff; text-shadow: 0 3px 0 var(--ink); white-space: nowrap; }
+  #badge { font-size: 16px; font-weight: 900; background: var(--sun); border: 3px solid var(--ink); border-radius: 999px; padding: 5px 14px; min-width: 0; max-width: 360px; text-align: center; line-height: 1.15; }
   #badge.pop { animation: pop .6s; }
-  #stars { font-size: 22px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px; margin-right: auto; }
+  #stars { font-size: 22px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px; margin-right: auto; white-space: nowrap; }
   .pill { border: 3px solid var(--ink); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 20px; font-weight: 900; white-space: nowrap; }
   .pill:active { transform: scale(.94); }
   main { position: relative; min-height: 0; }
@@ -261,7 +264,50 @@
     background: var(--sun); border: 5px solid var(--ink); border-radius: 30px; padding: 14px 34px; pointer-events: none; z-index: 3; white-space: nowrap; }
   #toast.on { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   #toast.bad { background: #FFB3C9; }
+  /* On number rungs the toast sits low, clear of the board and the reveal. */
+  #app.num #toast { font-size: 36px; top: 76%; padding: 10px 28px; }
+  #app.typed #toast { left: 31%; }
   #nogl { position: absolute; inset: 0; display: none; place-items: center; font-size: 30px; font-weight: 900; color: #fff; text-align: center; padding: 40px; }
+  /* Number rungs (level 10 and up): a board of cards, tables and small drawings at the left, the machine beside or
+     below it, text answers in the strip at the bottom or a number pad at the right. */
+  #board { position: absolute; left: 24px; top: 68px; width: 660px; display: none; flex-direction: column; align-items: center; gap: 10px; z-index: 2; pointer-events: none; }
+  #board.on { display: flex; }
+  #board.choice { bottom: 130px; justify-content: center; }
+  #board.typed { align-items: flex-start; }
+  #board.typed .note { max-width: 480px; }
+  .cards { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .card { min-width: 44px; padding: 6px 12px; background: #fff; border: 4px solid var(--ink); border-radius: 16px; box-shadow: 0 4px 0 var(--ink); text-align: center; }
+  .card .val { font-size: 36px; font-weight: 900; line-height: 1.1; white-space: nowrap; }
+  .card .sub { font-size: 13px; font-weight: 700; color: #6B5F86; margin-top: 2px; white-space: nowrap; }
+  .card.q { background: var(--sun); }
+  .card.blank { background: #ffffffa0; }
+  .card.blank .val { color: #2B214055; }
+  .card.plain { background: none; border-color: transparent; box-shadow: none; padding: 0 2px; }
+  .card.plain .val { color: #fff; text-shadow: 0 2px 0 var(--ink); }
+  .card.pop { animation: pop .6s; }
+  .cards .arr { font-size: 22px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 var(--ink); }
+  .mid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; justify-content: center; max-width: 100%; }
+  .frac { display: inline-flex; flex-direction: column; vertical-align: middle; font-size: .58em; line-height: 1.05; margin: 0 2px; }
+  .frac .num { border-bottom: 3px solid currentColor; padding: 0 3px; }
+  .frac .den { padding: 0 3px; }
+  table.tbl { border-collapse: separate; border-spacing: 5px; margin: -5px; }
+  table.tbl td, table.tbl th { font-size: 28px; font-weight: 900; background: #fff; border: 4px solid var(--ink); border-radius: 12px; padding: 2px 16px; text-align: center; min-width: 52px; line-height: 1.2; }
+  table.tbl th { background: var(--sky); }
+  table.tbl td.q { background: var(--sun); }
+  table.tbl td.pop { animation: pop .6s; }
+  #board canvas.draw { background: #fff; border: 4px solid var(--ink); border-radius: 16px; display: block; }
+  .note { font-size: 23px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 var(--ink); line-height: 1.25; max-width: 660px; }
+  .note.after { color: #FFF3A8; }
+  #choices button.txt { flex-direction: column; gap: 0; padding: 10px 20px; min-width: 110px; font-size: 30px; font-weight: 900; line-height: 1.15; white-space: nowrap; }
+  #choices button.txt .sub { font-size: 22px; }
+  #pad { position: absolute; right: 16px; top: 68px; width: 276px; display: none; grid-template-columns: repeat(3, 1fr); gap: 8px; z-index: 2; }
+  #pad.on { display: grid; }
+  #entry { grid-column: 1 / -1; min-height: 60px; font-size: 38px; font-weight: 900; background: #fff; border: 4px solid var(--ink); border-radius: 16px; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px; box-sizing: border-box; }
+  #entry .ph { color: #2B214055; font-size: 26px; }
+  #pad .key { height: 60px; font-size: 30px; font-weight: 900; background: #fff; border: 4px solid var(--ink); border-radius: 14px; box-shadow: 0 5px 0 var(--ink); padding: 0; }
+  #pad .key:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--ink); }
+  #pad .key.hid { visibility: hidden; }
+  #pad #enter { grid-column: 1 / -1; background: var(--leaf); }
   @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
   @keyframes pop { 40% { transform: scale(1.35); } }
 </style>
@@ -278,6 +324,15 @@
     <div id="stage"></div>
     <div id="ask"></div>
     <div id="choices"></div>
+    <div id="board"></div>
+    <div id="pad">
+      <div id="entry"><span class="ph">type it</span></div>
+      <button class="key" data-k="7">7</button><button class="key" data-k="8">8</button><button class="key" data-k="9">9</button>
+      <button class="key" data-k="4">4</button><button class="key" data-k="5">5</button><button class="key" data-k="6">6</button>
+      <button class="key" data-k="1">1</button><button class="key" data-k="2">2</button><button class="key" data-k="3">3</button>
+      <button class="key" data-k="-" id="neg">&minus;</button><button class="key" data-k="0">0</button><button class="key" data-k="del">&#9003;</button>
+      <button class="key" id="enter">Go</button>
+    </div>
     <div id="toast"></div>
     <div id="nogl">This game needs 3D graphics, which are not working on this device right now.</div>
   </main>
@@ -328,20 +383,52 @@ const rkey = r => r.t + (r.t === 'paint' ? r.c : '');
 const rkeys = rs => rs.map(rkey).join('>');
 
 const ALL = ['turn', 'half', 'flip', 'paint', 'grow', 'shrink'];
-// Levels from young (bottom) to hard (top).
+// Levels from young (bottom) to hard (top). Index, name, grade band, what it asks:
+//   0  Paint and grow        pre-K     one machine paints or resizes; tap what comes out
+//   1  Turn it               K         one machine, quarter turns join in
+//   2  Flip it               1st       one machine, flips and turned starts
+//   3  Find the rule         2nd       the rule is hidden; pick it from two examples
+//   4  Rule detective        2nd       hidden rule with four choices and flips
+//   5  Two machines          3rd       predict the output of a chain of two
+//   6  Three machines        3rd       predict the output of a chain of three
+//   7  Secret pair           3rd       find two hidden rules and their order
+//   8  Missing machine       3rd/4th   the middle machine of three is hidden
+//   9  Number patterns       3rd       4 terms with one operation (add, take away, double); tap the next term
+//  10  Two-step patterns     4th       4 terms with two operations (times 2 plus 1); tap the next term
+//  11  Function machine      4th/5th   three in and out pairs; pick the rule
+//  12  Machine output        5th       three pairs and a new input; type what comes out
+//  13  Growing shapes        5th       figures 1 to 3 of a growing pattern; type the count for figure 10
+//  14  Write the rule        6th       a table of n and value; pick the expression such as 2n + 3
+//  15  Negatives and fractions 6th     sequences past zero, in fractions or decimals; tap the next term
+//  16  Arithmetic or geometric 7th     name the type and the next term
+//  17  The nth term          7th       4 terms of an arithmetic sequence; type term 50
+//  18  Lines and tables      8th       a table or a graph of points; pick y = mx + b
+//  19  Recursive rules       8th       a rule in words with starting terms; type a later term
 const LEVELS = [
-  { name: 'Paint and grow', kind: 'predict', chain: 1, rules: ['paint', 'grow', 'shrink'], choices: 3, turned: false },
-  { name: 'Turn it', kind: 'predict', chain: 1, rules: ['turn', 'paint', 'grow'], choices: 3, turned: false },
-  { name: 'Flip it', kind: 'predict', chain: 1, rules: ALL, choices: 3, turned: true },
-  { name: 'Find the rule', kind: 'infer', chain: 1, rules: ['turn', 'paint', 'grow', 'shrink'], choices: 3, turned: false },
-  { name: 'Rule detective', kind: 'infer', chain: 1, rules: ALL, choices: 4, turned: true },
-  { name: 'Two machines', kind: 'predict', chain: 2, rules: ALL, choices: 4, turned: true },
-  { name: 'Three machines', kind: 'predict', chain: 3, rules: ALL, choices: 4, turned: true },
-  { name: 'Secret pair', kind: 'infer', chain: 2, rules: ALL, choices: 3, turned: true },
-  { name: 'Missing machine', kind: 'missing', chain: 3, rules: ALL, choices: 4, turned: true },
+  { name: 'Paint and grow', g: -1, kind: 'predict', chain: 1, rules: ['paint', 'grow', 'shrink'], choices: 3, turned: false },
+  { name: 'Turn it', g: 0, kind: 'predict', chain: 1, rules: ['turn', 'paint', 'grow'], choices: 3, turned: false },
+  { name: 'Flip it', g: 1, kind: 'predict', chain: 1, rules: ALL, choices: 3, turned: true },
+  { name: 'Find the rule', g: 2, kind: 'infer', chain: 1, rules: ['turn', 'paint', 'grow', 'shrink'], choices: 3, turned: false },
+  { name: 'Rule detective', g: 2, kind: 'infer', chain: 1, rules: ALL, choices: 4, turned: true },
+  { name: 'Two machines', g: 3, kind: 'predict', chain: 2, rules: ALL, choices: 4, turned: true },
+  { name: 'Three machines', g: 3, kind: 'predict', chain: 3, rules: ALL, choices: 4, turned: true },
+  { name: 'Secret pair', g: 3, kind: 'infer', chain: 2, rules: ALL, choices: 3, turned: true },
+  { name: 'Missing machine', g: 3, kind: 'missing', chain: 3, rules: ALL, choices: 4, turned: true },
+  { name: 'Number patterns', g: 3, kind: 'num', sub: 'seqOne' },
+  { name: 'Two-step patterns', g: 4, kind: 'num', sub: 'seqTwo' },
+  { name: 'Function machine', g: 4, kind: 'num', sub: 'fnRule' },
+  { name: 'Machine output', g: 5, kind: 'num', sub: 'fnOut' },
+  { name: 'Growing shapes', g: 5, kind: 'num', sub: 'grow' },
+  { name: 'Write the rule', g: 6, kind: 'num', sub: 'expr' },
+  { name: 'Negatives and fractions', g: 6, kind: 'num', sub: 'seqMix' },
+  { name: 'Arithmetic or geometric', g: 7, kind: 'num', sub: 'arithGeo' },
+  { name: 'The nth term', g: 7, kind: 'num', sub: 'nth' },
+  { name: 'Lines and tables', g: 8, kind: 'num', sub: 'line' },
+  { name: 'Recursive rules', g: 8, kind: 'num', sub: 'rec' },
 ];
 // Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
-const START_LEVEL = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('logic', LEVELS.length, 2) : 2);
+// g is the grade each rung is for (-1 pre-K, 0 K, 1..8). The child opens on the first rung at her logic grade.
+const START_LEVEL = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('logic', LEVELS.map(l => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('logic', LEVELS.length, 2) : 2));
 
 function pool(L) { const out = []; for (const t of L.rules) { if (t === 'paint') COLORS.forEach((_, c) => out.push({ t, c })); else out.push({ t }); } return out; }
 function randState(L) { return { shape: ri(0, SHAPES.length - 1), color: ri(0, COLORS.length - 1), rot: L.turned ? ri(0, 3) : 0, flip: L.turned ? ri(0, 1) : 0, size: ri(0, 2) }; }
@@ -383,11 +470,13 @@ function predictChoices(L, input, rules, answer) {
 function generate(i) {
   const L = LEVELS[i];
   for (let t = 0; t < 500; t++) {
-    const q = makeQuestion(L); if (q && checkQuestion(q).ok) return q;
+    const q = makeQuestion(L); if (q && checkAny(q).ok) return q;
   }
   throw new Error('no question for level ' + i);
 }
+const checkAny = q => q.kind === 'num' ? checkNum(q) : checkQuestion(q);
 function makeQuestion(L) {
+  if (L.kind === 'num') return makeNum(L);
   const input = randState(L), rules = pickChain(L, input, L.chain);
   if (!rules) return null;
   if (L.kind === 'predict') {
@@ -450,10 +539,315 @@ function checkQuestion(q) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Number rungs. From level 10 the machine works on numbers. A rule is { a, b } meaning a * n + b, shown to the child
+// as a machine rule ("x 3 + 1"), an expression ("3n + 1") or a line ("y = 3x + 1"). A number question is
+// { kind: 'num', sub, mode, board, choices or answer, reveal, words, desc }. In mode 'choice' the strip shows
+// q.choices (strings) and q.meta carries what each choice means; in mode 'type' the child types q.answer (a whole
+// number) on the pad, with a minus key when q.neg. checkNum works only from what the child is shown, so it proves
+// that exactly one choice fits, or that the typed answer follows.
+const MINUS = '−', TIMES = '×', DIV = '÷';
+const fmt = n => (n < 0 ? MINUS : '') + Math.abs(n);
+const sp = n => (n < 0 ? 'minus ' : '') + Math.abs(n);
+const spList = a => a.map(sp).join(', ');
+const gcd = (a, b) => b ? gcd(b, a % b) : Math.abs(a);
+function fmtFrac(num, den) {
+  const g = gcd(Math.abs(num), den) || 1; num /= g; den /= g;
+  const w = Math.floor(Math.abs(num) / den), r = Math.abs(num) % den;
+  const body = r === 0 ? String(w) : w === 0 ? `${r}/${den}` : `${w} ${r}/${den}`;
+  return (num < 0 ? MINUS : '') + body;
+}
+const fmtDec = (hund, places) => (hund < 0 ? MINUS : '') + (Math.abs(hund) / 100).toFixed(places);
+const affine = (r, n) => r.a * n + r.b;
+const fitsAll = (r, pairs) => pairs.every(([x, y]) => affine(r, x) === y);
+const seqFrom = (r, start, n) => { const t = [start]; while (t.length < n) t.push(affine(r, t[t.length - 1])); return t; };
+const pickDistinct = (lo, hi, n) => { const a = []; for (let v = lo; v <= hi; v++) a.push(v); return shuffle(a).slice(0, n); };
+// Keeps the first n candidates that are not bad and read differently; null when there are not enough.
+function pickWrong(cands, bad, n, key = String) {
+  const seen = new Set(), out = [];
+  for (const c of cands) { if (c === null || c === undefined) continue; const k = key(c); if (seen.has(k) || bad(c)) continue; seen.add(k); out.push(c); if (out.length >= n) break; }
+  return out.length >= n ? out : null;
+}
+// "x 3 + 1", "+ 4", "- 3", "x 2"
+function ruleText(r) {
+  const parts = [];
+  if (r.a !== 1) parts.push(TIMES + ' ' + r.a);
+  if (r.b !== 0 || r.a === 1) parts.push((r.b < 0 ? MINUS : '+') + ' ' + Math.abs(r.b));
+  return parts.join(' ');
+}
+function ruleSay(r) {
+  const parts = [];
+  if (r.a !== 1) parts.push('times ' + r.a);
+  if (r.b !== 0 || r.a === 1) parts.push((r.b < 0 ? 'take away ' : 'add ') + Math.abs(r.b));
+  return parts.join(', then ');
+}
+// "3n + 1", "n + 4", "2n - 3", "2n", "-x + 5"
+function exprText(r, v = 'n') {
+  const head = r.a === 1 ? v : r.a === -1 ? MINUS + v : r.a === 0 ? '' : fmt(r.a) + v;
+  if (r.b === 0) return head || '0';
+  if (!head) return fmt(r.b);
+  return `${head} ${r.b < 0 ? MINUS : '+'} ${Math.abs(r.b)}`;
+}
+const lineText = r => 'y = ' + exprText(r, 'x');
+const okRule = s => s.a >= 1 && s.a <= 9 && s.b >= -12 && s.b <= 12 && (s.a === 1 || Math.abs(s.b) <= 9) && !(s.a === 1 && s.b === 0);
+// The rule families a sequence rung draws from. A shown sequence must fit exactly one rule of its family.
+const FAM_ONE = [], FAM_TWO = [];
+for (let k = 1; k <= 12; k++) FAM_ONE.push({ a: 1, b: k }, { a: 1, b: -k });
+for (let a = 2; a <= 4; a++) FAM_ONE.push({ a, b: 0 });
+for (let a = 1; a <= 4; a++) for (let b = -9; b <= 9; b++) if (!(a === 1 && b === 0)) FAM_TWO.push({ a, b });
+const familyFits = (fam, terms) => fam.filter(r => terms.every((t, k) => k === 0 || t === affine(r, terms[k - 1])));
+function fnRuleRandom() {
+  const k = pick(['add', 'sub', 'mul', 'two']);
+  return k === 'add' ? { a: 1, b: ri(2, 12) } : k === 'sub' ? { a: 1, b: -ri(2, 9) } : k === 'mul' ? { a: ri(2, 6), b: 0 } : { a: ri(2, 4), b: pick([-1, 1]) * ri(1, 5) };
+}
+// The squares of figure n in a growing pattern: b fixed squares in a column, then a rows of n squares.
+function growCells(a, b, n) {
+  const cells = [];
+  for (let i = 0; i < b; i++) cells.push([0, i, 'fix']);
+  for (let r = 0; r < a; r++) for (let c = 0; c < n; c++) cells.push([(b ? 1 : 0) + c, r, 'grow']);
+  return cells;
+}
+// A recursive rule in words, evaluated from its spec so the check does not share the generator's code path.
+const REC = {
+  sum: { words: () => 'Each term is the sum of the two terms before it.', step: (t, i) => t[i - 1] + t[i - 2], rule: () => 'a + b' },
+  double: { words: s => `Each term is double the term before it, ${s.c < 0 ? 'minus' : 'plus'} ${Math.abs(s.c)}.`, step: (t, i, s) => 2 * t[i - 1] + s.c, rule: s => ruleText({ a: 2, b: s.c }) },
+  triple: { words: s => `Each term is 3 times the term before it, minus ${s.c}.`, step: (t, i, s) => 3 * t[i - 1] - s.c, rule: s => ruleText({ a: 3, b: -s.c }) },
+  plusn: { words: () => 'Each term is the term before it plus the term number.', step: (t, i) => t[i - 1] + (i + 1), rule: () => '+ n' },
+};
+function recSeq(s) { const t = s.start.slice(); for (let i = t.length; i < s.N; i++) t.push(REC[s.v].step(t, i, s)); return t; }
+
+const seqCards = (shown, extra = []) => shown.map(t => ({ text: t })).concat(extra);
+function seqQuestion(shown, next, wrong, family, words, ruleTxt, note) {
+  return { mode: 'choice', terms: shown, family, choices: [next, ...wrong].map(fmt), meta: [next, ...wrong], answer: 0,
+    board: { cards: seqCards(shown.map(fmt), [{ text: '?', q: true }]), arrows: true },
+    reveal: { cards: { [shown.length]: fmt(next) }, note }, ruleText: ruleTxt, words, nums: shown.concat([next], wrong),
+    desc: `${shown.map(fmt).join(', ')} -> ${fmt(next)}` };
+}
+
+const NUMGEN = {
+  // 3rd: one operation, whole numbers to 100.
+  seqOne() {
+    const kind = pick(['add', 'add', 'sub', 'sub', 'mul', 'mul']);
+    const k = kind === 'mul' ? pick([2, 2, 2, 3]) : ri(2, 9);
+    const r = kind === 'add' ? { a: 1, b: k } : kind === 'sub' ? { a: 1, b: -k } : { a: k, b: 0 };
+    const start = kind === 'add' ? ri(0, 40) : kind === 'sub' ? ri(4 * k, 4 * k + 45) : k === 2 ? ri(1, 6) : 1;
+    const terms = seqFrom(r, start, 5);
+    if (Math.max(...terms) > 100 || Math.min(...terms) < 0) return null;
+    const shown = terms.slice(0, 4), next = terms[4], t = shown[3], d = t - shown[2];
+    const wrong = pickWrong(shuffle([t + d + 1, t + d - 1, t + 2 * d, t + d + 2, t + d - 2, t + 1, t + 10, t * 2, shown[2] + t]), v => v === next || v < 0 || v > 200, 3);
+    if (!wrong) return null;
+    const q = seqQuestion(shown, next, wrong, FAM_ONE, { short: 'What comes next?', speak: `A number pattern. ${spList(shown)}. What comes next? Tap it.` }, ruleText(r), `Each step: ${ruleText(r)}.`);
+    q.lim = 200; return q;
+  },
+  // 4th: two operations each step, such as times 2 plus 1.
+  seqTwo() {
+    const r = { a: ri(2, 3), b: pick([-3, -2, -1, 1, 2, 3]) };
+    const terms = seqFrom(r, ri(1, r.a === 2 ? 7 : 4), 5);
+    if (Math.max(...terms) > 400 || Math.min(...terms) < 0 || new Set(terms).size < 5) return null;
+    const shown = terms.slice(0, 4), next = terms[4], t = shown[3], d = t - shown[2];
+    const wrong = pickWrong(shuffle([t * r.a, t + r.b, next + 1, next - 1, t + d, t + 2 * d, t * r.a - r.b, next + 2, t * (r.a + 1) + r.b]), v => v === next || v < 0 || v > 999, 3);
+    if (!wrong) return null;
+    const q = seqQuestion(shown, next, wrong, FAM_TWO, { short: 'What comes next?', speak: `This pattern uses two steps each time. ${spList(shown)}. What comes next? Tap it.` }, ruleText(r), `Each step: ${ruleText(r)}.`);
+    q.lim = 999; return q;
+  },
+  // 4th/5th: three in and out pairs; which rule is inside?
+  fnRule() {
+    const r = fnRuleRandom();
+    const xs = pickDistinct(r.b < 0 && r.a === 1 ? -r.b : 1, 12, 3), pairs = xs.map(x => [x, affine(r, x)]);
+    if (pairs.some(([, y]) => y < 0 || y > 99)) return null;
+    const [x1, y1] = pairs[0];
+    const cands = [{ a: 1, b: y1 - x1 }, y1 % x1 === 0 ? { a: y1 / x1, b: 0 } : null, ...[2, 3, 4].map(a => ({ a, b: y1 - a * x1 })),
+      { a: r.a, b: r.b + 1 }, { a: r.a, b: r.b - 1 }, { a: r.a + 1, b: r.b }, { a: r.a - 1, b: r.b }, r.a >= 2 && r.b >= 2 ? { a: r.b, b: r.a } : null];
+    const wrong = pickWrong(shuffle(cands), s => !okRule(s) || fitsAll(s, pairs), 3, ruleText);
+    if (!wrong) return null;
+    return { mode: 'choice', pairs, choices: [r, ...wrong].map(ruleText), meta: [r, ...wrong], answer: 0,
+      board: { table: { head: ['in', 'out'], rows: pairs.map(([x, y]) => [fmt(x), fmt(y)]) } },
+      reveal: { note: `The rule is ${ruleText(r)}.` }, ruleText: ruleText(r), lim: 99, nums: pairs.flat(),
+      words: { short: 'Which rule is inside?', speak: 'Three numbers went in and three came out. Which rule is inside the machine? Tap it.' },
+      desc: pairs.map(p => p.join('>')).join(' ') + ' rule ' + ruleText(r) };
+  },
+  // 5th: find the rule from three pairs, then type the output for a new input.
+  fnOut() {
+    const r = fnRuleRandom();
+    const xs = pickDistinct(r.b < 0 && r.a === 1 ? -r.b : 1, 12, 4), pairs = xs.slice(0, 3).map(x => [x, affine(r, x)]), nx = xs[3], ans = affine(r, nx);
+    if (pairs.some(([, y]) => y < 0 || y > 99) || ans < 0 || ans > 120) return null;
+    return { mode: 'type', pairs, newX: nx, answer: ans, neg: false, lim: 120, nums: pairs.flat().concat([nx, ans]),
+      board: { table: { head: ['in', 'out'], rows: pairs.map(([x, y]) => [fmt(x), fmt(y)]).concat([[fmt(nx), '?']]) } },
+      reveal: { cell: fmt(ans), note: `The rule is ${ruleText(r)}. When ${nx} goes in, ${ans} comes out.` }, ruleText: ruleText(r),
+      words: { short: `What comes out for ${nx}?`, speak: `Find the rule from the three pairs. Then, when ${nx} goes in, what comes out? Type it.` },
+      desc: pairs.map(p => p.join('>')).join(' ') + ` ${nx}>?` + ` = ${ans}` };
+  },
+  // 5th: a growing shape pattern; how many squares in figure N?
+  grow() {
+    const a = ri(1, 4), b = a === 1 ? ri(1, 3) : ri(0, 3), N = pick([6, 8, 10, 10, 12, 15, 20]), ans = a * N + b;
+    if (ans > 100) return null;
+    const figs = [1, 2, 3].map(n => growCells(a, b, n));
+    return { mode: 'type', a, b, N, figs, answer: ans, neg: false, lim: 100, nums: [a, b, N, ans],
+      board: { draw: { kind: 'grow', a, b } },
+      reveal: { note: `Figure ${N} has ${ans} squares. Each new figure adds ${a}. The rule is ${exprText({ a, b })}.` }, ruleText: exprText({ a, b }),
+      words: { short: `How many squares in figure ${N}?`, speak: `The pattern grows. Count the squares in figure 1, figure 2 and figure 3. How many squares will figure ${N} have? Type it.` },
+      desc: `figures ${[1, 2, 3].map(n => a * n + b).join(', ')} -> figure ${N} = ${ans}` };
+  },
+  // 6th: a table of n and value; which expression gives it?
+  expr() {
+    const r = { a: ri(1, 6), b: ri(-4, 9) };
+    if (r.a === 1 && r.b === 0) return null;
+    const ns = [1, 2, 3, 4], vals = ns.map(n => affine(r, n)), v1 = vals[0], pairs = ns.map((n, i) => [n, vals[i]]);
+    if (vals.some(v => Math.abs(v) > 40)) return null;
+    const cands = [r.b >= 1 && r.a !== r.b ? { a: r.b, b: r.a } : null, { a: 1, b: v1 - 1 }, { a: r.a + 1, b: r.b - 1 }, { a: r.a - 1, b: r.b + 1 },
+      { a: r.a + 1, b: r.b }, { a: r.a - 1, b: r.b }, { a: r.a, b: r.b + 1 }, { a: r.a, b: r.b - 1 }, { a: r.a, b: -r.b }, { a: 2 * r.a, b: r.b }];
+    const wrong = pickWrong(shuffle(cands), s => !okRule(s) || fitsAll(s, pairs), 3, exprText);
+    if (!wrong) return null;
+    return { mode: 'choice', pairs, choices: [r, ...wrong].map(s => exprText(s)), meta: [r, ...wrong], answer: 0, lim: 40, nums: vals,
+      board: { table: { head: ['n', ...ns.map(String)], rows: [['value', ...vals.map(fmt)]], rowHead: true } },
+      reveal: { note: `The rule is ${exprText(r)}.` }, ruleText: exprText(r),
+      words: { short: 'Which rule gives these?', speak: 'The table shows n and its value. Which expression gives every value in the table? Tap it.' },
+      desc: `n 1..4 -> ${vals.join(', ')} rule ${exprText(r)}` };
+  },
+  // 6th: arithmetic sequences past zero, in fractions or in decimals.
+  seqMix() {
+    const v = pick(['neg', 'neg', 'frac', 'frac', 'dec', 'dec']);
+    let den, step, start, show, unit, floor;
+    if (v === 'neg') { den = 1; unit = 1; floor = -999; const up = Math.random() < 0.4; step = up ? ri(2, 7) : -ri(3, 8); start = up ? -ri(6, 16) : ri(3, 12); show = s => fmt(s); }
+    else if (v === 'frac') { den = pick([2, 3, 4]); unit = 1; floor = 0; step = pick(den === 2 ? [1, 3] : den === 3 ? [1, 2] : [1, 3]); start = ri(0, 2 * den); show = s => fmtFrac(s, den); }
+    else { den = 100; unit = 10; floor = 0; step = pick([50, 25, 20, 30, 150, -50, -25]); start = step > 0 ? ri(0, 30) * 10 : ri(Math.ceil(4 * -step / 10), 40) * 10; const places = step % 10 === 0 ? 1 : 2; show = s => fmtDec(s, places); }
+    const scaled = seqFrom({ a: 1, b: step }, start, 5), shown = scaled.slice(0, 4), next = scaled[4], t = shown[3];
+    if (new Set(scaled).size < 5) return null;
+    const wrong = pickWrong(shuffle([next + den, next - den, t + 2 * step, t - step, next + unit, next - unit, t, next + 2 * unit, next - 2 * unit]), s => s === next || s < floor || show(s) === show(next), 3, show);
+    if (!wrong) return null;
+    const spoken = v === 'frac' ? 'A pattern of fractions. Look at how much it changes each time.' : v === 'dec' ? `A pattern of decimals. ${shown.map(show).map(s => s.replace(MINUS, 'minus ')).join(', ')}.` : `${spList(shown)}.`;
+    return { mode: 'choice', scaled: shown, show, choices: [next, ...wrong].map(show), meta: [next, ...wrong], answer: 0, lim: 999 * den, nums: shown.concat([next], wrong),
+      board: { cards: seqCards(shown.map(show), [{ text: '?', q: true }]), arrows: true },
+      reveal: { cards: { 4: show(next) }, note: `Each step ${step < 0 ? 'takes away' : 'adds'} ${show(Math.abs(step))}.` }, ruleText: (step < 0 ? MINUS : '+') + ' ' + show(Math.abs(step)),
+      words: { short: 'What comes next?', speak: `${spoken} What comes next? Tap it.` },
+      desc: `${shown.map(show).join(', ')} -> ${show(next)}` };
+  },
+  // 7th: arithmetic or geometric, and the next term.
+  arithGeo() {
+    const geo = Math.random() < 0.5; let terms, ruleTxt, note;
+    if (!geo) { const d = pick([-1, 1]) * ri(2, 12); terms = seqFrom({ a: 1, b: d }, ri(1, 30), 5); if (Math.min(...terms) < -40) return null; ruleTxt = (d < 0 ? MINUS : '+') + ' ' + Math.abs(d); note = `Arithmetic: each term ${d < 0 ? 'takes away' : 'adds'} ${Math.abs(d)}.`; }
+    else {
+      const w = pick(['up', 'up', 'half', 'third']);
+      if (w === 'up') { const r = pick([2, 2, 3]); terms = seqFrom({ a: r, b: 0 }, ri(1, 6), 5); ruleTxt = TIMES + ' ' + r; note = `Geometric: each term is multiplied by ${r}.`; }
+      else if (w === 'half') { const a = ri(1, 12) * 16; terms = [a, a / 2, a / 4, a / 8, a / 16]; ruleTxt = DIV + ' 2'; note = 'Geometric: each term is divided by 2.'; }
+      else { const a = ri(1, 3) * 81; terms = [a, a / 3, a / 9, a / 27, a / 81]; ruleTxt = DIV + ' 3'; note = 'Geometric: each term is divided by 3.'; }
+      if (Math.max(...terms) > 600) return null;
+    }
+    const shown = terms.slice(0, 4), next = terms[4], t = shown[3], d = t - shown[2];
+    const wrongNext = geo ? t + d : t + 2 * d;
+    if (wrongNext === next) return null;
+    const meta = [{ geo, next }, { geo: !geo, next }, { geo, next: wrongNext }, { geo: !geo, next: wrongNext }];
+    return { mode: 'choice', terms: shown, choices: meta.map(m => `${m.geo ? 'Geometric' : 'Arithmetic'}\nnext ${fmt(m.next)}`), meta, answer: 0, lim: 999, nums: shown.concat([next, wrongNext]),
+      board: { cards: seqCards(shown.map(fmt), [{ text: '?', q: true }]), arrows: true },
+      reveal: { cards: { 4: fmt(next) }, note }, ruleText: ruleTxt,
+      words: { short: 'Arithmetic or geometric?', speak: `${spList(shown)}. Is this pattern arithmetic or geometric, and what comes next? Tap it.` },
+      desc: `${shown.join(', ')} -> ${geo ? 'geometric' : 'arithmetic'} ${next}` };
+  },
+  // 7th: the nth term of an arithmetic sequence.
+  nth() {
+    const d = pick([-1, 1, 1]) * ri(2, 12), a = ri(-10, 30), N = pick([10, 20, 25, 50, 100]);
+    const shown = seqFrom({ a: 1, b: d }, a, 4), ans = a + (N - 1) * d, r = { a: d, b: a - d };
+    if (Math.abs(ans) > 1500) return null;
+    return { mode: 'type', terms: shown, N, answer: ans, neg: true, lim: 1500, nums: shown.concat([ans]),
+      board: { cards: shown.map((t, i) => ({ text: fmt(t), sub: `term ${i + 1}` })).concat([{ text: '...', plain: true }, { text: '?', q: true, sub: `term ${N}` }]) },
+      reveal: { cards: { 5: fmt(ans) }, note: `Term ${N} is ${fmt(ans)}. Term n is ${exprText(r)}.` }, ruleText: exprText(r),
+      words: { short: `What is term ${N}?`, speak: `${spList(shown)}, and so on. What is term ${N}? Type it.` },
+      desc: `${shown.map(fmt).join(', ')} -> term ${N} = ${fmt(ans)}` };
+  },
+  // 8th: a table of x and y, or points on a grid; which line is it?
+  line() {
+    const m = pick([-3, -2, -1, 1, 1, 2, 2, 3, 4]), b = ri(-5, 6), graph = Math.random() < 0.5, R = graph ? 8 : 12;
+    const xs = (graph ? pickDistinct(-3, 3, 4) : pickDistinct(-2, 5, 4)).sort((p, q) => p - q), pts = xs.map(x => [x, m * x + b]), r = { a: m, b };
+    if (pts.some(([, y]) => Math.abs(y) > R)) return null;
+    const cands = [{ a: b, b: m }, { a: m, b: b + 1 }, { a: m, b: b - 1 }, { a: m + 1, b }, { a: m - 1, b }, { a: -m, b }, { a: m, b: -b }, { a: -m, b: -b }, { a: 1, b: pts[0][1] - pts[0][0] }];
+    const wrong = pickWrong(shuffle(cands), s => s.a === 0 || Math.abs(s.a) > 9 || Math.abs(s.b) > 12 || fitsAll(s, pts), 3, lineText);
+    if (!wrong) return null;
+    return { mode: 'choice', pairs: pts, choices: [r, ...wrong].map(lineText), meta: [r, ...wrong], answer: 0, lim: 12, nums: pts.flat(),
+      board: graph ? { draw: { kind: 'grid', pts, R } } : { table: { head: ['x', ...xs.map(fmt)], rows: [['y', ...pts.map(p => fmt(p[1]))]], rowHead: true } },
+      reveal: { line: r, note: `${lineText(r)}. The slope is ${fmt(m)}. The line crosses the y axis at ${fmt(b)}.` }, ruleText: 'y =\n' + exprText(r, 'x'),
+      words: { short: 'Which line fits?', speak: graph ? 'The points sit on one line. Find the slope and where it crosses the y axis. Which equation fits? Tap it.' : 'The table gives x and y. Find the slope and the starting value. Which equation fits? Tap it.' },
+      desc: `${graph ? 'graph' : 'table'} ${pts.map(p => `(${p.join(',')})`).join(' ')} -> ${lineText(r)}` };
+  },
+  // 8th: a recursive rule in words.
+  rec() {
+    const v = pick(['sum', 'sum', 'double', 'triple', 'plusn']);
+    const s = v === 'sum' ? { v, start: [ri(1, 9), ri(1, 9)], N: pick([5, 6, 7]) }
+      : v === 'double' ? { v, start: [ri(2, 9)], N: pick([4, 5]), c: pick([-1, 1]) * ri(1, 5) }
+      : v === 'triple' ? { v, start: [ri(1, 5)], N: 4, c: ri(1, 4) }
+      : { v, start: [ri(1, 9)], N: pick([6, 7, 8]) };
+    const t = recSeq(s), ans = t[s.N - 1], text = REC[v].words(s), k = s.start.length;
+    if (Math.abs(ans) > 999 || (v !== 'sum' && new Set(t).size < t.length)) return null;   // no fixed points such as 3, 3, 3
+    return { mode: 'type', rspec: s, answer: ans, neg: true, lim: 999, nums: t,
+      board: { rule: text, cards: t.map((x, i) => i < k ? { text: fmt(x), sub: `term ${i + 1}` } : i === s.N - 1 ? { text: '?', q: true, sub: `term ${s.N}` } : { text: '_', blank: true, sub: `term ${i + 1}` }) },
+      reveal: { cards: Object.fromEntries(t.map((x, i) => [i, fmt(x)]).slice(k)), note: `Term ${s.N} is ${fmt(ans)}.` }, ruleText: REC[v].rule(s),
+      words: { short: `What is term ${s.N}?`, speak: `${text} ${k === 2 ? `The first two terms are ${sp(s.start[0])} and ${sp(s.start[1])}.` : `The first term is ${sp(s.start[0])}.`} What is term ${s.N}? Type it.` },
+      desc: `${v} ${s.start.join(',')} -> term ${s.N} = ${fmt(ans)}` };
+  },
+};
+
+function makeNum(L) {
+  const q = NUMGEN[L.sub](); if (!q) return null;
+  q.kind = 'num'; q.sub = L.sub; q.level = L.name;
+  if (q.mode === 'choice') {   // the generators put the right choice first; shuffle choices and meta together
+    const order = shuffle(q.choices.map((_, i) => i));
+    q.choices = order.map(i => q.choices[i]); q.meta = order.map(i => q.meta[i]); q.answer = order.indexOf(0);
+  }
+  return q;
+}
+
+// What is true from what the child sees: for a choice question, whether choice i fits; for a typed one, the answer.
+function numTruth(q) {
+  const s = q.sub;
+  if (s === 'seqOne' || s === 'seqTwo') { const f = familyFits(q.family, q.terms); return f.length === 1 ? { fits: i => q.choices[i] === fmt(affine(f[0], q.terms[3])) } : null; }
+  if (s === 'seqMix') { const d = q.scaled[1] - q.scaled[0]; if (!q.scaled.every((t, k) => k === 0 || t - q.scaled[k - 1] === d) || d === 0) return null; return { fits: i => q.choices[i] === q.show(q.scaled[3] + d) }; }
+  if (s === 'fnRule' || s === 'expr' || s === 'line') return { fits: i => fitsAll(q.meta[i], q.pairs) };
+  if (s === 'arithGeo') {
+    const t = q.terms, d = t[1] - t[0], arith = t.every((x, k) => k === 0 || x - t[k - 1] === d) && d !== 0;
+    const geo = t[0] !== 0 && t[1] !== t[0] && t.every((x, k) => k === 0 || x * t[0] === t[k - 1] * t[1]);
+    if (arith === geo) return null;
+    const next = arith ? t[3] + d : t[3] * t[1] / t[0];
+    return { fits: i => q.meta[i].geo === geo && q.meta[i].next === next };
+  }
+  if (s === 'fnOut') {
+    const [[x1, y1], [x2, y2]] = q.pairs, a = (y2 - y1) / (x2 - x1), b = y1 - a * x1;
+    if (!Number.isInteger(a) || !Number.isInteger(b) || !fitsAll({ a, b }, q.pairs)) return null;
+    return { answer: a * q.newX + b };
+  }
+  if (s === 'grow') { if (q.figs.some((cells, k) => cells.length !== q.a * (k + 1) + q.b)) return null; return { answer: q.a * q.N + q.b }; }
+  if (s === 'nth') { const t = q.terms, d = t[1] - t[0]; if (!t.every((x, k) => k === 0 || x - t[k - 1] === d)) return null; return { answer: t[0] + (q.N - 1) * d }; }
+  if (s === 'rec') return { answer: recSeq(q.rspec)[q.rspec.N - 1] };
+  return null;
+}
+function checkNum(q) {
+  const why = [], texts = [];
+  const walk = v => { if (v === null || v === undefined) return; if (typeof v === 'function') return; if (Array.isArray(v)) v.forEach(walk); else if (typeof v === 'object') Object.values(v).forEach(walk); else texts.push(String(v)); };
+  walk([q.words && q.words.short, q.words && q.words.speak, q.choices, q.board, q.reveal, q.ruleText, q.desc, q.level]);
+  if (!q.words || !q.words.short || !q.words.speak) why.push('no words');
+  if (texts.some(s => /NaN|undefined|null|Infinity|\[object/.test(s))) why.push('bad text');
+  if (!Array.isArray(q.nums) || !q.nums.every(n => Number.isInteger(n) && Math.abs(n) <= (q.lim || 0))) why.push('a number is out of range');
+  const truth = numTruth(q);
+  if (!truth) why.push('the pattern shown does not settle the answer');
+  else if (q.mode === 'choice') {
+    if (!Array.isArray(q.choices) || q.choices.length < 3 || q.choices.length > 4) why.push('bad choice count');
+    else {
+      if (new Set(q.choices).size !== q.choices.length) why.push('two choices read the same');
+      const right = q.choices.map((_, i) => truth.fits(i) ? i : -1).filter(i => i >= 0);
+      if (right.length !== 1) why.push(right.length + ' right choices'); else if (right[0] !== q.answer) why.push('answer index is wrong');
+    }
+  } else if (q.mode === 'type') {
+    if (!Number.isInteger(q.answer)) why.push('typed answer is not a whole number');
+    if (q.answer < 0 && !q.neg) why.push('negative answer with no minus key');
+    if (truth.answer !== q.answer) why.push('typed answer does not follow from what is shown');
+  } else why.push('unknown mode');
+  return { ok: !why.length, why };
+}
+const describe = t => t.kind === 'num' ? `${t.level}: ${t.desc}` : `${t.level}: ${t.rows.map(r => rkeys(r.rules)).join(' | ')} -> choice ${t.answer}`;
+
+// ---------------------------------------------------------------------------------------------------------------
 // Words.
 const RSAY = r => r.t === 'turn' ? 'turns it a quarter turn, the way a clock goes' : r.t === 'half' ? 'turns it a half turn' : r.t === 'flip' ? 'flips it like a mirror'
   : r.t === 'paint' ? `paints it ${CNAMES[r.c]}` : r.t === 'grow' ? 'makes it bigger' : 'makes it smaller';
 function words(q) {
+  if (q.kind === 'num') return q.words;
   const r = q.rows[0].rules;
   if (q.kind === 'predict') {
     if (r.length === 1) return { short: 'What comes out?', speak: `This machine ${RSAY(r[0])}. What comes out? Tap it.` };
@@ -541,6 +935,19 @@ function iconCanvas(r) {
 }
 const TEX = {};
 function iconTex(r) { const k = r ? rkey(r) : 'hidden'; if (TEX[k]) return TEX[k]; const t = new THREE.CanvasTexture(iconCanvas(r)); t.anisotropy = 2; return TEX[k] = t; }
+// A machine screen with a number rule written on it, such as "x 3 + 1" or "2n + 3".
+function textIcon(txt) {
+  const k = 'txt:' + txt; if (ICONS[k]) return ICONS[k];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
+  g.fillStyle = '#7CF0FF'; g.beginPath(); g.roundRect ? g.roundRect(8, 8, 240, 240, 40) : g.rect(8, 8, 240, 240); g.fill();
+  g.lineWidth = 14; g.strokeStyle = '#2B2140'; g.stroke();
+  g.fillStyle = '#2B2140'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const lines = String(txt).split('\n'); let size = lines.length > 1 ? 64 : 80;
+  for (; size > 24; size -= 4) { g.font = `900 ${size}px Segoe UI, system-ui, sans-serif`; if (lines.every(l => g.measureText(l).width <= 200)) break; }
+  lines.forEach((l, i) => g.fillText(l, 128, 128 + (i - (lines.length - 1) / 2) * size * 1.15));
+  return ICONS[k] = cv;
+}
+function textTex(txt) { const k = 'txt:' + txt; if (TEX[k]) return TEX[k]; const t = new THREE.CanvasTexture(textIcon(txt)); t.anisotropy = 2; return TEX[k] = t; }
 
 // ---------------------------------------------------------------------------------------------------------------
 // 3D scene.
@@ -633,7 +1040,24 @@ function buildRow(row, y, opts) {
   return { items: made, x0, n: items.length };
 }
 
+// The number rungs show one machine with a hidden screen; the rule appears on it at the reveal. The camera looks
+// straight on, so a screen fraction (fx, fy) maps to a world point and the machine can sit beside the board (choice
+// rungs) or under it, clear of the number pad (typed rungs).
+let numMachine = null;
+function buildNumScene(q) {
+  clearWorld();
+  const g = new THREE.Group(), typed = q.mode === 'type', k = typed ? 1.0 : 1.25;
+  const m = makeMachine(null, true); g.add(m);
+  const belt = mesh(rbox(2.4, 0.14, 1.2, 0.07), mat(0x2B2140)); belt.position.y = -0.95; g.add(belt);
+  g.scale.setScalar(k); world.add(g); numMachine = m;
+  const fx = typed ? 0.58 : 0.78, fy = typed ? 0.76 : 0.46;
+  layout = { flat: true, rows: [], place: (hw, hh) => g.position.set((fx * 2 - 1) * hw, (1 - fy * 2) * hh, 0) };
+  fit();
+}
+
 function buildScene(q) {
+  if (q.kind === 'num') return buildNumScene(q);
+  numMachine = null;
   clearWorld();
   const rows = [];
   if (q.kind === 'predict') {
@@ -663,6 +1087,13 @@ function fit() {
   if (!renderer || !layout) return;
   const el = $('stage'), W = el.clientWidth || 800, H = el.clientHeight || 500;
   renderer.setSize(W, H, false); camera.aspect = W / H;
+  if (layout.flat) {
+    const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), dist = 3.2 / t * 1.08 + 1;
+    camera.position.set(0, 0, dist); camera.lookAt(0, 0, 0); camera.updateProjectionMatrix();
+    const hh = dist * t, hw = hh * camera.aspect;   // half the world width and height seen at z = 0
+    if (layout.place) layout.place(hw, hh);
+    return;
+  }
   const w = layout.maxX - layout.minX, h = layout.maxY - layout.minY, cy = (layout.maxY + layout.minY) / 2 - 0.25;
   const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), dist = Math.max(h / 2 / t, w / 2 / t / camera.aspect) * 1.08 + 1;
   camera.position.set(0, cy + dist * 0.28, dist); camera.lookAt(0, cy, 0); camera.updateProjectionMatrix();
@@ -707,15 +1138,139 @@ function tell(text, bad = false, ms = 1300) {
 }
 function showBadge() { $('badge').textContent = `Level ${P.lv + 1} of ${LEVELS.length} · ${LEVELS[P.lv].name}`; $('stars').textContent = '⭐ ' + P.stars; }
 
-function newQuestion() {
-  q = generate(P.lv); missed = false; busy = false; tried = new Set();
-  buildScene(q); showBadge();
-  const ch = $('choices'); ch.innerHTML = ''; ch.classList.toggle('on', q.kind !== 'predict');
-  if (q.kind !== 'predict') q.choices.forEach((rs, i) => {
-    const b = document.createElement('button');
-    rs.forEach((r, j) => { if (j) { const t = document.createElement('span'); t.className = 'then'; t.textContent = '▶'; b.append(t); } const c = document.createElement('canvas'); c.width = c.height = 256; c.getContext('2d').drawImage(iconCanvas(r), 0, 0); b.append(c); });
-    b.onclick = () => choose(i); ch.append(b);
+// The board for number rungs: a rule in words, cards, a table, a drawing, and after the reveal a note.
+let boardCanvas = null;
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+// A number as it appears on a card or button: a mixed number such as "1 2/3" gets a stacked fraction.
+function numNode(text) {
+  const m = /^(\u2212?)(?:(\d+) )?(\d+)\/(\d+)$/.exec(String(text));
+  const f = document.createDocumentFragment();
+  if (!m) { f.append(String(text)); return f; }
+  if (m[1] || m[2]) f.append(m[1] + (m[2] || ''));
+  const fr = el('span', 'frac'); fr.append(el('span', 'num', m[3]), el('span', 'den', m[4])); f.append(fr);
+  return f;
+}
+function makeTable(t) {
+  const tb = el('table', 'tbl'), head = el('tr');
+  t.head.forEach(h => head.append(el('th', '', h))); tb.append(head);
+  t.rows.forEach(r => { const tr = el('tr'); r.forEach((c, j) => { const cell = el(t.rowHead && j === 0 ? 'th' : 'td', c === '?' ? 'q' : '', c); tr.append(cell); }); tb.append(tr); });
+  return tb;
+}
+function drawGrow(cv, a, b) {
+  const cell = 26, gap = 60, pad = 16, rows = Math.max(a, b), figs = [1, 2, 3].map(n => growCells(a, b, n));
+  const widths = figs.map((_, i) => ((b ? 1 : 0) + i + 1) * cell);
+  const W = pad * 2 + widths.reduce((s, w) => s + w, 0) + gap * 2, H = pad + rows * cell + 40;
+  cv.width = W; cv.height = H; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  let x = pad; const base = pad + rows * cell;
+  figs.forEach((cells, i) => {
+    for (const [c, r, k] of cells) {
+      g.fillStyle = k === 'fix' ? '#FFC93C' : '#FF4F8B'; g.fillRect(x + c * cell, base - (r + 1) * cell, cell, cell);
+      g.strokeStyle = '#2B2140'; g.lineWidth = 2; g.strokeRect(x + c * cell + 1, base - (r + 1) * cell + 1, cell - 2, cell - 2);
+    }
+    g.fillStyle = '#2B2140'; g.font = '900 16px Segoe UI, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('Figure ' + (i + 1), x + widths[i] / 2, base + 26);
+    x += widths[i] + gap;
   });
+}
+function drawGrid(cv, pts, R, line) {
+  const S = 300, u = (S - 28) / (2 * R), c = S / 2, px = x => c + x * u, py = y => c - y * u, every = R > 8 ? 4 : 2;
+  cv.width = cv.height = S; cv.style.width = cv.style.height = S + 'px';
+  const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, S, S);
+  g.strokeStyle = '#E4DDF2'; g.lineWidth = 1;
+  for (let i = -R; i <= R; i++) { g.beginPath(); g.moveTo(px(i), py(-R)); g.lineTo(px(i), py(R)); g.stroke(); g.beginPath(); g.moveTo(px(-R), py(i)); g.lineTo(px(R), py(i)); g.stroke(); }
+  g.strokeStyle = '#2B2140'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(px(-R), c); g.lineTo(px(R), c); g.stroke(); g.beginPath(); g.moveTo(c, py(-R)); g.lineTo(c, py(R)); g.stroke();
+  g.fillStyle = '#2B2140'; g.font = '700 12px Segoe UI, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
+  for (let i = -R; i <= R; i += every) if (i) { g.fillText(fmt(i), px(i), c + 3); }
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  for (let i = -R; i <= R; i += every) if (i) { g.fillText(fmt(i), c + 3, py(i)); }
+  g.font = '900 15px Segoe UI, system-ui, sans-serif'; g.fillText('x', px(R) + 3, c); g.textAlign = 'center'; g.textBaseline = 'bottom'; g.fillText('y', c, py(R) - 1);
+  if (line) { g.save(); g.beginPath(); g.rect(px(-R), py(R), 2 * R * u, 2 * R * u); g.clip(); g.strokeStyle = '#9B6BFF'; g.lineWidth = 3; g.beginPath(); g.moveTo(px(-R - 1), py(affine(line, -R - 1))); g.lineTo(px(R + 1), py(affine(line, R + 1))); g.stroke(); g.restore(); }
+  for (const [x, y] of pts) { g.beginPath(); g.arc(px(x), py(y), 6, 0, Math.PI * 2); g.fillStyle = '#FF4F8B'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#2B2140'; g.stroke(); }
+}
+const drawBoard = (cv, d, line) => d.kind === 'grow' ? drawGrow(cv, d.a, d.b) : drawGrid(cv, d.pts, d.R, line);
+function renderBoard(q) {
+  const B = $('board'); B.innerHTML = ''; B.className = 'on ' + (q.mode === 'type' ? 'typed' : 'choice'); boardCanvas = null;
+  const bd = q.board;
+  if (bd.rule) B.append(el('div', 'note rule', bd.rule));
+  if (bd.cards) {
+    const row = el('div', 'cards');
+    bd.cards.forEach((c, i) => {
+      if (i && bd.arrows) row.append(el('span', 'arr', '→'));
+      const card = el('div', 'card' + (c.q ? ' q' : '') + (c.blank ? ' blank' : '') + (c.plain ? ' plain' : '')); card.dataset.i = i;
+      const val = el('div', 'val'); val.append(numNode(c.text)); card.append(val); if (c.sub) card.append(el('div', 'sub', c.sub)); row.append(card);
+    });
+    B.append(row);
+  }
+  const mid = el('div', 'mid');
+  if (bd.table) mid.append(makeTable(bd.table));
+  if (bd.draw) { const cv = el('canvas', 'draw'); drawBoard(cv, bd.draw, null); mid.append(cv); boardCanvas = cv; }
+  if (mid.children.length) B.append(mid);
+}
+function applyReveal(q) {
+  const R = q.reveal || {}, B = $('board');
+  if (R.cards) for (const i in R.cards) { const c = B.querySelector(`.card[data-i="${i}"]`); if (c) { c.classList.remove('blank'); c.classList.add('q', 'pop'); const v = c.querySelector('.val'); v.textContent = ''; v.append(numNode(R.cards[i])); } }
+  if (R.cell) B.querySelectorAll('td.q').forEach(td => { td.textContent = R.cell; td.classList.add('pop'); });
+  if (R.line && boardCanvas) drawBoard(boardCanvas, q.board.draw, R.line);
+  if (R.note) B.append(el('div', 'note after', R.note));
+}
+
+// The number pad.
+let typed = '', wrongTyped = 0;
+function showEntry() { const e = $('entry'); e.innerHTML = ''; if (!typed) e.append(el('span', 'ph', 'type it')); else e.textContent = typed.replace('-', MINUS); }
+function key(k) {
+  if (busy || !q || q.kind !== 'num' || q.mode !== 'type') return;
+  ac(); SFX.tap();
+  const digits = typed.replace('-', '');
+  if (k === 'del') typed = typed.slice(0, -1);
+  else if (k === '-') { if (q.neg) typed = typed.startsWith('-') ? typed.slice(1) : '-' + typed; }
+  else if (/^\d$/.test(k)) { if (digits === '0') typed = typed.slice(0, -1) + k; else if (digits.length < 5) typed += k; }
+  showEntry();
+}
+async function submit() {
+  if (busy || !q || q.kind !== 'num' || q.mode !== 'type') return;
+  const n = Number(typed);
+  if (typed === '' || typed === '-' || !Number.isFinite(n)) { tell('Type a number first.', true, 900); return; }
+  ac(); SFX.tap();
+  if (n !== q.answer) {
+    wrongTyped++; SFX.no(); typed = ''; showEntry();
+    if (!missed) { missed = true; const change = record(false); showBadge(); if (change === -1) say("Let's try an easier one next."); }
+    if (wrongTyped >= 3) {   // after three tries the machine shows the answer and moves on
+      busy = true; tell(`It is ${fmt(q.answer)}.`, true, 2400); say(`The answer is ${sp(q.answer)}. Here is why.`);
+      await playNum(); await tween(1.6, () => {}); newQuestion(); return;
+    }
+    tell('Not that one. Look again!', true); return;
+  }
+  await finish(-1);
+}
+document.querySelectorAll('#pad .key').forEach(b => { b.onclick = () => b.id === 'enter' ? submit() : key(b.dataset.k); });
+window.addEventListener('keydown', ev => {
+  if (!q || q.kind !== 'num' || q.mode !== 'type') return;
+  if (/^\d$/.test(ev.key)) key(ev.key); else if (ev.key === 'Backspace') key('del'); else if (ev.key === '-') key('-'); else if (ev.key === 'Enter') submit();
+});
+
+function newQuestion() {
+  q = generate(P.lv); missed = false; busy = false; tried = new Set(); typed = ''; wrongTyped = 0;
+  buildScene(q); showBadge();
+  const num = q.kind === 'num', ch = $('choices'); ch.innerHTML = '';
+  ch.classList.toggle('on', num ? q.mode === 'choice' : q.kind !== 'predict');
+  if (num) {
+    renderBoard(q);
+    if (q.mode === 'choice') q.choices.forEach((c, i) => {
+      const b = el('button', 'txt'), [main, sub] = String(c).split('\n');
+      const ms = el('span'); ms.append(numNode(main)); b.append(ms); if (sub) b.append(el('span', 'sub', sub));
+      b.onclick = () => choose(i); ch.append(b);
+    });
+  } else {
+    $('board').className = ''; $('board').innerHTML = '';
+    if (q.kind !== 'predict') q.choices.forEach((rs, i) => {
+      const b = document.createElement('button');
+      rs.forEach((r, j) => { if (j) { const t = document.createElement('span'); t.className = 'then'; t.textContent = '▶'; b.append(t); } const c = document.createElement('canvas'); c.width = c.height = 256; c.getContext('2d').drawImage(iconCanvas(r), 0, 0); b.append(c); });
+      b.onclick = () => choose(i); ch.append(b);
+    });
+  }
+  $('pad').classList.toggle('on', num && q.mode === 'type'); $('neg').classList.toggle('hid', !(num && q.neg)); showEntry();
+  $('app').classList.toggle('num', num); $('app').classList.toggle('typed', num && q.mode === 'type');
   const w = words(q); $('ask').textContent = w.short; say(w.speak);
 }
 
@@ -729,16 +1284,31 @@ async function choose(i) {
     if (!missed) { missed = true; const change = record(false); showBadge(); if (change === -1) say("Let's try an easier one next."); }
     return;
   }
+  await finish(i);
+}
+// A right answer, from a tap on choice i or from the pad (i = -1): star, level check, the reveal, the next question.
+async function finish(i) {
   busy = true;
   const first = !missed; P.stars++; solved++;
   const change = first ? record(true) : 0; showBadge();
-  if (q.kind !== 'predict') $('choices').children[i].classList.add('yes');
+  if (q.kind !== 'predict' && i >= 0) $('choices').children[i].classList.add('yes');
   SFX.yes(); tell(first ? 'Great thinking! ⭐' : 'You got it! ⭐');
   say(change === 1 ? `Level up! ${LEVELS[P.lv].name}.` : first ? 'Great thinking!' : 'You got it!');
   if (change === 1) setTimeout(() => { SFX.up(); const b = $('badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }, 500 / SPEED);
-  await play();
+  await (q.kind === 'num' ? playNum() : play());
   await tween(0.8, () => {});
   newQuestion();
+}
+
+// The reveal for a number rung: the machine screen shows its rule, then the board fills in the answer and a note.
+async function playNum() {
+  if (numMachine) {
+    numMachine.userData.screen.material.map = textTex(q.ruleText); numMachine.userData.screen.material.needsUpdate = true;
+    const p = new THREE.Vector3(); numMachine.getWorldPosition(p); burst(p.add(new THREE.Vector3(0, 0.3, 1.2)), 0xFFE45C, 20, 3); SFX.whirr();
+  }
+  await tween(0.5, () => {});
+  applyReveal(q); SFX.pop();
+  await tween(1.0, () => {});
 }
 
 // The reveal: hidden screens show their rules, then the input rides through every machine and changes in each one.
@@ -786,9 +1356,22 @@ window.PATTERN_MACHINE = {
   setLevel(i) { P.lv = i; P.st = { streak: 0, miss: 0 }; persist(); newQuestion(); },
   speed(s) { SPEED = s; },
   state() { return { level: P.lv, question: q, missed, busy, solved, tried: [...tried] }; },
-  choose,
+  choose, key, submit, checkNum, NUMGEN,
   pedestalScreen(i) { const v = new THREE.Vector3(); pedestals[i].userData.sh.getWorldPosition(v); v.project(camera); const r = renderer.domElement.getBoundingClientRect(); return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height }; },
   newQuestion,
+};
+
+// Ladder self-check, used by tools/ladder-check.mjs --drive: build n problems at rung i without touching the DOM,
+// check each one, and throw on a bad one.
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START_LEVEL,
+  label: () => LEVELS[P.lv].name,
+  exercise: (i, n) => {
+    const out = [];
+    for (let k = 0; k < n; k++) { const t = generate(i); const c = checkAny(t); if (!c.ok) throw new Error(c.why.join('; ')); out.push(describe(t)); }
+    return out;
+  },
 };
 
 newQuestion();

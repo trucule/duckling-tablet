@@ -75,9 +75,12 @@
       (designed voices, see voices.js), else Azure Speech or OpenAI; the Windows voices are the last fallback.
     - Otherwise the Windows voices are used, a different one (and pitch) per character. Static prompts can also
       come from a voice pack (voices/make-voices.py), like the other apps.
-  Reading level (Little, 2nd grade, 3rd grade; kept in localStorage story-level): Little is the read-aloud for a
-  five-year-old. 2nd and 3rd grade use longer sentences and richer words, highlight each word as it is read, explain
-  story words when tapped, offer "I read it myself", and end with questions about the story (stars in story-stars).
+  Reading level (seven rungs from Little to 8th grade; kept in localStorage story-level): Little is the read-aloud
+  for a four to six year old. Every rung above it uses longer sentences and richer words, highlights each word as it
+  is read, explains story words when tapped, offers "I read it myself", and ends with questions about the story
+  (stars in story-stars). Each rung hands the writer its own guidance: sentence length, a random draw of grade words
+  to work in, the literary devices to use, how many scenes, and what kind of choices the child makes. From 5th grade
+  up the story ends with a reflection question and one check question the writer sets. See RUNGS below.
 -->
 <style>
   :root { --ink: #2B2140; --paper: #FFF9F0; --pink: #FF4F8B; --sun: #FFC93C; --sky: #58C7F0; --leaf: #5CD38B; --grape: #9B6BFF; }
@@ -101,6 +104,8 @@
   .pick.on .n { display: grid; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
   .row .pick { width: 150px; }
+  /* Seven reading levels in one row at 1024 wide: narrower chips with a smaller emoji. */
+  #levels { gap: 8px; } #levels .pick { width: 108px; padding: 6px 2px 4px; font-size: 15px; } #levels .pick .e { font-size: 40px; }
   #go, .big { display: block; margin: 8px auto 20px; border: 4px solid var(--ink); border-radius: 999px; background: var(--leaf); font: 900 26px system-ui, sans-serif; padding: 12px 34px; cursor: pointer; }
   #go:disabled { opacity: .35; }
   #story { display: none; } #story.on { display: block; } #setup.off { display: none; }
@@ -121,6 +126,12 @@
   #thinking .dots::after { content: "…"; animation: dots 1.2s steps(3) infinite; } @keyframes dots { to { content: ""; } }
   #end { display: none; text-align: center; font-size: 40px; font-weight: 900; margin: 10px 0; } #end.on { display: block; }
   #text.grown { font-size: 29px; line-height: 1.6; font-weight: 600; }
+  /* 5th grade and up: paragraphs of three or four sentences, so the type comes down and the scene strip shrinks. */
+  #text.upper { font-size: 24px; line-height: 1.55; font-weight: 600; } #text.upper .who { font-size: 28px; }
+  #story.upper #scene { min-height: 100px; font-size: 64px; gap: 20px; } #story.upper #title { font-size: 24px; }
+  #story.upper #choices button { font-size: 19px; padding: 10px 16px; max-width: 290px; } #story.upper #choices button .e { font-size: 36px; }
+  #story.upper #qText { font-size: 26px; } #story.upper #qChoices button { font-size: 21px; }
+  #note { display: none; text-align: center; font-size: 20px; font-weight: 700; color: #6A5A86; background: #F3EEFF; border-radius: 18px; padding: 10px 16px; margin: 0 0 10px; } #note.on { display: block; }
   #text .w.hl { background: var(--sun); box-shadow: 0 0 0 2px var(--sun); }
   #text .w.gw { text-decoration: underline dotted #9B6BFF 3px; text-underline-offset: 5px; }
   #pop { position: fixed; left: 50%; top: 90px; transform: translateX(-50%) scale(.6); opacity: 0; pointer-events: none; transition: .2s; background: #fff; border: 4px solid var(--ink); border-radius: 26px; padding: 14px 28px; text-align: center; z-index: 9; max-width: 70%; box-shadow: 0 8px 0 var(--grape); }
@@ -148,6 +159,7 @@
     </div>
     <div id="story">
       <div id="title"></div>
+      <div id="note"></div>
       <div id="scene"></div>
       <div id="text"></div>
       <div id="thinking">The story is being written<span class="dots"></span></div>
@@ -186,7 +198,8 @@ const NARRATOR = { id: 'narrator', name: 'Narrator', emoji: '📖', azure: 'en-U
 const PLACES = [['🏰', 'a castle'], ['🌙', 'the moon'], ['🏝️', 'an island'], ['🌲', 'a forest'], ['🏖️', 'the beach'], ['🎡', 'a fair'], ['❄️', 'a snowy mountain'], ['🧁', 'cupcake town'], ['🚂', 'a train'], ['🌊', 'under the sea']];
 const KINDS = [['🧭', 'adventure', 'Adventure'], ['🔍', 'mystery', 'Mystery'], ['💛', 'friendship', 'Friendship'], ['🤪', 'silly', 'Silly'], ['🌙', 'bedtime', 'Bedtime']];
 const DRAMAS = [['☁️', 'cozy', 'Cozy', 'no real problem, just a happy time together'], ['🌦️', 'little', 'A little trouble', 'one small problem that friends solve kindly'], ['⛈️', 'big', 'Big trouble', 'an exciting safe scare, like getting lost or a storm, that ends well']];
-const LENGTHS = [['📄', 3, 'Short'], ['📚', 6, 'Long']];
+// How many scenes Short and Long mean depends on the reading level (RUNGS[...].scenes); totalScenes() reads it.
+const LENGTHS = [['📄', 'short', 'Short'], ['📚', 'long', 'Long']];
 const CFG = Object.assign({ storyModel: 'claude-haiku-4-5-20251001', dailyLimit: 10, tts: null }, window.DWM_CONFIG || {});
 let picked = [], place = null, kind = null, drama = null, length = null;
 let story = null;   // { scenes: [...], history: [...], reading }
@@ -417,18 +430,100 @@ const VOICE = (() => {
 function say(t, done) { VOICE.say(t, NARRATOR, null, done); }
 
 // ---------------------------------------------------------------------------
-// Reading level. Little is the original read-aloud for a five-year-old; 2nd and 3rd grade use longer sentences,
-// richer words (tap one to hear it and see what it means), a read-along highlight and questions at the end.
+// Reading level. Little is the original read-aloud for a four to six year old; every rung above it uses longer
+// sentences, richer words (tap one to hear it and see what it means), a read-along highlight and questions at the end.
+//
+// The ladder, one rung per grade band (index: id, name, band):
+//   0: little   Little        pre-K and K   short sentences, simple words, one sound word a scene, 2 simple choices
+//   1: second   1st and 2nd   1st, 2nd      8 to 14 word sentences, feeling words, cause and effect, 2 or 3 choices
+//   2: third    3rd grade     3rd           sentences up to 20 words, two new words a scene, a simile, a small twist
+//   3: fourth   4th grade     4th           paragraphs, prefixes and suffixes, figurative language, a planted clue,
+//                                           3 choices that change the plot
+//   4: fifth    5th and 6th   5th, 6th      Greek and Latin roots, subtext, foreshadowing, a moral dilemma, choices
+//                                           with consequences, a reflection and a check question at the end
+//   5: seventh  7th grade     7th           connotation, complex sentences, argument with evidence, trade-offs, a
+//                                           character who changes
+//   6: eighth   8th grade     8th           an unreliable first-person narrator, irony, symbolism, extended metaphor
+// Each entry: [emoji, id, name, age hint]. The ids little, second and third are kept because story-level stores them.
 // ---------------------------------------------------------------------------
-const LEVELS = [['🐣', 'little', 'Little', 'age 5'], ['📗', 'second', '2nd grade', 'age 7 to 8'], ['📘', 'third', '3rd grade', 'age 8 to 9']];
+const LEVELS = [
+  ['🐣', 'little', 'Little', 'age 4 to 6'],
+  ['📗', 'second', '1st and 2nd', 'age 6 to 8'],
+  ['📘', 'third', '3rd grade', 'age 8 to 9'],
+  ['📙', 'fourth', '4th grade', 'age 9 to 10'],
+  ['📕', 'fifth', '5th and 6th', 'age 10 to 12'],
+  ['📔', 'seventh', '7th grade', 'age 12 to 13'],
+  ['📓', 'eighth', '8th grade', 'age 13 to 14']
+];
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
-// The story length and words start from the child's reading level (set by the parent): pre-K and K get little
-// stories, 1st and 2nd grade the middle ones, 3rd and up the longest.
-const levelDefault = (() => { const g = window.KidTablet && KidTablet.grade ? KidTablet.grade('reading') : 2; return g <= 0 ? 'little' : g <= 2 ? 'second' : 'third'; })();
+// The rung the child opens on comes from her reading grade (set by the parent): -1 and 0 are pre-K and K, 1 to 8
+// the grades. Every grade lands on one rung.
+const levelDefault = (() => {
+  const g = window.KidTablet && KidTablet.grade ? KidTablet.grade('reading') : 2;
+  return g <= 0 ? 'little' : g <= 2 ? 'second' : g === 3 ? 'third' : g === 4 ? 'fourth' : g <= 6 ? 'fifth' : g === 7 ? 'seventh' : 'eighth';
+})();
 let level = LEVELS.find(l => l[1] === store.get('story-level', levelDefault)) || LEVELS[1];
+const START = LEVELS.indexOf(level);
 let selfRead = !!store.get('story-self-read', false);   // "I read": no automatic reading, she taps lines and words
 let stars = store.get('story-stars', 0) | 0;
+const rankOf = id => Math.max(0, LEVELS.findIndex(l => l[1] === id));
 const grown = () => level[1] !== 'little';
+const upper = id => rankOf(id) >= 4;   // 5th grade and up: reflection and check question, smaller type
+const totalScenes = () => RUNGS[level[1]].scenes[length ? length[1] : 'short'];
+
+// ---------------------------------------------------------------------------
+// What each rung tells the writer. Six to ten words are drawn from the rung's bank for every story and the writer
+// works them in (and glosses them), so the vocabulary a teacher at that grade would expect shows up in the text.
+// Banks hold at least forty words each. Every word is one a story can use kindly.
+// ---------------------------------------------------------------------------
+const SAFE = `Nothing scary beyond the requested drama level, never violence, death, weapons, or real danger; any "monster" turns out friendly. Every character in the cast speaks in every scene, in their own personality.`;
+const JSON_ONLY = `Reply with JSON only, no prose and no code fences.`;
+const RUNGS = {
+  little: {
+    scenes: { short: 3, long: 5 }, lines: '6 to 9 lines', maxTokens: 1200, gloss: false,
+    system: `You write interactive stories for a child of four to six, told aloud. Rules: warm, funny, concrete. Sentences of 4 to 9 words, one idea each, with simple words a kindergartner knows. Repeat a fun phrase so she can join in. ${SAFE} Include one playful sound word per scene (like SPLASH or boing). ${JSON_ONLY}`,
+    choices: '2 choices, simple and fun, each a thing the friends could do next',
+    bank: ['big', 'little', 'hop', 'jump', 'run', 'wet', 'dry', 'soft', 'loud', 'quiet', 'red', 'blue', 'yellow', 'green', 'up', 'down', 'fast', 'slow', 'happy', 'sad', 'sleepy', 'hungry', 'splash', 'hug', 'help', 'look', 'find', 'hide', 'warm', 'cold', 'sun', 'moon', 'star', 'mud', 'cake', 'boat', 'hat', 'bug', 'nest', 'frog', 'bird', 'fish', 'box', 'cup', 'ball', 'jam', 'hill', 'pond', 'leaf', 'rock']
+  },
+  second: {
+    scenes: { short: 3, long: 6 }, lines: '7 to 10 lines', maxTokens: 2200, gloss: true,
+    system: `You write interactive read-along stories for a 1st or 2nd grader (age 6 to 8). Each line is read aloud while she follows the highlighted words. Rules: warm, funny and concrete. Sentences of about 8 to 14 words, with a few short ones for punch. Use describing words and name feelings. Each scene uses one or two interesting new words (like "curious" or "wobbly") whose meaning is clear from the sentence around them. Show cause and effect: the friends notice clues, say why, and solve the problem with a plan. ${SAFE} ${JSON_ONLY}`,
+    choices: '2 or 3 choices, each a clear thing to do next',
+    bank: ['curious', 'wobbly', 'gentle', 'brave', 'giggle', 'whisper', 'shiver', 'sparkle', 'muddy', 'cozy', 'grumpy', 'cheerful', 'tiptoe', 'gigantic', 'tiny', 'clever', 'puzzled', 'delighted', 'scurry', 'soggy', 'crunchy', 'drowsy', 'fluffy', 'dizzy', 'nibble', 'peek', 'wander', 'gather', 'rescue', 'grin', 'frown', 'startled', 'proud', 'nervous', 'patient', 'careful', 'sneaky', 'squeaky', 'bumpy', 'glitter', 'chuckle', 'mumble', 'dash', 'snug', 'damp', 'swoop', 'tumble', 'shimmer', 'hush', 'bounce']
+  },
+  third: {
+    scenes: { short: 3, long: 6 }, lines: '8 to 12 lines; narrator lines may be two or three sentences', maxTokens: 2200, gloss: true,
+    system: `You write interactive read-along stories for a 3rd grader (age 8 or 9) who reads well. Rules: warm, funny and vivid. Mix short sentences with longer ones of up to about 20 words joined by words like because, although, while and until. Use rich, exact vocabulary: two new words per scene whose meaning is clear from context, and now and then a simile (as quiet as snow). Characters have feelings that change, explain their reasons, disagree kindly and work out a plan; include a clue or a small twist. ${SAFE} ${JSON_ONLY}`,
+    choices: '2 or 3 choices that lead to different next scenes',
+    bank: ['enormous', 'fortunate', 'exhausted', 'ancient', 'mysterious', 'cautious', 'eager', 'generous', 'hesitate', 'investigate', 'miserable', 'observe', 'peculiar', 'reluctant', 'scamper', 'sturdy', 'tremendous', 'vanish', 'weary', 'anxious', 'brilliant', 'clumsy', 'discover', 'drenched', 'examine', 'fragile', 'glance', 'gloomy', 'grumble', 'hilarious', 'immense', 'murmur', 'ordinary', 'plead', 'pounce', 'quiver', 'rummage', 'scowl', 'sizzle', 'slither', 'soar', 'stubborn', 'timid', 'tremble', 'unusual', 'vast', 'whimper', 'astonished', 'bellow', 'bewildered', 'chatter', 'feast', 'gleam', 'nuisance']
+  },
+  fourth: {
+    scenes: { short: 4, long: 6 }, lines: '8 to 12 lines; narrator lines are two or three sentences', maxTokens: 2600, gloss: true,
+    system: `You write interactive read-along stories for a 4th grader (age 9 or 10), a fluent reader. Rules: vivid and funny, with stakes that matter and stay safe. Mix sentence lengths, from five words to about 25, joined by because, although, while, until and so that. Narrator lines are small paragraphs of two or three sentences. Use exact vocabulary, including words built with prefixes and suffixes (unhappy, careful, rebuild), with meaning clear from context. Each scene has one piece of figurative language (a simile or a metaphor) and dialogue that shows what each character is like instead of telling it. Plant a small clue early that matters later. Let the friends disagree, give reasons, and settle it fairly. ${SAFE} ${JSON_ONLY}`,
+    choices: '3 choices that lead to clearly different next scenes, and the next scene shows what the choice caused',
+    bank: ['abandon', 'accomplish', 'approach', 'astonish', 'bashful', 'boast', 'commotion', 'conclude', 'confess', 'convince', 'cunning', 'dainty', 'dense', 'dismay', 'exclaim', 'fatigue', 'flourish', 'frantic', 'frigid', 'gratitude', 'hoist', 'hurl', 'impatient', 'inquire', 'jubilant', 'linger', 'lurk', 'marvel', 'meander', 'mischief', 'nimble', 'obstacle', 'outwit', 'perplexed', 'persist', 'plunge', 'precious', 'prowl', 'pursue', 'quench', 'reassure', 'resemble', 'scheme', 'sensible', 'sly', 'solemn', 'sprint', 'startle', 'stammer', 'suspicious', 'thrive', 'unravel', 'venture', 'vivid', 'wary', 'yearn']
+  },
+  fifth: {
+    scenes: { short: 4, long: 7 }, lines: '9 to 13 lines; narrator lines are two to four sentences', maxTokens: 3000, gloss: true,
+    system: `You write interactive stories for a 5th or 6th grader (age 10 to 12), a strong reader. Rules: a clear plot with rising tension, a turning point, and a resolution that follows from her choices. Sentences vary from five to about 30 words; use compound and complex sentences, academic words, and words built on Greek and Latin roots (predict, transport, visible, autograph) whose meaning is clear from context. Narrator lines are paragraphs of two to four sentences. Use dialogue with subtext (a character says one thing and means another), foreshadowing that pays off, and figurative language once or twice a scene. Keep one point of view and make it clear whose it is. In a middle scene, build to a moral dilemma where no option is perfect, and show in the next scene a consequence of what she chose. ${SAFE} ${JSON_ONLY}`,
+    choices: '3 choices with different consequences; in the dilemma scene none of them is perfect and each helps someone',
+    bank: ['abundant', 'adapt', 'ambition', 'analyze', 'anticipate', 'apprehensive', 'benevolent', 'brisk', 'candid', 'collaborate', 'compromise', 'consequence', 'contemplate', 'courteous', 'deliberate', 'dilemma', 'diligent', 'elaborate', 'eloquent', 'emerge', 'endure', 'evident', 'exasperated', 'formidable', 'hesitant', 'hypothesis', 'improvise', 'indignant', 'inevitable', 'ingenious', 'intricate', 'meticulous', 'navigate', 'negotiate', 'nostalgia', 'obscure', 'perceive', 'persevere', 'predicament', 'prudent', 'resilient', 'resolve', 'scrutinize', 'skeptical', 'somber', 'strategy', 'subtle', 'tedious', 'tentative', 'tranquil', 'turbulent', 'unanimous', 'vigilant', 'wistful']
+  },
+  seventh: {
+    scenes: { short: 4, long: 7 }, lines: '9 to 14 lines; narrator lines are three or four sentences', maxTokens: 3200, gloss: true,
+    system: `You write interactive stories for a 7th grader (age 12 or 13). Rules: a layered plot with a theme, rising tension and a resolution the characters earn. Vary sentence structure widely, including complex sentences with dependent clauses, appositives, and semicolons used correctly. Choose words for connotation as well as meaning, and use domain vocabulary that fits the setting. Narrator lines are paragraphs of three or four sentences. Use figurative language (metaphor, personification, hyperbole) at least twice a scene, foreshadowing that pays off, and dialogue in which characters argue with reasons and evidence. Build to a moral dilemma with real trade-offs, where each option costs something, and show the consequences of her choice in the scene that follows. One character changes by the end, and the story shows why. ${SAFE} ${JSON_ONLY}`,
+    choices: '3 choices with real trade-offs (one safe, one bold, one kind); each costs something and none is wrong',
+    bank: ['adversity', 'alleviate', 'ambiguous', 'articulate', 'assert', 'audacious', 'cacophony', 'camaraderie', 'catalyst', 'coherent', 'concise', 'conspicuous', 'contradict', 'credible', 'cryptic', 'deference', 'discern', 'disparity', 'dubious', 'elusive', 'empathy', 'enigma', 'exuberant', 'facade', 'fathom', 'feasible', 'futile', 'gregarious', 'impartial', 'implication', 'incessant', 'incredulous', 'indifferent', 'infer', 'innovative', 'lucid', 'nonchalant', 'nuance', 'obstinate', 'paradox', 'pragmatic', 'precarious', 'prevalent', 'reconcile', 'relinquish', 'scrutiny', 'superficial', 'tenacious', 'trepidation', 'vindicate', 'volatile', 'serene', 'meager', 'ponder']
+  },
+  eighth: {
+    scenes: { short: 5, long: 8 }, lines: '10 to 14 lines; narrator lines are three or four sentences', maxTokens: 3400, gloss: true,
+    system: `You write interactive stories for an 8th grader (age 13 or 14). The narrator is unreliable: the "narrator" lines are one named cast member telling the story in the first person, as I, confident and likeable but wrong about something important; the reader can see through it from what the other characters notice and say, and the truth comes out in the last scene. Rules: a layered plot with a theme, rising tension and an earned resolution. Vary sentence structure deliberately, from fragments for effect to long periodic sentences, with precise vocabulary chosen for connotation and tone. Narrator lines are paragraphs of three or four sentences. Use irony, foreshadowing, symbolism and an extended metaphor that runs through the story, and dialogue that argues with evidence. Include a moral dilemma with real trade-offs and show the consequences of her choice in the next scene. ${SAFE} ${JSON_ONLY}`,
+    choices: '3 choices with real trade-offs; each costs something, none is wrong, and the narrator misjudges at least one of them',
+    bank: ['acquiesce', 'ambivalent', 'anomaly', 'antithesis', 'apathetic', 'arbitrary', 'austere', 'benign', 'candor', 'clandestine', 'cognizant', 'complacent', 'conciliatory', 'connotation', 'corroborate', 'demeanor', 'disconcerting', 'dissonance', 'ephemeral', 'equivocal', 'erudite', 'euphemism', 'exemplary', 'extol', 'fastidious', 'foreshadow', 'idiosyncrasy', 'impetuous', 'incongruous', 'indelible', 'inexorable', 'irony', 'laconic', 'magnanimous', 'malleable', 'mitigate', 'nebulous', 'ostentatious', 'paramount', 'placate', 'plausible', 'poignant', 'precocious', 'propensity', 'quintessential', 'rhetoric', 'sanguine', 'stoic', 'surreptitious', 'tenuous', 'ubiquitous', 'unprecedented', 'vacillate', 'venerable', 'verbose', 'zealous']
+  }
+};
+// Six to ten grade words for one story.
+function drawVocab(id) { const bank = RUNGS[id].bank; return shuffle(bank).slice(0, 6 + Math.floor(Math.random() * 5)); }
 
 // ---------------------------------------------------------------------------
 // Setup screen
@@ -450,9 +545,11 @@ for (const c of CAST) tile(c, $('cast'), (c, b) => {
   ready();
 }, c.kind);
 const single = (list, box, set, extra) => list.forEach(item => tile(item, box, (it, b) => { [...box.children].forEach(x => x.classList.toggle('on', x === b)); set(it); say(it[2] || it[1]); ready(); }, extra && extra(item)));
-single(PLACES, $('places'), v => place = v); single(KINDS, $('kinds'), v => kind = v); single(DRAMAS, $('dramas'), v => drama = v); single(LENGTHS, $('lengths'), v => length = v, l => l[1] + ' parts');
-single(LEVELS, $('levels'), v => { level = v; store.set('story-level', v[1]); }, l => l[3]);
+single(PLACES, $('places'), v => place = v); single(KINDS, $('kinds'), v => kind = v); single(DRAMAS, $('dramas'), v => drama = v); single(LENGTHS, $('lengths'), v => length = v, l => RUNGS[level[1]].scenes[l[1]] + ' parts');
+single(LEVELS, $('levels'), v => { level = v; store.set('story-level', v[1]); refreshLengths(); }, l => l[3]);
 [...$('levels').children][LEVELS.indexOf(level)].classList.add('on');
+// Short and Long mean more scenes at the higher levels; the labels follow the level.
+function refreshLengths() { [...$('lengths').children].forEach((b, i) => { b.querySelector('.t').textContent = RUNGS[level[1]].scenes[LENGTHS[i][1]] + ' parts'; }); }
 function ready() { $('go').disabled = !(picked.length && place && kind && drama && length); }
 
 // ---------------------------------------------------------------------------
@@ -461,33 +558,67 @@ function ready() { $('go').disabled = !(picked.length && place && kind && drama 
 function storiesToday() { try { const d = JSON.parse(localStorage.getItem('story-count') || '{}'); return d.day === new Date().toDateString() ? d.n : 0; } catch (e) { return 0; } }
 function countStory() { try { localStorage.setItem('story-count', JSON.stringify({ day: new Date().toDateString(), n: storiesToday() + 1 })); } catch (e) {} }
 function canUseAI() { return !!CFG.apiKey && storiesToday() < CFG.dailyLimit; }
-const SAFE = `Nothing scary beyond the requested drama level, never violence, death, weapons, or real danger; any "monster" turns out friendly. Every character in the cast speaks in every scene, in their own personality.`;
-const SYSTEMS = {
-  little: `You write interactive stories for a five-year-old, told aloud. Rules: warm, funny, concrete, short sentences, simple words. ${SAFE} Include one playful sound word per scene (like SPLASH or boing). Reply with JSON only, no prose and no code fences.`,
-  second: `You write interactive read-along stories for a 2nd grader (age 7 or 8). Each line is read aloud while she follows the highlighted words. Rules: warm, funny and concrete. Sentences of about 8 to 14 words, with a few short ones for punch. Use describing words and name feelings. Each scene uses one or two interesting new words (like "curious" or "wobbly") whose meaning is clear from the sentence around them. Show cause and effect: the friends notice clues, say why, and solve the problem with a plan. ${SAFE} Reply with JSON only, no prose and no code fences.`,
-  third: `You write interactive read-along stories for a 3rd grader (age 8 or 9) who reads well. Rules: warm, funny and vivid. Mix short sentences with longer ones of up to about 20 words joined by words like because, although, while and until. Use rich, exact vocabulary: two new words per scene whose meaning is clear from context, and now and then a simile (as quiet as snow). Characters have feelings that change, explain their reasons, disagree kindly and work out a plan; include a clue or a small twist. ${SAFE} Reply with JSON only, no prose and no code fences.`
-};
-const LINES = { little: '6 to 9 lines', second: '7 to 10 lines', third: '8 to 12 lines; narrator lines may be two or three sentences' };
+// The prompt for one scene. ctx: { lv, cast, place, kind, drama, total, sceneNo, history, vocab }. Pure, so the
+// self-check hook can build prompts for any rung without a story on screen. Returns { system, user, maxTokens }.
+function buildPrompt(ctx) {
+  const lv = ctx.lv, R = RUNGS[lv], rank = rankOf(lv), isLast = ctx.sceneNo >= ctx.total, little = lv === 'little';
+  const art = k => (/^[aeiou]/i.test(k) ? 'an' : 'a');
+  const castDesc = ctx.cast.map(c => `${c.id}: ${c.name}, ${art(c.kind)} ${c.kind}, ${c.trait}`).join('; ');
+  const teller = lv === 'eighth' ? `\nThe "narrator" lines are ${ctx.cast[0].name} the ${ctx.cast[0].kind} telling the story as I (the unreliable narrator).` : '';
+  const history = ctx.history.map((h, i) => `Scene ${i + 1} "${h.title}": ${h.summary} She chose: ${h.choice}.`).join('\n') || '(none yet)';
+  const vocab = `Grade words to work into this story, spelled exactly: ${ctx.vocab.join(', ')}. Use at least two of them in this scene, each in a sentence that makes its meaning clear, and all of them by the last scene.`;
+  const words = R.gloss ? ` "words": [{"word": "a grade word or other new word used in this scene, spelled exactly as in the text", "meaning": "a short meaning a child understands"}], 1 to 3 items.` : '';
+  let ending = '';
+  if (isLast && rank >= 4) {
+    ending = ` Also "reflect": {"q": "one question that asks what she would have done at the story's hardest moment and why", "options": [{"text": "a short answer, a different reasonable choice", "reply": "one warm sentence a cast member says back to that answer"}, ...3 options]}; there is no right option.`
+      + ` Also "check": {"q": "${lv === 'eighth' ? 'one question about what the narrator got wrong, or what a grade word from the story means' : 'one question about why something happened in the story, or what a grade word from the story means'}", "choices": ["three short answers"], "answer": index of the one right choice}. Exactly one choice is right; the other two are clearly wrong for this story.`;
+  } else if (isLast && !little) {
+    ending = ` Also "questions": 4 questions about the WHOLE story to check she understood it, covering who, what happened, why something happened, and the order of events${rank >= 2 ? ', plus one about the meaning of a word from the story' : ''}: [{"q": "the question", "choices": ["three short answers"], "answer": index of the one right choice}]. Exactly one choice is right; the other two are clearly wrong for this story.`;
+  }
+  const user = `Cast: ${castDesc}.${teller}\nPlace: ${ctx.place[1]}. Kind: ${ctx.kind[1]}. Drama level: ${ctx.drama[1]} (${ctx.drama[3]}). Total scenes: ${ctx.total}.\n${vocab}\nSo far:\n${history}\n\nWrite scene ${ctx.sceneNo}${isLast ? ', the LAST scene: resolve everything happily and end with a warm closing line' : ''}.\nJSON shape: {"title": "short scene title", "emoji": ["one", "two", "three emoji for the scene"], "lines": [{"who": "narrator" or a cast id, "text": "${little ? 'one or two sentences' : 'one to three sentences'}", "mood": one of "neutral","cheerful","excited","sad","whispering","shouting","friendly"}], "summary": "one sentence of what happened", "choices": [{"label": "3-6 words, what happens next", "emoji": "one emoji"}, ...]}. Choices: ${R.choices}.${words} ${R.lines}. ${isLast ? 'For the last scene: "choices": [] and "end": true.' : ''}${ending}`;
+  return { system: R.system, user, maxTokens: R.maxTokens };
+}
+// The JSON object in the writer's reply, or null when there is none to use.
+function parseScene(text) {
+  if (typeof text !== 'string') return null;
+  const t = text.replace(/```json|```/g, '').trim(), a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  try { const j = JSON.parse(t.slice(a, b + 1)); return j && typeof j === 'object' && !Array.isArray(j) ? j : null; } catch (e) { return null; }
+}
+// Asks the writer for the next scene. Returns the scene, or null when the reply had nothing usable (the caller then
+// tells the child and uses the built-in story). Network and server errors throw.
 async function writeScene() {
-  const s = story, isLast = s.scenes.length + 1 >= length[1], lv = s.level;
-  const castDesc = picked.map(c => `${c.id}: ${c.name}, a ${c.kind}, ${c.trait}`).join('; ');
-  const history = s.history.map((h, i) => `Scene ${i + 1} "${h.title}": ${h.summary} She chose: ${h.choice}.`).join('\n') || '(none yet)';
-  const words = lv === 'little' ? '' : ` "words": [{"word": "a new word used in this scene, spelled exactly as in the text", "meaning": "a short meaning a child understands"}], 1 or 2 items.`;
-  const questions = isLast && lv !== 'little' ? ` Also "questions": 4 questions about the WHOLE story to check she understood it, covering who, what happened, why something happened, and the order of events${lv === 'third' ? ', plus one about the meaning of a word from the story' : ''}: [{"q": "the question", "choices": ["three short answers"], "answer": index of the one right choice}]. Exactly one choice is right; the other two are clearly wrong for this story.` : '';
-  const user = `Cast: ${castDesc}.\nPlace: ${place[1]}. Kind: ${kind[1]}. Drama level: ${drama[1]} (${drama[3]}). Total scenes: ${length[1]}.\nSo far:\n${history}\n\nWrite scene ${s.scenes.length + 1}${isLast ? ', the LAST scene: resolve everything happily and end with a warm closing line' : ''}.\nJSON shape: {"title": "short scene title", "emoji": ["one", "two", "three emoji for the scene"], "lines": [{"who": "narrator" or a cast id, "text": "${lv === 'little' ? 'one or two sentences' : 'one to three sentences'}", "mood": one of "neutral","cheerful","excited","sad","whispering","shouting","friendly"}], "summary": "one sentence of what happened", "choices": [{"label": "3-6 words, what happens next", "emoji": "one emoji"}, ...2 or 3 choices]}.${words} ${LINES[lv]}. ${isLast ? 'For the last scene: "choices": [] and "end": true.' : ''}${questions}`;
+  const s = story, isLast = s.scenes.length + 1 >= s.total, lv = s.level, R = RUNGS[lv];
+  const p = buildPrompt({ lv, cast: picked, place, kind, drama, total: s.total, sceneNo: s.scenes.length + 1, history: s.history, vocab: s.vocab });
   const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': CFG.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: CFG.storyModel, max_tokens: lv === 'little' ? 1200 : 2200, system: SYSTEMS[lv], messages: [{ role: 'user', content: user }] }) });
+    body: JSON.stringify({ model: CFG.storyModel, max_tokens: p.maxTokens, system: p.system, messages: [{ role: 'user', content: p.user }] }) });
   if (!r.ok) throw new Error('api ' + r.status);
-  const data = await r.json(); const text = (data.content || []).map(c => c.text || '').join('');
-  const json = JSON.parse(text.replace(/```json|```/g, '').trim());
-  json.lines = (json.lines || []).filter(l => l && l.text).map(l => ({ who: picked.find(c => c.id === l.who) || NARRATOR, text: String(l.text), mood: l.mood || 'neutral' }));
-  if (!json.lines.length) throw new Error('empty scene');
-  json.choices = isLast ? [] : (json.choices || []).filter(c => c && c.label).slice(0, 3);
-  if (!isLast && json.choices.length < 2) throw new Error('no choices');
+  let data = null; try { data = await r.json(); } catch (e) { return null; }
+  const text = (data && Array.isArray(data.content) ? data.content : []).map(c => (c && typeof c.text === 'string') ? c.text : '').join('');
+  const json = parseScene(text);
+  if (!json) return null;
+  json.title = typeof json.title === 'string' ? json.title : '';
+  json.emoji = Array.isArray(json.emoji) ? json.emoji.filter(e => typeof e === 'string').slice(0, 4) : [];
+  json.lines = (Array.isArray(json.lines) ? json.lines : []).filter(l => l && typeof l.text === 'string' && l.text.trim()).map(l => ({ who: picked.find(c => c.id === l.who) || NARRATOR, text: String(l.text).trim(), mood: typeof l.mood === 'string' ? l.mood : 'neutral' }));
+  if (!json.lines.length) return null;
+  json.choices = isLast ? [] : (Array.isArray(json.choices) ? json.choices : []).filter(c => c && typeof c.label === 'string' && c.label.trim()).map(c => ({ label: c.label.trim(), emoji: typeof c.emoji === 'string' ? c.emoji : '✨' })).slice(0, 3);
+  if (!isLast && json.choices.length < 2) return null;
   json.end = isLast || !!json.end;
-  json.words = (json.words || []).filter(w => w && w.word && w.meaning).map(w => ({ word: String(w.word), meaning: String(w.meaning) }));
+  json.summary = typeof json.summary === 'string' ? json.summary : json.title;
+  json.words = R.gloss ? (Array.isArray(json.words) ? json.words : []).filter(w => w && typeof w.word === 'string' && typeof w.meaning === 'string' && w.word.trim() && w.meaning.trim()).map(w => ({ word: w.word.trim(), meaning: w.meaning.trim() })) : [];
   json.questions = cleanQuestions(json.questions);
+  json.check = cleanQuestions(json.check ? [json.check] : [])[0] || null;   // 5th grade and up; skipped when malformed
+  json.reflect = cleanReflect(json.reflect);
   return json;
+}
+// The reflection question (5th grade and up): a question and 2 to 4 options, none of them right or wrong. Each
+// option may carry a reply a character says back. Null when the writer's JSON does not hold one.
+function cleanReflect(x) {
+  if (!x || typeof x.q !== 'string' || !x.q.trim() || !Array.isArray(x.options)) return null;
+  const opts = x.options.map(o => typeof o === 'string' ? { text: o, reply: '' } : (o && typeof o.text === 'string') ? { text: o.text, reply: typeof o.reply === 'string' ? o.reply.trim() : '' } : null)
+    .filter(o => o && o.text.trim()).map(o => ({ text: o.text.trim(), reply: o.reply })).slice(0, 4);
+  if (opts.length < 2 || new Set(opts.map(o => o.text.toLowerCase())).size !== opts.length) return null;
+  return { q: x.q.trim(), reflect: true, choices: opts.map(o => o.text), replies: opts.map(o => o.reply), answer: -1 };
 }
 
 // Built-in story for Little (no key, or the writer failed): three scenes, two choices each, all friends speak.
@@ -642,7 +773,7 @@ function fill(t) {
 }
 function plotScene() {
   const plot = PLOTS[kind[1]], n = Math.min(story.scenes.length, plot.scenes.length - 1), sc = plot.scenes[n];
-  const key = n ? story.history[n - 1].key : null, g3 = story.level === 'third';
+  const key = n ? story.history[n - 1].key : null, g3 = rankOf(story.level) >= 2;   // 3rd grade and up read the fuller text
   const defs = Array.isArray(sc.lines) ? sc.lines : [...(sc.lines[key] || []), ...sc.lines.common];
   const lines = defs.map(d => d[0] === N ? { who: NARRATOR, text: fill(g3 ? d[2] : d[1]), mood: 'neutral' } : { who: picked[d[0] % picked.length], text: fill(d[1]), mood: d[2] || 'neutral' });
   const emoji = [...picked.slice(0, 2).map(c => c.emoji), plot.emoji[n]];
@@ -683,6 +814,14 @@ function storyQuestions() {
     qs.push(mkQ('What did you choose to do first?', s.history[0].choice, [s.history[0].others[0], pick(elsewhere)]));
   }
   if (s.level === 'little') return qs;
+  if (s.ai && upper(s.level)) {
+    // 5th grade and up: the reflection first, then the one check question the writer set. Either is skipped when
+    // its JSON was not usable; with neither, the local questions stand in.
+    const last = s.scenes[s.scenes.length - 1] || {}, out = [];
+    if (last.reflect) out.push(last.reflect);
+    if (last.check) out.push(last.check);
+    return out.length ? out : qs.slice(0, 3);
+  }
   if (s.ai) { const ai = s.scenes.flatMap(sc => sc.questions || []); return ai.length >= 4 ? ai.slice(0, 5) : ai.concat(qs).slice(0, 4); }   // topped up from the story itself
   const plot = PLOTS[kind[1]];
   for (const [q, a, w] of plot.questions) qs.push(mkQ(q, a, w));
@@ -698,20 +837,27 @@ function storyQuestions() {
 // Telling it
 // ---------------------------------------------------------------------------
 async function start(sameFriends) {
-  story = { scenes: [], history: [], reading: -1, ai: canUseAI(), level: level[1], glossary: {} };
+  story = { scenes: [], history: [], reading: -1, ai: canUseAI(), level: level[1], glossary: {}, total: totalScenes(), vocab: drawVocab(level[1]) };
   VOICE.beginStory();   // which voice service this story uses, decided once
   if (story.ai) countStory();
-  $('setup').classList.add('off'); $('story').classList.add('on'); $('back').hidden = false; $('end').classList.remove('on'); $('quiz').classList.remove('on');
+  $('setup').classList.add('off'); $('story').classList.add('on'); $('back').hidden = false; $('end').classList.remove('on'); $('quiz').classList.remove('on'); $('note').classList.remove('on');
   $('title').textContent = ''; $('scene').innerHTML = ''; $('text').innerHTML = '';
-  $('text').classList.toggle('grown', grown());
+  $('text').classList.toggle('grown', grown()); $('text').classList.toggle('upper', upper(level[1])); $('story').classList.toggle('upper', upper(level[1]));
   showMode();
   await nextScene();
 }
+// When the writer sends nothing usable (or cannot be reached), the child hears why and the built-in story takes over.
+function writerResting() {
+  if (!story || !story.ai) return;
+  story.ai = false;
+  $('note').textContent = 'The story writer is resting right now. Here is a story from the shelf.'; $('note').classList.add('on');
+}
 async function nextScene() {
   $('choices').classList.remove('on'); $('choices').innerHTML = ''; $('thinking').classList.add('on');
-  let scene;
+  let scene = null;
   try { scene = story.ai ? await writeScene() : builtinScene(); }
-  catch (e) { console.warn('writer failed, using the built-in story', e); story.ai = false; scene = builtinScene(); }
+  catch (e) { console.warn('writer failed, using the built-in story', e); scene = null; }
+  if (!scene) { writerResting(); scene = builtinScene(); }
   $('thinking').classList.remove('on');
   for (const w of (scene.words || [])) story.glossary[w.word.toLowerCase()] = w.meaning;
   story.scenes.push(scene); showScene(scene);
@@ -780,17 +926,27 @@ function afterScene(scene, quiet) {
 // The quiz: one question at a time, read aloud. A star for each one right on the first try.
 let quiz = null;
 function startQuiz() {
-  quiz = { qs: storyQuestions(), i: 0, first: 0, missed: false };
+  const qs = storyQuestions();
+  quiz = { qs, i: 0, first: 0, missed: false, scored: qs.filter(q => !q.reflect).length };
+  if (!qs.length) { quiz.done = true; say('The end. Tap the dice for another story.'); return; }
   $('quiz').classList.add('on'); showQuestion();
   $('quiz').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 function showQuestion() {
   const q = quiz.qs[quiz.i], box = $('qChoices'); quiz.missed = false;
-  $('qNum').textContent = `Question ${quiz.i + 1} of ${quiz.qs.length}`; $('qText').textContent = q.q; box.innerHTML = '';
+  const scoredBefore = quiz.qs.slice(0, quiz.i).filter(x => !x.reflect).length;
+  $('qNum').textContent = q.reflect ? 'Think about it' : `Question ${scoredBefore + 1} of ${quiz.scored}`; $('qText').textContent = q.q; box.innerHTML = '';
   q.choices.forEach((c, k) => {
     const b = document.createElement('button'); b.textContent = c;
     b.onclick = () => {
       if (quiz.done || b.disabled) return;
+      if (q.reflect) {
+        // No right answer. A character (or the narrator) answers her, then the story moves on.
+        b.classList.add('right'); [...box.children].forEach(x => x.disabled = true);
+        say((q.replies && q.replies[k]) || pick(['That is a thoughtful choice.', 'Good thinking. There was no easy answer there.', 'I can see why you would do that.']));
+        setTimeout(() => { quiz.i++; if (quiz.i < quiz.qs.length) showQuestion(); else endQuiz(); }, 2200);
+        return;
+      }
       if (k === q.answer) {
         b.classList.add('right'); [...box.children].forEach(x => x.disabled = true);
         if (!quiz.missed) { quiz.first++; stars++; store.set('story-stars', stars); $('stars').textContent = '⭐ ' + stars; }
@@ -804,8 +960,9 @@ function showQuestion() {
 }
 function endQuiz() {
   quiz.done = true;
-  $('qNum').textContent = ''; $('qText').textContent = `You got ${quiz.first} of ${quiz.qs.length} on the first try!`; $('qChoices').innerHTML = '';
-  say(`You got ${quiz.first} of ${quiz.qs.length} on the first try! Tap the dice for another story.`);
+  const line = quiz.scored ? `You got ${quiz.first} of ${quiz.scored} on the first try!` : 'Thank you for thinking it through.';
+  $('qNum').textContent = ''; $('qText').textContent = line; $('qChoices').innerHTML = '';
+  say(`${line} Tap the dice for another story.`);
 }
 function showMode() { $('mode').textContent = selfRead ? '👀' : '👂'; $('mode').title = selfRead ? 'I read it myself (tap to have it read to you)' : 'Read to me (tap to read it yourself)'; }
 $('mode').onclick = () => {
@@ -823,8 +980,47 @@ $('stars').textContent = '⭐ ' + stars;
 try { speechSynthesis.onvoiceschanged = () => {}; } catch (e) {}
 addEventListener('pointerdown', () => say('Story Maker! Who is in the story?'), { once: true });
 const pickArgs = (ids, p, k, d, l, lv) => { picked = ids.map(id => CAST.find(c => c.id === id)); place = PLACES[p]; kind = KINDS[k]; drama = DRAMAS[d]; length = LENGTHS[l]; if (lv !== undefined) level = LEVELS[lv]; };
-window.STORY = { cfg: CFG, CAST, PLACES, KINDS, LEVELS, PLOTS, get story() { return story; }, get quiz() { return quiz; }, start, pick: pickArgs, builtinScene, storyQuestions, cleanQuestions, VOICE, setSelfRead: v => { selfRead = v; showMode(); } };
+window.STORY = { cfg: CFG, CAST, PLACES, KINDS, LEVELS, RUNGS, PLOTS, get story() { return story; }, get quiz() { return quiz; }, start, pick: pickArgs, builtinScene, buildPrompt, parseScene, cleanReflect, storyQuestions, cleanQuestions, VOICE, setSelfRead: v => { selfRead = v; showMode(); } };
 window.SM = window.STORY;
+
+// ---------------------------------------------------------------------------
+// Self-check hook for tools/ladder-check.mjs --drive. The words here are written by the model, so the check builds
+// the prompt a rung would send, n times with a fresh draw of grade words and a random cast, place and scene, and
+// checks each one: the system and user prompts are non-empty, every drawn word is in the text, the scene count is
+// the rung's, the writer's reply shape is parsed, and nothing reads "undefined" or "NaN". Nothing on screen changes.
+// ---------------------------------------------------------------------------
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START,
+  label: () => level[2],
+  exercise: (i, n) => {
+    const lv = LEVELS[i] && LEVELS[i][1]; if (!lv || !RUNGS[lv]) throw new Error('no rung ' + i);
+    const R = RUNGS[lv], out = [];
+    for (let k = 0; k < n; k++) {
+      const cast = shuffle(CAST).slice(0, 1 + Math.floor(Math.random() * 3));
+      const len = pick(LENGTHS), total = R.scenes[len[1]];
+      const sceneNo = 1 + Math.floor(Math.random() * total);
+      const history = []; for (let h = 1; h < sceneNo; h++) history.push({ title: 'Scene ' + h, summary: 'Something happened.', choice: 'Keep going' });
+      const vocab = drawVocab(lv);
+      if (vocab.length < 6 || vocab.length > 10 || new Set(vocab).size !== vocab.length) throw new Error('vocab draw ' + vocab.length);
+      if (R.bank.length < 40) throw new Error('bank too small: ' + R.bank.length);
+      const p = buildPrompt({ lv, cast, place: pick(PLACES), kind: pick(KINDS), drama: pick(DRAMAS), total, sceneNo, history, vocab });
+      const all = p.system + '\n' + p.user;
+      if (!p.system || !p.user || !(p.maxTokens > 0)) throw new Error('empty prompt');
+      if (/\bundefined\b|\bNaN\b|\[object /.test(all)) throw new Error('bad text in prompt');
+      if (!(total >= 3 && total <= 8) || !all.includes('Total scenes: ' + total)) throw new Error('scene count');
+      for (const w of vocab) if (!all.includes(w)) throw new Error('missing word ' + w);
+      if (sceneNo === total && (i >= 4) !== /"check"/.test(p.user)) throw new Error('check question guidance');
+      if (!/Choices: /.test(p.user)) throw new Error('choice guidance');
+      // The reply path: a well formed scene parses, a bad one is skipped instead of thrown.
+      const good = parseScene('```json\n{"title":"t","lines":[{"who":"narrator","text":"Hi."}],"choices":[{"label":"Go on"},{"label":"Wait"}],"check":{"q":"Why?","choices":["a","b","c"],"answer":1},"reflect":{"q":"What would you do?","options":["x","y","z"]}}\n```');
+      if (!good || cleanQuestions([good.check]).length !== 1 || !cleanReflect(good.reflect)) throw new Error('parse of a good reply');
+      if (parseScene('{}') === null || parseScene('not json') !== null || cleanQuestions([{ q: 'x', choices: ['a'], answer: 0 }]).length || cleanReflect({ q: 'x', options: ['a'] })) throw new Error('parse of a bad reply');
+      out.push(`${LEVELS[i][2]}: scene ${sceneNo} of ${total}, words ${vocab.join(' ')}`);
+    }
+    return out;
+  }
+};
 </script>
 </body>
 </html>
