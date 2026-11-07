@@ -1,26 +1,27 @@
 {
   "id": "simon-orchestra",
   "name": "Simon Orchestra",
-  "version": "1.0.2",
-  "description": "Six instruments play a tune on a 3D stage and the child plays it back, longer, faster, then backwards.",
+  "version": "1.0.3",
+  "description": "Six instruments on a 3D stage play, and the child plays it back: beats, loud and soft, echoes, rhythms, scales, intervals, chords and a staff to read.",
   "subjects": [
     "music",
     "logic"
   ],
   "ageMin": 4,
-  "ageMax": 7,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/simon-orchestra",
   "about": {
-    "concept": "Working memory and attention. Six instruments on a 3D stage play a tune and the child plays it back; each round adds a note, so the span of what can be held in mind grows with practice.",
-    "progression": "Short sequences at a slow pace lead to longer ones, faster ones, and sequences played back in reverse, which asks for the whole pattern to be held and transformed.",
+    "concept": "Listening, memory and musical ideas. The orchestra plays or the staff shows something, and the child answers on the pads; each rung names one idea a music teacher would teach, from a steady beat to chord progressions.",
+    "progression": "Pre-K starts with a steady beat, loud and soft, and high and low, then echoes grow to melodies on a two-line staff, rhythms clapped in time, instrument families, scales and intervals. The top rungs ask for major and minor, time signatures, the I IV V chords, reading the treble staff, key signatures and transposing, chord progressions, and an eight-note phrase composed to a rule.",
     "lifeSkills": [
       "Remembering multi-step instructions",
       "Focused listening",
-      "Staying calm under a timer",
-      "Recognizing instrument sounds"
+      "Keeping a steady beat",
+      "Recognizing instrument sounds",
+      "Reading simple music notation"
     ]
   }
 }

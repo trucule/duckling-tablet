@@ -218,11 +218,15 @@
   Light Bridge. Connect the glowing lights, one file, offline.
   Each color has two glowing orbs on a 3D board. Drag from an orb to draw a light bridge to its twin. Bridges may not
   cross, and every square must be filled with light. Each color has its own orb shape too.
-  Boards grow from 4 by 4 up to 9 by 9. Every board is made from a full answer first: one long path that visits every
-  square is shuffled by random bites, then cut into pieces, and the ends of each piece become a pair of orbs. Then a
-  separate solver must find an answer on its own before the board is used, so every board can be solved.
+  Boards grow from 4 by 4 up to 9 by 9. Above that, the rules grow: rocks that block squares, gems a bridge must pass,
+  length clues on the lights, a fewest-bends target the app proves by search, cross tiles where one bridge passes over
+  another, and portal pairs that jump a bridge across the board. Every board is made from a full answer first: one
+  long path that visits every square is shuffled by random bites, then cut into pieces, and the ends of each piece
+  become a pair of orbs. Cross tiles and portals are made by splitting two pieces and joining the halves. Then a
+  separate solver must find an answer on its own, under the rung's rules, before the board is used.
   Four boards in a row solved without a hint moves up a level; two boards in a row with a hint or a skip moves down.
-  Progress is kept in localStorage (key light-bridge-v1). New players start at a 2nd grade level (5 by 5).
+  Progress is kept in localStorage (key light-bridge-v1). A 2nd grader starts at 5 by 5; the ladder runs from pre-K
+  to 8th grade (see the comment above LEVELS).
   Bundled: three.js r149, https://threejs.org, MIT License, Copyright 2010-2023 Three.js Authors.
   The full notice: Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
   associated documentation files, to deal in the Software without restriction, subject to the condition that the
@@ -241,6 +245,7 @@
   header h1 { font-size: 28px; margin: 0; font-weight: 900; color: #fff; text-shadow: 0 0 14px #FF5FD2, 0 3px 0 var(--ink); white-space: nowrap; }
   #badge { font-size: 18px; font-weight: 900; background: var(--sun); border: 3px solid var(--ink); border-radius: 999px; padding: 6px 14px; white-space: nowrap; }
   #badge.pop { animation: pop .6s; }
+  #badge.small { font-size: 15px; padding: 5px 12px; }
   #stars { font-size: 22px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px; margin-right: auto; }
   .pill { border: 3px solid var(--ink); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 20px; font-weight: 900; white-space: nowrap; }
   .pill:active, .tool:active { transform: scale(.94); }
@@ -255,10 +260,13 @@
   #meter { position: absolute; left: 18px; bottom: 18px; z-index: 2; background: #fff; border: 4px solid var(--ink); border-radius: 24px; padding: 10px 16px; font-size: 22px; font-weight: 900; box-shadow: 0 6px 0 var(--ink); }
   #meter .bar { width: 190px; height: 18px; border: 3px solid var(--ink); border-radius: 999px; margin-top: 6px; overflow: hidden; background: #eee6ff; }
   #meter .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #FF5FD2, #FFE14D, #3DFF7A, #2EE6FF); transition: width .2s; }
+  #bendline { font-size: 18px; margin-top: 6px; }
+  #bendline[hidden] { display: none; }
   #toast { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .25s; font-size: 46px; font-weight: 900;
     background: var(--sun); border: 5px solid var(--ink); border-radius: 30px; padding: 14px 34px; pointer-events: none; z-index: 3; white-space: nowrap; }
   #toast.on { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   #toast.bad { background: #FFB3C9; }
+  #toast.long { font-size: 28px; white-space: normal; max-width: 70%; text-align: center; line-height: 1.25; }
   #nogl { position: absolute; inset: 0; display: none; place-items: center; font-size: 30px; font-weight: 900; color: #fff; text-align: center; padding: 40px; }
   @keyframes pop { 40% { transform: scale(1.35); } }
 </style>
@@ -274,7 +282,7 @@
   <main>
     <div id="stage"></div>
     <div id="ask">Connect the matching lights!</div>
-    <div id="meter">Light <span id="pct">0</span>%<div class="bar"><i id="fill"></i></div></div>
+    <div id="meter">Light <span id="pct">0</span>%<div class="bar"><i id="fill"></i></div><div id="bendline" hidden>Bends <span id="bendsNow">0</span> · fewest <span id="bendsMax">0</span></div></div>
     <div id="tools">
       <button class="tool" id="hint" title="Hint">💡<small>Hint</small></button>
       <button class="tool" id="clear" title="Clear">🧽<small>Clear</small></button>
@@ -298,7 +306,29 @@
 const $ = id => document.getElementById(id);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
-// Levels from young (bottom) to hard (top): board size n by n with k colors.
+// Levels from young (bottom) to hard (top). Each rung and the grade band it is meant for:
+//   0  First glow        pre-K       4 by 4, two pairs
+//   1  Tiny lights       K           4 by 4, three pairs
+//   2  Little bridges    1st, 2nd    5 by 5, four pairs (where a 2nd grader starts)
+//   3  Glow grid         2nd         6 by 6, five pairs
+//   4  Twisty six        2nd, 3rd    6 by 6, four long pairs
+//   5  Big glow          3rd         7 by 7, six pairs
+//   6  Long bridges      3rd         7 by 7, five long pairs
+//   7  Huge glow         3rd, 4th    8 by 8, seven pairs
+//   8  Snake lights      4th         8 by 8, six long pairs
+//   9  Giant glow        4th         9 by 9, eight pairs
+//  10  Light master      4th, 5th    9 by 9, seven long pairs
+//  11  Rock garden       5th         7 by 7 with rocks that block squares, so a route must be planned around them
+//  12  Crystal path      5th         7 by 7 with rocks and gems: a bridge must pass through the gem of its color
+//  13  Count the squares 5th, 6th    7 by 7 where every orb shows the exact number of squares its bridge must cover
+//  14  Fewest bends      6th         6 by 6 where the board must be filled with the fewest bends; the app proves the minimum by search
+//  15  Over and under    6th, 7th    8 by 8 with cross tiles where one bridge passes over another
+//  16  Portal jump       7th         8 by 8 with portal pairs: a bridge that enters one portal comes out of its twin
+//  17  Mixed signals     7th, 8th    9 by 9 with rocks, a gem, a cross tile, a portal pair and some length clues together
+//  18  Proof of light    8th         7 by 7 with rocks and a cross tile, solved with the proven fewest bends
+// A rung lists: n (board side), k (pairs wanted), rocks [min, max], gems, cross (cross tiles), portals (pairs),
+// lens ('all' or 'some' orbs carry a length clue), minBends (the fewest bends wins), ask (the rule shown) and
+// rule (the rule spoken).
 const LEVELS = [
   { name: 'First glow', n: 4, k: 2 },
   { name: 'Tiny lights', n: 4, k: 3 },
@@ -311,11 +341,21 @@ const LEVELS = [
   { name: 'Snake lights', n: 8, k: 6 },
   { name: 'Giant glow', n: 9, k: 8 },
   { name: 'Light master', n: 9, k: 7 },
+  { name: 'Rock garden', n: 7, k: 5, rocks: [3, 4], ask: 'Rocks block the way.', rule: 'Rocks block the way. Plan a route around them, and light every other square.' },
+  { name: 'Crystal path', n: 7, k: 5, rocks: [1, 2], gems: 2, ask: 'Pass through your gem.', rule: 'A gem belongs to one color. That bridge must pass through its gem. Other bridges go around it.' },
+  { name: 'Count the squares', n: 7, k: 5, rocks: [1, 2], lens: 'all', ask: 'Each number is a bridge length.', rule: 'The number on a light is how many squares its bridge must cover, counting both lights. Make every bridge the right length.' },
+  { name: 'Fewest bends', n: 6, k: 4, rocks: [0, 2], minBends: true, ask: 'Use the fewest bends.', rule: 'Fill the board with the fewest bends you can. The board tells you the fewest bends that work. Straight is better than wiggly.' },
+  { name: 'Over and under', n: 8, k: 6, rocks: [0, 3], cross: [1, 2], ask: 'Bridges cross on a cross tile.', rule: 'A cross tile lets two bridges cross, one going across and one going up and down. A bridge must go straight over a cross tile.' },
+  { name: 'Portal jump', n: 8, k: 6, rocks: [0, 3], portals: [1, 2], ask: 'A portal jumps to its twin.', rule: 'Two portals with the same ring are twins. A bridge that enters one portal comes out of the other and keeps going.' },
+  { name: 'Mixed signals', n: 9, k: 7, rocks: [1, 4], gems: 1, cross: [1, 1], portals: [1, 1], lens: 'some', ask: 'Every rule at once.', rule: 'Rocks block. A gem must be passed by its color. A cross tile lets bridges cross. A portal jumps to its twin. A number is a bridge length.' },
+  { name: 'Proof of light', n: 7, k: 5, rocks: [1, 3], cross: [1, 1], minBends: true, ask: 'Fewest bends, with a cross tile.', rule: 'Fill the board with the fewest bends. The app has searched every answer, so the number on the board is the true fewest. Cross tiles and rocks are in play.' },
 ];
 // Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
 const START_LEVEL = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('logic', LEVELS.length, 2) : 2);
 const COLORS = [0xFF2D4F, 0xFFE02E, 0x3B6BFF, 0x2ED84A, 0xFF4FD8, 0xFF8A1C, 0x22E0F0, 0x9B4DFF, 0xFFFFFF];
 const CNAMES = ['red', 'yellow', 'blue', 'green', 'pink', 'orange', 'aqua', 'purple', 'white'];
+const PORTAL_COLORS = [0x7CF4FF, 0xFFB347];
+const PORTAL_NAMES = ['ice', 'amber'];
 
 const NBCACHE = {};
 function nbrs(n) {
@@ -325,6 +365,12 @@ function nbrs(n) {
   return NBCACHE[n] = out;
 }
 const adj = (n, a, b) => nbrs(n)[a].includes(b);
+// Directions in the order up, right, down, left (the same order as the SIDE table used for drawing).
+function dirTo(n, a, b) { const d = b - a; if (d === -n) return 0; if (d === n) return 2; if (d === 1 && b % n !== 0) return 1; if (d === -1 && a % n !== 0) return 3; return -1; }
+function nbAt(n, i, d) { const x = i % n, y = (i / n) | 0; if (d === 0) return y > 0 ? i - n : -1; if (d === 1) return x < n - 1 ? i + 1 : -1; if (d === 2) return y < n - 1 ? i + n : -1; return x > 0 ? i - 1 : -1; }
+const manhattan = (n, a, b) => Math.abs(a % n - b % n) + Math.abs(((a / n) | 0) - ((b / n) | 0));
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rint = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
 
 // One path through every square, shuffled with random backbite moves.
 function hamPath(n) {
@@ -341,97 +387,353 @@ function hamPath(n) {
   return path;
 }
 
-// Cuts the full path into k pieces of at least 3 squares. The two ends of each piece become a pair of orbs.
-function makeBoard(L) {
-  const n = L.n, N = n * n, path = hamPath(n);
-  const lens = Array(L.k).fill(3), wts = lens.map(() => 0.25 + Math.random());
-  for (let r = N - 3 * L.k; r > 0; r--) { let x = Math.random() * wts.reduce((a, b) => a + b), j = 0; while (x > wts[j]) { x -= wts[j]; j++; } lens[Math.min(j, L.k - 1)]++; }
-  const solution = []; let at = 0;
-  for (const len of lens) { solution.push(path.slice(at, at + len)); at += len; }
-  // Shuffle which color goes with which piece.
-  for (let i = solution.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [solution[i], solution[j]] = [solution[j], solution[i]]; }
-  return { n, k: L.k, level: L.name, ends: solution.map(s => [s[0], s[s.length - 1]]), solution };
+// ---------------------------------------------------------------------------------------------------------------
+// Boards. A board has n, k, ends (the two orbs of each color), solution (one path per color), and the specials:
+// walls (rock squares), gem (per color: the square its bridge must pass, or -1), cross (cross tiles that two
+// bridges share, one across and one up and down), portals (twin pairs: a bridge entering one leaves from the
+// other), lens (per color: the exact number of squares, or 0), and maxBends (the fewest bends that fill the board,
+// or null). Cell kinds: 0 plain, 1 wall, 2 cross tile, 3 portal.
+function layout(pz) {
+  if (pz._lay) return pz._lay;
+  const n = pz.n, N = n * n, kind = new Int8Array(N), partner = new Int32Array(N).fill(-1), gemAt = new Int8Array(N).fill(-1);
+  for (const w of pz.walls) kind[w] = 1;
+  for (const x of pz.cross) kind[x] = 2;
+  pz.portals.forEach(([p, q]) => { kind[p] = 3; kind[q] = 3; partner[p] = q; partner[q] = p; });
+  pz.gem.forEach((w, c) => { if (w >= 0) gemAt[w] = c; });
+  let slots = 0; for (let i = 0; i < N; i++) slots += kind[i] === 1 ? 0 : kind[i] === 2 ? 2 : 1;
+  return pz._lay = { kind, partner, gemAt, slots };
 }
+function bendsOf(n, p) {
+  let b = 0, last = -1;
+  for (let j = 1; j < p.length; j++) { const d = dirTo(n, p[j - 1], p[j]); if (d < 0) { last = -1; continue; } if (last >= 0 && d !== last) b++; last = d; }
+  return b;
+}
+const bendsTotal = (n, paths) => paths.reduce((s, p) => s + bendsOf(n, p), 0);
 
-// True when paths join every pair of orbs through neighboring squares and fill the whole board without overlap.
-function validSolution(pz, paths) {
-  const n = pz.n, seen = new Int8Array(n * n).fill(-1);
-  if (!paths || paths.length !== pz.k) return false;
+// Why a set of paths is not a finished board, or null when it is one. Checks the bridge rules in the order a child
+// would notice them: joined, full, through gems, right lengths, within the bend budget.
+function verdict(pz, paths) {
+  const n = pz.n, N = n * n, L = layout(pz), seen = new Int8Array(N).fill(-1), sh = new Int8Array(N).fill(-1), sv = new Int8Array(N).fill(-1);
+  if (!paths || paths.length !== pz.k) return 'Not every light is joined.';
   for (let c = 0; c < pz.k; c++) {
     const p = paths[c], [a, b] = pz.ends[c];
-    if (!p || p.length < 2) return false;
-    if (!((p[0] === a && p[p.length - 1] === b) || (p[0] === b && p[p.length - 1] === a))) return false;
-    for (let i = 0; i < p.length; i++) { if (seen[p[i]] !== -1) return false; seen[p[i]] = c; if (i && !adj(n, p[i - 1], p[i])) return false; }
+    if (!p || p.length < 2) return 'Not every light is joined.';
+    if (!((p[0] === a && p[p.length - 1] === b) || (p[0] === b && p[p.length - 1] === a))) return 'Not every light is joined.';
+    for (let j = 0; j < p.length; j++) {
+      const i = p[j], kd = L.kind[i];
+      if (kd === 1) return 'A bridge is on a rock.';
+      if (j) { const d = dirTo(n, p[j - 1], i); if (d < 0 && !(L.kind[p[j - 1]] === 3 && L.partner[p[j - 1]] === i)) return 'A bridge has a gap.'; }
+      if (kd === 2) {
+        if (j === 0 || j === p.length - 1) return 'A bridge cannot stop on a cross tile.';
+        const d1 = dirTo(n, p[j - 1], i), d2 = dirTo(n, i, p[j + 1]);
+        if (d1 < 0 || d1 !== d2) return 'A bridge must go straight over a cross tile.';
+        const slot = d1 % 2 ? sh : sv; if (slot[i] !== -1) return 'Two bridges share one side of a cross tile.'; slot[i] = c;
+      } else { if (seen[i] !== -1) return 'Two bridges share a square.'; seen[i] = c; }
+      if (kd === 3) { const q = L.partner[i]; if (p[j - 1] !== q && p[j + 1] !== q) return 'A bridge must jump through the portal.'; }
+      if (L.gemAt[i] >= 0 && L.gemAt[i] !== c) return `Only the ${CNAMES[L.gemAt[i]]} bridge may touch the ${CNAMES[L.gemAt[i]]} gem.`;
+    }
   }
-  return seen.every(v => v !== -1);
+  for (let i = 0; i < N; i++) {
+    if (L.kind[i] === 1) continue;
+    if (L.kind[i] === 2 ? (sh[i] < 0 || sv[i] < 0) : seen[i] < 0) return 'Fill every square!';
+  }
+  for (let c = 0; c < pz.k; c++) {
+    if (pz.gem[c] >= 0 && !paths[c].includes(pz.gem[c])) return `The ${CNAMES[c]} bridge must pass through its gem.`;
+    if (pz.lens[c] && paths[c].length !== pz.lens[c]) return `The ${CNAMES[c]} bridge needs ${pz.lens[c]} squares. It has ${paths[c].length}.`;
+  }
+  if (pz.maxBends != null) { const b = bendsTotal(n, paths); if (b > pz.maxBends) return `Lit with ${b} bends. It can be done in ${pz.maxBends}.`; }
+  return null;
 }
+const validSolution = (pz, paths) => verdict(pz, paths) === null;
 
-// A solver that does not look at the stored answer: it grows one bridge at a time from an orb, always working on the
-// bridge with the fewest choices, and stops early when a square is boxed in or a pair can no longer reach each other.
-function solve(pz, limit = 400000) {
-  const n = pz.n, N = n * n, k = pz.k, NB = nbrs(n);
-  const g = new Int8Array(N).fill(-1), head = new Int32Array(k), tgt = new Int32Array(k), done = new Uint8Array(k), paths = [];
-  pz.ends.forEach(([a, b], c) => { g[a] = c; g[b] = c; head[c] = a; tgt[c] = b; paths.push([a]); });
+// A solver that does not look at the stored answer. It grows one bridge at a time from an orb, always working on
+// the bridge with the fewest choices, and stops early when a square is boxed in, a pair can no longer reach each
+// other, a bridge is too long or too short for its clue, or the bend budget is spent. A color with a gem is solved
+// as two bridges that meet at the gem. Options: limit (search nodes) and maxBends (a budget that overrides the
+// board's own).
+function solve(pz, opts = {}) {
+  const limit = opts.limit || 400000, n = pz.n, N = n * n, L = layout(pz), hasPortal = pz.portals.length > 0;
+  const segs = [];
+  pz.ends.forEach(([a, b], c) => { const w = pz.gem[c]; if (w >= 0) { segs.push({ c, a, b: w, L: 0 }); segs.push({ c, a: w, b, L: 0 }); } else segs.push({ c, a, b, L: pz.lens[c] || 0 }); });
+  const S = segs.length, g = new Int8Array(N).fill(-1), xh = new Int8Array(N).fill(-1), xv = new Int8Array(N).fill(-1);
+  for (let i = 0; i < N; i++) { if (L.kind[i] === 1) g[i] = -2; else if (L.kind[i] === 2) g[i] = -3; }
+  const head = new Int32Array(S), tgt = new Int32Array(S), done = new Uint8Array(S), len = new Int32Array(S), lastDir = new Int8Array(S).fill(-1), paths = [], endSegs = new Map();
+  segs.forEach((s, j) => { g[s.a] = j; g[s.b] = j; head[j] = s.a; tgt[j] = s.b; len[j] = 1; paths.push([s.a]); for (const e of [s.a, s.b]) { if (!endSegs.has(e)) endSegs.set(e, []); endSegs.get(e).push(j); } });
+  const maxBends = opts.maxBends !== undefined ? opts.maxBends : pz.maxBends;
+  let bends = 0, nodes = 0;
   const comp = new Int32Array(N), q = new Int32Array(N);
-  let nodes = 0;
-  const isEnd = (m) => { const c = g[m]; return c >= 0 && !done[c] && (head[c] === m || tgt[c] === m); };
+  const isEnd = m => {
+    const j = g[m]; if (j < 0) return false;
+    if (!done[j] && (head[j] === m || tgt[j] === m)) return true;
+    const es = endSegs.get(m); if (es) for (const x of es) if (!done[x] && (head[x] === m || tgt[x] === m)) return true;
+    return false;
+  };
+  // Where a step into m, moving in direction d, would land: m itself, the square past a cross tile, or the twin of
+  // a portal. -1 when the step is blocked.
+  function landing(m, d) {
+    const kd = L.kind[m];
+    if (kd === 0) return g[m] === -1 ? m : -1;
+    if (kd === 2) { if ((d % 2 ? xh : xv)[m] !== -1) return -1; const b = nbAt(n, m, d); return b >= 0 && ((g[b] === -1 && L.kind[b] === 0) || isEnd(b)) ? b : -1; }
+    if (kd === 3) { if (g[m] !== -1) return -1; const p = L.partner[m]; return g[p] === -1 ? p : -1; }
+    return -1;
+  }
   function ok() {
+    // Every free square still has two ways in or out.
     for (let i = 0; i < N; i++) if (g[i] === -1) {
-      let open = 0; for (const m of NB[i]) if (g[m] === -1 || isEnd(m)) open++;
+      if (L.kind[i] === 3 && g[L.partner[i]] !== -1) return false;
+      let open = L.kind[i] === 3 ? 1 : 0;
+      for (let d = 0; d < 4 && open < 2; d++) { const m = nbAt(n, i, d); if (m >= 0 && (isEnd(m) || landing(m, d) >= 0)) open++; }
       if (open < 2) return false;
     }
+    // Regions of free squares, joined through free cross tiles and portals.
     comp.fill(-1); let nc = 0;
     for (let i = 0; i < N; i++) if (g[i] === -1 && comp[i] === -1) {
       let qh = 0, qt = 0; q[qt++] = i; comp[i] = nc;
-      while (qh < qt) { const v = q[qh++]; for (const m of NB[v]) if (g[m] === -1 && comp[m] === -1) { comp[m] = nc; q[qt++] = m; } }
+      while (qh < qt) {
+        const v = q[qh++];
+        for (let d = 0; d < 4; d++) { const m = nbAt(n, v, d); if (m < 0) continue; const l = landing(m, d); if (l >= 0 && g[l] === -1 && comp[l] === -1) { comp[l] = nc; q[qt++] = l; } }
+        if (L.kind[v] === 3) { const p = L.partner[v]; if (g[p] === -1 && comp[p] === -1) { comp[p] = nc; q[qt++] = p; } }
+      }
       nc++;
     }
+    // Every unfinished pair can still meet, and every region is on some pair's way.
     const served = new Uint8Array(nc);
-    for (let c = 0; c < k; c++) {
-      if (done[c]) continue;
-      const hc = new Set(), direct = adj(n, head[c], tgt[c]);
-      for (const m of NB[head[c]]) if (g[m] === -1) hc.add(comp[m]);
-      let meet = direct;
-      for (const m of NB[tgt[c]]) if (g[m] === -1 && hc.has(comp[m])) { meet = true; served[comp[m]] = 1; }
+    for (let s = 0; s < S; s++) {
+      if (done[s]) continue;
+      const hc = new Set(); let meet = false;
+      for (let d = 0; d < 4; d++) {
+        const m = nbAt(n, head[s], d); if (m < 0) continue;
+        if (m === tgt[s]) { meet = true; continue; }
+        if (L.kind[m] === 2 && (d % 2 ? xh : xv)[m] === -1 && nbAt(n, m, d) === tgt[s]) { meet = true; continue; }
+        const l = landing(m, d); if (l >= 0 && g[l] === -1) hc.add(comp[l]);
+      }
+      for (let d = 0; d < 4; d++) {
+        const m = nbAt(n, tgt[s], d); if (m < 0) continue;
+        const l = landing(m, d); if (l >= 0 && g[l] === -1 && hc.has(comp[l])) { meet = true; served[comp[l]] = 1; }
+      }
       if (!meet) return false;
     }
     for (let i = 0; i < nc; i++) if (!served[i]) return false;
     return true;
   }
+  function movesOf(s) {
+    const h = head[s], out = [];
+    for (let d = 0; d < 4; d++) {
+      const m = nbAt(n, h, d); if (m < 0) continue;
+      if (m === tgt[s]) { out.push({ d, cells: [m] }); continue; }
+      const kd = L.kind[m];
+      if (kd === 0) { if (g[m] === -1) out.push({ d, cells: [m] }); }
+      else if (kd === 2) { if ((d % 2 ? xh : xv)[m] !== -1) continue; const b = nbAt(n, m, d); if (b < 0) continue; if (b === tgt[s] || (g[b] === -1 && L.kind[b] === 0)) out.push({ d, cells: [m, b] }); }
+      else if (kd === 3) { if (g[m] !== -1) continue; const p = L.partner[m]; if (g[p] === -1) out.push({ d, cells: [m, p], jump: true }); }
+    }
+    return out;
+  }
+  function fits(s) {
+    if (maxBends != null && bends > maxBends) return false;
+    const Ls = segs[s].L; if (!Ls) return true;
+    if (len[s] > Ls) return false;
+    if (done[s]) return len[s] === Ls;
+    const rem = Ls - len[s];
+    if (hasPortal) return rem >= 1;
+    const md = manhattan(n, head[s], tgt[s]);
+    return rem >= md && (rem - md) % 2 === 0;
+  }
+  // The fewest bends every unfinished bridge still needs: none when its light is straight ahead, two when it is
+  // behind, one otherwise. Portals break the geometry, so the bound is skipped when a board has them.
+  const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+  function bendsLeft() {
+    let lb = 0;
+    for (let s = 0; s < S; s++) {
+      if (done[s]) continue;
+      const dx = tgt[s] % n - head[s] % n, dy = ((tgt[s] / n) | 0) - ((head[s] / n) | 0), d = lastDir[s];
+      if (d < 0) { if (dx && dy) lb++; continue; }
+      const dot = dx * DX[d] + dy * DY[d], side = dx * DY[d] - dy * DX[d];
+      if (side === 0) { if (dot < 0) lb += 2; } else lb += dot < 0 ? 2 : 1;
+    }
+    return lb;
+  }
+  const bendsOK = () => maxBends == null || hasPortal || bends + bendsLeft() <= maxBends;
+  const free = m => { let f = 0; for (const x of nbrs(n)[m]) if (g[x] === -1) f++; return f; };
   function rec() {
     if (++nodes > limit) throw new Error('limit');
     let best = -1, bestMoves = null;
-    for (let c = 0; c < k; c++) {
-      if (done[c]) continue;
-      const mv = [];
-      for (const m of NB[head[c]]) if (m === tgt[c] || g[m] === -1) mv.push(m);
+    for (let s = 0; s < S; s++) {
+      if (done[s]) continue;
+      const mv = movesOf(s);
       if (!mv.length) return false;
-      if (!bestMoves || mv.length < bestMoves.length) { best = c; bestMoves = mv; if (mv.length === 1) break; }
+      if (!bestMoves || mv.length < bestMoves.length) { best = s; bestMoves = mv; if (mv.length === 1) break; }
     }
-    if (best < 0) { for (let i = 0; i < N; i++) if (g[i] === -1) return false; return true; }
-    const c = best, h = head[c];
-    // Target first, then squares hugging walls and other bridges.
-    const free = m => { let f = 0; for (const x of NB[m]) if (g[x] === -1) f++; return f; };
-    bestMoves.sort((a, b) => (b === tgt[c]) - (a === tgt[c]) || free(a) - free(b));
-    for (const m of bestMoves) {
-      if (m === tgt[c]) { done[c] = 1; paths[c].push(m); if (ok() && rec()) return true; paths[c].pop(); done[c] = 0; }
-      else { g[m] = c; head[c] = m; paths[c].push(m); if (ok() && rec()) return true; paths[c].pop(); head[c] = h; g[m] = -1; }
+    if (best < 0) { for (let i = 0; i < N; i++) if (g[i] === -1 || (g[i] === -3 && (xh[i] === -1 || xv[i] === -1))) return false; return true; }
+    const s = best, h = head[s], ld = lastDir[s], ln = len[s];
+    // Target first, then straight on, then squares hugging walls and other bridges.
+    bestMoves.sort((a, b) => (b.cells[b.cells.length - 1] === tgt[s]) - (a.cells[a.cells.length - 1] === tgt[s]) || (b.d === ld) - (a.d === ld) || free(a.cells[a.cells.length - 1]) - free(b.cells[b.cells.length - 1]));
+    for (const mv of bestMoves) {
+      const land = mv.cells[mv.cells.length - 1], nb = ld >= 0 && ld !== mv.d ? 1 : 0;
+      for (const c of mv.cells) { if (L.kind[c] === 2) (mv.d % 2 ? xh : xv)[c] = s; else if (c !== tgt[s]) g[c] = s; paths[s].push(c); }
+      len[s] += mv.cells.length; bends += nb; lastDir[s] = mv.jump ? -1 : mv.d; head[s] = land; if (land === tgt[s]) done[s] = 1;
+      if (fits(s) && bendsOK() && ok() && rec()) return true;
+      done[s] = 0; head[s] = h; lastDir[s] = ld; bends -= nb; len[s] = ln;
+      for (const c of mv.cells) { paths[s].pop(); if (L.kind[c] === 2) (mv.d % 2 ? xh : xv)[c] = -1; else if (c !== tgt[s]) g[c] = -1; }
     }
     return false;
   }
-  try { if (!ok() || !rec()) return { solution: null, nodes }; } catch (e) { return { solution: null, nodes, gaveUp: true }; }
-  return { solution: paths.map(p => p.slice()), nodes };
+  try { if (!bendsOK() || !ok() || !rec()) return { solution: null, nodes }; } catch (e) { return { solution: null, nodes, gaveUp: true }; }
+  // Join the two halves of a gem color into one bridge.
+  const out = pz.ends.map(() => null);
+  segs.forEach((s, j) => { out[s.c] = out[s.c] ? out[s.c].concat(paths[j].slice(1)) : paths[j].slice(); });
+  return { solution: out, nodes };
+}
+// Finds a filling with the fewest bends by lowering the budget until no answer is left. The last answer found is
+// proven minimal by that failed search.
+function solveMinBends(pz, limit) {
+  let total = 0, r = solve(pz, { limit, maxBends: null }); total += r.nodes;
+  if (!r.solution) return { solution: null, nodes: total, gaveUp: r.gaveUp };
+  let best = r.solution, b = bendsTotal(pz.n, best);
+  while (b > 0) {
+    r = solve(pz, { limit: limit - total, maxBends: b - 1 }); total += r.nodes;
+    if (r.gaveUp) return { solution: null, nodes: total, gaveUp: true };
+    if (!r.solution) break;
+    best = r.solution; b = bendsTotal(pz.n, best);
+  }
+  return { solution: best, bends: b, nodes: total };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Making a board. The full path through every square is cut into pieces; pieces of three or more squares become
+// bridges and single squares become rocks. Cross tiles and portals are made by splitting two bridges and joining
+// the halves across a straight square or across a jump; what is left over becomes a bridge or a rock.
+function cutPath(path, kb, rocks) {
+  const mins = []; for (let i = 0; i < kb; i++) mins.push(3); for (let i = 0; i < rocks; i++) mins.push(1);
+  let extra = path.length - mins.reduce((a, b) => a + b, 0); if (extra < 0) return null;
+  const lens = mins.slice(), wts = lens.map(m => m === 1 ? 0 : 0.25 + Math.random()), tot = wts.reduce((a, b) => a + b, 0);
+  for (; extra > 0; extra--) { let x = Math.random() * tot, j = 0; while (x > wts[j] && j < wts.length - 1) { x -= wts[j]; j++; } if (wts[j] === 0) j = 0; lens[j]++; }
+  shuffle(lens);
+  const pieces = []; let at = 0;
+  for (const l of lens) { pieces.push(path.slice(at, at + l)); at += l; }
+  return pieces;
+}
+// Splits piece B at square u. Returns the part that ends at u (reversed if needed) and what is left.
+function splitEnding(B, u) {
+  const j = B.indexOf(u), a = B.slice(0, j + 1), b = B.slice(j);
+  const opts = [{ part: a, rest: B.slice(j + 1) }, { part: b.reverse(), rest: B.slice(0, j) }];
+  const good = opts.filter(o => o.rest.length === 0 || o.rest.length >= 3);
+  return pick(good.length ? good : opts);
+}
+function kindsOf(n, pieces, specials) {
+  const N = n * n, where = new Int32Array(N).fill(-1);
+  pieces.forEach((p, i) => p.forEach(c => where[c] = i));
+  return { where, isSpecial: c => specials.has(c), isRock: c => pieces[where[c]].length < 3 };
+}
+function addCross(n, pieces, specials) {
+  const K = kindsOf(n, pieces, specials), cands = [];
+  pieces.forEach((A, ai) => {
+    if (A.length < 3) return;
+    for (let j = 1; j < A.length - 1; j++) {
+      const X = A[j], d1 = dirTo(n, A[j - 1], X), d2 = dirTo(n, X, A[j + 1]);
+      if (d1 < 0 || d1 !== d2 || K.isSpecial(X)) continue;
+      const U = nbAt(n, X, (d1 + 1) % 4), D = nbAt(n, X, (d1 + 3) % 4);
+      if (U < 0 || D < 0) continue;
+      const bi = K.where[U], ci = K.where[D];
+      if (bi === ai || ci === ai || bi === ci || K.isRock(U) || K.isRock(D) || K.isSpecial(U) || K.isSpecial(D)) continue;
+      cands.push({ X, U, D, bi, ci });
+    }
+  });
+  if (!cands.length) return null;
+  const c = pick(cands), B = splitEnding(pieces[c.bi], c.U), C = splitEnding(pieces[c.ci], c.D);
+  const merged = B.part.concat([c.X], C.part.slice().reverse());
+  const out = pieces.filter((p, i) => i !== c.bi && i !== c.ci); out.push(merged); if (B.rest.length) out.push(B.rest); if (C.rest.length) out.push(C.rest);
+  return { pieces: out, cell: c.X };
+}
+function addPortal(n, pieces, specials) {
+  const K = kindsOf(n, pieces, specials);
+  for (let t = 0; t < 60; t++) {
+    const bi = rint(0, pieces.length - 1), ci = rint(0, pieces.length - 1);
+    if (bi === ci || pieces[bi].length < 3 || pieces[ci].length < 3) continue;
+    const P = pick(pieces[bi]), Q = pick(pieces[ci]);
+    if (K.isSpecial(P) || K.isSpecial(Q) || manhattan(n, P, Q) < 3) continue;
+    const B = splitEnding(pieces[bi], P), C = splitEnding(pieces[ci], Q);
+    if (B.part.length < 2 || C.part.length < 2) continue;
+    const merged = B.part.concat(C.part.slice().reverse());
+    const out = pieces.filter((p, i) => i !== bi && i !== ci); out.push(merged); if (B.rest.length) out.push(B.rest); if (C.rest.length) out.push(C.rest);
+    return { pieces: out, cells: [P, Q] };
+  }
+  return null;
+}
+function makeBoard(L) {
+  const n = L.n, N = n * n, rocksWanted = L.rocks ? rint(L.rocks[0], L.rocks[1]) : 0, rockMax = L.rocks ? L.rocks[1] : 0;
+  const nCross = L.cross ? rint(L.cross[0], L.cross[1]) : 0, nPort = L.portals ? rint(L.portals[0], L.portals[1]) : 0;
+  let pieces = cutPath(hamPath(n), L.k - nCross - nPort, rocksWanted);
+  if (!pieces) return null;
+  const specials = new Set(), cross = [], portals = [];
+  for (let i = 0; i < nCross; i++) { const r = addCross(n, pieces, specials); if (!r) return null; pieces = r.pieces; cross.push(r.cell); specials.add(r.cell); }
+  for (let i = 0; i < nPort; i++) { const r = addPortal(n, pieces, specials); if (!r) return null; pieces = r.pieces; portals.push(r.cells); r.cells.forEach(c => specials.add(c)); }
+  const bridges = shuffle(pieces.filter(p => p.length >= 3)), walls = [].concat(...pieces.filter(p => p.length < 3));
+  if (bridges.length < Math.max(2, L.k - 1) || bridges.length > Math.min(9, L.k + 1) || walls.length > Math.max(rockMax, 1) || bridges.length + walls.length === 0) return null;
+  const k = bridges.length, gem = Array(k).fill(-1), lens = Array(k).fill(0);
+  // Gems sit inside a long bridge, away from its ends and off the special squares.
+  if (L.gems) {
+    const order = shuffle(bridges.map((p, i) => i)).filter(i => bridges[i].length >= 5);
+    let placed = 0;
+    for (const i of order) { if (placed >= L.gems) break; const p = bridges[i], spots = []; for (let j = 2; j <= p.length - 3; j++) if (!specials.has(p[j])) spots.push(p[j]); if (spots.length) { gem[i] = pick(spots); placed++; } }
+    if (placed < L.gems) return null;
+  }
+  if (L.lens) { const order = shuffle(bridges.map((p, i) => i)).filter(i => gem[i] < 0); const want = L.lens === 'all' ? order.length : Math.ceil(order.length / 2); order.slice(0, want).forEach(i => lens[i] = bridges[i].length); if (want === 0) return null; }
+  const pz = { n, k, level: L.name, ends: bridges.map(s => [s[0], s[s.length - 1]]), solution: bridges, walls, gem, cross, portals, lens, maxBends: null };
+  // Every square next to a cross tile must be plain, so a bridge can run straight over it.
+  const lay = layout(pz);
+  for (const X of cross) for (let d = 0; d < 4; d++) { const m = nbAt(n, X, d); if (m < 0 || lay.kind[m] !== 0 || lay.gemAt[m] >= 0) return null; }
+  return pz;
 }
 
 function generate(i, limit = 60000) {
   const L = LEVELS[i];
   for (let t = 0; t < 400; t++) {
     const pz = makeBoard(L);
-    if (!validSolution(pz, pz.solution)) continue;
-    const s = solve(pz, limit);
+    if (!pz || !validSolution(pz, pz.solution)) continue;
+    if (L.minBends) {
+      const s = solveMinBends(pz, Math.max(limit, 200000));
+      if (!s.solution) continue;
+      pz.maxBends = s.bends; pz.solution = s.solution;
+      if (!validSolution(pz, pz.solution)) continue;
+      pz.solverNodes = s.nodes; return pz;
+    }
+    const s = solve(pz, { limit });
     if (s.solution && validSolution(pz, s.solution)) { pz.solverNodes = s.nodes; return pz; }
   }
   throw new Error('no board for level ' + i);
+}
+// A one-line picture of a board for the self-check, and the checks the hook makes on each fresh board.
+function describe(pz) {
+  const bits = [`${pz.n}x${pz.n} ${pz.k} pairs`];
+  if (pz.walls.length) bits.push(`${pz.walls.length} rocks`);
+  if (pz.gem.some(g => g >= 0)) bits.push(`gems ${pz.gem.filter(g => g >= 0).length}`);
+  if (pz.cross.length) bits.push(`cross ${pz.cross.length}`);
+  if (pz.portals.length) bits.push(`portals ${pz.portals.length}`);
+  if (pz.lens.some(l => l)) bits.push(`lengths ${pz.lens.filter(l => l).join(',')}`);
+  if (pz.maxBends != null) bits.push(`fewest bends ${pz.maxBends}`);
+  return bits.join(', ');
+}
+function checkBoard(i, pz) {
+  const L = LEVELS[i], N = pz.n * pz.n, lay = layout(pz);
+  const bad = m => { throw new Error(`level ${i} ${L.name}: ${m}`); };
+  if (pz.n !== L.n) bad('wrong size');
+  if (pz.k < 2 || pz.k > 9 || Math.abs(pz.k - L.k) > 1) bad('pair count ' + pz.k);
+  if (pz.ends.length !== pz.k || pz.solution.length !== pz.k || pz.gem.length !== pz.k || pz.lens.length !== pz.k) bad('ragged board');
+  const inGrid = c => Number.isInteger(c) && c >= 0 && c < N;
+  if (![].concat(...pz.ends, pz.walls, pz.cross, ...pz.portals, ...pz.solution).every(inGrid)) bad('square off the board');
+  if (L.rocks && !L.cross && !L.portals && (pz.walls.length < L.rocks[0] || pz.walls.length > L.rocks[1])) bad('rock count ' + pz.walls.length);
+  if (pz.walls.length > (L.rocks ? L.rocks[1] : 0) + 1) bad('too many rocks');
+  if (L.gems && pz.gem.filter(g => g >= 0).length !== L.gems) bad('gem count');
+  if (L.cross && (pz.cross.length < L.cross[0] || pz.cross.length > L.cross[1])) bad('cross count');
+  if (L.portals && (pz.portals.length < L.portals[0] || pz.portals.length > L.portals[1])) bad('portal count');
+  if (L.lens === 'all' && pz.lens.some(l => !l)) bad('missing length clue');
+  if (L.lens && !pz.lens.some(l => l)) bad('no length clue');
+  if (L.minBends && !(Number.isInteger(pz.maxBends) && pz.maxBends >= 0)) bad('no bend count');
+  if (!L.minBends && pz.maxBends != null) bad('stray bend count');
+  for (const [a, b] of pz.ends) if (lay.kind[a] !== 0 || lay.kind[b] !== 0) bad('orb on a special square');
+  const v = verdict(pz, pz.solution); if (v) bad('stored answer fails: ' + v);
+  const d = describe(pz); if (/NaN|undefined/.test(d)) bad('bad text ' + d);
+  return d;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -463,6 +765,7 @@ const SCALE = [262, 294, 330, 392, 440, 523, 587, 659, 784, 880, 1046, 1175, 131
 const SFX = {
   pluck: (i) => tone(SCALE[i % SCALE.length], 0.12, 'triangle', 0.1),
   link: (c) => { const b = SCALE[c % 5 + 3]; tone(b, 0.3, 'triangle', 0.16); tone(b * 1.25, 0.3, 'triangle', 0.12, 0.06); tone(b * 1.5, 0.4, 'triangle', 0.12, 0.12); },
+  warp: () => { tone(500, 0.25, 'sine', 0.12, 0, 2.4); tone(900, 0.2, 'sine', 0.08, 0.1, 1.6); },
   no: () => { tone(240, 0.15, 'square', 0.07); tone(190, 0.22, 'square', 0.07, 0.12); },
   win: () => [523, 659, 784, 1046, 1318, 1568].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, i * 0.08)),
   up: () => [392, 523, 659, 784, 1046, 1318, 1568].forEach((f, i) => tone(f, 0.2, 'square', 0.06, i * 0.06)),
@@ -495,8 +798,16 @@ function rbox(w, h, d, r = 0.06) {
 }
 const mesh = (g, m) => new THREE.Mesh(g, m);
 const board = new THREE.Group(); scene.add(board);
-let cells = [], orbs = [];
+let cells = [], orbs = [], spinners = [];
 const SIDE = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+// A round label with a number, for the length clues above the lights.
+function label(text) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d');
+  g.fillStyle = '#fff'; g.strokeStyle = '#2B2140'; g.lineWidth = 10; g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.fillStyle = '#2B2140'; g.font = '900 60px "Segoe UI", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(text), 64, 68);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
+  s.scale.set(0.62, 0.62, 1); return s;
+}
 
 // Each color also has its own orb shape, so pairs can be matched without telling colors apart.
 function orbGeo(c) {
@@ -509,17 +820,42 @@ function orbGeo(c) {
 }
 function buildBoard(pz) {
   while (board.children.length) board.remove(board.children[0]);
-  cells = []; orbs = [];
-  const n = pz.n, off = (n - 1) / 2;
+  cells = []; orbs = []; spinners = [];
+  const n = pz.n, off = (n - 1) / 2, lay = layout(pz);
   const slab = mesh(rbox(n + 0.5, 0.4, n + 0.5, 0.22), mat(0x1A1048)); slab.position.y = -0.28; board.add(slab);
   const halfG = GEO.half || (GEO.half = new THREE.BoxGeometry(0.3, 0.14, 0.56)), nodeG = GEO.node || (GEO.node = new THREE.CylinderGeometry(0.15, 0.15, 0.14, 16));
+  const portalOf = new Map(); pz.portals.forEach(([p, q], j) => { portalOf.set(p, j); portalOf.set(q, j); });
   for (let i = 0; i < n * n; i++) {
-    const x = i % n - off, z = ((i / n) | 0) - off;
-    const tile = mesh(rbox(0.92, 0.12, 0.92, 0.08), mat((i % n + ((i / n) | 0)) % 2 ? 0x3A2A8C : 0x33247C)); tile.position.set(x, -0.06, z); board.add(tile);
+    const x = i % n - off, z = ((i / n) | 0) - off, kd = lay.kind[i];
+    const tileColor = kd === 1 ? 0x1C1452 : kd === 2 ? 0x6A56D8 : (i % n + ((i / n) | 0)) % 2 ? 0x3A2A8C : 0x33247C;
+    const tile = mesh(rbox(0.92, 0.12, 0.92, 0.08), mat(tileColor)); tile.position.set(x, -0.06, z); board.add(tile);
     const plate = mesh(rbox(0.86, 0.04, 0.86, 0.08), mat(0xffffff)); plate.position.set(x, 0.02, z); plate.visible = false; board.add(plate);
     const node = mesh(nodeG, mat(0xffffff)); node.position.set(x, 0.1, z); node.visible = false; board.add(node);
     const halves = SIDE.map(([dx, dz]) => { const h = mesh(halfG, mat(0xffffff)); h.position.set(x + dx * 0.25, 0.1, z + dz * 0.25); if (dx) h.rotation.y = Math.PI / 2; h.visible = false; board.add(h); return h; });
-    cells.push({ tile, plate, node, halves, x, z });
+    const cell = { tile, plate, node, halves, x, z, node2: null };
+    if (kd === 1) {
+      // A rock: a dark boulder that no bridge can pass.
+      const rock = mesh(GEO.rock || (GEO.rock = new THREE.DodecahedronGeometry(0.36)), mat(0x6E6A8A, 0, { roughness: 0.95, flatShading: true }));
+      rock.position.set(x, 0.2, z); rock.scale.set(1, 0.72, 1); rock.rotation.set(Math.random(), Math.random() * 3, 0); board.add(rock);
+    } else if (kd === 2) {
+      // A cross tile: a raised deck that carries the up-and-down bridge over the one going across.
+      const deck = mesh(GEO.deck || (GEO.deck = new THREE.BoxGeometry(0.34, 0.05, 0.98)), mat(0xD8D2FF)); deck.position.set(x, 0.21, z); board.add(deck);
+      for (const dz of [-0.4, 0.4]) { const pil = mesh(GEO.pillar || (GEO.pillar = new THREE.BoxGeometry(0.28, 0.2, 0.08)), mat(0xB9B0F0)); pil.position.set(x, 0.1, z + dz); board.add(pil); }
+      halves[0].position.y = halves[2].position.y = 0.3;
+      const node2 = mesh(nodeG, mat(0xffffff)); node2.position.set(x, 0.3, z); node2.visible = false; board.add(node2); cell.node2 = node2;
+    } else if (kd === 3) {
+      // A portal: a ring, with a twin ring of the same color somewhere else on the board.
+      const C = PORTAL_COLORS[portalOf.get(i) % PORTAL_COLORS.length];
+      const ring = mesh(GEO.ring || (GEO.ring = new THREE.TorusGeometry(0.32, 0.06, 10, 28)), mat(C, 0.7)); ring.rotation.x = Math.PI / 2; ring.position.set(x, 0.08, z); board.add(ring);
+      const swirl = mesh(GEO.swirl || (GEO.swirl = new THREE.OctahedronGeometry(0.13)), mat(C, 0.9, { flatShading: true })); swirl.position.set(x, 0.36, z); board.add(swirl); spinners.push(swirl);
+    }
+    if (lay.gemAt[i] >= 0) {
+      // A gem: only the bridge of its color may pass here, and it must.
+      const C = COLORS[lay.gemAt[i]];
+      const gem = mesh(GEO.gem || (GEO.gem = new THREE.OctahedronGeometry(0.2)), mat(C, 0.8, { flatShading: true })); gem.position.set(x, 0.4, z); gem.scale.set(0.8, 1.3, 0.8); board.add(gem); spinners.push(gem);
+      const halo = mesh(GEO.halo || (GEO.halo = new THREE.SphereGeometry(0.44, 18, 12)), glowMat(C)); halo.position.set(x, 0.4, z); halo.scale.setScalar(0.7); board.add(halo);
+    }
+    cells.push(cell);
   }
   pz.ends.forEach(([a, b], c) => [a, b].forEach(i => {
     const g = new THREE.Group(), C = COLORS[c];
@@ -527,6 +863,7 @@ function buildBoard(pz) {
     const orb = mesh(orbGeo(c), mat(C, 0.4, { roughness: 0.25, flatShading: c > 0 && c !== 4 })); orb.position.y = 0.36; g.add(orb);
     const halo = mesh(GEO.halo || (GEO.halo = new THREE.SphereGeometry(0.44, 18, 12)), glowMat(C)); halo.position.y = 0.34; g.add(halo);
     const shine = mesh(GEO.shine || (GEO.shine = new THREE.SphereGeometry(0.07, 10, 8)), new THREE.MeshBasicMaterial({ color: 0xffffff })); shine.position.set(-0.1, 0.46, 0.14); g.add(shine);
+    if (pz.lens[c]) { const l = label(pz.lens[c]); l.position.set(0.3, 0.95, -0.1); g.add(l); }
     g.position.set(cells[i].x, 0, cells[i].z); g.userData = { c, i, orb, halo, phase: Math.random() * 6, jump: 0 }; board.add(g); orbs.push(g);
   }));
   fit();
@@ -566,58 +903,109 @@ function frame(now) {
     u.orb.scale.setScalar(s); u.orb.rotation.y += dt * 0.7; u.halo.scale.setScalar(linked ? 1.15 + Math.sin(clock * 4) * 0.05 : s);
     if (u.jump > 0) { u.jump = Math.max(0, u.jump - dt * 2.2); } o.position.y = Math.sin(u.jump * Math.PI) * 0.45;
   }
+  for (const s of spinners) s.rotation.y += dt * 1.4;
   if (renderer) renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
 // ---------------------------------------------------------------------------------------------------------------
-// Playing. paths[c] is the list of squares of the bridge for color c, starting at one of its orbs.
-let puzzle = null, paths = [], owner = null, solvedFlag = false, missed = false, solved = 0, drawing = -1;
+// Playing. paths[c] is the list of squares of the bridge for color c, starting at one of its orbs. A path may hold
+// a cross tile (followed by the square past it) or a portal (followed by its twin); it never ends on either.
+let puzzle = null, paths = [], owner = null, ownerH = null, ownerV = null, solvedFlag = false, missed = false, solved = 0, drawing = -1;
 const endColor = i => { for (let c = 0; c < puzzle.k; c++) if (puzzle.ends[c].includes(i)) return c; return -1; };
 function complete(c) { const p = paths[c]; if (!p || p.length < 2) return false; const [a, b] = puzzle.ends[c]; return (p[0] === a && p[p.length - 1] === b) || (p[0] === b && p[p.length - 1] === a); }
-function rebuildOwner() { owner = new Int8Array(puzzle.n * puzzle.n).fill(-1); paths.forEach((p, c) => p.forEach(i => owner[i] = c)); }
+function rebuildOwner() {
+  const n = puzzle.n, N = n * n, lay = layout(puzzle);
+  owner = new Int8Array(N).fill(-1); ownerH = new Int8Array(N).fill(-1); ownerV = new Int8Array(N).fill(-1);
+  paths.forEach((p, c) => p.forEach((i, j) => {
+    if (lay.kind[i] === 2) { const d = dirTo(n, j ? p[j - 1] : p[j + 1], i); if (d >= 0) (d % 2 ? ownerH : ownerV)[i] = c; }
+    else owner[i] = c;
+  }));
+}
+const filledSlots = () => { let f = 0; for (let i = 0; i < owner.length; i++) { if (owner[i] >= 0) f++; if (ownerH[i] >= 0) f++; if (ownerV[i] >= 0) f++; } return f; };
+// Drops a dangling cross tile or portal entry from the end of a path, so a path always ends where a bridge can.
+function trimTail(p) {
+  const lay = layout(puzzle);
+  for (;;) {
+    const L = p.length; if (L < 2) return; const t = p[L - 1];
+    if (lay.kind[t] === 2 || (lay.kind[t] === 3 && p[L - 2] !== lay.partner[t])) { p.pop(); continue; }
+    return;
+  }
+}
+// Keeps squares 0..idx of a path, plus the square past a cross tile or the twin of a portal when idx is one.
+function cutAt(p, idx) {
+  const lay = layout(puzzle); let end = idx + 1;
+  if (end < p.length && (lay.kind[p[idx]] === 2 || (lay.kind[p[idx]] === 3 && lay.partner[p[idx]] === p[end]))) end++;
+  p.length = end; trimTail(p);
+}
+function cutBefore(p, idx) { if (idx < 0) return; p.length = idx; trimTail(p); }
 
 function paint() {
-  const n = puzzle.n;
-  cells.forEach(cl => { cl.plate.visible = cl.node.visible = false; cl.halves.forEach(h => h.visible = false); });
+  const n = puzzle.n, lay = layout(puzzle);
+  cells.forEach(cl => { cl.plate.visible = cl.node.visible = false; if (cl.node2) cl.node2.visible = false; cl.halves.forEach(h => h.visible = false); });
   paths.forEach((p, c) => {
     const C = COLORS[c], bright = mat(C, 0.6, { roughness: 0.3 }), soft = mat(C, 0.25, { transparent: true, opacity: 0.45 });
     p.forEach((i, j) => {
-      const cl = cells[i]; cl.plate.material = soft; cl.plate.visible = true;
-      if (p.length > 1) { cl.node.material = bright; cl.node.visible = true; }
+      const cl = cells[i], cross = lay.kind[i] === 2;
+      if (!cross) { cl.plate.material = soft; cl.plate.visible = true; }
+      let vertical = false;
       for (const nb of [p[j - 1], p[j + 1]]) {
         if (nb === undefined) continue;
-        const d = nb === i - n ? 0 : nb === i + 1 ? 1 : nb === i + n ? 2 : 3;
+        const d = dirTo(n, i, nb); if (d < 0) continue;
+        if (d % 2 === 0) vertical = true;
         cl.halves[d].material = bright; cl.halves[d].visible = true;
       }
+      if (p.length > 1) { const node = cross && vertical ? cl.node2 : cl.node; node.material = bright; node.visible = true; }
     });
   });
-  const filled = owner.filter(v => v >= 0).length, pct = Math.round(100 * filled / owner.length);
+  const pct = Math.round(100 * filledSlots() / lay.slots);
   $('pct').textContent = pct; $('fill').style.width = pct + '%';
+  if (puzzle.maxBends != null) $('bendsNow').textContent = bendsTotal(n, paths);
 }
 
 function stepInto(c, i) {
-  const p = paths[c], at = p.indexOf(i);
-  if (at >= 0) { if (at < p.length - 1) { p.length = at + 1; } return true; }
-  const tail = p[p.length - 1];
-  if (!adj(puzzle.n, tail, i)) return false;
+  const n = puzzle.n, lay = layout(puzzle), p = paths[c], kd = lay.kind[i];
+  if (kd === 1) return false;
+  const at = p.indexOf(i);
+  if (at >= 0) { if (at < p.length - 1) cutAt(p, at); return true; }
+  const tail = p[p.length - 1], d = dirTo(n, tail, i);
+  if (d < 0) return false;
   if (complete(c)) return false;
   const ec = endColor(i);
   if (ec >= 0 && ec !== c) return false;
-  if (owner[i] >= 0 && owner[i] !== c) { const q = paths[owner[i]], k = q.indexOf(i); q.length = k; }
-  p.push(i); rebuildOwner();
+  if (lay.gemAt[i] >= 0 && lay.gemAt[i] !== c) return false;
+  const add = [i]; let warped = false;
+  if (kd === 2) {
+    // Straight over the cross tile: the square past it comes along.
+    const b = nbAt(n, i, d); if (b < 0 || lay.kind[b] !== 0 || p.includes(b)) return false;
+    const eb = endColor(b); if (eb >= 0 && eb !== c) return false;
+    if (lay.gemAt[b] >= 0 && lay.gemAt[b] !== c) return false;
+    const slot = d % 2 ? ownerH : ownerV;
+    if (slot[i] >= 0) cutBefore(paths[slot[i]], paths[slot[i]].indexOf(i));
+    if (owner[b] >= 0) cutBefore(paths[owner[b]], paths[owner[b]].indexOf(b));
+    add.push(b);
+  } else if (kd === 3) {
+    // Through the portal: the bridge comes out of the twin.
+    const q = lay.partner[i]; if (p.includes(q)) return false;
+    if (owner[i] >= 0) { cutBefore(paths[owner[i]], paths[owner[i]].indexOf(i)); rebuildOwner(); }
+    if (owner[q] >= 0) cutBefore(paths[owner[q]], paths[owner[q]].indexOf(q));
+    add.push(q); warped = true;
+  } else if (owner[i] >= 0) cutBefore(paths[owner[i]], paths[owner[i]].indexOf(i));
+  p.push(...add); rebuildOwner();
   if (complete(c)) { SFX.link(c); orbs.filter(o => o.userData.c === c).forEach(o => { o.userData.jump = 1; burst(o.position.clone().add(new THREE.Vector3(0, 0.4, 0)), COLORS[c], 14, 2.6); }); }
+  else if (warped) { SFX.warp(); burst(new THREE.Vector3(cells[add[1]].x, 0.4, cells[add[1]].z), PORTAL_COLORS[0], 10, 2); }
   else SFX.pluck(p.length);
   return true;
 }
-// Moves the pen toward square i one neighboring square at a time, so quick drags do not skip squares.
+// Moves the pen toward square i one neighboring square at a time, so quick drags do not skip squares. It stops once
+// square i is part of the path, so a portal jump does not draw its way back toward the finger.
 function drawTo(i) {
   if (drawing < 0) return;
   const n = puzzle.n; let guard = 0;
   while (guard++ < 30) {
     const p = paths[drawing], tail = p[p.length - 1];
-    if (tail === i) break;
+    if (tail === i || p.includes(i)) break;
     const tx = tail % n, ty = (tail / n) | 0, gx = i % n, gy = (i / n) | 0;
     const nx = tx + Math.sign(gx - tx) * (Math.abs(gx - tx) >= Math.abs(gy - ty) ? 1 : 0), ny = ty + (Math.abs(gx - tx) >= Math.abs(gy - ty) ? 0 : Math.sign(gy - ty));
     if (!stepInto(drawing, ny * n + nx)) break;
@@ -625,10 +1013,13 @@ function drawTo(i) {
   rebuildOwner(); paint();
 }
 function startAt(i) {
-  const ec = endColor(i);
+  const lay = layout(puzzle), ec = endColor(i);
   if (ec >= 0) { drawing = ec; paths[ec] = [i]; }
-  else if (owner[i] >= 0) { drawing = owner[i]; const p = paths[drawing]; p.length = p.indexOf(i) + 1; }
-  else { drawing = -1; return; }
+  else {
+    let o = owner[i]; if (lay.kind[i] === 2) o = ownerV[i] >= 0 ? ownerV[i] : ownerH[i];
+    if (o < 0) { drawing = -1; return; }
+    drawing = o; cutAt(paths[o], paths[o].indexOf(i));
+  }
   rebuildOwner(); paint(); SFX.pluck(0);
 }
 function endDraw() {
@@ -640,7 +1031,12 @@ function checkWin() {
   if (solvedFlag) return;
   const allLinked = paths.every((p, c) => complete(c));
   if (!allLinked) return;
-  if (owner.some(v => v < 0)) { tell('Fill every square!', true); say('All the lights are joined. Now fill every square. Bridges can wiggle.'); return; }
+  const why = verdict(puzzle, paths);
+  if (why) {
+    tell(why, true, why.length > 24 ? 2600 : 1500);
+    say(why === 'Fill every square!' ? 'All the lights are joined. Now fill every square. Bridges can wiggle.' : why);
+    return;
+  }
   solvedFlag = true; solved++; P.stars++;
   const first = !missed, change = first ? record(true) : 0; showBadge();
   SFX.win(); tell(first ? 'All lit up! ⭐' : 'You did it! ⭐');
@@ -652,14 +1048,23 @@ function checkWin() {
 function miss() { if (!missed) { missed = true; const change = record(false); showBadge(); return change; } return 0; }
 
 function tell(text, bad = false, ms = 1500) {
-  const t = $('toast'); t.textContent = text; t.className = 'on' + (bad ? ' bad' : '');
+  const t = $('toast'); t.textContent = text; t.className = 'on' + (bad ? ' bad' : '') + (text.length > 24 ? ' long' : '');
   clearTimeout(tell.h); tell.h = setTimeout(() => { t.className = bad ? 'bad' : ''; }, ms / SPEED);
 }
-function showBadge() { $('badge').textContent = `Level ${P.lv + 1} of ${LEVELS.length} · ${LEVELS[P.lv].name} ${puzzle ? puzzle.n + '×' + puzzle.n : ''}`; $('stars').textContent = '⭐ ' + P.stars; }
-const speakText = () => `Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light.`;
+function showBadge() {
+  const L = LEVELS[P.lv], b = $('badge');
+  b.textContent = `Level ${P.lv + 1} of ${LEVELS.length} · ${L.name} ${puzzle ? puzzle.n + '×' + puzzle.n : ''}`;
+  b.classList.toggle('small', L.name.length > 14);
+  $('stars').textContent = '⭐ ' + P.stars;
+}
+const speakText = () => `Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light.` + (LEVELS[P.lv].rule ? ' ' + LEVELS[P.lv].rule : '');
 
 function newPuzzle() {
   puzzle = generate(P.lv); paths = puzzle.ends.map(() => []); missed = false; solvedFlag = false; drawing = -1;
+  const L = LEVELS[P.lv];
+  $('ask').textContent = L.ask || 'Connect the matching lights!';
+  $('bendline').hidden = puzzle.maxBends == null;
+  if (puzzle.maxBends != null) { $('bendsMax').textContent = puzzle.maxBends; $('bendsNow').textContent = 0; }
   rebuildOwner(); buildBoard(puzzle); paint(); showBadge();
   say(speakText());
 }
@@ -685,26 +1090,40 @@ if (renderer) {
 $('hear').onclick = () => say(speakText());
 $('clear').onclick = () => { if (solvedFlag) return; paths = puzzle.ends.map(() => []); rebuildOwner(); paint(); tone(400, 0.15, 'triangle', 0.12, 0, 0.5); };
 $('skip').onclick = () => { if (solvedFlag) return; const change = miss(); say(change === -1 ? "Here is an easier one." : "Here is a new one."); newPuzzle(); };
+// Where path q first collides with the answer path s: a shared square, or a cross tile used the same way.
+function firstClash(q, s) {
+  const n = puzzle.n, lay = layout(puzzle), used = new Map();
+  s.forEach((i, j) => used.set(i, lay.kind[i] === 2 ? dirTo(n, s[j - 1], i) % 2 : -1));
+  return q.findIndex((i, j) => used.has(i) && (used.get(i) < 0 || used.get(i) === dirTo(n, j ? q[j - 1] : q[j + 1], i) % 2));
+}
 // A hint lays down one bridge from the stored answer and clears anything in its way. It counts as a miss.
 $('hint').onclick = () => {
   if (solvedFlag) return;
   const sol = puzzle.solution;
   let c = paths.findIndex((p, j) => JSON.stringify(p) !== JSON.stringify(sol[j]) && JSON.stringify(p) !== JSON.stringify(sol[j].slice().reverse()));
   if (c < 0) return;
-  const cellsOf = new Set(sol[c]);
-  paths.forEach((p, j) => { if (j === c) return; const k = p.findIndex(i => cellsOf.has(i)); if (k >= 0) p.length = k; });
+  paths.forEach((p, j) => { if (j === c) return; const k = firstClash(p, sol[c]); if (k >= 0) cutBefore(p, k); });
   paths[c] = sol[c].slice(); rebuildOwner(); paint(); SFX.link(c);
   miss(); say(`Here is the ${CNAMES[c]} bridge.`);
   checkWin();
 };
 
+// Self-check hook for tools/ladder-check.mjs: builds boards at a rung without touching the screen and throws when
+// a board breaks its rung's rules or has no answer.
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START_LEVEL,
+  label: () => LEVELS[P.lv].name,
+  exercise: (i, n) => { const out = []; for (let k = 0; k < n; k++) out.push(checkBoard(i, generate(i))); return out; },
+};
+
 // Test hook.
 window.LIGHT_BRIDGE = {
-  LEVELS, START_LEVEL, generate, makeBoard, solve, validSolution, hamPath, record,
+  LEVELS, START_LEVEL, generate, makeBoard, solve, solveMinBends, validSolution, verdict, hamPath, record, layout, bendsTotal,
   get P() { return P; }, reset() { P = { lv: START_LEVEL, st: { streak: 0, miss: 0 }, stars: 0 }; persist(); },
   setLevel(i) { P.lv = i; P.st = { streak: 0, miss: 0 }; persist(); newPuzzle(); },
   speed(s) { SPEED = s; },
-  state() { return { level: P.lv, puzzle, paths, solved, solvedFlag, missed, filled: owner.filter(v => v >= 0).length, linked: paths.map((p, c) => complete(c)) }; },
+  state() { return { level: P.lv, puzzle, paths, solved, solvedFlag, missed, filled: filledSlots(), linked: paths.map((p, c) => complete(c)) }; },
   setPaths(ps) { paths = ps.map(p => p.slice()); rebuildOwner(); paint(); checkWin(); },
   screenOf(i) { const n = puzzle.n, off = (n - 1) / 2, v = new THREE.Vector3(i % n - off, 0.1, ((i / n) | 0) - off).project(camera), r = renderer.domElement.getBoundingClientRect(); return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height }; },
   newPuzzle,

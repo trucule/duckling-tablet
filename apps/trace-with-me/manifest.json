@@ -1,20 +1,20 @@
 {
   "id": "trace-with-me",
   "name": "Trace With Me",
-  "version": "1.0.2",
-  "description": "Handwriting: letters, numbers and shapes to color in, words to trace and spell from memory, and cursive with a pen that shows each stroke.",
+  "version": "1.0.3",
+  "description": "Handwriting: letters, numbers and shapes to color in, words and sentences to trace, spell and write from hearing, and cursive from first letters to reading a cursive word.",
   "subjects": [
     "reading"
   ],
   "ageMin": 4,
-  "ageMax": 8,
+  "ageMax": 14,
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/trace-with-me",
   "about": {
     "concept": "Handwriting as movement memory. Letters, numbers and words are traced stroke by stroke with the correct order and direction shown, then written from memory, so the motor pattern and the spelling are learned together.",
-    "progression": "Shapes and single letters come first, then numbers, then words to trace and spell from memory, then cursive with a pen that shows each stroke joining the next.",
+    "progression": "Print starts with single letters and numerals, then CVC words, short sentences and spelling patterns to trace and write from memory, then long words, dictated sentences, commonly misspelled words, vocabulary from a definition and 8th grade sentences with commas, apostrophes and quotation marks, all written from hearing with the model shown afterwards. Cursive goes from small letters and capitals through joined words, the child's own name, a dictated sentence and a two-row line to reading a cursive word and tapping its printed match.",
     "lifeSkills": [
       "Legible handwriting",
       "Spelling",

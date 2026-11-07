@@ -219,20 +219,26 @@
   see if the tank thrives or crashes. One file, offline, no network.
   The simulation is simple, step by step and has no randomness, so the same tank always gives the same days:
     Air (oxygen) each day = 20 from the surface + 5 for every plant times the light level,
-      minus 4 for every small fish, 1 for every snail, 10 for every big fish, minus 10 when the water is green.
-      Fish and big fish need 10 or more. Snails need 5 or more.
-    Food: each pinch feeds 2 small fish. Extra food rots and feeds the algae.
-    Algae grows 8 for every light level and 6 for every extra pinch, and shrinks 10 for every snail and 3 for every
+      minus 4 for every small fish, 1 for every snail or shrimp, 10 for every big fish, minus 10 when the water is green.
+      Fish and big fish need 10 or more (some levels draw a higher line). Snails and shrimp need 5 or more.
+    Food: each pinch feeds 2 small fish. Extra food rots and feeds the algae, unless a shrimp eats it first.
+    Algae grows 8 for every light level and 6 for every rotting pinch, and shrinks 10 for every snail and 3 for every
       plant. Fish get sick at 60 (green water). Plants get covered at 80.
-    Snails eat algae: they need 6 algae each a day. Plants need the light on.
-    Room: the tank holds 3 fish, plus 2 more for every plant (places to hide).
+    Snails eat algae: they need 6 algae each a day. Shrimp are the decomposers: each eats 1 leftover pinch.
+    Room: the tank holds 3 fish, plus 2 more for every plant (places to hide). That number is the carrying capacity.
     Food chain levels: each big fish eats 1 small fish a day. Happy small fish have babies (half as many again),
       up to the room in the tank.
-  The ladder of levels goes from turning on the light, to air and food, to algae and snails, room to swim,
-  baby fish and food chains.
-  Four right first try in a row moves up a level; two missed tanks in a row moves down.
-  Progress is kept in localStorage (key ecosystem-aquarium-v1). New players start at a 2nd grade level.
-  Test hook: window.ECOSYSTEM_AQUARIUM.
+    Invaders: crabs eat the fish food, tadpoles graze the algae, duckweed shades the light. Big fish eat crabs and
+      tadpoles before small fish.
+    A soft model (nobody dies) drives the graph, limiting factor and data levels: fish grow 1 a day up to the lowest
+      of food, room and air; with dyn, big fish breed when they eat 3 and starve when they do not eat.
+    Toxin: each step up a food chain holds 10 times more of it.
+  The ladder of 20 levels goes from turning on the light (pre-K) through air, food, algae, room, baby fish and
+  food chains (3rd, 4th) to food webs, population graphs, limiting factors, the oxygen cycle, invasive species,
+  carrying capacity, energy pyramids, biomagnification, fair tests and reading data tables (8th).
+  Four right first try in a row moves up a level; two missed problems in a row moves down.
+  Progress is kept in localStorage (key ecosystem-aquarium-v1). New players start at the child's science grade.
+  Test hooks: window.ECOSYSTEM_AQUARIUM and window.DucklingLadder.
   three.js r149 is inlined below under its MIT License (Copyright 2010-2023 three.js authors).
 -->
 <style>
@@ -251,9 +257,11 @@
   main { position: relative; min-height: 0; overflow: hidden; }
   canvas#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #askRow { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; z-index: 2; max-width: 94%; }
-  #ask { font-size: 24px; font-weight: 900; background: #fff; border: 4px solid var(--ink); border-radius: 26px; padding: 8px 20px; text-align: center; box-shadow: 0 6px 0 var(--pink); }
+  #ask { font-size: 24px; font-weight: 900; background: #fff; border: 4px solid var(--ink); border-radius: 26px; padding: 8px 20px; text-align: center; box-shadow: 0 6px 0 var(--pink); line-height: 1.25; }
+  #ask.l { font-size: 20px; } #ask.xl { font-size: 18px; }
   #hear { flex: none; width: 64px; height: 64px; border-radius: 50%; border: 4px solid var(--ink); background: var(--sun); font-size: 30px; cursor: pointer; }
   #gauges { position: absolute; left: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 8px; z-index: 2; }
+  #gauges.off { display: none; }
   .g { background: #fffffff0; border: 3px solid var(--ink); border-radius: 18px; padding: 6px 12px; font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 8px; min-width: 210px; }
   .bar { flex: 1; height: 16px; border: 3px solid var(--ink); border-radius: 9px; background: #eee; overflow: hidden; }
   .bar i { display: block; height: 100%; width: 0; transition: width .5s; }
@@ -262,6 +270,7 @@
   #log { position: absolute; right: 14px; bottom: 14px; display: flex; flex-direction: column-reverse; gap: 6px; z-index: 2; max-width: 320px; }
   #log div { background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 4px 10px; font-size: 17px; font-weight: 800; animation: pop .3s; }
   footer { display: flex; align-items: stretch; justify-content: center; gap: 10px; padding: 10px; background: #FFF3D6; border-top: 4px solid var(--ink); z-index: 3; flex-wrap: nowrap; overflow-x: auto; }
+  footer.off { display: none; }
   .ctl { border: 4px solid var(--ink); border-radius: 22px; background: #fff; display: flex; flex-direction: column; align-items: center; padding: 4px 8px 6px; flex: none; }
   .ctl.light .val { font-size: 20px; min-width: 96px; line-height: 1.05; }
   .lockchip { min-width: 0 !important; background: #EDE7F6 !important; }
@@ -274,6 +283,37 @@
   #run { flex: none; border: 5px solid var(--ink); border-radius: 26px; background: var(--leaf); font-size: 26px; font-weight: 900; padding: 0 18px; cursor: pointer; box-shadow: 0 6px 0 var(--ink); white-space: nowrap; }
   #run:active { transform: translateY(3px); box-shadow: 0 3px 0 var(--ink); }
   #run:disabled { background: #ccc; }
+  /* The number pad lives in the bottom bar when an answer is a number. */
+  .npv { border: 4px solid var(--ink); border-radius: 18px; background: #fff; min-width: 150px; height: 58px; font-size: 32px; font-weight: 900; display: flex; align-items: center; justify-content: flex-end; padding: 0 14px; box-sizing: border-box; align-self: center; flex: none; }
+  .key { width: 58px; height: 58px; border-radius: 50%; border: 4px solid var(--ink); background: var(--sky); font-size: 26px; font-weight: 900; cursor: pointer; flex: none; align-self: center; line-height: 1; }
+  .key.ok { background: var(--leaf); border-radius: 22px; width: 86px; }
+  .key:active { transform: scale(.93); }
+  /* The panel: a chart, a table or a picture over the tank, with answer buttons under it. */
+  #panel { position: absolute; left: 50%; transform: translateX(-50%); top: 90px; bottom: 12px; width: min(740px, 92%); display: none; flex-direction: column; gap: 10px; z-index: 2; background: #fffffff2; border: 4px solid var(--ink); border-radius: 24px; padding: 12px 16px; box-sizing: border-box; }
+  #panel.on { display: flex; }
+  #panel.mini { left: auto; right: 14px; transform: none; bottom: auto; width: 300px; height: 170px; padding: 6px 8px; border-width: 3px; border-radius: 18px; }
+  #panel .fig { flex: 1 1 auto; min-height: 110px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #panel .fig canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #panel .choices { display: flex; flex-direction: column; gap: 8px; flex: none; }
+  #panel .choices.grid { flex-direction: row; flex-wrap: wrap; }
+  #panel .choices.grid .choice { flex: 1 1 40%; text-align: center; }
+  .choice { border: 4px solid var(--ink); border-radius: 18px; background: #fff; font-size: 19px; font-weight: 800; padding: 8px 14px; text-align: left; cursor: pointer; line-height: 1.3; box-shadow: 0 4px 0 var(--sky); }
+  .choice:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--sky); }
+  .choice:disabled { cursor: default; }
+  .choice.no { opacity: .35; box-shadow: none; }
+  .choice.yes { background: var(--leaf); }
+  .caps { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 600px; }
+  .cap { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; }
+  .cap > span { min-width: 230px; }
+  .cap .bar { height: 18px; }
+  .cap.now { justify-content: center; font-size: 24px; margin-top: 4px; }
+  #panel.mini .caps { gap: 4px; } #panel.mini .cap { font-size: 15px; gap: 6px; } #panel.mini .cap > span { min-width: 150px; } #panel.mini .cap .bar { height: 12px; } #panel.mini .cap.now { font-size: 17px; margin-top: 0; }
+  #panel table { border-collapse: collapse; font-size: 18px; font-weight: 800; }
+  #panel th, #panel td { border: 3px solid var(--ink); padding: 4px 10px; text-align: center; }
+  #panel th { background: #FFF3D6; }
+  .note { font-size: 20px; font-weight: 800; text-align: center; max-width: 640px; line-height: 1.4; }
+  .roomfig { display: flex; flex-wrap: wrap; gap: 10px 16px; justify-content: center; font-size: 30px; align-items: center; max-width: 640px; }
+  .roomfig span { background: #fff; border: 3px solid var(--ink); border-radius: 16px; padding: 4px 10px; }
   #card { position: absolute; inset: 0; display: none; place-items: center; z-index: 5; pointer-events: none; }
   #card.on { display: grid; }
   /* A win card sits low, so the solved board, tank or planet stays in view behind it. */
@@ -291,6 +331,10 @@
     .ctl { padding: 3px 6px 5px; } .ctl .lab { font-size: 15px; } .ctl button { width: 48px; height: 48px; font-size: 28px; }
     .ctl .val { font-size: 28px; min-width: 32px; } .ctl.light .val { font-size: 17px; min-width: 78px; }
     #run { font-size: 22px; padding: 0 12px; }
+    .key { width: 48px; height: 48px; font-size: 22px; } .key.ok { width: 72px; } .npv { height: 48px; font-size: 26px; min-width: 130px; }
+    #panel table { font-size: 16px; } #panel th, #panel td { padding: 3px 7px; }
+    .choice { font-size: 18px; padding: 7px 12px; }
+    #card .c small { font-size: 20px; }
   }
   .conf { position: absolute; width: 14px; height: 20px; z-index: 6; pointer-events: none; border-radius: 3px; }
 </style>
@@ -313,6 +357,7 @@
       <div class="g" id="room">🏠 Room for 3 fish</div>
     </div>
     <div id="dayBox"></div>
+    <div id="panel"></div>
     <div id="log"></div>
     <div id="card"></div>
   </main>
@@ -328,48 +373,91 @@
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
+// PURE START
+// Everything from here to PURE END is DOM-free: the simulation, the ladder and the problem generators.
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 // ---------------------------------------------------------------------------
 // Simulation. No randomness: the same tank always gives the same days.
-// setup = { F: small fish, S: snails, P: plants, L: light 0-3, f: pinches of food a day }
-// lv = { B: big fish, breed, D: days, goal: { groups, grow, minEnd } }
+// setup = { F: small fish, S: snails, P: plants, L: light 0-3, f: pinches of food a day,
+//           W: shrimp (decomposers), I: invaders, B: big fish }
+// lv = { D: days, breed, inv: invader kind, model: 'cap' for the soft model, dyn, still,
+//        goal: { groups, grow, minEnd, airLine, after, minimal } }
 // ---------------------------------------------------------------------------
 const LIGHTS = ['Off', 'Dim', 'Sunny', 'Very bright'];
-const RANGE = { F: [0, 12], S: [0, 6], P: [0, 6], L: [0, 3], f: [0, 5] };
-const VARS = ['F', 'S', 'P', 'L', 'f'];
+const RANGE = { F: [0, 16], S: [0, 6], P: [0, 6], L: [0, 3], f: [0, 9], W: [0, 4], I: [0, 6], B: [0, 3] };
+const VARS = ['F', 'S', 'P', 'L', 'f', 'W', 'I', 'B'];
 const NUM = { O_SURFACE: 20, O_PLANT: 5, O_FISH: 4, O_SNAIL: 1, O_BIG: 10, O_GREEN: 10, FISH_AIR: 10, SNAIL_AIR: 5,
   A_LIGHT: 8, A_FOOD: 6, A_SNAIL: 10, A_PLANT: 3, GREEN: 60, COVER: 80, SNAIL_EAT: 6, ROOM: 3, ROOM_PLANT: 2 };
+const INVADERS = {
+  crab: { name: 'mitten crabs', short: 'crabs', icon: '🦀', eats: 'They eat the fish food, 1 pinch each.', fix: 'Big fish eat crabs.', note: 'The crabs are still eating the fish food.' },
+  tadpole: { name: 'bullfrog tadpoles', short: 'tadpoles', icon: '🐸', eats: 'They graze algae, as much as a snail each.', fix: 'Big fish eat tadpoles.', note: 'The tadpoles are still grazing the algae.' },
+  duckweed: { name: 'duckweed mats', short: 'duckweed', icon: '🍃', eats: 'They float on top and shade the tank. Every 2 mats dim the light one step.', fix: 'Big fish do not eat plants. Scoop the mats out.', note: 'The duckweed is still shading the tank.' },
+};
 const roomOf = P => NUM.ROOM + NUM.ROOM_PLANT * P;
+const NOBODY = () => ({ fish: null, snail: null, plant: null, big: null, shrimp: null });
+// The full model: creatures get unwell when a need is not met.
 function simulate(setup, lv) {
-  let F = setup.F, A = 0; const S = setup.S, P = setup.P, L = setup.L, f = setup.f, B = lv.B || 0, out = [];
+  const g = lv.goal || {}, need = g.airLine || NUM.FISH_AIR, inv = lv.inv || null;
+  let F = setup.F, A = 0, B = setup.B || 0, I = setup.I || 0; const S = setup.S || 0, P = setup.P || 0, f = setup.f || 0, W = setup.W || 0, out = [];
   for (let d = 1; d <= lv.D; d++) {
-    const room = roomOf(P);
-    const O = clamp(NUM.O_SURFACE + NUM.O_PLANT * P * L - NUM.O_FISH * F - NUM.O_SNAIL * S - NUM.O_BIG * B - (A >= NUM.GREEN ? NUM.O_GREEN : 0), 0, 100);
-    const fed = 2 * f >= F, left = Math.max(0, 2 * f - F), snailFood = A + NUM.A_LIGHT * L + NUM.A_FOOD * left;
-    const A2 = clamp(A + NUM.A_LIGHT * L + NUM.A_FOOD * left - NUM.A_SNAIL * S - NUM.A_PLANT * P, 0, 100);
-    const why = { fish: null, snail: null, plant: null, big: null };
-    if (F > 0) why.fish = O < NUM.FISH_AIR ? 'air' : !fed ? 'food' : A2 >= NUM.GREEN ? 'algae' : F > room ? 'crowd' : null;
+    const L = inv === 'duckweed' ? Math.max(0, setup.L - Math.ceil(I / 2)) : setup.L;
+    const room = roomOf(P), green = A >= NUM.GREEN ? NUM.O_GREEN : 0;
+    const O = clamp(NUM.O_SURFACE + NUM.O_PLANT * P * L - NUM.O_FISH * F - NUM.O_SNAIL * (S + W) - NUM.O_BIG * B - green, 0, 100);
+    const pinches = Math.max(0, 2 * f - (inv === 'crab' ? I : 0));
+    const fed = pinches >= F, left = Math.max(0, pinches - F), rot = Math.max(0, left - W);
+    const grazed = inv === 'tadpole' ? NUM.SNAIL_EAT * I : 0;
+    const snailFood = A + NUM.A_LIGHT * L + NUM.A_FOOD * rot - grazed;
+    const A2 = clamp(A + NUM.A_LIGHT * L + NUM.A_FOOD * rot - NUM.A_SNAIL * S - NUM.A_PLANT * P - grazed, 0, 100);
+    const why = NOBODY();
+    if (F > 0) why.fish = O < need ? 'air' : !fed ? 'food' : A2 >= NUM.GREEN ? 'algae' : F > room ? 'crowd' : null;
     if (S > 0) why.snail = O < NUM.SNAIL_AIR ? 'air' : snailFood < NUM.SNAIL_EAT * S ? 'hungry' : null;
     if (P > 0) why.plant = L < 1 ? 'dark' : A2 >= NUM.COVER ? 'algae' : null;
-    if (B > 0) why.big = O < NUM.FISH_AIR ? 'air' : F < B ? 'hungry' : null;
-    const F0 = F; let eaten = 0, born = 0;
-    if (B > 0) { eaten = Math.min(F, B); F -= eaten; }
+    if (W > 0) why.shrimp = O < NUM.SNAIL_AIR ? 'air' : (left === 0 && A < 10) ? 'hungry' : null;
+    const prey = F + (inv && inv !== 'duckweed' ? I : 0);
+    if (B > 0) why.big = O < NUM.FISH_AIR ? 'air' : prey < B ? 'hungry' : null;
+    const F0 = F, I0 = I; let eaten = 0, eatenI = 0, born = 0;
+    if (B > 0) { if (I > 0 && inv !== 'duckweed') { eatenI = Math.min(I, B); I -= eatenI; } eaten = Math.min(F, B - eatenI); F -= eaten; }
     if (lv.breed && !why.fish && F >= 2) { const n = Math.max(F, Math.min(room, F + Math.floor(F / 2))); born = n - F; F = n; }
     A = A2;
-    out.push({ day: d, O, A, F: F0, Fend: F, eaten, born, fed, left, room, why });
+    out.push({ day: d, O, A, F: F0, Fend: F, B, Bend: B, I: I0, Iend: I, eaten, eatenI, born, fed, left, room, L, why });
   }
   return out;
 }
+// The soft model: nobody dies. Fish grow until food, room or air caps them. With dyn, big fish breed when they
+// eat well and starve when they do not. With still, nothing changes but air and algae.
+function simulateCap(setup, lv) {
+  let F = setup.F, B = setup.B || 0, A = 0; const S = setup.S || 0, P = setup.P || 0, L = setup.L || 0, f = setup.f || 0, out = [];
+  for (let d = 1; d <= lv.D; d++) {
+    const room = roomOf(P), green = A >= NUM.GREEN ? NUM.O_GREEN : 0;
+    const free = NUM.O_SURFACE + NUM.O_PLANT * P * L - NUM.O_SNAIL * S - NUM.O_BIG * B - green;
+    const airCap = Math.max(0, Math.floor(free / NUM.O_FISH)), foodCap = 2 * f, cap = Math.max(0, Math.min(room, foodCap, airCap));
+    const O = clamp(free - NUM.O_FISH * F, 0, 100), left = Math.max(0, 2 * f - F);
+    const A2 = clamp(A + NUM.A_LIGHT * L + NUM.A_FOOD * left - NUM.A_SNAIL * S - NUM.A_PLANT * P, 0, 100);
+    const F0 = F, B0 = B; let eaten = 0, born = 0, lost = 0;
+    if (!lv.still) {
+      eaten = Math.min(F, B); F -= eaten;
+      if (F >= 2 && F < cap) { born = 1; F += born; }
+      else if (F > cap) { lost = Math.ceil((F - cap) / 2); F -= lost; }
+      if (lv.dyn && B > 0) B = clamp(eaten + Math.floor(eaten / 3), 0, 8);
+    }
+    A = A2;
+    out.push({ day: d, O, A, F: F0, Fend: F, B: B0, Bend: B, I: 0, Iend: 0, eaten, eatenI: 0, born, lost, fed: 2 * f >= F0, left, room, foodCap, airCap, cap, L, why: NOBODY() });
+  }
+  return out;
+}
+const sim = (setup, lv) => lv.model === 'cap' ? simulateCap(setup, lv) : simulate(setup, lv);
 // Did the tank meet its goal? Returns the first problem, or ok.
 function judge(setup, lv) {
-  const days = simulate(setup, lv), g = lv.goal;
-  for (const d of days) for (const who of g.groups) if (d.why[who]) return { ok: false, day: d.day, who, why: d.why[who], days };
+  const days = sim(setup, lv), g = lv.goal || {}, from = g.after || 1;
+  for (const d of days) if (d.day >= from) for (const who of g.groups || []) if (d.why[who]) return { ok: false, day: d.day, who, why: d.why[who], days };
   const end = days[days.length - 1].Fend;
   if (g.grow && end < g.grow) return { ok: false, day: lv.D, who: 'fish', why: 'grow', days };
   if (g.minEnd && end < g.minEnd) return { ok: false, day: lv.D, who: 'fish', why: 'chainEnd', days };
+  if (g.minimal && lv.minP != null && setup.P > lv.minP) return { ok: false, day: lv.D, who: 'plant', why: 'extra', days };
   return { ok: true, days };
 }
 // Every setup the child could choose on this level.
@@ -383,12 +471,237 @@ function setups(lv) {
   return list;
 }
 function solutions(lv) { return setups(lv).filter(s => judge(s, lv).ok); }
+// How much toxin each level of a food chain holds after `day` of `D` days: ten times more at each step up.
+function toxinLevels(x, n, day, D) { const k = clamp(day / D, 0, 1); return Array.from({ length: n }, (_, i) => Math.round(x * Math.pow(10, i) * k * 100) / 100); }
 
 // ---------------------------------------------------------------------------
-// Levels
+// Levels. A task is one of three kinds:
+//   tank   (default): the child sets the controls and runs the days. Fields: start, lock, range, D, goal, text.
+//   choice: the child taps one of 2 to 4 answers. Fields: choices, answer, setup (the tank shown), panel, text.
+//   number: the child types a number on the pad. Fields: answer, panel, text.
+// A task may carry `then`, the next step of the same problem. Missing any step counts as one miss.
 // ---------------------------------------------------------------------------
 const half = F => Math.ceil(F / 2);
-const fill = (o, lock, adj) => { o.lock = lock; o.range = {}; o.start = Object.assign({}, lock); for (const v in adj) { o.range[v] = adj[v][0]; o.start[v] = adj[v][1]; } for (const v of VARS) if (!(v in o.start)) { o.lock[v] = 0; o.start[v] = 0; } return o; };
+const fill = (o, lock, adj) => {
+  lock = Object.assign({}, lock); if (o.B && !('B' in lock) && !('B' in adj)) lock.B = o.B;
+  o.kind = 'tank'; o.lock = lock; o.range = {}; o.start = Object.assign({}, lock);
+  for (const v in adj) { o.range[v] = adj[v][0]; o.start[v] = adj[v][1]; }
+  for (const v of VARS) if (!(v in o.start)) { o.lock[v] = 0; o.start[v] = 0; }
+  return o;
+};
+const NATIVE = ['fish', 'snail', 'plant'], NATIVE_NAME = { fish: 'Small fish', snail: 'Snails', plant: 'Plants' };
+const VNAME = { F: 'fish', S: 'snails', P: 'plants', L: 'light', f: 'food' }, isPl = v => v === 'F' || v === 'S' || v === 'P';
+const describeTank = (s, keys) => keys.map(v => v === 'L' ? LIGHTS[s.L] + ' light' : v === 'F' ? s.F + ' fish' : v === 'S' ? s.S + (s.S === 1 ? ' snail' : ' snails') : v === 'P' ? s.P + (s.P === 1 ? ' plant' : ' plants') : s.f + (s.f === 1 ? ' pinch' : ' pinches') + ' of food a day').join(', ');
+const UP = ['They go up', 'They go down', 'They stay about the same'], UPKEY = ['up', 'down', 'same'];
+const KIDS = ['Ava', 'Ben', 'Mia', 'Leo', 'Zoe', 'Sam', 'Noor', 'Eli'];
+
+// 4th grade: a food web with three levels and a decomposer, 30 days.
+function genFoodWeb() {
+  for (let k = 0; k < 60; k++) {
+    const S = rnd(1, 3), P = rnd(2, 4), L = rnd(1, 2);
+    const t = fill({ D: 30, B: 1, breed: true, goal: { groups: ['fish', 'big', 'snail', 'plant', 'shrimp'], minEnd: 2 }, chart: { series: ['F'], hline: { y: roomOf(P), label: 'room' } },
+      text: 'A food web. Plants and algae feed the snails and small fish. The big fish eats 1 small fish a day. Shrimp are the decomposers: each eats 1 leftover pinch. Keep everyone alive for 30 days.' },
+      { S, P, L }, { F: [[1, 10], 1], f: [[0, 5], 0], W: [[0, 4], 0] });
+    if (solutions(t).length) return t;
+  }
+  throw new Error('no food web');
+}
+// 4th/5th grade: read a population graph and say what comes next.
+function genGraph() {
+  const want = pick(UPKEY);
+  for (let k = 0; k < 900; k++) {
+    const setup = { F: rnd(2, 10), S: rnd(0, 2), P: rnd(1, 4), L: rnd(1, 3), f: rnd(2, 6), W: 0, I: 0, B: rnd(0, 3) };
+    const lv = { D: 12, model: 'cap', dyn: true, goal: {} }, days = simulateCap(setup, lv), shown = rnd(5, 7), ahead = 3;
+    const who = pick(['F', 'B']), vals = days.map(d => d[who]), th = who === 'F' ? 2 : 1;
+    const cls = (a, b) => (b - a >= th ? 'up' : a - b >= th ? 'down' : 'same');
+    const ans = cls(vals[shown - 1], vals[shown - 1 + ahead]), trend = cls(vals[shown - 3], vals[shown - 1]);
+    if ((k < 500 && ans !== want) || trend !== ans) continue;
+    if (Math.max(...vals.slice(0, shown)) === 0) continue;
+    if (ans === 'same' && Math.max(...vals.slice(0, shown)) !== Math.min(...vals.slice(0, shown)) && Math.random() < 0.5) continue;
+    const name = who === 'F' ? 'small fish' : 'big fish', order = shuffle([0, 1, 2]);
+    return { kind: 'choice', setup, text: 'The graph shows the small fish and the big fish for ' + shown + ' days. What will the ' + name + ' do in the next ' + ahead + ' days?',
+      choices: order.map(i => UP[i]), answer: order.indexOf(UPKEY.indexOf(ans)), who, shown, ahead, days,
+      panel: { type: 'lines', series: ['F', 'B'], days: days.slice(0, shown), xmax: shown + ahead, now: shown, ymax: Math.max(10, ...days.map(d => Math.max(d.F, d.B)) + 1) },
+      done: 'The ' + name + ' line kept going the way it was heading.',
+      wrong: 'Follow the ' + name + ' line and see which way it was heading.',
+      reveal: { days },
+      verify() { return cls(vals[shown - 1], vals[shown - 1 + ahead]) === UPKEY[order[this.answer]]; } };
+  }
+  throw new Error('no graph');
+}
+// 5th grade: which resource caps the fish, then fix it.
+function genLimit() {
+  const want = pick(['food', 'space', 'air']);
+  for (let k = 0; k < 1200; k++) {
+    const P = rnd(0, 3), L = rnd(0, 3), f = rnd(2, 6), S = rnd(0, 2), B = 0;
+    const caps = { food: 2 * f, space: roomOf(P), air: Math.max(0, Math.floor((NUM.O_SURFACE + NUM.O_PLANT * P * L - NUM.O_SNAIL * S - NUM.O_BIG * B) / NUM.O_FISH)) };
+    const sorted = Object.entries(caps).sort((a, b) => a[1] - b[1]), [lowKey, low] = sorted[0], second = sorted[1][1];
+    if ((k < 500 && lowKey !== want) || low < 3 || second - low < 2 || second - low > 6 || second > 12) continue;
+    const start = { F: low, S, P, L, f, W: 0, I: 0, B };
+    if (NUM.A_LIGHT * L + NUM.A_FOOD * Math.max(0, 2 * f - low) - NUM.A_SNAIL * S - NUM.A_PLANT * P > 8) continue;
+    const names = { food: 'Food', space: 'Space', air: 'Air' }, order = shuffle(['food', 'space', 'air']);
+    const fix = fill({ D: 6, model: 'cap', goal: { grow: second }, panel: { type: 'caps' }, text: 'Now fix that limit. Grow the fish to ' + second + ' in 6 days.' },
+      { F: low, S, B }, { f: [[0, 9], f], P: [[0, 6], P], L: [[0, 3], L] });
+    return { kind: 'choice', setup: start, text: 'The fish grew, then stopped at ' + low + '. Look at the three resources. Which one is limiting the fish?',
+      choices: order.map(c => names[c]), answer: order.indexOf(lowKey), panel: { type: 'caps' }, caps, grid: true,
+      done: names[lowKey] + ' is the limiting factor. It runs out first.',
+      wrong: 'Compare each resource with the fish count. The smallest one is the limit.',
+      then: fix, verify() { return caps[lowKey] === Math.min(caps.food, caps.space, caps.air); } };
+  }
+  throw new Error('no limit');
+}
+// 5th/6th grade: the oxygen cycle, keep air above a line with the fewest plants.
+function genAir() {
+  for (let k = 0; k < 100; k++) {
+    const F = rnd(3, 6), S = rnd(0, 2), L = rnd(1, 3), line = pick([14, 16, 18, 20]);
+    const t = fill({ D: 10, goal: { groups: ['fish', 'snail', 'plant'], airLine: line, minimal: 'P' }, chart: { series: ['O'], hline: { y: line, label: 'line' }, ymax: 60 },
+      text: 'Trout need extra air. Plants make air in the light and fish use it. Keep the air above the line for 10 days with the fewest plants that work.' },
+      { F, S, L, f: half(F) }, { P: [[0, 6], 0] });
+    const sols = solutions(t); if (!sols.length) continue;
+    if (Math.min(...sols.map(s => s.P)) < 1) continue;
+    return t;
+  }
+  throw new Error('no air');
+}
+// 6th grade: an invasive species arrives. Predict, watch, then fix.
+function genInvader() {
+  const kind = pick(['crab', 'tadpole', 'duckweed']), inv = INVADERS[kind];
+  for (let k = 0; k < 300; k++) {
+    const F = kind === 'duckweed' ? rnd(2, 3) : rnd(3, 6);
+    const base = { F, S: rnd(1, 3), P: rnd(2, 4), L: kind === 'duckweed' ? 2 : rnd(1, 2), f: half(F) + (Math.random() < 0.5 ? 1 : 0), W: 0, I: 0, B: 0 };
+    const I0 = rnd(2, 4), lv0 = { D: 6, inv: kind, goal: { groups: NATIVE } };
+    if (!judge(base, lv0).ok) continue;
+    const invaded = Object.assign({}, base, { I: I0 }), r = judge(invaded, lv0);
+    if (r.ok || r.day > 2) continue;
+    const unwell = NATIVE.filter(g => r.days[r.day - 1].why[g]); if (unwell.length !== 1) continue;
+    const victim = unwell[0], lock = Object.assign({}, base); delete lock.I; delete lock.B;
+    const fix = fill({ D: 6, inv: kind, observe: true, goal: { groups: NATIVE, after: 3 }, chart: { series: ['F', 'I'] },
+      text: 'Watch what the ' + inv.name + ' do. Then fix it: remove them, or add a big fish. ' + inv.fix + ' Keep the natives healthy from day 3 to day 6.' },
+      lock, { I: [[0, I0], I0], B: [[0, 2], 0] });
+    if (!solutions(fix).length) continue;
+    return { kind: 'choice', setup: invaded, inv: kind, text: I0 + ' ' + inv.name + ' got into the tank. ' + inv.eats + ' Which native will drop first?',
+      choices: NATIVE.map(g => NATIVE_NAME[g]), answer: NATIVE.indexOf(victim), grid: true,
+      done: 'The ' + NATIVE_NAME[victim].toLowerCase() + ' lose out first. Let us watch it happen.',
+      wrong: 'Think about what the ' + inv.name + ' take, and who needed that.',
+      then: fix, verify() { const q = judge(invaded, lv0); return !q.ok && q.who === victim; } };
+  }
+  throw new Error('no invader');
+}
+// 6th/7th grade: carrying capacity as a number, then fill the tank to it.
+function genCapacity() {
+  for (let k = 0; k < 100; k++) {
+    const P = rnd(2, 6), K = roomOf(P), L = rnd(2, 3), S = rnd(2, 3);
+    const fix = fill({ D: 10, breed: true, goal: { groups: ['fish', 'snail', 'plant'], grow: K }, chart: { series: ['F'], hline: { y: K, label: 'capacity' }, ymax: 18 },
+      text: 'Fill the tank to its carrying capacity of ' + K + ' fish and hold it there for 10 days. No crash. Set the fish and the food.' },
+      { P, L, S }, { F: [[1, 16], 1], f: [[0, 9], 0] });
+    if (!solutions(fix).length) continue;
+    return { kind: 'number', setup: fix.start, answer: K, panel: { type: 'room', P },
+      text: 'Carrying capacity is the most fish a tank can hold over time. Room here is 3 fish plus 2 for every plant. This tank has ' + P + ' plants. What is its carrying capacity?',
+      done: '3 plus 2 times ' + P + ' is ' + K + '.', wrong: 'Start with 3. Then add 2 for each of the ' + P + ' plants.', then: fix };
+  }
+  throw new Error('no capacity');
+}
+// 7th grade: energy pyramids and the 10 percent rule.
+const CHAINS = [['plants', 'small fish', 'big fish'], ['algae', 'snails', 'small fish', 'heron'], ['plants', 'shrimp', 'small fish', 'big fish'], ['algae', 'water fleas', 'minnows', 'trout'], ['plants', 'tadpoles', 'big fish']];
+function genPyramid() {
+  const chain = pick(CHAINS), n = chain.length;
+  if (Math.random() < 0.6) {
+    const t = pick([1, 2, 3, 5]), answer = t * Math.pow(10, n - 1), kg = chain.map((c, i) => i === n - 1 ? t : i === 0 ? '?' : t * Math.pow(10, n - 1 - i));
+    return { kind: 'number', answer, setup: { F: 3, S: 1, P: 2, L: 2, f: 2, W: 0, I: 0, B: 1 }, panel: { type: 'pyramid', chain, kg },
+      text: 'Only 10 percent of the energy moves up each level of the pyramid. It takes 10 kg of ' + chain[n - 2] + ' to grow 1 kg of ' + chain[n - 1] + '. How many kg of ' + chain[0] + ' does it take to grow ' + t + ' kg of ' + chain[n - 1] + '?',
+      done: 'Each level down needs 10 times more. ' + t + ' kg at the top needs ' + answer + ' kg of ' + chain[0] + '.',
+      wrong: 'Go down the pyramid one level at a time. Multiply by 10 at each step.' };
+  }
+  const base = pick(n === 3 ? [100, 200, 500, 1000] : [1000, 2000, 5000, 10000]), answer = base / Math.pow(10, n - 1);
+  const kg = chain.map((c, i) => i === 0 ? base : i === n - 1 ? '?' : base / Math.pow(10, i));
+  return { kind: 'number', answer, setup: { F: 3, S: 1, P: 2, L: 2, f: 2, W: 0, I: 0, B: 1 }, panel: { type: 'pyramid', chain, kg },
+    text: 'Only 10 percent of the energy moves up each level. This pond grows ' + base + ' kg of ' + chain[0] + ' a year. How many kg of ' + chain[n - 1] + ' can that feed?',
+    done: 'Each level up keeps 10 percent. ' + base + ' kg of ' + chain[0] + ' feeds ' + answer + ' kg of ' + chain[n - 1] + '.',
+    wrong: 'Go up the pyramid one level at a time. Divide by 10 at each step.' };
+}
+// 7th/8th grade: biomagnification. A toxin enters the water.
+const TOXCHAINS = [['algae', 'small fish', 'big fish', 'heron'], ['algae', 'water fleas', 'minnows', 'otter'], ['plants', 'snails', 'small fish', 'big fish'], ['algae', 'shrimp', 'trout', 'eagle']];
+function genToxin() {
+  const chain = pick(TOXCHAINS), n = chain.length, x = pick([1, 2, 3, 5]);
+  const setup = { F: 3, S: 1, P: 2, L: 2, f: 2, W: 0, I: 0, B: 1 };
+  if (Math.random() < 0.65) {
+    const most = Math.random() < 0.7, order = shuffle(chain.map((c, i) => i)), top = most ? n - 1 : 0;
+    return { kind: 'choice', setup, choices: order.map(i => chain[i].charAt(0).toUpperCase() + chain[i].slice(1)), answer: order.indexOf(top), grid: true, chain, x,
+      text: 'A toxin leaked into the water. Each step up the food chain holds 10 times more of it in the body. After 20 days, which living thing has the ' + (most ? 'most' : 'least') + ' toxin?',
+      panel: { type: 'toxin', chain, x, day: 0, D: 20 },
+      done: (most ? 'The ' + chain[n - 1] + ' is at the top of the chain, so it holds the most. ' : 'The ' + chain[0] + ' are at the bottom, so they hold the least. ') + 'This is called biomagnification.',
+      wrong: 'Find the ' + (most ? 'top' : 'bottom') + ' of the food chain. Each step up holds 10 times more.',
+      reveal: { toxin: true } };
+  }
+  const k = rnd(1, n - 1), answer = x * Math.pow(10, k);
+  return { kind: 'number', setup, answer, chain, x, panel: { type: 'toxin', chain, x, day: 20, D: 20, hide: k },
+    text: 'The toxin in the water is ' + x + '. The ' + chain[0] + ' hold ' + x + '. Each step up the chain holds 10 times more. How much toxin is in the ' + chain[k] + '?',
+    done: 'Toxin in the ' + chain[k] + ': ' + answer + '. That is ' + k + (k === 1 ? ' step' : ' steps') + ' up, and each step is 10 times more.',
+    wrong: 'Count the steps from the ' + chain[0] + ' to the ' + chain[k] + '. Multiply by 10 for each step.', reveal: { toxin: true } };
+}
+// What a tank measured over its run: the average air or algae, rounded.
+const measure = (days, M) => Math.round(days.reduce((a, d) => a + d[M], 0) / days.length);
+// 8th grade: experimental design, pick the fair test.
+const QUESTIONS = [
+  { V: 'L', M: 'A', q: 'if more light makes more algae' }, { V: 'f', M: 'A', q: 'if more food makes more algae' },
+  { V: 'P', M: 'O', q: 'if more plants make more air' }, { V: 'S', M: 'A', q: 'if snails keep the water clearer' },
+  { V: 'F', M: 'O', q: 'if more fish use up the air' },
+];
+const MEASURE = { O: { name: 'air', more: 'more air', less: 'less air' }, A: { name: 'algae', more: 'more algae', less: 'less algae' } };
+const LOWHIGH = { F: [2, 6], S: [1, 4], P: [1, 4], L: [1, 3], f: [1, 4] };
+const ORDER = ['L', 'F', 'P', 'S', 'f'];
+function genExperiment() {
+  const Q = pick(QUESTIONS), V = Q.V, U = pick(ORDER.filter(v => v !== V)), C = pick(ORDER.filter(v => v !== V && v !== U));
+  const keys = ORDER.filter(v => [V, U, C].includes(v)), who = pick(KIDS);
+  const base = { F: 3, S: 2, P: 2, L: 2, f: 2, W: 0, I: 0, B: 0 }; base[V] = LOWHIGH[V][0]; base[U] = LOWHIGH[U][0];
+  const high = Object.assign({}, base, { [V]: LOWHIGH[V][1] }), both = Object.assign({}, high, { [U]: LOWHIGH[U][1] });
+  const plans = [
+    { key: 'fair', text: 'Tank A: ' + describeTank(base, keys) + '. Tank B: ' + describeTank(high, keys) + '. Compare the ' + MEASURE[Q.M].name + ' after 30 days.' },
+    { key: 'two', text: 'Tank A: ' + describeTank(base, keys) + '. Tank B: ' + describeTank(both, keys) + '. Compare the ' + MEASURE[Q.M].name + ' after 30 days.', why: 'That plan changes two things at once. If the ' + MEASURE[Q.M].name + ' changes, you cannot tell which one did it.' },
+    { key: 'one', text: 'One tank: ' + describeTank(high, keys) + '. Measure the ' + MEASURE[Q.M].name + ' after 30 days.', why: 'One tank has nothing to compare against. A fair test keeps a control tank that differs in one thing only.' },
+  ];
+  const order = shuffle([0, 1, 2]), lv = { D: 30, model: 'cap', still: true };
+  const endA = measure(simulateCap(base, lv), Q.M), endB = measure(simulateCap(high, lv), Q.M);
+  return { kind: 'choice', setup: base, choices: order.map(i => plans[i].text), answer: order.indexOf(0), plans, order,
+    text: who + ' wants to know ' + Q.q + '. Which plan is a fair test?', panel: { type: 'note', text: 'A fair test changes one thing. Everything else stays the same, and a control tank shows what happens with no change.' },
+    done: 'Only the ' + VNAME[V] + (isPl(V) ? ' differ' : ' differs') + ', so any change in the ' + MEASURE[Q.M].name + ' comes from the ' + VNAME[V] + '.',
+    wrongFor(i) { return plans[order[i]].why; },
+    reveal: { compare: { M: Q.M, a: endA, b: endB, labels: ['Tank A', 'Tank B'] } } };
+}
+// 8th grade: read a table of three tanks and pick the conclusion the data support.
+const DATA_PAIRS = [['P', 'O', 1], ['P', 'A', -1], ['L', 'O', 1], ['L', 'A', 1], ['S', 'A', -1], ['f', 'A', 1]];
+const TRIPLES = { P: [[0, 2, 4], [1, 3, 5], [0, 3, 6]], L: [[1, 2, 3]], S: [[0, 2, 4], [1, 2, 3], [0, 3, 6]], f: [[1, 3, 5], [2, 4, 6], [1, 2, 3]] };
+function genData() {
+  for (let k = 0; k < 400; k++) {
+    const [V, M, dir] = pick(DATA_PAIRS), vals = pick(TRIPLES[V]), lv = { D: 30, model: 'cap', still: true };
+    const base = { F: rnd(2, 5), S: rnd(1, 2), P: rnd(1, 3), L: rnd(1, 2), f: rnd(2, 4), W: 0, I: 0, B: 0 };
+    const tanks = vals.map(v => Object.assign({}, base, { [V]: v })), ends = tanks.map(t => measure(simulateCap(t, lv), M));
+    const gap = M === 'O' ? 4 : 8;
+    if (!(dir * (ends[1] - ends[0]) >= gap && dir * (ends[2] - ends[1]) >= gap)) continue;
+    if (ends.some(e => e >= 100)) continue;
+    const m = MEASURE[M], U = pick(['F', 'S', 'P', 'L', 'f'].filter(v => v !== V));
+    const opts = [
+      { text: 'More ' + VNAME[V] + ' means ' + (dir > 0 ? m.more : m.less) + '.', ok: true },
+      { text: 'More ' + VNAME[V] + ' means ' + (dir > 0 ? m.less : m.more) + '.', why: 'Read the ' + m.name + ' column again as the ' + VNAME[V] + ' go up.' },
+      { text: 'The ' + VNAME[V] + (isPl(V) ? ' do not change the ' : ' does not change the ') + m.name + '.', why: 'The ' + m.name + ' changed every time the ' + VNAME[V] + ' changed.' },
+      { text: 'More ' + VNAME[U] + ' means ' + pick([m.more, m.less]) + '.', why: 'The ' + VNAME[U] + (isPl(U) ? ' were' : ' was') + ' the same in every tank. These data say nothing about ' + VNAME[U] + '.' },
+    ];
+    const order = shuffle([0, 1, 2, 3]);
+    return { kind: 'choice', setup: tanks[1], choices: order.map(i => opts[i].text), answer: order.indexOf(0),
+      text: 'Three tanks ran for 30 days. Only the ' + VNAME[V] + (isPl(V) ? ' were' : ' was') + ' different. Which conclusion do the data support?',
+      panel: { type: 'table', tanks, ends, M }, done: 'The ' + m.name + ' moved the same way each time the ' + VNAME[V] + ' changed, and nothing else changed.',
+      wrongFor(i) { return opts[order[i]].why; },
+      verify() { const e = tanks.map(t => measure(simulateCap(t, lv), M)); return dir * (e[2] - e[0]) > 0; } };
+  }
+  throw new Error('no data');
+}
+
+// The ladder, pre-K to 8th grade. Grade bands:
+//   0 Plants need light (pre-K), 1 Feed the fish (K), 2 Fish need air (1st, 2nd), 3 Clean the glass (2nd),
+//   4 Hungry snails (2nd, 3rd), 5 Room to swim (3rd), 6 Baby fish (3rd), 7 Food chain (3rd, 4th),
+//   8 Balanced tank (4th), 9 Big food chain (4th), 10 Food web (4th), 11 Read the graph (4th, 5th),
+//   12 What is the limit (5th), 13 Air for trout (5th, 6th), 14 Invaders (6th), 15 Carrying capacity (6th, 7th),
+//   16 Energy pyramid (7th), 17 Toxin in the chain (7th, 8th), 18 Fair test (8th), 19 What the data say (8th)
 const LEVELS = [
   { name: 'Plants need light', gen() { return fill({ D: 2, goal: { groups: ['plant'] }, text: 'The plants look sad. Turn on the light so they stay green for 2 days!' }, { F: 2, S: 0, P: 2, f: 1 }, { L: [[0, 3], 0] }); } },
   { name: 'Feed the fish', gen() { const F = rnd(2, 4); return fill({ D: 2, goal: { groups: ['fish'] }, text: 'Feed the ' + F + ' fish so they stay healthy for 2 days. Each pinch feeds 2 fish.' }, { F, S: 0, P: 2, L: 2 }, { f: [[0, 5], 0] }); } },
@@ -400,19 +713,57 @@ const LEVELS = [
   { name: 'Food chain', gen() { return fill({ D: 4, B: 1, breed: true, goal: { groups: ['fish', 'big', 'snail', 'plant'], minEnd: 2 }, text: 'Food chain! The big fish eats 1 small fish a day. Keep it fed for 4 days, with 2 small fish left at the end.' }, { S: 1 }, { F: [[1, 8], 1], P: [[0, 6], 2], L: [[0, 3], 2], f: [[0, 5], 1] }); } },
   { name: 'Balanced tank', gen() { const F = rnd(5, 7), S = rnd(2, 3); return fill({ D: 5, goal: { groups: ['fish', 'snail', 'plant'] }, text: 'Balance the whole tank! Keep ' + F + ' fish, ' + S + ' snails and the plants healthy for 5 days.' }, { F, S }, { P: [[0, 6], 1], L: [[0, 3], 0], f: [[0, 5], 0] }); } },
   { name: 'Big food chain', gen() { return fill({ D: 5, B: 2, breed: true, goal: { groups: ['fish', 'big', 'snail', 'plant'], minEnd: 3 }, text: '2 big fish eat 2 small fish a day. Keep everyone healthy for 5 days, with 3 small fish left at the end.' }, { S: 2 }, { F: [[1, 10], 2], P: [[0, 6], 1], L: [[0, 3], 1], f: [[0, 5], 1] }); } },
+  { name: 'Food web', gen: genFoodWeb },
+  { name: 'Read the graph', gen: genGraph },
+  { name: 'What is the limit?', gen: genLimit },
+  { name: 'Air for trout', gen: genAir },
+  { name: 'Invaders', gen: genInvader },
+  { name: 'Carrying capacity', gen: genCapacity },
+  { name: 'Energy pyramid', gen: genPyramid },
+  { name: 'Toxin in the chain', gen: genToxin },
+  { name: 'Fair test', gen: genExperiment },
+  { name: 'What the data say', gen: genData },
 ];
 // Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
 const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('science', LEVELS.length, 2) : 2);
-function genLevel(i) {
-  for (let k = 0; k < 40; k++) {
-    const lv = LEVELS[i].gen(); lv.level = i; lv.B = lv.B || 0;
-    if (judge(lv.start, lv).ok) continue;
-    const sols = solutions(lv); if (!sols.length) continue;
-    lv.solution = pick(sols); lv.count = sols.length; return lv;
-  }
-  throw new Error('no solvable tank for level ' + i);
-}
 
+// Check one generated task and fill in its solution. Throws when the task is malformed.
+const BADTEXT = /\bNaN\b|\bundefined\b|\bnull\b|\[object/;
+function validate(t) {
+  if (!t || typeof t.text !== 'string' || !t.text.trim() || BADTEXT.test(t.text)) throw new Error('bad text');
+  if (t.kind === 'choice') {
+    if (!Array.isArray(t.choices) || t.choices.length < 2 || t.choices.length > 4) throw new Error('bad choice count');
+    if (new Set(t.choices).size !== t.choices.length) throw new Error('repeated choice');
+    for (const c of t.choices) if (typeof c !== 'string' || !c.trim() || BADTEXT.test(c)) throw new Error('bad choice text');
+    if (!Number.isInteger(t.answer) || t.answer < 0 || t.answer >= t.choices.length) throw new Error('answer not among the choices');
+    if (t.verify && !t.verify()) throw new Error('answer does not match the model');
+  } else if (t.kind === 'number') {
+    if (!Number.isInteger(t.answer) || t.answer < 0 || t.answer > 99999) throw new Error('bad number answer');
+  } else {
+    if (!(t.D >= 1 && t.D <= 40)) throw new Error('bad day count');
+    for (const v of VARS) {
+      if (!Number.isInteger(t.start[v])) throw new Error('bad start ' + v);
+      if (v in t.range) { const [a, b] = t.range[v]; if (a > t.start[v] || t.start[v] > b || a < RANGE[v][0] || b > RANGE[v][1]) throw new Error('bad range ' + v); }
+    }
+    if (judge(t.start, t).ok) throw new Error('start already solved');
+    const sols = solutions(t); if (!sols.length) throw new Error('no solution');
+    if (t.goal.minimal) { t.minP = Math.min(...sols.map(s => s.P)); if (t.minP < 1) throw new Error('trivial minimum'); t.solution = sols.find(s => s.P === t.minP); t.count = 1; }
+    else { t.solution = pick(sols); t.count = sols.length; }
+  }
+  if (t.done && BADTEXT.test(String(t.done))) throw new Error('bad done text');
+  if (t.then) validate(t.then);
+  return t;
+}
+function genLevel(i) {
+  let err = null;
+  for (let k = 0; k < 40; k++) { try { const t = LEVELS[i].gen(); t.level = i; return validate(t); } catch (e) { err = e; } }
+  throw new Error('no task for level ' + i + ': ' + (err && err.message));
+}
+function describe(t) {
+  const a = t.kind === 'choice' ? t.choices[t.answer] : t.kind === 'number' ? String(t.answer) : t.count + ' of ' + setups(t).length + ' setups work';
+  return t.text.slice(0, 70) + ' -> ' + a + (t.then ? ' | then: ' + describe(t.then) : '');
+}
+// PURE END
 // ---------------------------------------------------------------------------
 // Progress
 // ---------------------------------------------------------------------------
@@ -421,7 +772,7 @@ let P = { stars: 0, lv: START, st: { streak: 0, miss: 0 } };
 try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) P = Object.assign(P, s, { st: Object.assign({ streak: 0, miss: 0 }, s.st || {}) }); } catch (e) {}
 P.lv = Math.max(0, Math.min(LEVELS.length - 1, P.lv | 0));
 function persist() { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} }
-// One result per tank: right first try, or missed. Returns +1, -1 or 0 for a level change.
+// One result per problem: right first try, or missed. Returns +1, -1 or 0 for a level change.
 function record(right) {
   const s = P.st; let change = 0;
   if (right) { s.miss = 0; s.streak++; if (s.streak >= 4 && P.lv < LEVELS.length - 1) { P.lv++; s.streak = 0; change = 1; } }
@@ -533,6 +884,41 @@ function makeSnail() {
   g.userData = { dir: Math.random() < 0.5 ? 1 : -1, speed: 0.08 + Math.random() * 0.06, shellM };
   return g;
 }
+// Shrimp: the clean-up crew, shown as decomposers.
+function makeShrimp() {
+  const g = new THREE.Group(), m = mat(0xFFB4A2, { roughness: 0.5 });
+  const body = new THREE.Mesh(sphere, m); body.scale.set(0.2, 0.08, 0.07); body.position.y = 0.08; g.add(body);
+  const tail = new THREE.Mesh(cone, m); tail.scale.set(0.07, 0.12, 0.04); tail.rotation.z = Math.PI / 2 + 0.7; tail.position.set(-0.2, 0.06, 0); g.add(tail);
+  for (const s of [1, -1]) { const e = new THREE.Mesh(sphere, eyeB); e.scale.setScalar(0.022); e.position.set(0.18, 0.12, 0.035 * s); g.add(e); const w = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.3, 4), m); w.position.set(0.3, 0.16, 0.03 * s); w.rotation.z = -1.1; g.add(w); }
+  g.userData = { dir: Math.random() < 0.5 ? 1 : -1, speed: 0.12 + Math.random() * 0.08 };
+  return g;
+}
+// Invaders.
+function makeCrab() {
+  const g = new THREE.Group(), m = mat(0xE0432E, { roughness: 0.6 });
+  const body = new THREE.Mesh(sphere, m); body.scale.set(0.22, 0.1, 0.16); body.position.y = 0.1; g.add(body);
+  for (const s of [1, -1]) {
+    const claw = new THREE.Mesh(sphere, m); claw.scale.set(0.08, 0.06, 0.06); claw.position.set(0.12 * s, 0.1, 0.18); g.add(claw);
+    for (let k = 0; k < 3; k++) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.2, 4), m); leg.position.set((k - 1) * 0.09, 0.06, 0.16 * s); leg.rotation.x = 1.1 * s; g.add(leg); }
+    const e = new THREE.Mesh(sphere, eyeB); e.scale.setScalar(0.025); e.position.set(0.06 * s, 0.2, 0.12); g.add(e);
+  }
+  g.userData = { dir: Math.random() < 0.5 ? 1 : -1, speed: 0.1 + Math.random() * 0.08 };
+  return g;
+}
+function makeTadpole() {
+  const g = new THREE.Group(), m = mat(0x3C4A2A, { roughness: 0.5 });
+  const body = new THREE.Mesh(sphere, m); body.scale.set(0.16, 0.12, 0.1); g.add(body);
+  const tail = new THREE.Mesh(cone, m); tail.scale.set(0.05, 0.28, 0.03); tail.rotation.z = Math.PI / 2; tail.position.x = -0.26; g.add(tail);
+  for (const s of [1, -1]) { const e = new THREE.Mesh(sphere, eyeW); e.scale.setScalar(0.035); e.position.set(0.08, 0.06, 0.08 * s); g.add(e); }
+  g.userData = { body, tail, base: new THREE.Color(0x3C4A2A), m, big: false, v: new THREE.Vector3(), target: new THREE.Vector3(), speed: 0.9 + Math.random() * 0.4, ph: Math.random() * 6 };
+  return g;
+}
+function makeDuckweed() {
+  const g = new THREE.Group(), m = mat(0x4FCB4A, { roughness: 0.7 });
+  for (let k = 0; k < 6; k++) { const leaf = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.03, 10), m); leaf.position.set((Math.random() - 0.5) * 0.5, 0, (Math.random() - 0.5) * 0.4); g.add(leaf); }
+  g.userData = { ph: Math.random() * 6 };
+  return g;
+}
 const PLANT_GREEN = [0x00D46A, 0x2EE66B, 0x7CFF6B, 0x00C2A8], SAD_PLANT = new THREE.Color(0xB89A4A);
 const segG = new THREE.CylinderGeometry(0.05, 0.07, 0.42, 7).translate(0, 0.21, 0), leafG = new THREE.SphereGeometry(1, 10, 6);
 function makePlant() {
@@ -550,17 +936,25 @@ function makePlant() {
   g.userData = { stems, m, base: new THREE.Color(col), ph: Math.random() * 6 };
   return g;
 }
-const fishes = [], snails = [], plants = [], bigs = [];
+const fishes = [], snails = [], plants = [], bigs = [], shrimps = [], invaders = [];
 const PLANT_SPOTS = [[-3.2, 0.5], [-1.9, -0.9], [-0.8, 0.8], [2.0, 0.9], [3.3, -0.3], [-3.4, -1.1]];
+const EMPTY = { F: 0, S: 0, P: 0, L: 0, f: 0, W: 0, I: 0, B: 0 };
 function syncCreatures(st) {
   const sync = (arr, n, make, place) => {
     while (arr.length > n) { const o = arr.pop(); tank.remove(o); }
     while (arr.length < n) { const o = make(arr.length); place(o, arr.length); tank.add(o); arr.push(o); o.userData.pop = 1; }
   };
-  sync(fishes, st.F, k => makeFish(FISH_COLORS[k % FISH_COLORS.length]), o => { o.position.set((Math.random() - 0.5) * 6, WATER_TOP - 0.2, (Math.random() - 0.5) * 2); newTarget(o); });
-  sync(bigs, task ? task.B : 0, () => makeFish(0x7C4DFF, true), o => { o.position.set((Math.random() - 0.5) * 4, 0.5, 0); newTarget(o); });
-  sync(snails, st.S, () => makeSnail(), o => { o.position.set((Math.random() - 0.5) * (TW - 1.5), SAND_Y, 0.6 + Math.random() * 0.8); });
-  sync(plants, st.P, () => makePlant(), (o, k) => { const p = PLANT_SPOTS[k % PLANT_SPOTS.length]; o.position.set(p[0], SAND_Y - 0.05, p[1]); });
+  sync(fishes, st.F || 0, k => makeFish(FISH_COLORS[k % FISH_COLORS.length]), o => { o.position.set((Math.random() - 0.5) * 6, WATER_TOP - 0.2, (Math.random() - 0.5) * 2); newTarget(o); });
+  sync(bigs, st.B || 0, () => makeFish(0x7C4DFF, true), o => { o.position.set((Math.random() - 0.5) * 4, 0.5, 0); newTarget(o); });
+  sync(snails, st.S || 0, () => makeSnail(), o => { o.position.set((Math.random() - 0.5) * (TW - 1.5), SAND_Y, 0.6 + Math.random() * 0.8); });
+  sync(plants, st.P || 0, () => makePlant(), (o, k) => { const p = PLANT_SPOTS[k % PLANT_SPOTS.length]; o.position.set(p[0], SAND_Y - 0.05, p[1]); });
+  sync(shrimps, st.W || 0, () => makeShrimp(), o => { o.position.set((Math.random() - 0.5) * (TW - 1.5), SAND_Y, -0.2 + Math.random() * 0.6); });
+  const kind = step && step.inv;
+  sync(invaders, kind ? (st.I || 0) : 0, () => kind === 'crab' ? makeCrab() : kind === 'tadpole' ? makeTadpole() : makeDuckweed(), o => {
+    if (kind === 'crab') o.position.set((Math.random() - 0.5) * (TW - 1.5), SAND_Y, 0.3 + Math.random() * 0.8);
+    else if (kind === 'tadpole') { o.position.set((Math.random() - 0.5) * 6, 0, (Math.random() - 0.5) * 2); newTarget(o); }
+    else o.position.set((Math.random() - 0.5) * (TW - 1.5), WATER_TOP + 0.02, (Math.random() - 0.5) * (TD - 1));
+  });
 }
 function newTarget(o) { const b = o.userData.big ? 1.6 : 0.6; o.userData.target.set((Math.random() - 0.5) * (TW - 2 * b), SAND_Y + 0.6 + Math.random() * (WATER_TOP - SAND_Y - 1.2), (Math.random() - 0.5) * (TD - 1.2)); }
 
@@ -575,7 +969,7 @@ const flakeG = new THREE.BoxGeometry(0.07, 0.02, 0.07), flakeM = [mat(0xFF4F8B),
 function dropFood(n) { for (let k = 0; k < n * 6; k++) { const m = new THREE.Mesh(flakeG, pick(flakeM)); m.position.set((Math.random() - 0.5) * 5, WATER_TOP + 0.3, (Math.random() - 0.5) * 2); m.userData.v = 0.4 + Math.random() * 0.4; tank.add(m); flakes.push(m); } }
 
 // What the tank looks like right now.
-const view = { light: 1, algae: 0, sick: { fish: false, snail: false, plant: false, big: false }, night: 0 };
+const view = { light: 1, algae: 0, sick: { fish: false, snail: false, plant: false, big: false, shrimp: false }, night: 0 };
 const CLEAR = new THREE.Color(0x3EC9FF), GREEN = new THREE.Color(0x6FB52C);
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), SC = new THREE.Vector3();
 function tickTank(dt, t) {
@@ -586,7 +980,7 @@ function tickTank(dt, t) {
   const pos = surf.geometry.attributes.position;
   for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 1.6 + t * 2) * 0.03 + Math.cos(pos.getY(i) * 2 + t * 1.5) * 0.02);
   pos.needsUpdate = true;
-  const swim = (o, sick, k) => {
+  const swim = (o, sick) => {
     const u = o.userData; u.ph += dt * (sick ? 4 : 10);
     if (u.pop > 0) { u.pop = Math.max(0, u.pop - dt * 2); }
     const sp = u.speed * (sick ? 0.35 : 1);
@@ -597,8 +991,15 @@ function tickTank(dt, t) {
     u.tail.rotation.y = Math.sin(u.ph) * 0.5; u.m.color.copy(u.base).lerp(SICK, sick ? 0.7 : 0);
     const s = (u.big ? 2.1 : 1) * (1 + Math.sin((u.pop || 0) * Math.PI) * 0.6); o.scale.setScalar(s);
   };
-  fishes.forEach((o, k) => swim(o, view.sick.fish, k)); bigs.forEach((o, k) => swim(o, view.sick.big, k));
-  snails.forEach(o => { const u = o.userData; const sp = u.speed * (view.sick.snail ? 0.2 : 1); o.position.x += u.dir * sp * dt; if (Math.abs(o.position.x) > TW / 2 - 0.6) { u.dir *= -1; o.position.x = Math.sign(o.position.x) * (TW / 2 - 0.6); } o.rotation.y = u.dir > 0 ? 0 : Math.PI; o.scale.setScalar(1 + Math.sin((u.pop || 0) * Math.PI) * 0.6); if (u.pop > 0) u.pop = Math.max(0, u.pop - dt * 2); });
+  const crawl = (o, slow) => {
+    const u = o.userData; const sp = u.speed * (slow ? 0.2 : 1); o.position.x += u.dir * sp * dt;
+    if (Math.abs(o.position.x) > TW / 2 - 0.6) { u.dir *= -1; o.position.x = Math.sign(o.position.x) * (TW / 2 - 0.6); }
+    o.rotation.y = u.dir > 0 ? 0 : Math.PI; o.scale.setScalar(1 + Math.sin((u.pop || 0) * Math.PI) * 0.6); if (u.pop > 0) u.pop = Math.max(0, u.pop - dt * 2);
+  };
+  fishes.forEach(o => swim(o, view.sick.fish)); bigs.forEach(o => swim(o, view.sick.big));
+  snails.forEach(o => crawl(o, view.sick.snail)); shrimps.forEach(o => crawl(o, view.sick.shrimp));
+  const kind = step && step.inv;
+  invaders.forEach(o => { if (kind === 'tadpole') swim(o, false); else if (kind === 'crab') crawl(o, false); else { o.position.y = WATER_TOP + 0.02 + Math.sin(t * 2 + o.userData.ph) * 0.02; o.rotation.y += dt * 0.1; } });
   plants.forEach(o => { const u = o.userData; u.m.color.copy(u.base).lerp(SAD_PLANT, view.sick.plant ? 0.75 : 0); u.stems.forEach((ch, s) => ch.forEach((seg, k) => { seg.rotation.z = (k ? 1 : 0) * Math.sin(t * 1.3 + u.ph + s + k * 0.6) * (view.sick.plant ? 0.25 : 0.12); seg.rotation.x = Math.sin(t * 0.9 + u.ph + k) * 0.05; })); const sc = 1 + Math.sin((u.pop || 0) * Math.PI) * 0.5; o.scale.set(sc, view.sick.plant ? sc * 0.8 : sc, sc); if (u.pop > 0) u.pop = Math.max(0, u.pop - dt * 2); });
   // Plants make oxygen bubbles when the light is on.
   const rate = plants.length * lit * (view.sick.plant ? 0.2 : 1) * 3;
@@ -616,117 +1017,305 @@ function tickTank(dt, t) {
 }
 
 // ---------------------------------------------------------------------------
-// Controls
+// Controls: the bottom bar holds the tank settings, the number pad, or nothing (answers are in the panel).
 // ---------------------------------------------------------------------------
-const CTL = { F: ['🐟', 'Fish'], S: ['🐌', 'Snails'], P: ['🌿', 'Plants'], L: ['💡', 'Light'], f: ['🍤', 'Food a day'] };
-let task = null, setup = null, missed = false, won = false, running = false, speed = 1, runTimer = null;
+const CTL = { F: ['🐟', 'Fish'], S: ['🐌', 'Snails'], P: ['🌿', 'Plants'], L: ['💡', 'Light'], f: ['🍤', 'Food a day'], W: ['🦐', 'Shrimp'], I: ['🦀', 'Invaders'], B: ['🦈', 'Big fish'] };
+let task = null, step = null, setup = null, missed = false, won = false, running = false, speed = 1, runTimer = null, animTimer = null;
+let lastRes = null, shownDay = 0, typed = '';
+function ctlOf(v) { if (v === 'I' && step && step.inv) { const i = INVADERS[step.inv]; return [i.icon, capWord(i.short)]; } return CTL[v]; }
 function renderControls() {
   // Settings the child can change sit in the bottom bar. Settings fixed by the level show as chips by the gauges.
-  const box = $('controls'), lk = $('locked'); box.innerHTML = ''; lk.innerHTML = '';
+  const box = $('controls'), lk = $('locked'), locked = running || (step && step.observe); box.innerHTML = ''; lk.innerHTML = ''; box.classList.remove('off');
   for (const v of VARS) {
-    const val = v === 'L' ? LIGHTS[setup.L] : setup[v];
-    if (v in task.lock) {
-      if (!task.lock[v] && v !== 'L') continue;
-      const c = document.createElement('div'); c.className = 'g lockchip'; c.dataset.v = v; c.textContent = '🔒 ' + CTL[v][0] + ' ' + CTL[v][1] + ': ' + val; lk.appendChild(c); continue;
+    const val = v === 'L' ? LIGHTS[setup.L] : setup[v], [icon, name] = ctlOf(v);
+    if (v in step.lock) {
+      if (!step.lock[v] && v !== 'L') continue;
+      const c = document.createElement('div'); c.className = 'g lockchip'; c.dataset.v = v; c.textContent = '🔒 ' + icon + ' ' + name + ': ' + val; lk.appendChild(c); continue;
     }
     const c = document.createElement('div'); c.className = 'ctl' + (v === 'L' ? ' light' : ''); c.dataset.v = v;
-    c.innerHTML = '<div class="lab">' + CTL[v][0] + ' ' + CTL[v][1] + '</div><div class="row"><button data-d="-1" title="Less">−</button><span class="val">' + val + '</span><button data-d="1" title="More">+</button></div>';
+    c.innerHTML = '<div class="lab">' + icon + ' ' + name + '</div><div class="row"><button data-d="-1" title="Less">−</button><span class="val">' + val + '</span><button data-d="1" title="More">+</button></div>';
     box.appendChild(c);
     c.querySelectorAll('button').forEach(b => {
-      const [lo, hi] = task.range[v], d = +b.dataset.d; b.disabled = running || (d < 0 ? setup[v] <= lo : setup[v] >= hi);
+      const [lo, hi] = step.range[v], d = +b.dataset.d; b.disabled = locked || (d < 0 ? setup[v] <= lo : setup[v] >= hi);
       b.onclick = () => change(v, d);
     });
   }
-  if (task.B) { const c = document.createElement('div'); c.className = 'g lockchip'; c.textContent = '🔒 🦈 Big fish: ' + task.B; lk.appendChild(c); }
-  const r = document.createElement('button'); r.id = 'run'; r.textContent = '▶ Run ' + task.D + ' days'; r.disabled = running; r.onclick = run; box.appendChild(r);
+  const r = document.createElement('button'); r.id = 'run'; r.textContent = '▶ Run ' + step.D + ' days'; r.disabled = locked; r.onclick = run; box.appendChild(r);
   $('room').textContent = '🏠 Room for ' + roomOf(setup.P) + ' fish';
 }
 function change(v, d) {
-  if (running || won) return; const [lo, hi] = task.range[v]; const x = clamp(setup[v] + d, lo, hi); if (x === setup[v]) return;
+  if (running || won || step.observe) return; const [lo, hi] = step.range[v]; const x = clamp(setup[v] + d, lo, hi); if (x === setup[v]) return;
   setup[v] = x; ac();
   if (v === 'f') { if (d > 0) dropFood(1); SND.plop(); }
   else if (v === 'L') { SND.tick(); view.light = setup.L / 3; }
   else { d > 0 ? SND.bloop() : SND.plop(); syncCreatures(setup); }
-  resetView(); renderControls();
+  resetView(); renderControls(); drawPanel();
 }
-function resetView() { view.light = setup.L / 3; view.algae = 0; view.night = 0; view.sick = { fish: false, snail: false, plant: false, big: false }; gauges(null); }
+function resetView() { view.light = setup.L / 3; view.algae = 0; view.night = 0; view.sick = { fish: false, snail: false, plant: false, big: false, shrimp: false }; gauges(null); }
 function gauges(d) {
   const O = d ? d.O : null; $('gO').style.width = (O === null ? 0 : Math.min(100, O * 2)) + '%'; $('gA').style.width = (100 - (d ? d.A : 0)) + '%';
+}
+// The number pad, for answers that are a number.
+function renderNumpad() {
+  const box = $('controls'); box.innerHTML = ''; box.classList.remove('off'); $('locked').innerHTML = ''; typed = '';
+  const d = document.createElement('div'); d.className = 'npv'; d.id = 'npv'; box.appendChild(d);
+  for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '⌫', 'OK']) { const b = document.createElement('button'); b.className = 'key' + (k === 'OK' ? ' ok' : ''); b.textContent = k; b.onclick = () => key(k); box.appendChild(b); }
+}
+function key(k) {
+  if (won || !step || step.kind !== 'number') return; ac(); SND.tick();
+  if (k === '⌫') typed = typed.slice(0, -1);
+  else if (k === 'OK') { if (typed) answer(parseInt(typed, 10)); return; }
+  else if (typed.length < 5) typed += k;
+  $('npv').textContent = typed;
+}
+
+// ---------------------------------------------------------------------------
+// The panel: charts, tables and answer buttons drawn over the tank.
+// ---------------------------------------------------------------------------
+const META = { F: ['Small fish', '#FF4F8B'], B: ['Big fish', '#7C4DFF'], O: ['Air', '#1E9BD7'], A: ['Algae', '#5A9E1F'], I: ['Invaders', '#E0432E'] };
+const FONT = '"Segoe UI", system-ui, sans-serif';
+const capWord = s => s.charAt(0).toUpperCase() + s.slice(1);
+let fig = null;
+function showPanel(spec, mini) {
+  const p = $('panel'); fig = null; p.innerHTML = ''; p.className = '';
+  if (!spec) return;
+  p.className = 'on' + (mini ? ' mini' : '');
+  const el = document.createElement('div'); el.className = 'fig ' + spec.type; p.appendChild(el);
+  fig = { spec, el, cv: null };
+  if (spec.type in DRAW) { const cv = document.createElement('canvas'); el.appendChild(cv); fig.cv = cv; }
+}
+function drawPanel() {
+  if (!fig) return; const { spec, el, cv } = fig;
+  if (cv) {
+    const r = el.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.max(10, Math.floor(r.width)), h = Math.max(10, Math.floor(r.height));
+    if (cv.width !== w * dpr || cv.height !== h * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h); DRAW[spec.type](g, w, h, spec);
+  } else HTMLFIG[spec.type](el, spec);
+}
+function drawLines(g, w, h, o) {
+  const small = h < 200, padL = small ? 30 : 40, padR = 12, padT = small ? 20 : 26, padB = small ? 20 : 28, W = w - padL - padR, H = h - padT - padB;
+  const xmax = Math.max(2, o.xmax), vals = o.series.flatMap(k => o.days.map(d => d[k]));
+  let ymax = o.ymax || Math.max(5, ...vals, o.hline ? o.hline.y + 2 : 0); ymax = Math.ceil(ymax / 5) * 5;
+  const X = d => padL + (d - 1) / (xmax - 1) * W, Y = v => padT + H - clamp(v / ymax, 0, 1) * H;
+  g.font = '700 ' + (small ? 11 : 13) + 'px ' + FONT; g.textAlign = 'right'; g.textBaseline = 'middle';
+  const ys = ymax <= 20 ? 5 : ymax <= 60 ? 10 : 20;
+  for (let v = 0; v <= ymax; v += ys) { g.fillStyle = '#2B2140'; g.fillText(String(v), padL - 5, Y(v)); g.strokeStyle = '#E4E0EE'; g.lineWidth = 1; g.beginPath(); g.moveTo(padL, Y(v)); g.lineTo(padL + W, Y(v)); g.stroke(); }
+  g.strokeStyle = '#2B2140'; g.lineWidth = 2; g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, padT + H); g.lineTo(padL + W, padT + H); g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'top'; g.fillStyle = '#2B2140';
+  const xs = xmax <= 12 ? 1 : 5;
+  for (let d = 1; d <= xmax; d++) if (d === 1 || d % xs === 0) g.fillText(String(d), X(d), padT + H + 4);
+  g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText('days', padL + W, small ? 7 : 10);
+  if (o.now && o.now < xmax) {
+    g.fillStyle = 'rgba(255,201,60,.22)'; g.fillRect(X(o.now), padT, X(xmax) - X(o.now), H);
+    g.setLineDash([6, 4]); g.strokeStyle = '#2B2140'; g.lineWidth = 2; g.beginPath(); g.moveTo(X(o.now), padT); g.lineTo(X(o.now), padT + H); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#2B2140'; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText('next?', X(o.now) + 6, padT + 2);
+  }
+  if (o.hline) {
+    g.setLineDash([8, 6]); g.strokeStyle = '#FF4F8B'; g.lineWidth = 3; g.beginPath(); g.moveTo(padL, Y(o.hline.y)); g.lineTo(padL + W, Y(o.hline.y)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#FF4F8B'; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText(o.hline.label + ' ' + o.hline.y, padL + W - 2, Y(o.hline.y) - 2);
+  }
+  o.series.forEach((k, i) => {
+    const [name, col] = k === 'I' && step && step.inv ? [capWord(INVADERS[step.inv].short), META.I[1]] : META[k];
+    g.strokeStyle = col; g.fillStyle = col; g.lineWidth = small ? 3 : 4; g.lineJoin = 'round'; g.beginPath();
+    o.days.forEach((d, j) => { const x = X(d.day), y = Y(d[k]); j ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+    o.days.forEach(d => { g.beginPath(); g.arc(X(d.day), Y(d[k]), small ? 3 : 4, 0, 7); g.fill(); });
+    g.textAlign = 'left'; g.textBaseline = 'middle'; const lx = padL + 6 + i * (small ? 90 : 120); g.fillRect(lx, small ? 5 : 8, 16, 5); g.fillStyle = '#2B2140'; g.fillText(name, lx + 20, small ? 7 : 10);
+  });
+}
+const DRAW = {
+  lines(g, w, h, spec) { drawLines(g, w, h, spec); },
+  chart(g, w, h) { const c = step.chart; drawLines(g, w, h, { days: lastRes ? lastRes.days.slice(0, shownDay) : [], series: c.series, xmax: step.D, ymax: c.ymax, hline: c.hline }); },
+  pyramid(g, w, h, spec) {
+    const n = spec.chain.length, pad = 8, lh = (h - 2 * pad) / n, cx = w / 2 - 30, maxW = Math.min(w - 120, 520), cols = ['#5CD38B', '#58C7F0', '#FFC93C', '#FF4F8B'];
+    g.lineWidth = 3; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (let i = 0; i < n; i++) {
+      const yb = h - pad - i * lh, yt = yb - lh + 4, wb = maxW * (1 - i / (n + 0.6)), wt = maxW * (1 - (i + 1) / (n + 0.6));
+      g.fillStyle = cols[i % 4]; g.strokeStyle = '#2B2140'; g.beginPath(); g.moveTo(cx - wb / 2, yb); g.lineTo(cx + wb / 2, yb); g.lineTo(cx + wt / 2, yt); g.lineTo(cx - wt / 2, yt); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#2B2140'; g.font = '800 ' + (lh > 56 ? 20 : 17) + 'px ' + FONT; const kg = spec.kg[i];
+      g.fillText(capWord(spec.chain[i]) + ': ' + (kg === '?' ? '?' : kg + ' kg'), cx, (yb + yt) / 2);
+      if (i < n - 1) { g.font = '800 15px ' + FONT; g.textAlign = 'left'; g.fillText('10% up', cx + wt / 2 + 10, yt + 2); g.textAlign = 'center'; }
+    }
+  },
+  toxin(g, w, h, spec) {
+    const n = spec.chain.length, rows = n + 1, pad = 6, rh = (h - 2 * pad) / rows, labW = 118, barW = w - labW - 90, vals = toxinLevels(spec.x, n, spec.day, spec.D);
+    const top = Math.log10(spec.x * Math.pow(10, n - 1)) + 1;
+    g.textBaseline = 'middle'; g.font = '800 16px ' + FONT;
+    for (let i = 0; i < rows; i++) {
+      const y = h - pad - (i + 0.5) * rh, name = i === 0 ? 'Water' : capWord(spec.chain[i - 1]), v = i === 0 ? spec.x : vals[i - 1];
+      const hidden = !!spec.hide && i >= 2;
+      g.fillStyle = '#2B2140'; g.textAlign = 'right'; g.fillText(name, labW - 8, y);
+      const frac = v > 0 ? (Math.log10(v) + 1) / top : 0, bw = hidden ? 0 : Math.max(0, Math.min(barW, barW * frac));
+      g.fillStyle = '#EEE'; g.fillRect(labW, y - rh * 0.3, barW, rh * 0.6); g.strokeStyle = '#2B2140'; g.lineWidth = 2; g.strokeRect(labW, y - rh * 0.3, barW, rh * 0.6);
+      g.fillStyle = i === 0 ? '#58C7F0' : ['#5CD38B', '#FFC93C', '#FF8A3D', '#FF4F8B'][(i - 1) % 4]; if (bw > 0) g.fillRect(labW, y - rh * 0.3, bw, rh * 0.6);
+      g.fillStyle = '#2B2140'; g.textAlign = 'left'; g.fillText(hidden ? '?' : String(v), labW + barW + 8, y);
+    }
+    g.font = '700 14px ' + FONT; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillStyle = '#2B2140'; g.fillText('Day ' + spec.day + ' of ' + spec.D, labW, 2);
+  },
+  compare(g, w, h, spec) {
+    const d = spec.data, m = MEASURE[d.M].name, mx = Math.max(10, d.a, d.b) * 1.2, bw = Math.min(140, w / 4), base = h - 30, top = 40;
+    g.font = '800 18px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillStyle = '#2B2140'; g.fillText('After 30 days: average ' + m, w / 2, 6);
+    [[d.labels[0], d.a, '#58C7F0'], [d.labels[1], d.b, '#FF4F8B']].forEach(([lab, v, col], i) => {
+      const x = w / 2 + (i ? 30 : -30 - bw), bh = (base - top) * v / mx; g.fillStyle = col; g.fillRect(x, base - bh, bw, bh); g.strokeStyle = '#2B2140'; g.lineWidth = 3; g.strokeRect(x, base - bh, bw, bh);
+      g.fillStyle = '#2B2140'; g.textBaseline = 'bottom'; g.fillText(String(v), x + bw / 2, base - bh - 4); g.textBaseline = 'top'; g.fillText(lab, x + bw / 2, base + 6);
+    });
+  },
+};
+function capsOf(s) { return { food: 2 * s.f, space: roomOf(s.P), air: Math.max(0, Math.floor((NUM.O_SURFACE + NUM.O_PLANT * s.P * s.L - NUM.O_SNAIL * (s.S + (s.W || 0)) - NUM.O_BIG * (s.B || 0)) / NUM.O_FISH)) }; }
+const HTMLFIG = {
+  caps(el) {
+    const c = capsOf(setup), now = lastRes && shownDay ? lastRes.days[shownDay - 1].Fend : setup.F;
+    const rows = [['🍤 Food feeds', c.food, '#FFC93C'], ['🏠 Room for', c.space, '#58C7F0'], ['🫧 Air for', c.air, '#9B6BFF']];
+    el.innerHTML = '<div class="caps">' + rows.map(([n, v, col]) => '<div class="cap"><span>' + n + ' ' + v + ' fish</span><div class="bar"><i style="width:' + Math.min(100, v / 16 * 100) + '%;background:' + col + '"></i></div></div>').join('') + '<div class="cap now">🐟 Fish now: ' + now + '</div></div>';
+  },
+  room(el, spec) {
+    let s = '<span>🐟🐟🐟</span>'; for (let k = 0; k < spec.P; k++) s += '<span>🌿 → 🐟🐟</span>';
+    el.innerHTML = '<div class="roomfig">' + s + '</div>';
+  },
+  table(el, spec) {
+    const head = ['Tank', 'Plants', 'Light', 'Fish', 'Snails', 'Food', 'Air (avg)', 'Algae (avg)'];
+    const lvS = { D: 30, model: 'cap', still: true };
+    const rows = spec.tanks.map((t, i) => [String.fromCharCode(65 + i), t.P, LIGHTS[t.L], t.F, t.S, t.f, measure(simulateCap(t, lvS), 'O'), measure(simulateCap(t, lvS), 'A')]);
+    el.innerHTML = '<table><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr>' + rows.map(r => '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') + '</table>';
+  },
+  note(el, spec) { el.innerHTML = '<div class="note">' + spec.text + '</div>'; },
+};
+function renderChoices(t) {
+  const p = $('panel'); if (!p.classList.contains('on')) p.className = 'on';
+  const box = document.createElement('div'); box.className = 'choices' + (t.grid ? ' grid' : ''); p.appendChild(box);
+  t.choices.forEach((c, i) => { const b = document.createElement('button'); b.className = 'choice'; b.textContent = c; b.onclick = () => answer(i); box.appendChild(b); });
+}
+function reveal() {
+  const r = step.reveal; if (!r || !fig) return;
+  if (r.days) { fig.spec.days = r.days; fig.spec.now = 0; drawPanel(); }
+  if (r.toxin) { fig.spec.day = 0; fig.spec.hide = false; const tick = () => { fig.spec.day++; drawPanel(); if (fig.spec.day < fig.spec.D) animTimer = setTimeout(tick, 110); }; tick(); }
+  if (r.compare) { showPanel({ type: 'compare', data: r.compare }, false); drawPanel(); }
 }
 
 // ---------------------------------------------------------------------------
 // Rounds
 // ---------------------------------------------------------------------------
-const WHO = { fish: 'fish', snail: 'snails', plant: 'plants', big: 'big fish' };
+const WHO = { fish: 'fish', snail: 'snails', plant: 'plants', big: 'big fish', shrimp: 'shrimp' };
 function explain(r) {
-  const k = r.who + ':' + r.why;
+  const k = r.who + ':' + r.why, g = step.goal || {};
+  if (k === 'fish:air' && g.airLine) return 'The air fell under the line. Each plant makes 5 air for every step of light. Add a plant.';
+  if (r.why === 'grow' && step.model === 'cap') return 'The fish stopped short. Raise the resource that caps them. Each pinch feeds 2 fish, each plant adds room for 2, and plants in the light make air.';
   const T = {
     'fish:air': 'The fish ran out of air. Plants make air when the light is on.',
     'big:air': 'The big fish ran out of air. Big fish need lots of air, so add plants and light.',
     'snail:air': 'The snails ran out of air. Plants make air when the light is on.',
+    'shrimp:air': 'The shrimp ran out of air. Plants make air when the light is on.',
     'fish:food': 'The fish were hungry. Each pinch of food feeds 2 fish.',
     'fish:algae': 'The water turned green with algae. Snails and plants keep it clear. Too much light or food makes algae grow.',
     'plant:algae': 'Algae covered the plants. Snails and plants keep it clear. Too much light or food makes algae grow.',
     'fish:crowd': 'Too crowded! The tank holds 3 fish, plus 2 more for every plant.',
     'snail:hungry': 'The snails were hungry. Snails eat algae, and algae needs a little light. Fewer snails need less.',
+    'shrimp:hungry': 'The shrimp had nothing to clean up. Decomposers need some leftover food or algae.',
     'plant:dark': 'The plants need light to grow.',
+    'plant:extra': 'The air stayed up, but that is more plants than needed. Find the fewest plants that keep the air above the line.',
     'big:hungry': 'The big fish had no small fish to eat. Start with more small fish.',
     'fish:grow': 'Not enough baby fish yet. Happy fish have babies when there is room and food for everyone.',
     'fish:chainEnd': 'The small fish ran out. Start with more small fish, and give the babies room and food.',
   };
-  return T[k] || 'Something went wrong in the tank.';
+  let t = T[k] || 'Something went wrong in the tank.';
+  if (step.inv && setup.I > 0 && r.who !== 'big' && r.why !== 'extra') t += ' ' + INVADERS[step.inv].note;
+  return t;
 }
 function newRound(speak = true) {
-  clearTimeout(runTimer); runTimer = null; hideCard();
+  clearTimeout(runTimer); runTimer = null; clearTimeout(animTimer); animTimer = null; hideCard();
   missed = false; won = false; running = false;
-  task = genLevel(P.lv); setup = Object.assign({}, task.start);
-  syncCreatures({ F: 0, S: 0, P: 0 }); syncCreatures(setup); resetView();
-  $('ask').textContent = task.text; $('badge').textContent = 'Level ' + (P.lv + 1) + ': ' + LEVELS[P.lv].name; $('stars').textContent = '⭐ ' + P.stars;
-  $('dayBox').classList.remove('on'); $('log').innerHTML = '';
-  renderControls(); fit();
-  if (speak) say(task.text);
+  task = genLevel(P.lv);
+  $('badge').textContent = 'Level ' + (P.lv + 1) + ': ' + LEVELS[P.lv].name; $('stars').textContent = '⭐ ' + P.stars;
+  startStep(task, speak);
 }
-function logLine(t) { const d = document.createElement('div'); d.textContent = t; $('log').appendChild(d); while ($('log').children.length > 5) $('log').firstChild.remove(); }
+function startStep(t, speak = true) {
+  clearTimeout(runTimer); runTimer = null; clearTimeout(animTimer); animTimer = null; hideCard();
+  step = t; running = false; shownDay = 0; lastRes = null;
+  setup = Object.assign({}, EMPTY, t.kind === 'tank' ? t.start : (t.setup || {}));
+  syncCreatures(EMPTY); syncCreatures(setup); resetView();
+  const ask = $('ask'); ask.textContent = t.text; ask.className = t.text.length > 200 ? 'xl' : t.text.length > 110 ? 'l' : '';
+  $('dayBox').classList.remove('on'); $('log').innerHTML = ''; $('room').textContent = '🏠 Room for ' + roomOf(setup.P) + ' fish';
+  const foot = $('controls'); $('gauges').classList.toggle('off', t.kind !== 'tank');
+  if (t.kind === 'tank') { renderControls(); showPanel(t.panel ? t.panel : t.chart ? { type: 'chart' } : null, true); }
+  else if (t.kind === 'choice') { foot.innerHTML = ''; foot.classList.add('off'); $('locked').innerHTML = ''; showPanel(t.panel, false); renderChoices(t); }
+  else { renderNumpad(); showPanel(t.panel, false); }
+  fit(); drawPanel();
+  if (speak) say(t.text);
+  if (t.kind === 'tank' && t.observe) runTimer = setTimeout(run, 900);
+}
+function logLine(t) { const d = document.createElement('div'); d.textContent = t; $('log').appendChild(d); const max = fig && $('panel').classList.contains('mini') ? 2 : 5; while ($('log').children.length > max) $('log').firstChild.remove(); }
 function run() {
   if (running || won) return; ac(); running = true; renderControls(); $('log').innerHTML = '';
-  const res = judge(setup, task), stop = res.ok ? task.D : res.day; let d = 0;
-  const step = () => {
+  const res = judge(setup, step), stop = res.ok ? step.D : res.day; lastRes = res; shownDay = 0; let d = 0;
+  const T = (step.D > 6 ? Math.max(380, 13000 / step.D) : 2200) * speed, from = (step.goal && step.goal.after) || 1;
+  const tick = () => {
     if (d >= stop) { finish(res); return; }
-    const day = res.days[d]; d++;
-    $('dayBox').textContent = '☀️ Day ' + d + ' of ' + task.D; $('dayBox').classList.add('on'); SND.day(); dropFood(setup.f);
+    const day = res.days[d]; d++; shownDay = d;
+    $('dayBox').textContent = '☀️ Day ' + d + ' of ' + step.D; $('dayBox').classList.add('on'); SND.day(); dropFood(T < 900 ? Math.min(setup.f, 1) : setup.f);
     view.night = 0; view.algae = day.A; gauges(day);
-    if (task.breed || task.B) syncCreatures({ F: day.Fend, S: setup.S, P: setup.P });
-    const bad = task.goal.groups.filter(g => day.why[g]);
-    bad.forEach(g => { view.sick[g] = true; }); if (bad.length) SND.sad();
+    syncCreatures({ F: day.Fend, S: setup.S, P: setup.P, W: setup.W, B: day.Bend, I: day.Iend });
+    const bad = (step.goal.groups || []).filter(g => day.why[g]);
+    view.sick = { fish: false, snail: false, plant: false, big: false, shrimp: false }; bad.forEach(g => { view.sick[g] = true; }); if (bad.length && d >= from) SND.sad();
     let line = 'Day ' + d + ': ' + (bad.length ? '😟 ' + bad.map(g => WHO[g]).join(', ') + ' not well' : '😊 all well');
-    if (day.eaten) line += ', 🦈 ate ' + day.eaten; if (day.born) line += ', 🐣 ' + day.born + ' born';
-    logLine(line);
-    const T = 2200 * speed;
+    if (step.model === 'cap') line += ', 🐟 ' + day.Fend;
+    if (day.eatenI) line += ', 🦈 ate ' + day.eatenI + ' ' + INVADERS[step.inv].short; if (day.eaten) line += ', 🦈 ate ' + day.eaten; if (day.born) line += ', 🐣 ' + day.born + ' born';
+    logLine(line); drawPanel();
     setTimeout(() => { view.night = 1; }, T * 0.7);
-    runTimer = setTimeout(step, T);
+    runTimer = setTimeout(tick, T);
   };
-  step();
+  tick();
 }
 function finish(res) {
   running = false; view.night = 0;
-  if (res.ok) {
-    won = true; const right = !missed; let ch = 0; if (right) ch = record(true);
-    P.stars++; persist(); $('stars').textContent = '⭐ ' + P.stars; SND.win(); confetti();
-    const msg = pick(['Your tank is thriving!', 'Happy tank!', 'Great balance!']);
-    showCard(msg + ' ⭐', 'Everyone stayed healthy for ' + task.D + ' days.' + (ch > 0 ? ' Level up!' : ''), false, true); say(msg);
-    runTimer = setTimeout(() => newRound(), 5200);
+  if (res.ok) { if (step.then) stepDone(); else win(); return; }
+  const why = explain(res);
+  if (step.observe) {
+    step.observe = false; SND.sad();
+    showCard('Day ' + res.day + ': ' + WHO[res.who] + ' dropped', why + (step.predictedRight ? ' You called it.' : '') + ' Now fix the tank.', { bad: true, again: retry });
+    say(WHO[res.who] + ' dropped. ' + why + ' Now fix the tank.'); renderControls(); return;
+  }
+  if (!missed) { missed = true; record(false); }
+  SND.miss(); showCard('Uh oh! Day ' + res.day, why, { bad: true, again: retry }); say('Uh oh. ' + why); renderControls();
+}
+function win() {
+  won = true; const right = !missed; let ch = 0; if (right) ch = record(true);
+  P.stars++; persist(); $('stars').textContent = '⭐ ' + P.stars; SND.win(); confetti();
+  const msg = pick(step.kind === 'tank' ? ['Your tank is thriving!', 'Happy tank!', 'Great balance!'] : ['You got it!', 'Nice thinking!', 'That is right!']);
+  const sub = step.kind !== 'tank' ? (step.done || '') : step.goal.grow ? 'The fish reached ' + step.goal.grow + ' and everyone stayed well.' : 'Everyone stayed healthy for ' + step.D + ' days.';
+  showCard(msg + ' ⭐', sub + (ch > 0 ? ' Level up!' : ''), { next: () => newRound() }); say(msg);
+  reveal();
+  runTimer = setTimeout(() => newRound(), step.reveal ? 9000 : 5200);
+}
+// A step was answered. Move to the next step of this problem, or win.
+function stepDone() {
+  if (!step.then) { win(); return; }
+  const nxt = step.then; nxt.predictedRight = !missed; SND.day();
+  showCard(pick(['Yes.', 'Right.', 'Good thinking.']), step.done || '', { next: () => startStep(nxt) }); say(step.done || 'Yes.');
+  runTimer = setTimeout(() => startStep(nxt), 7000);
+}
+// A tap on an answer button or OK on the number pad.
+function answer(i) {
+  if (won || running || !step || step.kind === 'tank') return; ac();
+  if (step.kind === 'choice') {
+    const btns = [...document.querySelectorAll('#panel .choice')];
+    if (i === step.answer) { btns.forEach((b, k) => { b.disabled = true; if (k === i) b.classList.add('yes'); }); stepDone(); }
+    else { if (btns[i]) { btns[i].disabled = true; btns[i].classList.add('no'); } miss(step.wrongFor ? step.wrongFor(i) : step.wrong || 'Look again.'); }
   } else {
-    if (!missed) { missed = true; const ch = record(false); }
-    SND.miss(); const why = explain(res);
-    showCard('Uh oh! Day ' + res.day, why, true, false, true); say('Uh oh. ' + why);
-    renderControls();
+    if (i === step.answer) { stepDone(); } else { typed = ''; const v = $('npv'); if (v) v.textContent = ''; miss(step.wrong || 'Try again.'); }
   }
 }
-function retry() { hideCard(); resetView(); syncCreatures(setup); $('dayBox').classList.remove('on'); renderControls(); }
-function showCard(t, sub, bad, next, again) {
-  const c = $('card'); c.className = 'on' + (bad ? ' bad' : next ? ' win' : '');
-  c.innerHTML = '<div class="c">' + t + (sub ? '<small>' + sub + '</small>' : '') + (next ? '<button class="pill" id="nextBtn">Next ▶</button>' : '') + (again ? '<button class="pill" id="againBtn">🔧 Fix the tank</button>' : '') + '</div>';
-  if (next) $('nextBtn').onclick = () => newRound(); if (again) $('againBtn').onclick = retry;
+function miss(why) {
+  if (!missed) { missed = true; record(false); }
+  SND.miss(); showCard('Not quite', why, { bad: true, again: retry, againLabel: 'Try again' }); say('Not quite. ' + why);
+}
+function retry() {
+  hideCard(); if (step.kind !== 'tank') return;
+  resetView(); syncCreatures(setup); $('dayBox').classList.remove('on'); shownDay = 0; lastRes = null; renderControls(); drawPanel();
+}
+function showCard(t, sub, o = {}) {
+  const c = $('card'); c.className = 'on' + (o.bad ? ' bad' : o.next ? ' win' : '');
+  c.innerHTML = '<div class="c">' + t + (sub ? '<small>' + sub + '</small>' : '') + (o.next ? '<button class="pill" id="nextBtn">Next ▶</button>' : '') + (o.again ? '<button class="pill" id="againBtn">' + (o.againLabel || '🔧 Fix the tank') + '</button>' : '') + '</div>';
+  if (o.next) $('nextBtn').onclick = () => { clearTimeout(runTimer); runTimer = null; o.next(); };
+  if (o.again) $('againBtn').onclick = o.again;
 }
 function hideCard() { $('card').className = ''; $('card').innerHTML = ''; }
 function confetti() {
@@ -741,28 +1330,40 @@ function confetti() {
 // ---------------------------------------------------------------------------
 // Layout and loop
 // ---------------------------------------------------------------------------
+function layout() {
+  const ah = $('askRow').offsetHeight; $('dayBox').style.top = (ah + 20) + 'px';
+  const p = $('panel'); p.style.top = (p.classList.contains('mini') ? ah + 78 : ah + 22) + 'px';
+}
 function fit() {
   const r = $('main').getBoundingClientRect(), w = Math.max(1, r.width), h = Math.max(1, r.height);
   renderer.setSize(w, h, false); camera.aspect = w / h;
   const k = Math.max(1, 1.75 / camera.aspect);
   camera.position.set(0, 1.4 * k, 11.8 * k); camera.lookAt(0, 0.1, 0); camera.updateProjectionMatrix();
+  layout();
 }
-window.addEventListener('resize', fit);
+window.addEventListener('resize', () => { fit(); drawPanel(); });
 let last = performance.now();
 function frame(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; tickTank(dt, now / 1000); renderer.render(scene, camera); requestAnimationFrame(frame); }
-$('hear').onclick = () => say(task.text);
+$('hear').onclick = () => say(step.text);
 $('skip').onclick = () => newRound();
 window.addEventListener('pointerdown', () => ac(), { once: true });
 
+// Self-check hook for tools/ladder-check.mjs: build problems at any rung without touching the screen.
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START,
+  label: () => LEVELS[P.lv].name,
+  exercise: (i, n) => { const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); t.level = i; validate(t); out.push(describe(t)); } return out; },
+};
 window.ECOSYSTEM_AQUARIUM = {
   stay() { clearTimeout(runTimer); runTimer = null; },
-  LEVELS, START, NUM, simulate, judge, solutions, setups, record, gen: genLevel, newRound, run, change, retry,
+  LEVELS, START, NUM, simulate, simulateCap, judge, solutions, setups, validate, record, gen: genLevel, newRound, run, change, retry, answer, key, startStep,
   setLevel(i) { P.lv = i; P.st = { streak: 0, miss: 0 }; persist(); newRound(false); },
   set fast(on) { speed = on ? 0.01 : 1; },
-  get state() { return { level: P.lv, streak: P.st.streak, miss: P.st.miss, stars: P.stars, task, setup: Object.assign({}, setup), missed, won, running, fish: fishes.length, view }; },
+  get state() { return { level: P.lv, streak: P.st.streak, miss: P.st.miss, stars: P.stars, task, step, setup: Object.assign({}, setup), missed, won, running, fish: fishes.length, view }; },
 };
 fit(); newRound(false); requestAnimationFrame(frame);
-setTimeout(() => say(task.text), 600);
+setTimeout(() => say(step.text), 600);
 </script>
 </body>
 </html>

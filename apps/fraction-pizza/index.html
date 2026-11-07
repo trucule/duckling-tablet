@@ -236,6 +236,8 @@
   #promptBox { position: fixed; z-index: 4; left: 0; right: 0; margin: 0 auto; width: fit-content; top: 66px; display: flex; align-items: center; gap: 12px;
     max-width: calc(100vw - 40px); background: rgba(255,255,255,0.95); border: 4px solid var(--ink); border-radius: 26px; padding: 8px 10px 8px 22px; box-shadow: 0 5px 0 var(--ink); }
   #prompt { font-size: 28px; font-weight: 900; line-height: 1.15; }
+  #prompt.long { font-size: 24px; }
+  #prompt.long .frac { font-size: 22px; }
   #hear { flex: none; width: 56px; height: 56px; border-radius: 50%; border: 3px solid var(--ink); background: #7CF0FF; font-size: 28px; cursor: pointer; display: grid; place-items: center; padding: 0; }
   #hear:active, .big:active, .choice:active { transform: scale(0.93); }
   .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1; margin: 0 4px; font-weight: 900; }
@@ -260,6 +262,23 @@
   .choice .frac { font-size: 34px; }
   .choice { min-width: 110px; padding: 6px 18px; }
   .big .frac { font-size: 26px; }
+  /* In-app number pad for typed answers (upper rungs). One answer row, one key row, so it stays under 150px tall. */
+  .pad { flex-basis: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .ansrow { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.95); border: 4px solid var(--ink); border-radius: 22px; padding: 4px 10px 4px 18px; box-shadow: 0 5px 0 var(--ink); font-size: 28px; font-weight: 900; max-width: calc(100vw - 32px); }
+  .ansrow .frac { font-size: 26px; }
+  .ansrow .frac b { padding-bottom: 1px; }
+  .fld { display: inline-grid; place-items: center; min-width: 58px; height: 42px; padding: 0 8px; border: 3px dashed var(--ink); border-radius: 12px; background: #FFF7B8; font-size: 28px; cursor: pointer; box-sizing: border-box; }
+  .fld.on { border-style: solid; background: #7CF0FF; }
+  .frac .fld { min-width: 52px; height: 36px; font-size: 24px; margin: 1px 0; }
+  .mix { display: inline-flex; align-items: center; gap: 4px; }
+  .keys { display: flex; gap: 6px; flex-wrap: nowrap; }
+  .key { min-width: 54px; min-height: 52px; padding: 0 10px; border-radius: 16px; border: 3px solid var(--ink); background: #fff; font: 900 26px "Segoe UI", system-ui, sans-serif; color: var(--ink); box-shadow: 0 4px 0 var(--ink); cursor: pointer; touch-action: manipulation; }
+  .key:active { transform: scale(0.93); }
+  .key.back { background: #FFB43D; }
+  #checkBtn { min-height: 52px; padding: 4px 18px; font-size: 24px; border-width: 3px; box-shadow: 0 4px 0 var(--ink); border-radius: 18px; }
+  .ansrow.wrong { animation: shake 0.4s; }
+  .fld.ok { border-style: solid; background: #3DF59A; }
+  @media (max-width: 1100px) { .key { min-width: 50px; } .ansrow { font-size: 24px; } }
 </style>
 </head>
 <body>
@@ -379,7 +398,7 @@ function levelBanner(change) {
   if (change > 0) SFX.up();
   el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1800); showBadge(true);
 }
-function setPrompt(html, speak) { $('prompt').innerHTML = html; CUR_SPEAK = speak; say(speak); }
+function setPrompt(html, speak) { const el = $('prompt'); el.innerHTML = html; el.classList.toggle('long', el.textContent.length > 48); CUR_SPEAK = speak; say(speak); }
 let CUR_SPEAK = '';
 function fracHTML(n, d) { return `<span class="frac"><b>${n}</b><i>${d}</i></span>`; }
 function dock(items) {
@@ -436,7 +455,7 @@ function screenOf(v) { const p = (v.isVector3 ? v : new THREE.Vector3(...v)).clo
 function label(text, opts = {}) {
   const fs = opts.size || 72, cv = document.createElement('canvas'), g = cv.getContext('2d');
   const font = `900 ${fs}px "Segoe UI", system-ui, sans-serif`; g.font = font;
-  const frac = /^-?\d+\/\d+$/.test(text) && opts.frac !== false;
+  const frac = /^-?[\d?]+\/[\d?]+$/.test(text) && opts.frac !== false;
   let w, h;
   if (frac) { const [n, d] = text.split('/'); w = Math.max(g.measureText(n).width, g.measureText(d).width) + fs * 0.7; h = fs * 2.3; }
   else { w = g.measureText(text).width + fs * 0.7; h = fs * 1.35; }
@@ -503,10 +522,16 @@ function kitStart() {
 // ---------------------------------------------------------------------------
 // Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
 const APP = { key: 'fraction-pizza-v1', get start() { return (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', LEVELS.length, 1) : 1); } };
-const ORD = { 1: ['whole', 'wholes'], 2: ['half', 'halves'], 3: ['third', 'thirds'], 4: ['fourth', 'fourths'], 6: ['sixth', 'sixths'], 8: ['eighth', 'eighths'], 9: ['ninth', 'ninths'], 12: ['twelfth', 'twelfths'] };
-const NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen'];
-const fw = (n, d) => `${NUMW[n]} ${n === 1 ? ORD[d][0] : ORD[d][1]}`;
+const ORD = { 1: ['whole', 'wholes'], 2: ['half', 'halves'], 3: ['third', 'thirds'], 4: ['fourth', 'fourths'], 5: ['fifth', 'fifths'], 6: ['sixth', 'sixths'], 8: ['eighth', 'eighths'], 9: ['ninth', 'ninths'], 10: ['tenth', 'tenths'], 12: ['twelfth', 'twelfths'], 16: ['sixteenth', 'sixteenths'], 20: ['twentieth', 'twentieths'], 24: ['twenty-fourth', 'twenty-fourths'], 100: ['hundredth', 'hundredths'] };
+const NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+const numw = n => NUMW[n] !== undefined ? NUMW[n] : String(n);
+const ordw = (n, d) => ORD[d] ? (n === 1 ? ORD[d][0] : ORD[d][1]) : `${d}ths`;
+const fw = (n, d) => `${numw(n)} ${ordw(n, d)}`;
 const fs = (n, d) => `${n}/${d}`;
+const lcm = (a, b) => a * b / gcd(a, b);
+// Mixed number text and speech: 2 3/4 as "two and three fourths".
+const mixHTML = (w, n, d) => `${w} ${fracHTML(n, d)}`;
+const mixw = (w, n, d) => `${numw(w)} and ${fw(n, d)}`;
 const NAMES = ['Mia', 'Leo', 'Zoe', 'Max', 'Ava', 'Sam', 'Ivy', 'Kai', 'Lulu', 'Ben', 'Rosa', 'Theo'];
 
 // Wrong-choice fractions near the answer, never equal to it in value.
@@ -523,6 +548,29 @@ function fracChoices(n, d, extra = []) {
   return shuffle([...out.values()]);
 }
 
+// The ladder, pre-K to 8th grade. Rungs 0 to 11 are the original twelve; 12 and up were added above them.
+//  0 Cut it up (pre-K, K): cut a pizza into 2, 3 or 4 equal pieces
+//  1 Halves and quarters (1st, 2nd): serve n halves or fourths
+//  2 Thirds, sixths, eighths (2nd): serve n thirds, sixths or eighths
+//  3 What is left? (2nd, 3rd): name the fraction left from four choices
+//  4 Same amount, new cut (3rd): serve 1/2 from a pizza cut into sixths
+//  5 Find the twin (3rd): pick the equivalent fraction
+//  6 Add the slices (3rd, 4th): serve a/d + b/d
+//  7 Halves plus fourths (4th): serve a/2 + b/4 and the like
+//  8 Fractions on the line (3rd, 4th): place n/d on a 0 to 1 line
+//  9 Which is bigger? (4th): same denominator or same numerator compare
+// 10 Past one whole (4th): place n/d on a 0 to 2 line
+// 11 Tricky compare (4th): compare unlike fractions
+// 12 Re-slice to match (3rd, 4th): 2/3 = ?/6, typed
+// 13 Unlike denominators (5th): 1/2 + 1/3 with both pizzas re-sliced, typed as a fraction
+// 14 Mixed numbers (5th): 2 3/4 as fourths, 11/4 as a mixed number
+// 15 Fraction of a group (5th): 3/4 of 20 slices
+// 16 Slice of a slice (6th): 1/2 of 3/4
+// 17 How many eighths? (6th): 3/4 divided by 1/8
+// 18 Percent of a pizza (6th, 7th): 3 of 4 as a percent, a ratio as a percent, serve 25%
+// 19 Decimals and percents (7th): serve 0.375, 3/8 as a decimal, 0.45 as a percent
+// 20 Pizza orders (7th): proportions and unit rates
+// 21 Pepperoni chance (8th): probability of a random slice in simplest form, and the GCF
 const LEVELS = [
   { name: 'Cut it up', gen() { const d = pick([2, 3, 4]); return { kind: 'cut', d, answer: d }; } },
   { name: 'Halves and quarters', gen() { const d = pick([2, 4, 4]); const n = rand(1, d - 1); return { kind: 'serve', n, d, cut: d, answer: n }; } },
@@ -565,6 +613,82 @@ const LEVELS = [
         return { kind: 'compare', pair: [A, B], answer: A[0] / A[1] > B[0] / B[1] ? 0 : 1 };
       }
     } },
+  // 12. Re-slice to match (3rd/4th): 2/3 = ?/6 or 2/3 = 4/?, typed on the number pad.
+  { name: 'Re-slice to match', gen() {
+      const d = pick([2, 2, 3, 3, 4, 4, 5, 6]), k = pick({ 2: [2, 3, 4, 5, 6], 3: [2, 3, 4], 4: [2, 3], 5: [2], 6: [2] }[d]), n = rand(1, d - 1);
+      const mode = Math.random() < 0.6 ? 'num' : 'den';
+      return { kind: 'equiv', n, d, k, mode, answer: mode === 'num' ? n * k : d * k };
+    } },
+  // 13. Unlike denominators (5th): both pizzas re-sliced into the same size, then the sum is typed as a fraction.
+  { name: 'Unlike denominators', gen() {
+      for (;;) {
+        const [d1, d2] = shuffle(pick([[2, 3], [3, 4], [4, 6], [2, 5], [5, 10], [3, 4], [2, 3]]));
+        const a = rand(1, d1 - 1), b = rand(1, d2 - 1); if (a / d1 + b / d2 > 1 + 1e-9) continue;
+        const L = lcm(d1, d2), N = a * L / d1 + b * L / d2;
+        return { kind: 'unlike', a, d1, b, d2, L, N, answer: N / L };
+      }
+    } },
+  // 14. Mixed numbers (5th): 2 3/4 as fourths, or 11/4 as a whole number and a fraction.
+  { name: 'Mixed numbers', gen() {
+      const d = pick([2, 3, 4, 5, 6, 8]), w = rand(1, 3), r = rand(1, d - 1), mode = Math.random() < 0.5 ? 'improper' : 'mixed';
+      return { kind: 'mixed', w, r, d, mode, answer: mode === 'improper' ? w * d + r : [w, r] };
+    } },
+  // 15. Fraction of a group (5th): 3/4 of 20 slices laid out across pizzas.
+  { name: 'Fraction of a group', gen() {
+      const [N, cut] = pick([[12, 6], [12, 4], [16, 8], [16, 4], [18, 6], [20, 10], [20, 5], [24, 8], [24, 6], [30, 10], [36, 12], [40, 10]]);
+      const d = pick([2, 3, 4, 5, 6, 8, 10].filter(x => N % x === 0)), n = rand(1, d - 1);
+      return { kind: 'ofqty', N, cut, pizzas: N / cut, n, d, answer: N * n / d };
+    } },
+  // 16. Slice of a slice (6th): 1/2 of 3/4 is 3/8, shown as a pizza cut both ways.
+  { name: 'Slice of a slice', gen() {
+      for (;;) {
+        const b = pick([2, 3, 4]), a = rand(1, b - 1), d = pick([2, 3, 4, 5, 6]), c = rand(1, d - 1);
+        if (b * d > 24) continue;
+        return { kind: 'mult', a, b, c, d, answer: [a * c, b * d] };
+      }
+    } },
+  // 17. How many eighths (6th): 3/4 divided by 1/8 by counting the small slices.
+  { name: 'How many eighths?', gen() {
+      if (Math.random() < 0.6) {
+        const d = pick([2, 3, 4]), k = pick({ 2: [2, 3, 4, 5], 3: [2, 3, 4], 4: [2, 3] }[d]), n = rand(1, d - 1);
+        return { kind: 'divunit', mode: 'frac', n, d, u: d * k, answer: n * k };
+      }
+      const w = rand(1, 3), u = pick([2, 3, 4, 5, 6, 8]);
+      return { kind: 'divunit', mode: 'whole', w, u, answer: w * u };
+    } },
+  // 18. Percent of a pizza (6th/7th): what percent is 3 of 4, a ratio of pepperoni to cheese, or serve 25%.
+  { name: 'Percent of a pizza', gen() {
+      const mode = pick(['serve', 'ask', 'ratio']);
+      const d = pick([4, 5, 10, 20]);
+      if (mode === 'serve') { const n = rand(1, d - 1), pct = n * 100 / d; return { kind: 'serve', n, d, cut: d, answer: n, ask: `Serve <b>${pct}%</b> of the pizza`, askSay: `Serve ${pct} percent of the pizza. Tap slices to put them on the plate.`, doneSay: `${pct} percent is ${fw(n, d)}.`, wantSay: `${pct} percent` }; }
+      const p = rand(1, d - 1);
+      return { kind: 'pct', mode, d, p, answer: p * 100 / d };
+    } },
+  // 19. Decimals and percents (7th): serve 0.375 of the pizza, write 3/8 as a decimal, or 0.45 as a percent.
+  { name: 'Decimals and percents', gen() {
+      const mode = pick(['serve', 'todec', 'topct']);
+      if (mode === 'serve') { const d = pick([4, 5, 8, 10]), n = rand(1, d - 1), dec = String(n / d); return { kind: 'serve', n, d, cut: d, answer: n, ask: `Serve <b>${dec}</b> of the pizza`, askSay: `Serve ${dec} of the pizza. Tap slices to put them on the plate.`, doneSay: `${dec} is ${fw(n, d)}.`, wantSay: dec }; }
+      if (mode === 'todec') { const d = pick([2, 4, 5, 8, 10]), n = rand(1, d - 1); return { kind: 'dec', mode, n, d, answer: n / d }; }
+      const d = pick([4, 5, 8, 10, 20]), n = rand(1, d - 1); return { kind: 'dec', mode, n, d, answer: n * 100 / d };
+    } },
+  // 20. Pizza orders (7th): proportions and unit rates, such as 2 pizzas for 5 people, so how many for 15.
+  { name: 'Pizza orders', gen() {
+      const mode = pick(['scale', 'unit', 'per', 'time']);
+      if (mode === 'scale') { const p = rand(1, 3), q = pick([2, 3, 4, 5, 6]), k = rand(2, 5); return { kind: 'rate', mode, p, q, k, answer: p * k }; }
+      if (mode === 'unit') { const p = rand(2, 4), price = rand(8, 15); return { kind: 'rate', mode, p, total: p * price, answer: price }; }
+      if (mode === 'per') { const kids = pick([2, 3, 4, 6]), each = pick([2, 3, 4, 6]), N = kids * each, cut = pick([4, 6, 8, 9, 12, 3].filter(c => N % c === 0 && N / c <= 4)); return { kind: 'rate', mode, kids, each, N, cut, answer: each }; }
+      const p = rand(2, 4), mins = pick([6, 8, 9, 10, 12]); return { kind: 'rate', mode, p, total: p * mins, answer: mins };
+    } },
+  // 21. Pepperoni chance (8th): probability of a random slice as a fraction in simplest form, and the GCF.
+  { name: 'Pepperoni chance', gen() {
+      const d = pick([6, 8, 9, 10, 12]);
+      let p; do { p = rand(1, d - 1); } while (gcd(p, d) === 1 && Math.random() < 0.75);
+      const pep = shuffle(Array.from({ length: d }, (_, i) => i < p));
+      const mode = pick(['pep', 'pep', 'cheese', 'gcf']), g = gcd(p, d);
+      if (mode === 'gcf') return { kind: 'chance', mode, d, p, pep, answer: g };
+      const q = mode === 'pep' ? p : d - p, gq = gcd(q, d);
+      return { kind: 'chance', mode, d, p, pep, answer: [q / gq, d / gq] };
+    } },
 ];
 
 // ---------------------------------------------------------------------------
@@ -587,7 +711,7 @@ const M = {
   cream: mat(0xFFFFFF, { roughness: 0.6 }), blue: mat(0x3B2BFF, { roughness: 0.2 }), plate: mat(0xFFFFFF, { roughness: 0.3 }), rim: mat(0x00D1FF, { roughness: 0.35 }),
 };
 // One slice: a crust wedge with toppings, as a group whose angle sits between a0 and a1 (shape angles).
-function makeSlice(cut, i, a0, kind, bare) {
+function makeSlice(cut, i, a0, kind, bare, plain) {
   const len = Math.PI * 2 / cut, s0 = a0 + i * len, s1 = s0 + len, mid = (s0 + s1) / 2, curve = Math.max(4, Math.round(36 / cut));
   const g = new THREE.Group(); g.userData = { i, mid, served: false };
   const pie = kind === 'pie';
@@ -595,8 +719,8 @@ function makeSlice(cut, i, a0, kind, bare) {
   if (!bare) {
     const top = new THREE.Mesh(wedge(R * 0.86, s0, s1, 0.05, curve), pie ? (kind === 'pie' && cut % 2 ? M.cherry : M.berry) : M.sauce); top.position.y = pie ? 0.22 : 0.15; g.add(top);
     if (!pie) { const ch = new THREE.Mesh(wedge(R * 0.8, s0 + 0.02, s1 - 0.02, 0.04, curve), M.cheese); ch.position.y = 0.2; g.add(ch); }
-    // Toppings sit inside the wedge so each slice carries its own.
-    const n = cut <= 2 ? 3 : cut <= 4 ? 2 : 1;
+    // Toppings sit inside the wedge so each slice carries its own. A plain slice is cheese only.
+    const n = plain ? 0 : cut <= 2 ? 3 : cut <= 4 ? 2 : 1;
     for (let k = 0; k < n; k++) {
       const a = s0 + len * (n === 1 ? 0.5 : 0.25 + 0.5 * k / (n - 1)), rr = R * (n === 1 ? 0.55 : 0.4 + 0.25 * (k % 2));
       const x = rr * Math.cos(a), z = -rr * Math.sin(a);
@@ -615,7 +739,7 @@ function makePie(cut, opts = {}) {
   const grp = new THREE.Group(), list = [], a0 = opts.a0 ?? Math.PI / 2, kind = opts.kind || 'pizza';
   for (let i = 0; i < cut; i++) {
     if (opts.present && !opts.present[i]) continue;
-    const s = makeSlice(cut, i, a0, kind, opts.bare && opts.bare[i]); grp.add(s); list.push(s);
+    const s = makeSlice(cut, i, a0, kind, opts.bare && opts.bare[i], opts.plain && opts.plain[i]); grp.add(s); list.push(s);
   }
   return { grp, list };
 }
@@ -656,18 +780,21 @@ function counter() {
 // Showing a task
 // ---------------------------------------------------------------------------
 function orderHTML(t) {
+  if (t.ask) return `${t.who}: ${t.ask}`;
   if (t.add) return `${t.who}: ${fracHTML(...t.add[0])} + ${fracHTML(...t.add[1])} please!`;
   return `${t.who}: ${fracHTML(t.n, t.d)} of a ${t.food} please!`;
 }
+const PAD_KINDS = ['equiv', 'unlike', 'mixed', 'ofqty', 'mult', 'divunit', 'pct', 'dec', 'rate', 'chance'];
 function servedCount() { return slices.filter(s => s.userData.served).length; }
 function build(group) { clearGroup(stage); stage.add(group); }
 function show(t) {
-  clearGroup(stage); slices = []; pies = []; ticks = []; flag = null;
+  clearGroup(stage); slices = []; pies = []; ticks = []; flag = null; PAD = null;
   if (customer) { scene.remove(customer); disposeTree(customer); customer = null; }
-  t.who = pick(NAMES); t.food = pick(['pizza', 'pizza', 'pie']);
+  t.who = pick(NAMES); t.food = t.ask ? 'pizza' : pick(['pizza', 'pizza', 'pie']);
   const kind = t.food === 'pie' ? 'pie' : 'pizza';
   if (['cut', 'serve', 'name', 'twin'].includes(t.kind)) { customer = makeCustomer(); scene.add(customer); }
 
+  if (PAD_KINDS.includes(t.kind)) { showPad(t); return; }
   if (t.kind === 'cut') {
     pieces = 1; drawCut(kind, false);
     setPrompt(`${t.who}: cut my ${t.food} into <b>${ORD[t.d][1]}</b>!`, `${t.who} says: cut my ${t.food} into ${ORD[t.d][1]}. That means ${NUMW[t.d]} equal pieces.`);
@@ -679,7 +806,7 @@ function show(t) {
     const p = makePie(t.cut, { kind, a0: Math.PI / 2 + (Math.random() < 0.5 ? 0 : Math.PI / t.cut) }); p.grp.position.copy(PIZZA_AT); stage.add(p.grp); slices = p.list;
     stage.add(makePlate(PLATE_AT));
     const tag = label('plate', { height: 0.5, color: '#fff', outline: '#2B2140' }); tag.position.set(PLATE_AT.x, 0.4, PLATE_AT.z + 2.6); stage.add(tag);
-    const say1 = t.add ? `${t.who} wants ${fw(...t.add[0])} plus ${fw(...t.add[1])}. Tap slices to put them on the plate.` : `${t.who} wants ${fw(t.n, t.d)} of the ${t.food}. Tap slices to put them on the plate.`;
+    const say1 = t.askSay ? `${t.who} says: ${t.askSay}` : t.add ? `${t.who} wants ${fw(...t.add[0])} plus ${fw(...t.add[1])}. Tap slices to put them on the plate.` : `${t.who} wants ${fw(t.n, t.d)} of the ${t.food}. Tap slices to put them on the plate.`;
     setPrompt(orderHTML(t), say1);
     dock([
       { html: `🍽️ Serve <span id="cnt">${fracHTML(0, t.cut)}</span>`, id: 'serveBtn', on: () => checkServe(t) },
@@ -724,12 +851,13 @@ function checkServe(t) {
   if (got === t.answer) {
     burst(PLATE_AT.clone().setY(0.8), 60); cheer();
     const same = t.cut !== t.d || t.add ? ` That is ${fw(got, t.cut)}.` : '';
-    const sum = t.add ? `${cap(fw(...t.add[0]))} plus ${fw(...t.add[1])} makes ${fw(t.n, t.d)}${t.n === t.d ? ', a whole ' + t.food : ''}.` : `${cap(fw(t.n, t.d))} served!${same}`;
+    const sum = t.doneSay ? t.doneSay : t.add ? `${cap(fw(...t.add[0]))} plus ${fw(...t.add[1])} makes ${fw(t.n, t.d)}${t.n === t.d ? ', a whole ' + t.food : ''}.` : `${cap(fw(t.n, t.d))} served!${same}`;
     answer(true, sum);
     if (t.add) $('prompt').innerHTML = `${fracHTML(...t.add[0])} + ${fracHTML(...t.add[1])} = ${fracHTML(t.n, t.d)}`;
+    if (t.ask) $('prompt').innerHTML = `${t.ask.replace(/^Serve /, '')} = ${fracHTML(t.n, t.d)}`;
   } else {
     headShake();
-    const want = t.add ? `${fw(...t.add[0])} plus ${fw(...t.add[1])}` : fw(t.n, t.d);
+    const want = t.wantSay ? t.wantSay : t.add ? `${fw(...t.add[0])} plus ${fw(...t.add[1])}` : fw(t.n, t.d);
     say(got === 0 ? 'Tap slices to put them on the plate first.' : `You served ${fw(got, t.cut)}. ${t.who} wants ${want}. ${got > t.answer ? 'That is too much.' : 'That is not enough.'}`);
     if (got > 0) answer(false); else SFX.oops();
   }
@@ -791,6 +919,204 @@ function tapPie(k) {
 }
 
 // ---------------------------------------------------------------------------
+// Upper rungs (12 and up): a row of pizzas on plates and a typed answer on the in-app number pad.
+// ---------------------------------------------------------------------------
+const GHOST_MAT = new THREE.MeshStandardMaterial({ color: 0xFF9ED2, transparent: true, opacity: 0.55 });
+// items: { cut, present (a count or booleans per slice), plain (booleans: cheese only), label }. Up to six pizzas fit.
+function pizzaRow(items, z = -0.5, caption) {
+  const n = items.length, scale = n <= 2 ? 1 : n === 3 ? 0.78 : n === 4 ? 0.62 : n === 5 ? 0.52 : 0.45;
+  const gapX = n <= 2 ? 5.4 : n === 3 ? 3.9 : n === 4 ? 3.0 : n === 5 ? 2.5 : 2.2;
+  items.forEach((it, k) => {
+    const at = new THREE.Vector3((k - (n - 1) / 2) * gapX, 0, z);
+    const present = typeof it.present === 'number' ? Array.from({ length: it.cut }, (_, i) => i < it.present) : it.present || Array.from({ length: it.cut }, () => true);
+    stage.add(makePlate(at, 2.25 * scale));
+    const p = makePie(it.cut, { kind: 'pizza', present, plain: it.plain, a0: Math.PI / 2 }); p.grp.scale.setScalar(scale); p.grp.position.copy(at); stage.add(p.grp);
+    if (present.some(x => !x)) {
+      const ghost = makePie(it.cut, { kind: 'pizza', present: present.map(x => !x), bare: present.map(() => true), a0: Math.PI / 2 });
+      ghost.grp.traverse(m => { if (m.isMesh) { m.material = GHOST_MAT; m.castShadow = false; } });
+      ghost.grp.scale.set(scale, 0.3 * scale, scale); ghost.grp.position.copy(at); stage.add(ghost.grp);
+    }
+    if (it.label) { const lb = label(it.label, { height: 0.85 * Math.max(0.75, scale), bg: '#FFFFFF' }); lb.position.set(at.x, 0.5, at.z + 2.25 * scale + 0.8); stage.add(lb); }
+  });
+  if (caption) { const lb = label(caption, { height: 0.7, bg: '#FFE14D' }); lb.position.set(0, 0.5, z + 2.25 * scale + 0.8); stage.add(lb); }
+}
+
+// The answer row: F(id) is a typed box, FR(top, bottom) a fraction.
+const F = id => `<span class="fld" data-f="${id}">&nbsp;</span>`;
+const FR = (nh, dh) => `<span class="frac"><b>${nh}</b><i>${dh}</i></span>`;
+const plural = (n, w, spoken) => `${spoken ? numw(n) : n} ${w}${n === 1 ? '' : 's'}`;
+// Everything a pad rung needs, built from the task alone: the prompt (html and speech), the answer row, which boxes
+// to type in, whether the pad has a decimal point, the correct typing (for the self-check) and the check itself.
+function padSpec(t) {
+  const who = t.who || 'Ada', num = v => (v === undefined || v === '' || v === '.') ? NaN : Number(v), same = (x, y) => Math.abs(x - y) < 1e-9;
+  const str = x => String(x);
+  switch (t.kind) {
+    case 'equiv': {
+      const D = t.d * t.k;
+      if (t.mode === 'num') return {
+        prompt: `Cut every slice into ${NUMW[t.k]}. ${fracHTML(t.n, t.d)} is how many ${ordw(2, D)}?`, say: `Cut every slice into ${NUMW[t.k]}. ${fw(t.n, t.d)} is how many ${ordw(2, D)}? Type the top number.`,
+        html: `${FR(t.n, t.d)} = ${FR(F('a'), D)}`, fields: ['a'], solution: { a: str(t.answer) },
+        check: v => ({ right: num(v.a) === t.answer, praise: `${cap(fw(t.n, t.d))} is ${fw(t.answer, D)}. Same amount, smaller slices.`, hint: `Count the small slices on the second pizza. Each big slice became ${NUMW[t.k]}.` }) };
+      return {
+        prompt: `Same amount, smaller slices. ${fracHTML(t.n, t.d)} = ${fracHTML(t.n * t.k, '?')}`, say: `${cap(fw(t.n, t.d))} is the same as ${numw(t.n * t.k)} of what size slice? Type the bottom number.`,
+        html: `${FR(t.n, t.d)} = ${FR(t.n * t.k, F('a'))}`, fields: ['a'], solution: { a: str(D) },
+        check: v => ({ right: num(v.a) === D, praise: `${cap(fw(t.n * t.k, D))} is the same as ${fw(t.n, t.d)}.`, hint: `Count all the slices on the second pizza. That is the bottom number.` }) };
+    }
+    case 'unlike': return {
+      prompt: `${fracHTML(t.a, t.d1)} + ${fracHTML(t.b, t.d2)} = ?`, say: `${cap(fw(t.a, t.d1))} plus ${fw(t.b, t.d2)}. Both pizzas are re-sliced into ${ordw(2, t.L)}. Add the slices.`,
+      html: `${FR(t.a, t.d1)} + ${FR(t.b, t.d2)} = ${FR(F('n'), F('d'))}`, fields: ['n', 'd'], solution: { n: str(t.N), d: str(t.L) },
+      check: v => ({ right: num(v.d) > 0 && same(num(v.n) / num(v.d), t.answer), praise: `${cap(fw(t.a, t.d1))} plus ${fw(t.b, t.d2)} is ${fw(t.N, t.L)}.`, hint: `Both pizzas are cut into ${ordw(2, t.L)} now. Count all the slices and write them over ${t.L}.` }) };
+    case 'mixed': {
+      const N = t.w * t.d + t.r;
+      if (t.mode === 'improper') return {
+        prompt: `${who} has ${mixHTML(t.w, t.r, t.d)} pizzas. How many ${ordw(2, t.d)} is that?`, say: `${who} has ${mixw(t.w, t.r, t.d)} pizzas. How many ${ordw(2, t.d)} is that?`,
+        html: `${mixHTML(t.w, t.r, t.d)} = ${FR(F('n'), t.d)}`, fields: ['n'], solution: { n: str(N) },
+        check: v => ({ right: num(v.n) === N, praise: `${cap(mixw(t.w, t.r, t.d))} is ${fw(N, t.d)}.`, hint: `Each whole pizza is ${fw(t.d, t.d)}. Count every slice.` }) };
+      return {
+        prompt: `${who} has ${fracHTML(N, t.d)} pizzas. Write it as a mixed number.`, say: `${who} has ${fw(N, t.d)} of pizza. Write it as a whole number and a fraction.`,
+        html: `${FR(N, t.d)} = ${F('w')} ${FR(F('n'), t.d)}`, fields: ['w', 'n'], solution: { w: str(t.w), n: str(t.r) },
+        check: v => ({ right: num(v.w) === t.w && num(v.n) === t.r, praise: `${cap(fw(N, t.d))} is ${mixw(t.w, t.r, t.d)}.`, hint: `${cap(fw(t.d, t.d))} make one whole pizza. Count the whole pizzas, then the slices left over.` }) };
+    }
+    case 'ofqty': return {
+      prompt: `${who} wants ${fracHTML(t.n, t.d)} of these ${t.N} slices. How many slices?`, say: `${who} wants ${fw(t.n, t.d)} of these ${t.N} slices. How many slices is that?`,
+      html: `${FR(t.n, t.d)} of ${t.N} = ${F('a')}`, fields: ['a'], solution: { a: str(t.answer) },
+      check: v => ({ right: num(v.a) === t.answer, praise: `${cap(fw(t.n, t.d))} of ${t.N} is ${t.answer}.`, hint: `One ${ordw(1, t.d)} of ${t.N} is ${t.N / t.d}. Take ${numw(t.n)} of those.` }) };
+    case 'mult': return {
+      prompt: `What is ${fracHTML(t.a, t.b)} of ${fracHTML(t.c, t.d)}?`, say: `What is ${fw(t.a, t.b)} of ${fw(t.c, t.d)} of a pizza? A slice of a slice.`,
+      html: `${FR(t.a, t.b)} of ${FR(t.c, t.d)} = ${FR(F('n'), F('d'))}`, fields: ['n', 'd'], solution: { n: str(t.answer[0]), d: str(t.answer[1]) },
+      check: v => ({ right: num(v.d) > 0 && same(num(v.n) / num(v.d), t.answer[0] / t.answer[1]), praise: `${cap(fw(t.a, t.b))} of ${fw(t.c, t.d)} is ${fw(t.answer[0], t.answer[1])}.`, hint: `Multiply the tops, then multiply the bottoms. The pizza is cut into ${ordw(2, t.b * t.d)}.` }) };
+    case 'divunit': {
+      if (t.mode === 'frac') return {
+        prompt: `How many ${fracHTML(1, t.u)} slices fit in ${fracHTML(t.n, t.d)} of a pizza?`, say: `How many ${ordw(1, t.u)} slices fit in ${fw(t.n, t.d)} of a pizza?`,
+        html: `${FR(t.n, t.d)} ÷ ${FR(1, t.u)} = ${F('a')}`, fields: ['a'], solution: { a: str(t.answer) },
+        check: v => ({ right: num(v.a) === t.answer, praise: `${cap(fw(t.n, t.d))} holds ${fw(t.answer, t.u)}. Dividing by one ${ordw(1, t.u)} means counting ${ordw(2, t.u)}.`, hint: `Count the small slices in the picture. Each one is one ${ordw(1, t.u)}.` }) };
+      return {
+        prompt: `How many ${fracHTML(1, t.u)} slices are in ${plural(t.w, 'whole pizza')}?`, say: `How many ${ordw(1, t.u)} slices are in ${plural(t.w, 'whole pizza', true)}?`,
+        html: `${t.w} ÷ ${FR(1, t.u)} = ${F('a')}`, fields: ['a'], solution: { a: str(t.answer) },
+        check: v => ({ right: num(v.a) === t.answer, praise: `${cap(plural(t.w, 'pizza', true))} ${t.w === 1 ? 'makes' : 'make'} ${fw(t.answer, t.u)}.`, hint: `Each pizza has ${numw(t.u)} ${ordw(2, t.u)}. Count them all.` }) };
+    }
+    case 'pct': {
+      const c = t.d - t.p;
+      if (t.mode === 'ask') return {
+        prompt: `${t.p} of the ${t.d} slices are pepperoni. What percent is that?`, say: `${numw(t.p)} of the ${numw(t.d)} slices are pepperoni. What percent of the pizza is pepperoni?`,
+        html: `${FR(t.p, t.d)} = ${F('a')}%`, fields: ['a'], solution: { a: str(t.answer) },
+        check: v => ({ right: num(v.a) === t.answer, praise: `${numw(t.p)} out of ${numw(t.d)} is ${t.answer} percent.`, hint: `Percent means out of 100. ${t.d} slices times ${100 / t.d} is 100, so do the same to the top.` }) };
+      return {
+        prompt: `Pepperoni to cheese is ${t.p} to ${c}. What percent is pepperoni?`, say: `The ratio of pepperoni slices to cheese slices is ${numw(t.p)} to ${numw(c)}. What percent of the pizza is pepperoni?`,
+        html: `${t.p} : ${c}, pepperoni ${F('a')}%`, fields: ['a'], solution: { a: str(t.answer) },
+        check: v => ({ right: num(v.a) === t.answer, praise: `${numw(t.p)} out of ${numw(t.d)} slices is ${t.answer} percent.`, hint: `Add both parts first. ${t.p} plus ${c} is ${t.d} slices in all.` }) };
+    }
+    case 'dec': {
+      const dec = String(t.n / t.d);
+      if (t.mode === 'todec') return {
+        prompt: `Write ${fracHTML(t.n, t.d)} of the pizza as a decimal.`, say: `Write ${fw(t.n, t.d)} as a decimal.`,
+        html: `${FR(t.n, t.d)} = ${F('a')}`, fields: ['a'], decimal: true, solution: { a: dec },
+        check: v => ({ right: same(num(v.a), t.answer), praise: `${cap(fw(t.n, t.d))} is ${dec}.`, hint: `Divide the top by the bottom. ${t.n} divided by ${t.d}.` }) };
+      return {
+        prompt: `${dec} of the pizza is what percent?`, say: `${dec} of the pizza. What percent is that?`,
+        html: `${dec} = ${F('a')}%`, fields: ['a'], decimal: true, solution: { a: str(t.answer) },
+        check: v => ({ right: same(num(v.a), t.answer), praise: `${dec} is ${t.answer} percent.`, hint: `Percent means out of 100. Move the decimal point two places to the right.` }) };
+    }
+    case 'rate': {
+      if (t.mode === 'scale') { const people = t.q * t.k; return {
+        prompt: `${plural(t.p, 'pizza')} feed${t.p === 1 ? 's' : ''} ${t.q} people. How many pizzas for ${people} people?`, say: `${cap(plural(t.p, 'pizza', true))} feed${t.p === 1 ? 's' : ''} ${numw(t.q)} people. How many pizzas for ${people} people?`,
+        html: `${people} people: ${F('a')} pizzas`, fields: ['a'], solution: { a: str(t.answer) },
+        check: v => ({ right: num(v.a) === t.answer, praise: `${people} people is ${numw(t.k)} times ${numw(t.q)}, so ${numw(t.k)} times ${numw(t.p)} pizzas. ${plural(t.answer, 'pizza')}.`, hint: `${people} people is ${numw(t.k)} groups of ${numw(t.q)}. Each group needs ${plural(t.p, 'pizza', true)}.` }) }; }
+      if (t.mode === 'unit') return {
+        prompt: `${plural(t.p, 'pizza')} cost $${t.total}. How much is one pizza?`, say: `${cap(plural(t.p, 'pizza', true))} cost ${t.total} dollars. How much is one pizza?`,
+        html: `one pizza: $${F('a')}`, fields: ['a'], solution: { a: str(t.answer) },
+        check: v => ({ right: num(v.a) === t.answer, praise: `${t.total} divided by ${numw(t.p)} is ${t.answer} dollars each.`, hint: `Divide the total price by the number of pizzas.` }) };
+      if (t.mode === 'per') return {
+        prompt: `${t.kids} kids share ${t.N} slices equally. How many slices each?`, say: `${numw(t.kids)} kids share ${t.N} slices equally. How many slices does each kid get?`,
+        html: `each kid: ${F('a')} slices`, fields: ['a'], solution: { a: str(t.answer) },
+        check: v => ({ right: num(v.a) === t.answer, praise: `${t.N} slices shared by ${numw(t.kids)} is ${numw(t.answer)} each.`, hint: `Divide the slices by the number of kids.` }) };
+      return {
+        prompt: `The oven bakes ${plural(t.p, 'pizza')} in ${t.total} minutes. How many minutes per pizza?`, say: `The oven bakes ${plural(t.p, 'pizza', true)} in ${t.total} minutes. How many minutes for one pizza?`,
+        html: `one pizza: ${F('a')} minutes`, fields: ['a'], solution: { a: str(t.answer) },
+        check: v => ({ right: num(v.a) === t.answer, praise: `${t.total} minutes divided by ${numw(t.p)} is ${numw(t.answer)} minutes per pizza.`, hint: `Divide the minutes by the number of pizzas.` }) };
+    }
+    case 'chance': {
+      if (t.mode === 'gcf') return {
+        prompt: `What is the greatest common factor of ${t.p} and ${t.d}?`, say: `What is the greatest common factor of ${numw(t.p)} and ${numw(t.d)}?`,
+        html: `GCF of ${t.p} and ${t.d} = ${F('a')}`, fields: ['a'], solution: { a: str(t.answer) },
+        check: v => ({ right: num(v.a) === t.answer, praise: `${numw(t.answer)} is the biggest number that divides both ${numw(t.p)} and ${numw(t.d)}.`, hint: `List the factors of ${t.p} and the factors of ${t.d}. Find the biggest one they share.` }) };
+      const q = t.mode === 'pep' ? t.p : t.d - t.p, what = t.mode === 'pep' ? 'pepperoni' : 'cheese';
+      return {
+        prompt: `${who} takes a slice without looking. What is the chance it is ${what}? Simplest form.`, say: `${who} takes a slice without looking. What is the chance it is ${what}? Write the fraction in simplest form.`,
+        html: `chance of ${what} = ${FR(F('n'), F('d'))}`, fields: ['n', 'd'], solution: { n: str(t.answer[0]), d: str(t.answer[1]) },
+        check: v => {
+          const n = num(v.n), d = num(v.d), exact = n === t.answer[0] && d === t.answer[1], value = d > 0 && same(n / d, q / t.d);
+          return { right: exact, praise: `${numw(q)} of the ${numw(t.d)} slices are ${what}. That is ${fw(t.answer[0], t.answer[1])}.`, hint: value ? `That is the same amount, but not simplest. Divide the top and the bottom by their greatest common factor.` : `Count the ${what} slices, then all the slices. Then make the fraction simplest.` };
+        } };
+    }
+  }
+  throw new Error('no pad spec for ' + t.kind);
+}
+
+function showPad(t) {
+  const sp = padSpec(t), full = cut => ({ cut, present: cut });
+  if (t.kind === 'equiv') pizzaRow([{ cut: t.d, present: t.n, label: fs(t.n, t.d) }, { cut: t.d * t.k, present: t.n * t.k, label: t.mode === 'num' ? `?/${t.d * t.k}` : `${t.n * t.k}/?` }]);
+  else if (t.kind === 'unlike') { pizzaRow([{ cut: t.L, present: t.a * t.L / t.d1, label: fs(t.a, t.d1) }, { cut: t.L, present: t.b * t.L / t.d2, label: fs(t.b, t.d2) }]); const pl = label('+', { height: 1, color: '#fff', outline: '#2B2140' }); pl.position.set(0, 0.6, -0.5); stage.add(pl); }
+  else if (t.kind === 'mixed') pizzaRow([...Array.from({ length: t.w }, () => full(t.d)), { cut: t.d, present: t.r }]);
+  else if (t.kind === 'ofqty') pizzaRow(Array.from({ length: t.pizzas }, () => full(t.cut)), -0.5, `${t.N} slices`);
+  else if (t.kind === 'mult') pizzaRow([{ cut: t.b * t.d, present: t.c * t.b, label: fs(t.c, t.d) }, { cut: t.b * t.d, present: t.a * t.c, label: '?' }]);
+  else if (t.kind === 'divunit') pizzaRow(t.mode === 'frac' ? [{ cut: t.u, present: t.n * t.u / t.d, label: fs(t.n, t.d) }] : Array.from({ length: t.w }, () => full(t.u)));
+  else if (t.kind === 'pct') pizzaRow([{ cut: t.d, present: t.d, plain: Array.from({ length: t.d }, (_, i) => i >= t.p) }], -0.5, `${t.d} slices`);
+  else if (t.kind === 'dec') pizzaRow([{ cut: t.d, present: t.n, label: t.mode === 'todec' ? fs(t.n, t.d) : String(t.n / t.d) }]);
+  else if (t.kind === 'rate') {
+    if (t.mode === 'per') pizzaRow(Array.from({ length: t.N / t.cut }, () => full(t.cut)), -0.5, `${t.N} slices`);
+    else pizzaRow(Array.from({ length: t.p }, () => full(8)), -0.5, t.mode === 'scale' ? `feeds ${t.q}` : t.mode === 'unit' ? `$${t.total}` : `${t.total} minutes`);
+  }
+  else if (t.kind === 'chance') pizzaRow([{ cut: t.d, present: t.d, plain: t.pep.map(x => !x) }], -0.5, `${t.d} slices`);
+  setPrompt(sp.prompt, sp.say);
+  padDock(sp);
+}
+
+// The number pad lives in the dock: an answer row with typed boxes and a Check button, then one row of keys.
+let PAD = null;
+function padDock(sp) {
+  const el = $('dock'); el.innerHTML = '';
+  const wrap = document.createElement('div'); wrap.className = 'pad';
+  const row = document.createElement('div'); row.className = 'ansrow'; row.innerHTML = sp.html;
+  const chk = document.createElement('button'); chk.id = 'checkBtn'; chk.className = 'big'; chk.textContent = '✔ Check'; row.appendChild(chk);
+  const keys = document.createElement('div'); keys.className = 'keys';
+  const ks = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']; if (sp.decimal) ks.push('.'); if (sp.fields.length > 1) ks.push('→'); ks.push('⌫');
+  for (const k of ks) { const b = document.createElement('button'); b.className = 'key' + (k === '⌫' ? ' back' : ''); b.textContent = k; b.setAttribute('aria-label', k === '⌫' ? 'Delete' : k === '→' ? 'Next box' : k); b.addEventListener('click', () => { SFX.ctx(); padKey(k); }); keys.appendChild(b); }
+  wrap.appendChild(row); wrap.appendChild(keys); el.appendChild(wrap);
+  PAD = { sp, vals: Object.fromEntries(sp.fields.map(f => [f, ''])), active: sp.fields[0], row };
+  row.querySelectorAll('.fld').forEach(f => f.addEventListener('click', () => { if (!PAD) return; PAD.active = f.dataset.f; SFX.tick(); padRender(); }));
+  chk.addEventListener('click', () => { SFX.ctx(); padCheck(); });
+  padRender();
+}
+function padRender() {
+  if (!PAD) return;
+  PAD.row.querySelectorAll('.fld').forEach(f => { const v = PAD.vals[f.dataset.f]; f.textContent = v === '' ? ' ' : v; f.classList.toggle('on', f.dataset.f === PAD.active); });
+}
+function padKey(k) {
+  if (!PAD || !T || T.done) return;
+  const max = PAD.sp.decimal ? 6 : 4, id = PAD.active, i = PAD.sp.fields.indexOf(id), v = PAD.vals[id];
+  if (k === '⌫') { if (v) PAD.vals[id] = v.slice(0, -1); else if (i > 0) PAD.active = PAD.sp.fields[i - 1]; SFX.click(); }
+  else if (k === '→') { PAD.active = PAD.sp.fields[(i + 1) % PAD.sp.fields.length]; SFX.tick(); }
+  else if (k === '.') { if (!v.includes('.') && v.length < max) { PAD.vals[id] = v + '.'; SFX.tick(); } }
+  else if (v.length < max) { PAD.vals[id] = v + k; SFX.tick(); }
+  padRender();
+}
+function padShake() { if (!PAD) return; PAD.row.classList.remove('wrong'); void PAD.row.offsetWidth; PAD.row.classList.add('wrong'); }
+function padCheck() {
+  if (!PAD || !T || T.done) return;
+  const v = PAD.vals;
+  if (PAD.sp.fields.some(f => !/\d/.test(v[f]))) { say('Type a number in each box first.'); padShake(); SFX.oops(); return; }
+  const r = PAD.sp.check(v);
+  if (r.right) { PAD.row.querySelectorAll('.fld').forEach(f => f.classList.add('ok')); burst(new THREE.Vector3(0, 0.8, -0.5), 60); answer(true, r.praise); }
+  else { padShake(); say(r.hint); answer(false); }
+}
+addEventListener('keydown', e => {
+  if (!PAD || !T || T.done) return;
+  if (/^[0-9.]$/.test(e.key)) padKey(e.key); else if (e.key === 'Backspace') padKey('⌫'); else if (e.key === 'Enter') padCheck();
+  else if (e.key === 'Tab' || e.key === 'ArrowRight') { e.preventDefault(); padKey('→'); }
+});
+
+// ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
 makeStage([0, 7.4, 9.6], [0, 0.2, 0.2], 42);
@@ -807,12 +1133,83 @@ renderer.domElement.addEventListener('pointerdown', ev => {
 });
 kitStart();
 
+// Self-check hook for tools/ladder-check.mjs: builds problems at a rung without touching the DOM and validates each.
+function describeTask(t) {
+  const who = 'Ada';
+  if (PAD_KINDS.includes(t.kind)) return padSpec(Object.assign({ who }, t)).say;
+  switch (t.kind) {
+    case 'cut': return `cut into ${ORD[t.d][1]}`;
+    case 'serve': return t.askSay ? `${t.askSay} (${t.answer} of ${t.cut})` : t.add ? `serve ${fw(...t.add[0])} plus ${fw(...t.add[1])} as ${t.answer} of ${t.cut}` : `serve ${fw(t.n, t.d)} as ${t.answer} of ${t.cut}`;
+    case 'name': return `name ${fs(t.n, t.d)} from ${t.choices.map(c => fs(...c)).join(' ')}`;
+    case 'twin': return `twin of ${fs(t.n, t.d)} is ${t.answer} from ${t.choices.map(c => fs(...c)).join(' ')}`;
+    case 'line': return `place ${fs(t.n, t.d)} on a line to ${t.max}`;
+    case 'compare': return `compare ${fs(...t.pair[0])} and ${fs(...t.pair[1])}, bigger is ${t.answer}`;
+  }
+  throw new Error('unknown kind ' + t.kind);
+}
+function checkTask(t) {
+  const bad = m => { throw new Error(`${t.kind}: ${m}`); };
+  const int = (x, lo, hi, what) => { if (!Number.isInteger(x) || x < lo || x > hi) bad(`${what} ${x} not an integer in ${lo}..${hi}`); };
+  const same = (x, y) => Math.abs(x - y) < 1e-9;
+  const val = ([n, d]) => n / d;
+  switch (t.kind) {
+    case 'cut': int(t.d, 2, 8, 'd'); if (t.answer !== t.d) bad('answer'); break;
+    case 'serve':
+      int(t.d, 2, 20, 'd'); int(t.cut, 2, 20, 'cut'); int(t.answer, 1, t.cut, 'answer');
+      if (t.add) { int(t.add[0][0], 1, 20, 'a'); int(t.add[1][0], 1, 20, 'b'); if (!same(val(t.add[0]) + val(t.add[1]), t.n / t.d)) bad('sum'); if (t.n > t.d) bad('sum over one'); }
+      else int(t.n, 1, t.d - 1, 'n');
+      if (!same(t.answer / t.cut, t.n / t.d)) bad('answer value'); break;
+    case 'name': case 'twin': {
+      if (!Array.isArray(t.choices) || t.choices.length !== 4) bad('choices');
+      const keys = t.choices.map(c => fs(...c)); if (new Set(keys).size !== 4) bad('duplicate choice');
+      if (!keys.includes(t.answer)) bad('answer missing');
+      const [an, ad] = t.answer.split('/').map(Number); if (!same(an / ad, t.n / t.d)) bad('answer value');
+      if (t.choices.filter(c => same(val(c), t.n / t.d)).length !== 1) bad('two right choices');
+      if (t.kind === 'twin' && t.answer === fs(t.n, t.d)) bad('twin equals itself');
+      break;
+    }
+    case 'line': int(t.d, 2, 8, 'd'); int(t.max, 1, 2, 'max'); int(t.n, 1, t.d * t.max - 1, 'n'); if (t.answer !== t.n) bad('answer'); break;
+    case 'compare': if (same(val(t.pair[0]), val(t.pair[1]))) bad('equal pair'); if (t.answer !== (val(t.pair[0]) > val(t.pair[1]) ? 0 : 1)) bad('answer'); break;
+    case 'equiv': int(t.n, 1, t.d - 1, 'n'); int(t.d * t.k, 4, 12, 'D'); if (t.answer !== (t.mode === 'num' ? t.n * t.k : t.d * t.k)) bad('answer'); break;
+    case 'unlike': int(t.L, 2, 24, 'L'); int(t.N, 1, t.L, 'N'); if (!same(t.a / t.d1 + t.b / t.d2, t.N / t.L) || !same(t.answer, t.N / t.L)) bad('sum'); break;
+    case 'mixed': int(t.w, 1, 3, 'w'); int(t.r, 1, t.d - 1, 'r'); if (t.mode === 'improper' ? t.answer !== t.w * t.d + t.r : (t.answer[0] !== t.w || t.answer[1] !== t.r)) bad('answer'); break;
+    case 'ofqty': int(t.pizzas, 1, 4, 'pizzas'); if (t.pizzas * t.cut !== t.N || t.N % t.d !== 0) bad('layout'); int(t.answer, 1, t.N - 1, 'answer'); if (t.answer !== t.N * t.n / t.d) bad('answer'); break;
+    case 'mult': int(t.b * t.d, 4, 24, 'cut'); if (!same(val(t.answer), (t.a / t.b) * (t.c / t.d))) bad('product'); if (t.c * t.b > t.b * t.d || t.a * t.c > t.b * t.d) bad('slices'); break;
+    case 'divunit': int(t.u, 2, 12, 'u'); if (t.mode === 'frac') { if (t.u % t.d !== 0 || t.answer !== t.n * t.u / t.d) bad('answer'); } else if (t.answer !== t.w * t.u) bad('answer'); int(t.answer, 1, 36, 'answer'); break;
+    case 'pct': int(t.p, 1, t.d - 1, 'p'); int(t.answer, 1, 99, 'percent'); if (t.answer !== t.p * 100 / t.d) bad('percent'); break;
+    case 'dec': int(t.n, 1, t.d - 1, 'n'); if (String(t.n / t.d).length > 6) bad('long decimal'); if (!same(t.answer, t.mode === 'todec' ? t.n / t.d : t.n * 100 / t.d)) bad('answer'); if (t.mode === 'topct' && !same(t.answer * 2, Math.round(t.answer * 2))) bad('percent not a half'); break;
+    case 'rate': int(t.answer, 1, 40, 'answer');
+      if (t.mode === 'scale' && t.answer !== t.p * t.k) bad('scale'); if (t.mode === 'unit' && t.answer * t.p !== t.total) bad('unit'); if (t.mode === 'time' && t.answer * t.p !== t.total) bad('time');
+      if (t.mode === 'per') { if (t.answer * t.kids !== t.N || t.N % t.cut !== 0 || t.N / t.cut > 4) bad('per'); } break;
+    case 'chance': int(t.p, 1, t.d - 1, 'p'); if (t.pep.length !== t.d || t.pep.filter(Boolean).length !== t.p) bad('toppings');
+      if (t.mode === 'gcf') { if (t.answer !== gcd(t.p, t.d)) bad('gcf'); }
+      else { const q = t.mode === 'pep' ? t.p : t.d - t.p; if (gcd(...t.answer) !== 1 || !same(val(t.answer), q / t.d)) bad('not simplest'); } break;
+    default: bad('unknown kind');
+  }
+  const text = describeTask(t); if (/NaN|undefined|null|\[object/.test(text)) bad('bad text: ' + text);
+  if (PAD_KINDS.includes(t.kind)) {
+    const sp = padSpec(Object.assign({ who: 'Ada' }, t));
+    if (/NaN|undefined|null|\[object/.test(sp.prompt + sp.html + sp.say)) bad('bad pad text');
+    if (!sp.check(sp.solution).right) bad('solution rejected: ' + JSON.stringify(sp.solution));
+    const off = Object.assign({}, sp.solution, { [sp.fields[0]]: String(Number(sp.solution[sp.fields[0]]) + 1) });
+    if (sp.check(off).right) bad('wrong answer accepted: ' + JSON.stringify(off));
+    for (const f of sp.fields) if (sp.solution[f].length > (sp.decimal ? 6 : 4)) bad('answer too long for the pad: ' + sp.solution[f]);
+  }
+}
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => APP.start,
+  label: () => LEVELS[P.lv].name,
+  exercise(i, n) { const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); checkTask(t); out.push(describeTask(t)); } return out; },
+};
+
 // Test hook.
 window.FRACTION_PIZZA = {
   hold(v) { HOLD = !!v; },
   LEVELS, record, answer, newTask, state: () => P, current: () => T,
   setLevel(i) { P.lv = i; P.streak = 0; P.miss = 0; showBadge(false); return newTask(); },
   servedCount,
+  padSolution: () => (PAD ? PAD.sp.solution : null),
   // Screen points the tests tap through the real canvas.
   targets() {
     const out = {};

@@ -1,13 +1,13 @@
 {
   "id": "read-it-say-it",
   "name": "Read It Say It Make It",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Read a passage out loud and the tablet listens, marking each word as it is read; then answer about it and make something from it. Speech checking runs on the tablet, offline.",
   "subjects": [
     "reading"
   ],
-  "ageMin": 5,
-  "ageMax": 9,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [
     "microphone"
@@ -16,7 +16,7 @@
   "source": "trucule/Surface-Pro-X-KidSetup apps/read-it-say-it",
   "about": {
     "concept": "Reading fluency with feedback. The child reads a passage aloud and each word lights up as the recognizer hears it, so reading becomes an activity with an immediate, visible result rather than a silent one. Questions and a making step afterwards check that the meaning landed.",
-    "progression": "Passages grow from a few short sentences with common words to paragraphs with longer words and dialogue. Early passages accept a slow pace; later ones ask for smoother reading and harder questions.",
+    "progression": "Sentences read aloud grow from three words at pre-K to two-part sentences at 2nd grade, then passages take over: short stories with a who or what question, main idea paragraphs, fluency passages read with expression, nonfiction with vocabulary in context, inference stories, paired paragraphs to compare, poems, argument paragraphs with a claim and evidence, and 8th grade passages with academic vocabulary and a summary to choose. Every passage is read one sentence at a time and the questions are answered by tapping.",
     "lifeSkills": [
       "Reading aloud with confidence",
       "Clear speaking",

@@ -216,14 +216,17 @@
 <title>Robot Path</title>
 <!--
   Robot Path. Coding without code, one file, offline.
-  A toy robot stands on a 3D board of tiles with gems and rocks. The player builds a program from big arrow cards and
+  A toy robot stands on a 3D board of tiles with gems and rocks. The player builds a program from big cards and
   presses Go. The robot runs the cards one by one and picks up every gem it lands on.
-  The ladder: arrow cards on small boards, then bigger rocky boards, then Repeat cards with a card limit, then
-  If pink cards (turn on the pink tiles), then fewest moves challenges.
+  The ladder runs from pre-K to 8th grade: arrow cards on small boards, bigger rocky boards, Repeat cards with a card
+  limit, If pink cards, fewest moves, then forward and turn cards with a loop inside a loop, a Stamp the child defines
+  once and uses twice, a board number n, If wall with an else branch, While, fixing a buggy program, fewest cards,
+  one program for three mazes, and gems collected in number order.
   Every board is checked when it is made: a search finds the fewest moves to get every gem, the planned program is run
-  to prove it works, card limits are proven to need the new card (plain arrows or plain loops cannot fit).
+  to prove it works, card limits are proven to need the new card where a search can prove it, and boards that share
+  one program are proven to need sensors or the variable (no fixed move list fits all of them).
   Four right first try in a row moves up a level; two missed boards in a row moves down.
-  Progress is kept in localStorage (key robot-path-v1). New players start at a 2nd grade level.
+  Progress is kept in localStorage (key robot-path-v1). New players start at the child's logic grade, 2nd when unknown.
   Bundled: three.js r149, https://threejs.org, MIT License, Copyright 2010-2023 Three.js Authors.
   The full notice: Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
   associated documentation files, to deal in the Software without restriction, subject to the condition that the
@@ -240,7 +243,7 @@
   /* The right 210px of the header stays clear: the Home pill sits there. */
   header { display: flex; align-items: center; gap: 12px; padding: 10px 210px 10px 14px; min-height: 56px; }
   header h1 { font-size: 28px; margin: 0; font-weight: 900; color: #fff; text-shadow: 0 3px 0 var(--ink); white-space: nowrap; }
-  #badge { font-size: 18px; font-weight: 900; background: var(--sun); border: 3px solid var(--ink); border-radius: 999px; padding: 6px 14px; white-space: nowrap; }
+  #badge { font-size: 17px; font-weight: 900; background: var(--sun); border: 3px solid var(--ink); border-radius: 999px; padding: 6px 14px; white-space: nowrap; }
   #badge.pop { animation: pop .6s; }
   #stars { font-size: 22px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px; margin-right: auto; }
   .pill { border: 3px solid var(--ink); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 20px; font-weight: 900; white-space: nowrap; }
@@ -249,7 +252,8 @@
   #stage { position: absolute; inset: 0; }
   #stage canvas { display: block; width: 100%; height: 100%; }
   #ask { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); font-size: 28px; font-weight: 900; background: #fff; border: 4px solid var(--ink);
-    border-radius: 999px; padding: 6px 24px; white-space: nowrap; box-shadow: 0 6px 0 #0003; z-index: 2; }
+    border-radius: 999px; padding: 6px 24px; white-space: nowrap; box-shadow: 0 6px 0 #0003; z-index: 2; max-width: 92%; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+  #ask.long { font-size: 22px; }
   #toast { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .25s; font-size: 46px; font-weight: 900;
     background: var(--sun); border: 5px solid var(--ink); border-radius: 30px; padding: 14px 34px; pointer-events: none; z-index: 3; white-space: nowrap; }
   #toast.on { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -262,15 +266,25 @@
   .pc.arrow { background: var(--sky); }
   .pc.rep { width: 150px; background: var(--leaf); font-size: 26px; }
   .pc.ifc { width: 150px; background: var(--pink); color: #fff; font-size: 26px; text-shadow: 0 2px 0 var(--ink); }
+  /* Small two-line palette cards for the forward and turn levels, where more kinds of card must share the row. */
+  .pc.sm { width: 80px; height: 74px; font-size: 26px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; line-height: 1; border-radius: 16px; }
+  .pc.sm .lab { font-size: 12px; font-weight: 800; }
+  .pc.fwd, .pc.fwdn { background: var(--sky); }
+  .pc.tl, .pc.tr { background: var(--sun); }
+  .pc.sm.rep { background: var(--leaf); }
+  .pc.ifs { background: var(--pink); color: #fff; text-shadow: 0 2px 0 var(--ink); }
+  .pc.while { background: var(--grape); color: #fff; text-shadow: 0 2px 0 var(--ink); }
+  .pc.call { background: var(--orange); }
   #limit { font-size: 22px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 6px 14px; margin-left: 8px; }
   #limit.full { background: #FFB3C9; animation: shake .4s; }
+  .adv #limit { font-size: 18px; padding: 5px 12px; }
   #ctl { display: flex; gap: 10px; align-items: center; grid-row: span 2; }
   #go { width: 150px; height: 150px; border-radius: 50%; border: 5px solid var(--ink); background: var(--leaf); font-size: 40px; font-weight: 900; box-shadow: 0 8px 0 var(--ink); }
   #go:active { transform: translateY(5px); box-shadow: 0 3px 0 var(--ink); }
   #go:disabled { background: #cfc6dc; }
   .side { display: flex; flex-direction: column; gap: 10px; }
   .side button { width: 76px; height: 70px; border: 4px solid var(--ink); border-radius: 18px; background: #fff; font-size: 32px; }
-  #strip { min-height: 92px; border: 4px dashed #B9A9D9; border-radius: 22px; background: #fff; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; align-content: flex-start; }
+  #strip { min-height: 92px; max-height: 210px; overflow: auto; border: 4px dashed #B9A9D9; border-radius: 22px; background: #fff; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; align-content: flex-start; }
   #strip .empty { font-size: 22px; font-weight: 800; color: #8D7DAF; padding: 22px 10px; }
   .card { position: relative; height: 70px; min-width: 66px; border: 4px solid var(--ink); border-radius: 16px; background: var(--sky); font-size: 36px; font-weight: 900;
     display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box; }
@@ -280,14 +294,34 @@
   .card.ifk .yes { background: var(--pink); color: #fff; text-shadow: 0 2px 0 var(--ink); }
   .card.ifk .no { background: #E8F7FF; border-left: 3px solid var(--ink); }
   .card.ifk .lbl { font-size: 15px; display: block; line-height: 1; }
+  .card .cb { border: 0; background: none; font: inherit; color: inherit; height: 100%; min-width: 48px; padding: 0 6px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; gap: 2px; }
+  .card .cb .lab { font-size: 11px; font-weight: 800; }
+  .card.tl, .card.tr { background: var(--sun); }
+  .card.call { background: var(--orange); }
   .x { position: absolute; top: -12px; right: -12px; width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--ink); background: #fff; font-size: 16px; font-weight: 900; padding: 0; z-index: 1; }
   .rep { position: relative; display: inline-flex; align-items: stretch; border: 4px solid var(--ink); border-radius: 18px; background: #DFF7E8; }
   .rep.open { box-shadow: 0 0 0 5px var(--sun); }
-  .rep .rh { display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--leaf); border-right: 4px solid var(--ink); border-radius: 13px 0 0 13px; padding: 0 6px; }
-  .rep .rh button { border: 0; background: none; font-size: 26px; font-weight: 900; padding: 0 4px; }
-  .rep .rn { background: #fff !important; border: 3px solid var(--ink) !important; border-radius: 12px; font-size: 24px !important; }
+  .rep .rh { display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--leaf); border-right: 4px solid var(--ink); border-radius: 13px 0 0 13px; padding: 0 6px; gap: 2px; }
+  .rep .rh button { border: 0; background: none; font-size: 26px; font-weight: 900; padding: 0 4px; color: inherit; text-shadow: inherit; }
+  .rep .rn { background: #fff !important; border: 3px solid var(--ink) !important; border-radius: 12px; font-size: 24px !important; color: var(--ink) !important; text-shadow: none !important; }
   .rep .rb { display: flex; gap: 6px; padding: 7px; align-items: center; min-width: 70px; }
   .rep .rb .hint { font-size: 16px; font-weight: 800; color: #3E8F5E; }
+  .rep .rb.open { box-shadow: inset 0 0 0 3px var(--sun); background: #FFF6D6; border-radius: 10px; }
+  .rep .rb .sl { font-size: 12px; font-weight: 900; color: #8D7DAF; padding: 0 2px; }
+  .rep.ifs .rb + .rb { border-left: 3px dashed #B9A9D9; }
+  .rep.while { background: #EFE6FF; } .rep.while > .rh { background: var(--grape); color: #fff; text-shadow: 0 2px 0 var(--ink); }
+  .rep.ifs { background: #FFE6EF; } .rep.ifs > .rh { background: var(--pink); color: #fff; text-shadow: 0 2px 0 var(--ink); }
+  .rep.def { background: #FFEBD9; } .rep.def > .rh { background: var(--orange); }
+  .rep .rh .kw { font-size: 13px !important; line-height: 1; padding: 0 2px !important; }
+  .rep .rh .cnd { font-size: 12px !important; line-height: 1.1; background: #fff !important; color: var(--ink) !important; text-shadow: none !important; border: 3px solid var(--ink) !important; border-radius: 10px; padding: 2px 5px !important; max-width: 90px; white-space: normal; }
+  /* Forward and turn levels: smaller cards, so nested boxes and a longer palette fit the same footer. */
+  .adv .card { height: 58px; min-width: 56px; font-size: 28px; border-radius: 14px; }
+  .adv .x { width: 26px; height: 26px; font-size: 12px; top: -10px; right: -10px; }
+  .adv .rep .rb { padding: 5px; gap: 5px; min-width: 56px; }
+  .adv .rep .rh { padding: 0 4px; }
+  .adv .rep .rh button { font-size: 20px; }
+  .adv .rep .rn { font-size: 18px !important; }
+  .adv #strip .empty { font-size: 20px; padding: 16px 10px; }
   #picker { position: absolute; inset: 0; background: #2B214088; display: none; place-items: center; z-index: 5; }
   #picker.on { display: grid; }
   #picker div { background: #fff; border: 5px solid var(--ink); border-radius: 28px; padding: 18px; display: grid; grid-template-columns: repeat(6, 84px); gap: 10px; }
@@ -335,14 +369,40 @@
 // Board rules. Directions: 0 up (away), 1 right, 2 down (toward you), 3 left.
 const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 const ARROW = ['⬆', '➡', '⬇', '⬅'];
-const MAXCARDS = 16;
+const MAXCARDS = 16, BODYMAX = 4;
 const $ = id => document.getElementById(id);
 const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const key = (x, y) => x + ',' + y;
+const copy = v => JSON.parse(JSON.stringify(v));
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
-// Levels from young (bottom) to hard (top). kind picks the generator; palette lists the cards on offer.
+// Cards. mv: an arrow step in a fixed direction. fwd, tl, tr: forward, turn left, turn right from where the robot
+// faces. rep: repeat a body n times. if: the pink-tile card (a on pink, b elsewhere). ifs: a sensor test with a then
+// branch and an else branch. while: a body that runs while a sensor test holds. def: the Stamp, a body defined once;
+// call plays it. fwdn: forward the board's number n of steps.
+//
+// The ladder, pre-K at the bottom and 8th grade at the top. Index, name, grade band, what it asks:
+//   0 First steps     pre-K      two or three arrow cards to one gem on a 4 by 4 board
+//   1 Walk around     K, 1st     a few arrows around rocks to two gems
+//   2 Rocky road      2nd        five to seven arrows, three gems, more rocks (levelFor names this index as 2nd grade)
+//   3 Maze runner     2nd, 3rd   a 6 by 6 board that needs up to ten arrows
+//   4 Repeat          3rd        a straight run that only fits the card limit with a Repeat
+//   5 Stairs          3rd        a two-card body repeated
+//   6 Two loops       3rd, 4th   two Repeats in a row, or a three-card body
+//   7 If pink         4th        an If pink card inside a Repeat turns the robot on pink tiles
+//   8 If maze         4th        the same on a 7 by 7 board with a longer path
+//   9 Fewest moves    4th, 5th   collect every gem in the fewest moves a search can find
+//  10 Gem master      5th        the same with more gems and rocks
+//  11 Loop in a loop  5th        forward and turn cards; a Repeat inside a Repeat draws a U or a staircase
+//  12 Stamp           5th, 6th   a Stamp defined once and used twice with a turn between
+//  13 Go n            6th        three boards with different n; one program using go n fits them all
+//  14 If wall         6th        If wall ahead then turn else forward, inside a Repeat
+//  15 While           6th, 7th   a corridor too long for one Repeat; While gems left
+//  16 Fix the bug     7th        a given program with one wrong card; fix it in one change for a bonus star
+//  17 Fewest cards    7th, 8th   any program within the limit wins; the shortest earns three stars
+//  18 Any maze        8th        one program for three mazes; the right hand rule with nested Ifs in a While
+//  19 Gems in order   8th        numbered gems collected in order within a card limit
 const LEVELS = [
   { name: 'First steps', kind: 'arrows', w: 4, h: 4, gems: 1, len: [2, 3], walls: 0 },
   { name: 'Walk around', kind: 'arrows', w: 5, h: 5, gems: 2, len: [3, 5], walls: 2 },
@@ -355,36 +415,97 @@ const LEVELS = [
   { name: 'If maze', kind: 'if', w: 7, h: 7, len: [10, 12], walls: 7 },
   { name: 'Fewest moves', kind: 'fewest', w: 6, h: 6, gems: [2, 3], walls: [5, 7], moves: [6, 12] },
   { name: 'Gem master', kind: 'fewest', w: 7, h: 7, gems: [3, 4], walls: [8, 11], moves: [9, 15] },
+  { name: 'Loop in a loop', kind: 'nested', w: 8, h: 8, walls: 6 },
+  { name: 'Stamp', kind: 'stamp', w: 8, h: 8, walls: 6 },
+  { name: 'Go n', kind: 'varn', w: 9, h: 9, walls: 0 },
+  { name: 'If wall', kind: 'ifwall', w: 8, h: 8, legs: [3, 3], walls: 5 },
+  { name: 'While', kind: 'whilegems', w: 9, h: 9, legs: [4, 5], walls: 6 },
+  { name: 'Fix the bug', kind: 'debug', w: 8, h: 8, walls: 5 },
+  { name: 'Fewest cards', kind: 'fewcards', w: 8, h: 8, walls: 6 },
+  { name: 'Any maze', kind: 'maze', cells: 4, w: 7, h: 7, walls: 0 },
+  { name: 'Gems in order', kind: 'order', w: 8, h: 8, gems: [4, 5], walls: [8, 11] },
 ];
 // Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
 const START_LEVEL = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('logic', LEVELS.length, 2) : 2);
-LEVELS.forEach(L => { L.palette = L.kind === 'arrows' ? ['mv'] : L.kind === 'loop' ? ['mv', 'rep'] : L.kind === 'if' ? ['mv', 'rep', 'if'] : ['mv', 'rep']; });
+const PAL = {
+  arrows: ['mv'], loop: ['mv', 'rep'], if: ['mv', 'rep', 'if'], fewest: ['mv', 'rep'],
+  nested: ['fwd', 'tl', 'tr', 'rep'], stamp: ['fwd', 'tl', 'tr', 'rep', 'call'], varn: ['fwd', 'tl', 'tr', 'rep', 'fwdn'],
+  ifwall: ['fwd', 'tl', 'tr', 'rep', 'ifs'], whilegems: ['fwd', 'tl', 'tr', 'rep', 'ifs', 'while'], debug: ['fwd', 'tl', 'tr', 'rep', 'ifs', 'call'],
+  fewcards: ['fwd', 'tl', 'tr', 'rep'], maze: ['fwd', 'tl', 'tr', 'rep', 'ifs', 'while'], order: ['fwd', 'tl', 'tr', 'rep'],
+};
+const CONDS = {
+  ifwall: ['wall', 'wallL', 'wallR'], whilegems: ['wall', 'wallL', 'wallR', 'clear', 'gems'], debug: ['wall', 'wallL', 'wallR'],
+  maze: ['wall', 'wallL', 'wallR', 'clear', 'gems', 'wall&wallR', 'wall&wallL'],
+};
+// What a sensor test is called on its card and when spoken.
+const CNAME = { wall: 'wall ahead', wallL: 'wall left', wallR: 'wall right', clear: 'way is clear', gems: 'gems left', 'wall&wallR': 'wall ahead and wall right', 'wall&wallL': 'wall ahead and wall left' };
+LEVELS.forEach(L => { L.palette = PAL[L.kind]; L.conds = CONDS[L.kind] || ['wall']; L.adv = L.palette.includes('fwd'); });
 
-const cardCount = pr => pr.reduce((n, b) => n + 1 + (b.t === 'rep' ? b.body.length : 0), 0);
+const cardCount = list => list.reduce((n, b) => n + 1 + (b.body ? cardCount(b.body) : 0) + (b.yes ? cardCount(b.yes) + cardCount(b.no) : 0), 0);
 const inb = (p, x, y) => x >= 0 && y >= 0 && x < p.w && y < p.h;
+const blockedAt = (p, x, y) => !inb(p, x, y) || p.walls.has(key(x, y));
 
-// Runs a program on a board. The robot stops when it gets the last gem, bumps a rock or the edge, or runs out of cards.
+// Runs a program on a board. The robot stops when it gets the last gem, bumps a rock or the edge, steps on a numbered
+// gem too soon, or runs out of cards. A While that never ends, or a run past maxSteps, counts as stuck.
 function simulate(p, prog, maxSteps = 200) {
-  let x = p.start.x, y = p.start.y, crash = false, done = false;
+  let x = p.start.x, y = p.start.y, h = p.dir ?? 0, crash = false, done = false, stuck = false, wrong = -1;
+  const n = p.n ?? 1;
   const gems = new Map(p.gems.map((g, i) => [key(g.x, g.y), i])), got = new Set(), steps = [];
+  const def = prog.find(b => b.t === 'def'), defPath = [prog.indexOf(def), 'b'];
   const step = (d, path) => {
     if (done) return;
-    if (steps.length >= maxSteps) { done = true; return; }
+    if (steps.length >= maxSteps) { stuck = done = true; return; }
     const nx = x + DIRS[d][0], ny = y + DIRS[d][1];
-    if (!inb(p, nx, ny) || p.walls.has(key(nx, ny))) { steps.push({ d, x, y, crash: true, path }); crash = done = true; return; }
+    if (blockedAt(p, nx, ny)) { steps.push({ d, x, y, crash: true, path }); crash = done = true; return; }
     x = nx; y = ny; let gem = -1; const k = key(x, y);
-    if (gems.has(k) && !got.has(k)) { got.add(k); gem = gems.get(k); }
+    if (gems.has(k) && !got.has(k)) {
+      gem = gems.get(k);
+      if (p.ordered && gem !== got.size) { steps.push({ d, x, y, gem, wrong: true, path }); wrong = gem; done = true; return; }
+      got.add(k);
+    }
     steps.push({ d, x, y, gem, path });
     if (got.size === p.gems.length) done = true;
   };
-  const dirOf = b => b.t === 'mv' ? b.d : (p.pink.has(key(x, y)) ? b.a : b.b);
-  prog.forEach((b, i) => {
-    if (b.t !== 'rep') step(dirOf(b), [i]);
-    else for (let r = 0; r < b.n && !done; r++) b.body.forEach((c, j) => step(dirOf(c), [i, j]));
-  });
-  const moves = steps.filter(s => !s.crash).length;
-  const win = !crash && got.size === p.gems.length && (!p.moveLimit || moves <= p.moveLimit) && (!p.limit || cardCount(prog) <= p.limit);
-  return { steps, crash, win, moves, got: got.size };
+  const turn = (dh, path) => { if (done) return; if (steps.length >= maxSteps) { stuck = done = true; return; } h = (h + dh) % 4; steps.push({ d: h, x, y, turn: true, path }); };
+  const gemAt = d => { const k = key(x + DIRS[d][0], y + DIRS[d][1]); return gems.has(k) && !got.has(k); };
+  const sense1 = c => {
+    switch (c) {
+      case 'wall': return blockedAt(p, x + DIRS[h][0], y + DIRS[h][1]);
+      case 'wallL': return blockedAt(p, x + DIRS[(h + 3) % 4][0], y + DIRS[(h + 3) % 4][1]);
+      case 'wallR': return blockedAt(p, x + DIRS[(h + 1) % 4][0], y + DIRS[(h + 1) % 4][1]);
+      case 'clear': return !blockedAt(p, x + DIRS[h][0], y + DIRS[h][1]);
+      case 'gems': return got.size < p.gems.length;
+      case 'gemF': return gemAt(h);
+      case 'gemL': return gemAt((h + 3) % 4);
+      case 'gemR': return gemAt((h + 1) % 4);
+      default: return false;
+    }
+  };
+  const sense = c => c.includes('&') ? c.split('&').every(sense1) : c.includes('|') ? c.split('|').some(sense1) : sense1(c);
+  const run = (list, base) => { for (let i = 0; i < list.length && !done; i++) exec(list[i], base.concat(i)); };
+  const exec = (b, path) => {
+    switch (b.t) {
+      case 'mv': step(b.d, path); break;
+      case 'if': step(p.pink.has(key(x, y)) ? b.a : b.b, path); break;
+      case 'fwd': step(h, path); break;
+      case 'tl': turn(3, path); break;
+      case 'tr': turn(1, path); break;
+      case 'fwdn': for (let k = 0; k < n && !done; k++) step(h, path); break;
+      case 'rep': for (let r = 0; r < b.n && !done; r++) run(b.body, path.concat('b')); break;
+      case 'ifs': { const yes = sense(b.c); steps.push({ pause: true, path }); run(yes ? b.yes : b.no, path.concat(yes ? 'y' : 'n')); break; }
+      case 'while': {
+        let guard = 0;
+        while (!done && sense(b.c)) { steps.push({ pause: true, path }); run(b.body, path.concat('b')); if (++guard > 300 || !b.body.length) { stuck = done = true; } }
+        break;
+      }
+      case 'call': if (def) run(def.body, defPath); break;
+      default: break;
+    }
+  };
+  run(prog, []);
+  const moves = steps.filter(s => !s.crash && !s.turn && !s.pause && !s.wrong).length;
+  const win = !crash && !stuck && wrong < 0 && got.size === p.gems.length && (!p.moveLimit || moves <= p.moveLimit) && (!p.limit || cardCount(prog) <= p.limit);
+  return { steps, crash, stuck, wrong, win, moves, got: got.size };
 }
 
 // Fewest moves to collect every gem (search over place and gems held). Returns the moves or null.
@@ -417,19 +538,69 @@ function plainPrograms(limit) {
   grow([], limit);
   return out;
 }
-let PLAIN3 = null;
+// Every program of forward, turn and single-level Repeat cards within a card budget. Used to prove a board needs a
+// Repeat inside a Repeat, an If, or a While.
+function flatPrograms(limit) {
+  const singles = ['fwd', 'tl', 'tr'].map(t => ({ t })), blocks = singles.map(b => ({ c: 1, b }));
+  let layer = [[]];
+  for (let len = 1; len <= limit - 1; len++) {
+    layer = layer.flatMap(body => singles.map(s => body.concat([s])));
+    for (const body of layer) for (let n = 2; n <= 12; n++) blocks.push({ c: 1 + len, b: { t: 'rep', n, body } });
+  }
+  const out = [];
+  const grow = (pr, left) => { if (pr.length) out.push(pr); for (const k of blocks) if (k.c <= left) grow(pr.concat([k.b]), left - k.c); };
+  grow([], limit);
+  return out;
+}
+let PLAIN3 = null, FLAT4 = null;
 
-function emptyBoard(L) { return { w: L.w, h: L.h, walls: new Set(), pink: new Set(), gems: [], limit: null, moveLimit: null, level: L.name, kind: L.kind, palette: L.palette }; }
+// Can one fixed list of forward and turn moves (no sensors, no variable) win every one of these boards? A search over
+// all boards at once; the boards move in step, so their headings stay a fixed turn apart. Past the cap it answers yes
+// so the board set is thrown away.
+function fixedSolvable(boards, cap = 150000) {
+  const gi = boards.map(b => new Map(b.gems.map((g, i) => [key(g.x, g.y), i]))), full = boards.map(b => (1 << b.gems.length) - 1);
+  const s0 = { h: 0, s: boards.map(b => [b.start.x, b.start.y, 0]) };
+  const enc = st => st.h + '|' + st.s.map(a => a.join(',')).join(';');
+  const seen = new Set([enc(s0)]), q = [s0];
+  for (let i = 0; i < q.length; i++) {
+    const st = q[i];
+    if (st.s.every((a, k) => a[2] === full[k])) return true;
+    if (seen.size > cap) return true;
+    for (const mv of ['fwd', 'tl', 'tr']) {
+      let h = st.h, ok = true; const s = st.s.map(a => a.slice());
+      if (mv !== 'fwd') h = (h + (mv === 'tl' ? 3 : 1)) % 4;
+      else for (let k = 0; k < s.length; k++) {
+        if (s[k][2] === full[k]) continue;
+        const b = boards[k], d = ((b.dir ?? 0) + h) % 4, nx = s[k][0] + DIRS[d][0], ny = s[k][1] + DIRS[d][1];
+        if (blockedAt(b, nx, ny)) { ok = false; break; }
+        s[k][0] = nx; s[k][1] = ny; const g = gi[k].get(key(nx, ny)); if (g !== undefined) s[k][2] |= 1 << g;
+      }
+      if (!ok) continue;
+      const ns = { h, s }, e = enc(ns); if (!seen.has(e)) { seen.add(e); q.push(ns); }
+    }
+  }
+  return false;
+}
+
+function emptyBoard(L) { return { w: L.w, h: L.h, walls: new Set(), pink: new Set(), gems: [], limit: null, moveLimit: null, level: L.name, kind: L.kind, palette: L.palette, conds: L.conds, adv: L.adv, nest: L.adv, dir: null }; }
 
 // Places gems on path cells (always the last one) and rocks off the path.
 function dress(p, cells, nGems, nWalls) {
   const end = cells[cells.length - 1];
   const mid = shuffle(cells.slice(1, -1)).slice(0, nGems - 1);
   p.gems = [end, ...mid].map(c => ({ x: c.x, y: c.y }));
+  rocks(p, cells, nWalls);
+}
+function rocks(p, cells, nWalls) {
   const onPath = new Set(cells.map(c => key(c.x, c.y)));
   const free = [];
-  for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) if (!onPath.has(key(x, y))) free.push({ x, y });
+  for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) if (!onPath.has(key(x, y)) && !p.walls.has(key(x, y))) free.push({ x, y });
   shuffle(free).slice(0, nWalls).forEach(c => p.walls.add(key(c.x, c.y)));
+}
+// Rocks on every cell next to the path, so the path is the only way: a tight corridor.
+function fence(p, cells) {
+  const onPath = new Set(cells.map(c => key(c.x, c.y)));
+  for (const c of cells) for (const [dx, dy] of DIRS) { const k = key(c.x + dx, c.y + dy); if (inb(p, c.x + dx, c.y + dy) && !onPath.has(k)) p.walls.add(k); }
 }
 
 function walk(p, start, moves) {
@@ -440,6 +611,117 @@ function walk(p, start, moves) {
     seen.add(key(nx, ny)); cells.push({ x: nx, y: ny });
   }
   return cells;
+}
+// Puts a list of moves somewhere on the board where it fits without crossing itself. Returns the cells or null.
+function placePath(p, moves) {
+  let x = 0, y = 0, minx = 0, maxx = 0, miny = 0, maxy = 0; const seen = new Set(['0,0']);
+  for (const d of moves) {
+    x += DIRS[d][0]; y += DIRS[d][1]; const k = key(x, y); if (seen.has(k)) return null; seen.add(k);
+    minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y);
+  }
+  if (maxx - minx >= p.w || maxy - miny >= p.h) return null;
+  p.start = { x: ri(-minx, p.w - 1 - maxx), y: ri(-miny, p.h - 1 - maxy) };
+  return walk(p, p.start, moves);
+}
+// Absolute moves of a sensor-free program from heading h (construction only; If and While are not expanded).
+function expand(list, st, def) {
+  const out = [];
+  for (const b of list) {
+    if (b.t === 'fwd') out.push(st.h); else if (b.t === 'tl') st.h = (st.h + 3) % 4; else if (b.t === 'tr') st.h = (st.h + 1) % 4;
+    else if (b.t === 'fwdn') for (let k = 0; k < st.n; k++) out.push(st.h);
+    else if (b.t === 'rep') for (let r = 0; r < b.n; r++) out.push(...expand(b.body, st, def));
+    else if (b.t === 'call' && def) out.push(...expand(def, st, def));
+    else if (b.t === 'mv') out.push(b.d);
+  }
+  return out;
+}
+// A board whose path is drawn by a forward-and-turn program.
+function fromProgram(L, prog, nGems, n = 1) {
+  const p = emptyBoard(L), h0 = ri(0, 3), def = (prog.find(b => b.t === 'def') || {}).body;
+  const moves = expand(prog, { h: h0, n }, def);
+  const cells = placePath(p, moves); if (!cells) return null;
+  p.dir = h0; dress(p, cells, nGems, L.walls); p.intended = prog; p.cells = cells;
+  return p;
+}
+// Absolute moves as forward and turn cards from heading h, with runs of three or more forwards folded into Repeats.
+function relProgram(moves, h) {
+  const flat = [];
+  for (const d of moves) {
+    const t = (d - h + 4) % 4;
+    if (t === 1) flat.push({ t: 'tr' }); else if (t === 3) flat.push({ t: 'tl' }); else if (t === 2) flat.push({ t: 'tr' }, { t: 'tr' });
+    flat.push({ t: 'fwd' }); h = d;
+  }
+  const out = [];
+  for (let i = 0; i < flat.length;) {
+    if (flat[i].t !== 'fwd') { out.push(flat[i]); i++; continue; }
+    let j = i; while (j < flat.length && flat[j].t === 'fwd' && j - i < 12) j++;
+    const k = j - i; if (k >= 3) out.push({ t: 'rep', n: k, body: [{ t: 'fwd' }] }); else for (let q = 0; q < k; q++) out.push({ t: 'fwd' });
+    i = j;
+  }
+  return out;
+}
+// Shared parts of a puzzle that runs one program on several boards.
+function multi(L, boards, prog, limit) {
+  boards.forEach(b => { b.limit = limit; });
+  return { w: boards[0].w, h: boards[0].h, walls: boards[0].walls, pink: boards[0].pink, gems: boards[0].gems, start: boards[0].start, dir: boards[0].dir,
+    boards, cur: 0, limit, moveLimit: null, level: L.name, kind: L.kind, palette: L.palette, conds: L.conds, adv: true, nest: true, intended: prog };
+}
+// A corridor of legs that all turn the same way, with a rock or the edge straight ahead at every corner.
+function corridor(L, nLegs, lengths) {
+  const p = emptyBoard(L), turnT = pick(['tl', 'tr']), dh = turnT === 'tl' ? 3 : 1, h0 = ri(0, 3);
+  let h = h0; const moves = [], legs = [];
+  for (let i = 0; i < nLegs; i++) { const len = pick(lengths); legs.push(len); for (let k = 0; k < len; k++) moves.push(h); if (i < nLegs - 1) h = (h + dh) % 4; }
+  if (new Set(legs).size < 2) return null;
+  const cells = placePath(p, moves); if (!cells) return null;
+  const onPath = new Set(cells.map(c => key(c.x, c.y)));
+  // The cell past each corner must be a rock or the edge, and must not be part of the path.
+  let at = 0;
+  for (let i = 0; i < nLegs - 1; i++) {
+    at += legs[i]; const c = cells[at], d = moves[at - 1], bx = c.x + DIRS[d][0], by = c.y + DIRS[d][1];
+    if (inb(p, bx, by)) { if (onPath.has(key(bx, by))) return null; p.walls.add(key(bx, by)); }
+  }
+  p.dir = h0; p.turnT = turnT; p.steps = moves.length + nLegs - 1;
+  let g = 0; const ends = legs.slice(0, -1).map(l => cells[g += l]);
+  p.gems = [cells[cells.length - 1], ...ends].map(c => ({ x: c.x, y: c.y }));
+  rocks(p, cells, L.walls); p.cells = cells;
+  return p;
+}
+// A perfect maze of L.cells by L.cells rooms on a board of rocks, one gem, and the right hand rule proven to reach it.
+const RH = [{ t: 'while', c: 'gems', body: [{ t: 'ifs', c: 'wallR', yes: [{ t: 'ifs', c: 'wall', yes: [{ t: 'tl' }], no: [{ t: 'fwd' }] }], no: [{ t: 'tr' }, { t: 'fwd' }] }] }];
+function oneMaze(L) {
+  const c = L.cells, p = emptyBoard(L);
+  for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) if (x % 2 || y % 2) p.walls.add(key(x, y));
+  const seen = new Set(), stack = [[ri(0, c - 1), ri(0, c - 1)]]; seen.add(stack[0].join());
+  while (stack.length) {
+    const [cx, cy] = stack[stack.length - 1];
+    const nb = shuffle([0, 1, 2, 3].map(d => [cx + DIRS[d][0], cy + DIRS[d][1], d])).filter(([nx, ny]) => nx >= 0 && ny >= 0 && nx < c && ny < c && !seen.has([nx, ny].join()));
+    if (!nb.length) { stack.pop(); continue; }
+    const [nx, ny, d] = nb[0]; seen.add([nx, ny].join()); p.walls.delete(key(2 * cx + DIRS[d][0], 2 * cy + DIRS[d][1])); stack.push([nx, ny]);
+  }
+  p.start = { x: 2 * ri(0, c - 1), y: 2 * ri(0, c - 1) }; p.dir = ri(0, 3);
+  const far = []; const dist = new Map([[key(p.start.x, p.start.y), 0]]), q = [p.start];
+  for (let i = 0; i < q.length; i++) { const a = q[i], da = dist.get(key(a.x, a.y)); for (const [dx, dy] of DIRS) { const nx = a.x + dx, ny = a.y + dy; if (blockedAt(p, nx, ny) || dist.has(key(nx, ny))) continue; dist.set(key(nx, ny), da + 1); q.push({ x: nx, y: ny }); if (da + 1 >= 6 && !(nx % 2) && !(ny % 2)) far.push({ x: nx, y: ny }); } }
+  if (!far.length) return null;
+  p.gems = [pick(far)];
+  const r = simulate(p, RH, 400); if (!r.win || r.steps.filter(s => !s.pause).length > 64) return null;
+  return p;
+}
+// Changes one card of a program: a move kind, a Repeat count or a sensor test.
+function mutate(list, conds) {
+  const spots = [];
+  (function visit(l) { l.forEach(b => { if (['fwd', 'tl', 'tr', 'rep', 'ifs'].includes(b.t)) spots.push(b); if (b.body) visit(b.body); if (b.yes) { visit(b.yes); visit(b.no); } }); })(list);
+  const b = pick(spots); if (!b) return false;
+  if (b.t === 'rep') b.n = Math.max(2, Math.min(12, b.n + (b.n <= 2 ? 1 : b.n >= 12 ? -1 : pick([-1, 1]))));
+  else if (b.t === 'ifs') { const alt = conds.filter(c => c !== b.c); if (!alt.length) return false; b.c = pick(alt); }
+  else b.t = pick(['fwd', 'tl', 'tr'].filter(t => t !== b.t));
+  return true;
+}
+// Shapes drawn with a Repeat inside a Repeat.
+function nestedShape() {
+  const t = pick(['tl', 'tr']), o = t === 'tl' ? 'tr' : 'tl';
+  if (Math.random() < 0.6) { const k = ri(3, 4); return { prog: [{ t: 'rep', n: 3, body: [{ t: 'rep', n: k, body: [{ t: 'fwd' }] }, { t }] }], limit: 4 }; }
+  const [n, k] = pick([[2, 3], [3, 2], [2, 2]]);
+  return { prog: [{ t: 'rep', n, body: [{ t: 'rep', n: k, body: [{ t: 'fwd' }] }, { t }, { t: 'rep', n: k, body: [{ t: 'fwd' }] }, { t: o }] }], limit: 7 };
 }
 
 const GEN = {
@@ -489,32 +771,149 @@ const GEN = {
     p.intended = best.map(d => ({ t: 'mv', d })); p.moveLimit = best.length;
     return p;
   },
+  nested(L) {
+    const s = nestedShape(), p = fromProgram(L, s.prog, 3); if (!p) return null;
+    p.limit = s.limit; return p;
+  },
+  stamp(L) {
+    const motifs = [['fwd', 'fwd', 'tr', 'fwd'], ['fwd', 'fwd', 'tl', 'fwd'], ['fwd', 'tr', 'fwd', 'fwd'], ['fwd', 'tl', 'fwd', 'fwd'], ['fwd', 'tr', 'fwd', 'tl'], ['fwd', 'tl', 'fwd', 'tr'], ['tr', 'fwd', 'fwd', 'tl'], ['tl', 'fwd', 'fwd', 'tr']];
+    const m = pick(motifs).map(t => ({ t })), sep = { t: pick(['tl', 'tr']) };
+    const prog = [{ t: 'def', body: m }, { t: 'call' }, sep, { t: 'call' }];
+    const p = fromProgram(L, prog, 3); if (!p) return null;
+    const cells = p.cells, fw = m.filter(b => b.t === 'fwd').length;
+    p.gems = [cells[cells.length - 1], cells[fw], pick(cells.slice(1, fw))].map(c => ({ x: c.x, y: c.y }));
+    p.limit = 8; p.def = true;
+    return p;
+  },
+  varn(L) {
+    const ns = shuffle([2, 3, 4]), t1 = pick(['tl', 'tr']), t2 = pick(['tl', 'tr']), h0 = ri(0, 3);
+    const prog = [{ t: 'fwdn' }, { t: t1 }, { t: 'fwdn' }, { t: t2 }, { t: 'fwdn' }];
+    const boards = [];
+    for (const n of ns) {
+      const moves = expand(prog, { h: h0, n });
+      let minx = 0, maxx = 0, miny = 0, maxy = 0, x = 0, y = 0;
+      for (const d of moves) { x += DIRS[d][0]; y += DIRS[d][1]; minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); }
+      const size = Math.min(9, Math.max(5, Math.max(maxx - minx, maxy - miny) + 3));
+      const b = emptyBoard(Object.assign({}, L, { w: size, h: size }));
+      const cells = placePath(b, moves); if (!cells) return null;
+      b.dir = h0; b.n = n;
+      b.gems = [cells[3 * n], cells[n], cells[2 * n]].map(c => ({ x: c.x, y: c.y }));
+      fence(b, cells); b.cells = cells;
+      boards.push(b);
+    }
+    return multi(L, boards, prog, 6);
+  },
+  ifwall(L) {
+    const p = corridor(L, ri(L.legs[0], L.legs[1]), [2, 3, 4]); if (!p || p.steps > 12) return null;
+    p.intended = [{ t: 'rep', n: p.steps, body: [{ t: 'ifs', c: 'wall', yes: [{ t: p.turnT }], no: [{ t: 'fwd' }] }] }];
+    p.limit = 4; return p;
+  },
+  whilegems(L) {
+    const p = corridor(L, ri(L.legs[0], L.legs[1]), [2, 3, 4, 5]); if (!p || p.steps < 14) return null;
+    p.intended = [{ t: 'while', c: 'gems', body: [{ t: 'ifs', c: 'wall', yes: [{ t: p.turnT }], no: [{ t: 'fwd' }] }] }];
+    p.limit = 4; return p;
+  },
+  debug(L) {
+    const base = pick(['nested', 'ifwall', 'stamp', 'nested', 'ifwall']), BL = LEVELS.find(x => x.kind === base);
+    const p = GEN[base](BL); if (!p || !check(p).ok) return null;
+    p.kind = 'debug'; p.level = L.name; p.conds = L.conds;
+    p.palette = L.palette.filter(k => (k !== 'call' || p.def) && (k !== 'ifs' || base === 'ifwall'));
+    const given = copy(p.intended); if (!mutate(given, p.conds)) return null;
+    if (simulate(p, given).win) return null;
+    p.given = given; p.limit = Math.max(p.limit || 0, cardCount(given));
+    return p;
+  },
+  fewcards(L) {
+    const t = pick(['tl', 'tr']), o = t === 'tl' ? 'tr' : 'tl', kind = pick(['u', 'stairs', 'L', 'u', 'hook']);
+    let prog;
+    if (kind === 'u') { const k = ri(3, 4); prog = [{ t: 'rep', n: 3, body: [{ t: 'rep', n: k, body: [{ t: 'fwd' }] }, { t }] }]; }
+    else if (kind === 'stairs') { const [n, k] = pick([[2, 3], [3, 2]]); prog = [{ t: 'rep', n, body: [{ t: 'rep', n: k, body: [{ t: 'fwd' }] }, { t }, { t: 'rep', n: k, body: [{ t: 'fwd' }] }, { t: o }] }]; }
+    else if (kind === 'L') { const a = ri(3, 5), b = ri(3, 5); if (a === b) return null; prog = [{ t: 'rep', n: a, body: [{ t: 'fwd' }] }, { t }, { t: 'rep', n: b, body: [{ t: 'fwd' }] }]; }
+    else { const k = ri(3, 4); prog = [{ t: 'rep', n: 2, body: [{ t: 'rep', n: k, body: [{ t: 'fwd' }] }, { t }] }, { t: 'fwd' }, { t: o }, { t: 'rep', n: k, body: [{ t: 'fwd' }] }]; }
+    const p = fromProgram(L, prog, 3); if (!p) return null;
+    p.best = cardCount(prog); p.limit = Math.min(MAXCARDS, p.best + 4);
+    return p;
+  },
+  maze(L) {
+    const boards = [];
+    for (let k = 0; k < 3; k++) { const b = oneMaze(L); if (!b) return null; boards.push(b); }
+    return multi(L, boards, copy(RH), 8);
+  },
+  order(L) {
+    const p = emptyBoard(L);
+    const all = []; for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) all.push({ x, y });
+    shuffle(all);
+    p.start = all[0];
+    const ng = ri(L.gems[0], L.gems[1]), nw = ri(L.walls[0], L.walls[1]);
+    const gems = all.slice(1, 1 + ng).map(c => ({ x: c.x, y: c.y }));
+    all.slice(1 + ng, 1 + ng + nw).forEach(c => p.walls.add(key(c.x, c.y)));
+    let pos = p.start; const moves = [];
+    for (let g = 0; g < ng; g++) {
+      const blocked = new Set([...p.walls, ...gems.slice(g + 1).map(c => key(c.x, c.y))]);
+      const leg = fewest({ w: p.w, h: p.h, walls: blocked, gems: [gems[g]], start: pos }); if (!leg) return null;
+      moves.push(...leg); pos = gems[g];
+    }
+    if (moves.length < 10 || moves.length > 22) return null;
+    p.gems = gems; p.ordered = true; p.dir = moves[0];
+    p.intended = relProgram(moves, p.dir);
+    const cost = cardCount(p.intended); if (cost > 13) return null;
+    p.limit = Math.min(MAXCARDS, cost + 3);
+    return p;
+  },
 };
+
+// How many cards differ between two programs, read card by card.
+function flat(list, out = []) {
+  for (const b of list) {
+    out.push(b.t + ':' + (b.t === 'mv' ? b.d : b.t === 'rep' ? b.n : b.c ? b.c : b.t === 'if' ? b.a + '/' + b.b : ''));
+    if (b.body) { out.push('('); flat(b.body, out); out.push(')'); }
+    if (b.yes) { out.push('['); flat(b.yes, out); out.push('|'); flat(b.no, out); out.push(']'); }
+  }
+  return out;
+}
+function edits(a, b) { const fa = flat(a), fb = flat(b); let n = Math.abs(fa.length - fb.length); for (let i = 0; i < Math.min(fa.length, fb.length); i++) if (fa[i] !== fb[i]) n++; return n; }
 
 // Every board must pass these checks before a child sees it.
 function check(p) {
-  const why = [];
-  if (!p.start || !inb(p, p.start.x, p.start.y) || p.walls.has(key(p.start.x, p.start.y))) why.push('bad start');
-  const gk = p.gems.map(g => key(g.x, g.y));
-  if (!p.gems.length || new Set(gk).size !== gk.length) why.push('gems');
-  if (gk.some(k => p.walls.has(k) || k === key(p.start.x, p.start.y))) why.push('gem on rock or start');
-  const best = fewest(p);
-  if (!best) why.push('gems not reachable');
-  const r = simulate(p, p.intended);
-  if (!r.win) why.push('planned program fails');
+  const why = [], boards = p.boards || [p];
+  for (const b of boards) {
+    if (!b.start || !inb(b, b.start.x, b.start.y) || b.walls.has(key(b.start.x, b.start.y))) why.push('bad start');
+    const gk = b.gems.map(g => key(g.x, g.y));
+    if (!b.gems.length || new Set(gk).size !== gk.length) why.push('gems');
+    if (gk.some(k => b.walls.has(k) || k === key(b.start.x, b.start.y))) why.push('gem on rock or start');
+    if (!fewest(b)) why.push('gems not reachable');
+    if (!simulate(b, p.intended, 400).win) why.push('planned program fails');
+  }
   if (cardCount(p.intended) > (p.limit || MAXCARDS)) why.push('planned program too long');
+  const b0 = boards[0], best = fewest(b0);
   if (p.moveLimit && best && best.length !== p.moveLimit) why.push('move limit is not the fewest');
   if (p.kind === 'loop' && best && best.length <= p.limit) why.push('plain arrows fit the limit');
   if (p.kind === 'if') {
     if (!PLAIN3) PLAIN3 = plainPrograms(3);
     if (PLAIN3.some(pr => simulate(p, pr).win)) why.push('solvable without If');
   }
+  if ((p.kind === 'nested' && p.limit === 4) || p.kind === 'ifwall' || p.kind === 'whilegems') {
+    if (!FLAT4) FLAT4 = flatPrograms(4);
+    if (FLAT4.some(pr => simulate(b0, pr).win)) why.push('solvable without the new card');
+  }
+  if (p.boards && fixedSolvable(p.boards)) why.push('one fixed program fits every board');
+  if (p.kind === 'debug') {
+    if (simulate(b0, p.given).win) why.push('given program already works');
+    if (edits(p.given, p.intended) !== 1) why.push('bug is not one card');
+    if (cardCount(p.given) > p.limit) why.push('given program too long');
+  }
+  if (p.kind === 'fewcards' && !(p.best >= 3 && p.best <= p.limit)) why.push('bad star target');
   return { ok: !why.length, why, fewest: best ? best.length : null };
 }
 
 function generate(i) {
   const L = LEVELS[i];
-  for (let t = 0; t < 4000; t++) { const p = GEN[L.kind](L); if (p && check(p).ok) return p; }
+  for (let t = 0; t < 4000; t++) {
+    const p = GEN[L.kind](L);
+    if (!p) continue;
+    if (p.dir == null) p.dir = firstDir(p.intended);
+    if (check(p).ok) return p;
+  }
   throw new Error('no board for level ' + i);
 }
 
@@ -546,6 +945,7 @@ function tone(f, dur = 0.15, type = 'sine', vol = 0.2, when = 0, slide = 0) {
 const SFX = {
   tap: () => tone(700, 0.08, 'triangle', 0.15, 0, 1.3),
   step: () => tone(300, 0.1, 'square', 0.05, 0, 1.6),
+  turn: () => tone(520, 0.07, 'triangle', 0.06, 0, 1.2),
   gem: () => { tone(1046, 0.12, 'triangle', 0.18); tone(1568, 0.2, 'triangle', 0.14, 0.07); },
   bonk: () => { tone(150, 0.3, 'sawtooth', 0.14, 0, 0.5); },
   no: () => { tone(240, 0.15, 'square', 0.08); tone(190, 0.22, 'square', 0.08, 0.12); },
@@ -556,7 +956,7 @@ function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisU
 
 // ---------------------------------------------------------------------------------------------------------------
 // 3D scene.
-let renderer = null, SPEED = 1;
+let renderer = null, SPEED = 1, RUN = 1;
 const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -603,6 +1003,16 @@ function makeRobot() {
 const FACE = [Math.PI, Math.PI / 2, 0, -Math.PI / 2];
 const wx = (p, x) => x - (p.w - 1) / 2, wz = (p, y) => y - (p.h - 1) / 2;
 
+// A number badge floating over a gem, for boards where the gems have an order.
+function labelSprite(txt) {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(32, 32, 27, 0, Math.PI * 2); g.fill();
+  g.lineWidth = 5; g.strokeStyle = '#2B2140'; g.stroke();
+  g.fillStyle = '#2B2140'; g.font = '900 36px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 32, 34);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); s.scale.set(0.5, 0.5, 1);
+  return s;
+}
+
 const GEMC = [0xFFE14D, 0x5CF59B, 0xFF5FD2, 0x5CE1FF];
 let gemMeshes = [];
 function buildBoard(p) {
@@ -620,19 +1030,20 @@ function buildBoard(p) {
   const pad = mesh(GEO.pad || (GEO.pad = new THREE.CylinderGeometry(0.4, 0.4, 0.04, 24)), mat(0xFFC93C, 0.3)); pad.position.set(wx(p, p.start.x), 0.02, wz(p, p.start.y)); board.add(pad);
   p.gems.forEach((g, i) => {
     const m = mesh(GEO.gem || (GEO.gem = new THREE.OctahedronGeometry(0.27, 0)), mat(GEMC[i % 4], 0.45, { metalness: 0.2, roughness: 0.2, flatShading: true }));
-    m.scale.set(1, 1.3, 1); m.position.set(wx(p, g.x), 0.42, wz(p, g.y)); m.userData = { phase: i * 1.3, taken: false, color: GEMC[i % 4] }; board.add(m); gemMeshes.push(m);
+    m.scale.set(1, 1.3, 1); m.position.set(wx(p, g.x), 0.42, wz(p, g.y)); m.userData = { phase: i * 1.3, taken: false, color: GEMC[i % 4], label: null }; board.add(m); gemMeshes.push(m);
+    if (p.ordered) { const s = labelSprite(String(i + 1)); s.position.set(wx(p, g.x), 1.0, wz(p, g.y)); board.add(s); m.userData.label = s; }
   });
-  placeRobot(p.start.x, p.start.y, p.intended.length ? firstDir(p.intended) : 2);
+  placeRobot(p.start.x, p.start.y, p.dir ?? 2);
   fit();
 }
-function firstDir(pr) { const b = pr[0]; return b.t === 'mv' ? b.d : b.t === 'if' ? b.b : firstDir(b.body); }
-function placeRobot(x, y, d) { robot.position.set(wx(puzzle, x), 0, wz(puzzle, y)); robot.rotation.y = FACE[d]; robot.userData.dir = d; }
+function firstDir(pr) { const b = pr[0]; if (!b) return 2; return b.t === 'mv' ? b.d : b.t === 'if' ? b.b : b.body ? firstDir(b.body) : 2; }
+function placeRobot(x, y, d) { robot.position.set(wx(view, x), 0, wz(view, y)); robot.rotation.y = FACE[d]; robot.userData.dir = d; }
 
 function fit() {
-  if (!renderer || !puzzle) return;
+  if (!renderer || !view) return;
   const el = $('stage'), W = el.clientWidth || 800, H = el.clientHeight || 500;
   renderer.setSize(W, H, false); camera.aspect = W / H;
-  const S = Math.max(puzzle.w, puzzle.h) + 1.2, half = (S / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const S = Math.max(view.w, view.h) + 1.2, half = (S / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const dist = half * Math.max(1, 1.15 / camera.aspect) * 1.0;
   camera.position.set(0, dist * 0.86, dist * 0.62); camera.lookAt(0, -0.2, 0.35); camera.updateProjectionMatrix();
 }
@@ -654,7 +1065,7 @@ function burst(pos, color, n = 18, speed = 3) {
 }
 let last = performance.now(), clock = 0;
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000) * SPEED; last = now; clock += dt;
+  const dt = Math.min(0.05, (now - last) / 1000) * SPEED * RUN; last = now; clock += dt;
   for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; tw.t += dt; const k = Math.min(1, tw.t / tw.dur); tw.fn(k); if (k >= 1) { tweens.splice(i, 1); tw.res(); } }
   for (const q of parts) { if (!q.alive) continue; q.life -= dt; if (q.life <= 0) { q.alive = false; q.mesh.visible = false; continue; } q.v.y -= 9 * dt; q.mesh.position.addScaledVector(q.v, dt); q.mesh.scale.setScalar(Math.min(1, q.life * 1.6)); q.mesh.rotation.x += dt * 9; }
   gemMeshes.forEach(m => { if (m.userData.taken) return; m.rotation.y += dt * 1.6; m.position.y = 0.42 + Math.sin(clock * 2.4 + m.userData.phase) * 0.06; });
@@ -666,36 +1077,64 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // ---------------------------------------------------------------------------------------------------------------
-// Playing.
-let puzzle = null, prog = [], openRep = -1, running = false, missed = false, result = null, solved = 0;
+// Playing. puzzle is the whole task; view is the board on screen (one of puzzle.boards when there are several).
+let puzzle = null, view = null, prog = [], openPath = null, running = false, missed = false, result = null, solved = 0;
 
 function tell(text, bad = false, ms = 1400) {
   const t = $('toast'); t.textContent = text; t.className = 'on' + (bad ? ' bad' : '');
   clearTimeout(tell.h); tell.h = setTimeout(() => { t.className = bad ? 'bad' : ''; }, ms / SPEED);
 }
-function instructions() {
-  const p = puzzle, n = p.gems.length, gems = n === 1 ? 'the gem' : `all ${n} gems`;
-  if (p.kind === 'arrows') return { short: n === 1 ? 'Get the gem!' : `Get all ${n} gems!`, speak: `Tap the arrow cards to plan a path for the robot. Get ${gems}, then press Go.` };
-  if (p.kind === 'loop') return { short: `Get ${gems}. Only ${p.limit} cards!`, speak: `Get ${gems} using only ${p.limit} cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.` };
-  if (p.kind === 'if') return { short: `Only ${p.limit} cards! Use the pink tiles.`, speak: `Get ${gems} using only ${p.limit} cards. Put an If pink card inside a Repeat. On a pink tile the robot goes the pink way. On other tiles it goes the other way.` };
-  return { short: `Get ${gems} in ${p.moveLimit} moves!`, speak: `Find the shortest way. Get ${gems} in ${p.moveLimit} moves or less.` };
+function instructions(p = puzzle, cur = p.cur || 0) {
+  const b = p.boards ? p.boards[cur] : p, n = b.gems.length, gems = n === 1 ? 'the gem' : `all ${n} gems`;
+  switch (p.kind) {
+    case 'arrows': return { short: n === 1 ? 'Get the gem!' : `Get all ${n} gems!`, speak: `Tap the arrow cards to plan a path for the robot. Get ${gems}, then press Go.` };
+    case 'loop': return { short: `Get ${gems}. Only ${p.limit} cards!`, speak: `Get ${gems} using only ${p.limit} cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.` };
+    case 'if': return { short: `Only ${p.limit} cards! Use the pink tiles.`, speak: `Get ${gems} using only ${p.limit} cards. Put an If pink card inside a Repeat. On a pink tile the robot goes the pink way. On other tiles it goes the other way.` };
+    case 'fewest': return { short: `Get ${gems} in ${p.moveLimit} moves!`, speak: `Find the shortest way. Get ${gems} in ${p.moveLimit} moves or less.` };
+    case 'nested': return { short: `Get ${gems}. Only ${p.limit} cards.`, speak: `Get ${gems} using only ${p.limit} cards. The robot goes forward the way it faces and can turn. Put a Repeat inside a Repeat.` };
+    case 'stamp': return { short: `Only ${p.limit} cards. Make a Stamp.`, speak: `Put some moves in the Stamp box once. Then play the Stamp with a Stamp card, turn, and play it again. Only ${p.limit} cards.` };
+    case 'varn': return { short: `n = ${b.n}. Board ${cur + 1} of ${p.boards.length}. Use go n.`, speak: `Each board has its own number n. Go n moves the robot n steps. Write one program that gets the gems on all ${p.boards.length} boards. Only ${p.limit} cards.` };
+    case 'ifwall': return { short: `Only ${p.limit} cards. Use If wall.`, speak: `Get ${gems} using only ${p.limit} cards. Put an If card in a Repeat. If a wall is ahead, turn. Else, go forward.` };
+    case 'whilegems': return { short: `Only ${p.limit} cards. Use While.`, speak: `This path is long. A While card keeps going while gems are left. Inside it, turn at a wall, else go forward. Only ${p.limit} cards.` };
+    case 'debug': return { short: 'One card is wrong. Fix it.', speak: 'This program has one wrong card. Tap a card to change it. Fix it with one change for an extra star, then press Go.' };
+    case 'fewcards': return { short: `Get ${gems}. ${p.best} cards earns 3 stars.`, speak: `Get ${gems} with ${p.limit} cards or fewer. Fewer cards earn more stars. ${p.best} cards earns three stars.` };
+    case 'maze': return { short: `Maze ${cur + 1} of ${p.boards.length}. One program for all.`, speak: `Write one program that finds the gem in all ${p.boards.length} mazes. Keep a hand on the right wall. If the right is open, turn right and go. Else if a wall is ahead, turn left. Else go forward. Put it in a While. Only ${p.limit} cards.` };
+    case 'order': return { short: `Get the gems in number order. ${p.limit} cards.`, speak: `Collect gem 1 first, then 2, then 3, in number order. Use ${p.limit} cards or fewer. A Repeat can shorten a straight run.` };
+    default: return { short: `Get ${gems}.`, speak: `Get ${gems}.` };
+  }
 }
 function showBadge() { $('badge').textContent = `Level ${P.lv + 1} of ${LEVELS.length} · ${LEVELS[P.lv].name}`; $('stars').textContent = '⭐ ' + P.stars; }
+function showAsk(cur) { const ins = instructions(puzzle, cur); const a = $('ask'); a.textContent = ins.short; a.classList.toggle('long', ins.short.length > 26); return ins; }
+function startProgram(p) { return p.given ? copy(p.given) : p.def ? [{ t: 'def', body: [] }] : []; }
 
+function showBoard(i) { puzzle.cur = i; view = puzzle.boards ? puzzle.boards[i] : puzzle; buildBoard(view); showAsk(i); }
 function newPuzzle() {
-  puzzle = generate(P.lv); prog = []; openRep = -1; missed = false; result = null; running = false;
-  buildBoard(puzzle); renderPalette(); renderProgram(); showBadge();
-  const ins = instructions(); $('ask').textContent = ins.short; say(ins.speak);
+  puzzle = generate(P.lv); prog = startProgram(puzzle); openPath = puzzle.def && !puzzle.given ? [0, 'b'] : null; missed = false; result = null; running = false;
+  $('app').classList.toggle('adv', !!puzzle.adv);
+  showBoard(0); renderPalette(); renderProgram(); showBadge();
+  say(instructions().speak);
 }
 
+// Palette cards: the plain arrows and the wide Repeat and If pink of the early levels, two-line cards after that.
+const PCARD = { fwd: ['⬆', 'forward'], tl: ['↺', 'turn left'], tr: ['↻', 'turn right'], rep: ['🔁', 'repeat'], call: ['🔖', 'stamp'], fwdn: ['⬆n', 'go n'], ifs: ['❓', 'if'], while: ['🔄', 'while'] };
+const NEW = { fwd: () => ({ t: 'fwd' }), tl: () => ({ t: 'tl' }), tr: () => ({ t: 'tr' }), rep: () => ({ t: 'rep', n: 3, body: [] }), call: () => ({ t: 'call' }), fwdn: () => ({ t: 'fwdn' }),
+  ifs: () => ({ t: 'ifs', c: (puzzle.conds || ['wall'])[0], yes: [], no: [] }), while: () => ({ t: 'while', c: puzzle.conds.includes('gems') ? 'gems' : puzzle.conds[0], body: [] }) };
 function renderPalette() {
   const pal = $('palette'); pal.innerHTML = '';
   const btn = (cls, html, fn, title) => { const b = document.createElement('button'); b.className = 'pc ' + cls; b.innerHTML = html; b.title = title; b.onclick = fn; pal.append(b); };
-  for (const d of [0, 3, 2, 1]) btn('arrow', ARROW[d], () => add({ t: 'mv', d }), 'Arrow');
-  if (puzzle.palette.includes('rep')) btn('rep', '🔁 Repeat', () => add({ t: 'rep', n: 3, body: [] }), 'Repeat');
-  if (puzzle.palette.includes('if')) btn('ifc', '🟪 If pink', () => add({ t: 'if', a: 0, b: 1 }), 'If pink');
+  for (const k of puzzle.palette) {
+    if (k === 'mv') for (const d of [0, 3, 2, 1]) btn('arrow', ARROW[d], () => add({ t: 'mv', d }), 'Arrow');
+    else if (k === 'rep' && !puzzle.adv) btn('rep', '🔁 Repeat', () => add({ t: 'rep', n: 3, body: [] }), 'Repeat');
+    else if (k === 'if') btn('ifc', '🟪 If pink', () => add({ t: 'if', a: 0, b: 1 }), 'If pink');
+    else btn('sm ' + k, `<span>${PCARD[k][0]}</span><span class="lab">${PCARD[k][1]}</span>`, () => add(NEW[k]()), PCARD[k][1]);
+  }
   const lim = document.createElement('span'); lim.id = 'limit'; pal.append(lim);
 }
+
+const SLOT = { b: 'body', y: 'yes', n: 'no' };
+function listAt(path) { let list = prog; for (let i = 0; i < path.length; i += 2) { const blk = list[path[i]]; if (!blk) return null; list = blk[SLOT[path[i + 1]]]; if (!list) return null; } return list; }
+const samePath = (a, b) => !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
+const inDef = path => !!path && prog[path[0]] && prog[path[0]].t === 'def';
 
 function add(b) {
   if (running) return;
@@ -706,81 +1145,137 @@ function add(b) {
     say(puzzle.limit ? `Only ${puzzle.limit} cards this time. ${puzzle.palette.includes('rep') ? 'A Repeat card can help.' : ''}` : 'The program is full.');
     return;
   }
-  if (b.t === 'rep') { prog.push(b); openRep = prog.length - 1; }
-  else if (openRep >= 0 && prog[openRep] && prog[openRep].body.length < 4) prog[openRep].body.push(b);
-  else { openRep = -1; prog.push(b); }
+  const isBox = b.t === 'rep' || b.t === 'ifs' || b.t === 'while';
+  if (b.t === 'call' && inDef(openPath)) { SFX.no(); say('The Stamp cannot use itself. Tap outside the Stamp box first.'); return; }
+  let list = openPath ? listAt(openPath) : null;
+  if (list && list.length >= BODYMAX) { list = null; openPath = null; }
+  if (isBox && !puzzle.nest) { prog.push(b); openPath = [prog.length - 1, 'b']; }
+  else {
+    const target = list || prog, base = list ? openPath : [];
+    target.push(b);
+    if (isBox) openPath = base.concat(target.length - 1, b.t === 'ifs' ? 'y' : 'b');
+    else if (!list) openPath = null;
+  }
   SFX.tap(); renderProgram(); resetRobot();
 }
 function removeAt(path) {
   if (running) return;
-  if (path.length === 1) { prog.splice(path[0], 1); if (openRep === path[0]) openRep = -1; else if (openRep > path[0]) openRep--; }
-  else prog[path[0]].body.splice(path[1], 1);
+  const parent = path.slice(0, -1), idx = path[path.length - 1], list = listAt(parent); if (!list) return;
+  list.splice(idx, 1);
+  if (openPath) {
+    const inside = openPath.length > path.length && path.every((v, i) => v === openPath[i]);
+    const sibling = openPath.length > parent.length && parent.every((v, i) => v === openPath[i]);
+    if (inside) openPath = null; else if (sibling && openPath[parent.length] > idx) openPath[parent.length]--; else if (sibling && openPath[parent.length] === idx) openPath = null;
+  }
   tone(500, 0.08, 'triangle', 0.12, 0, 0.6); renderProgram(); resetRobot();
 }
 
+const CYCLE = { fwd: 'tr', tr: 'tl', tl: 'fwd' };
+function xBtn(fn) { const x = document.createElement('button'); x.className = 'x'; x.textContent = '✖'; x.title = 'Remove'; x.onclick = fn; return x; }
 function cardEl(b, path) {
+  const ps = path.join('.');
   if (b.t === 'mv') {
-    const el = document.createElement('button'); el.className = 'card'; el.textContent = ARROW[b.d]; el.onclick = () => removeAt(path); el.dataset.path = path.join('.'); return el;
+    const el = document.createElement('button'); el.className = 'card'; el.textContent = ARROW[b.d]; el.onclick = () => removeAt(path); el.dataset.path = ps; return el;
   }
-  const el = document.createElement('div'); el.className = 'card ifk'; el.dataset.path = path.join('.');
-  const yes = document.createElement('button'); yes.className = 'yes'; yes.innerHTML = `<span class="lbl">pink</span>${ARROW[b.a]}`;
-  yes.onclick = () => { if (running) return; b.a = (b.a + 1) % 4; SFX.tap(); renderProgram(); };
-  const no = document.createElement('button'); no.className = 'no'; no.innerHTML = `<span class="lbl">else</span>${ARROW[b.b]}`;
-  no.onclick = () => { if (running) return; b.b = (b.b + 1) % 4; SFX.tap(); renderProgram(); };
-  const x = document.createElement('button'); x.className = 'x'; x.textContent = '✖'; x.onclick = () => removeAt(path);
-  el.append(yes, no, x); return el;
+  if (b.t === 'if') {
+    const el = document.createElement('div'); el.className = 'card ifk'; el.dataset.path = ps;
+    const yes = document.createElement('button'); yes.className = 'yes'; yes.innerHTML = `<span class="lbl">pink</span>${ARROW[b.a]}`;
+    yes.onclick = () => { if (running) return; b.a = (b.a + 1) % 4; SFX.tap(); renderProgram(); };
+    const no = document.createElement('button'); no.className = 'no'; no.innerHTML = `<span class="lbl">else</span>${ARROW[b.b]}`;
+    no.onclick = () => { if (running) return; b.b = (b.b + 1) % 4; SFX.tap(); renderProgram(); };
+    el.append(yes, no, xBtn(() => removeAt(path))); return el;
+  }
+  if (b.body || b.yes) return boxEl(b, path);
+  const el = document.createElement('div'); el.className = 'card ' + b.t; el.dataset.path = ps;
+  const cb = document.createElement('button'); cb.className = 'cb'; cb.innerHTML = `<span>${PCARD[b.t][0]}</span><span class="lab">${PCARD[b.t][1]}</span>`;
+  cb.title = CYCLE[b.t] ? 'Tap to change' : PCARD[b.t][1];
+  cb.onclick = () => { if (running || !CYCLE[b.t]) return; b.t = CYCLE[b.t]; SFX.tap(); renderProgram(); resetRobot(); };
+  el.append(cb, xBtn(() => removeAt(path))); return el;
+}
+function slotEl(list, spath, label) {
+  const rb = document.createElement('div'); rb.className = 'rb' + (samePath(openPath, spath) ? ' open' : ''); rb.dataset.slot = spath.join('.');
+  if (label) { const l = document.createElement('span'); l.className = 'sl'; l.textContent = label; rb.append(l); }
+  if (!list.length) { const h = document.createElement('span'); h.className = 'hint'; h.textContent = label ? 'tap' : 'cards go in here'; rb.append(h); }
+  list.forEach((c, j) => rb.append(cardEl(c, spath.concat(j))));
+  rb.onclick = e => { if (running || (e.target !== rb && !e.target.classList.contains('hint') && !e.target.classList.contains('sl'))) return; openPath = samePath(openPath, spath) ? null : spath; SFX.tap(); renderProgram(); };
+  return rb;
+}
+function cycleCond(b) { const cs = puzzle.conds || ['wall']; b.c = cs[(cs.indexOf(b.c) + 1) % cs.length]; SFX.tap(); renderProgram(); resetRobot(); }
+function boxEl(b, path) {
+  const ps = path.join('.'), bodyPath = path.concat(b.t === 'ifs' ? 'y' : 'b');
+  const box = document.createElement('div'); box.className = 'rep ' + b.t + (samePath(openPath, bodyPath) ? ' open' : ''); box.dataset.path = ps;
+  const rh = document.createElement('div'); rh.className = 'rh';
+  const head = (txt, cls) => { const t = document.createElement('button'); t.className = cls || ''; t.textContent = txt; t.onclick = () => { if (running) return; openPath = samePath(openPath, bodyPath) ? null : bodyPath; SFX.tap(); renderProgram(); }; return t; };
+  if (b.t === 'rep') {
+    const tg = head('🔁'); tg.title = 'Open or close';
+    const rn = document.createElement('button'); rn.className = 'rn'; rn.textContent = '×' + b.n; rn.onclick = () => { if (!running) openPicker(b); };
+    rh.append(tg, rn);
+  } else if (b.t === 'def') { rh.append(head('🔖'), head('Stamp', 'kw')); }
+  else {
+    rh.append(head(b.t === 'while' ? '🔄' : '❓'), head(b.t === 'while' ? 'while' : 'if', 'kw'));
+    const c = document.createElement('button'); c.className = 'cnd'; c.textContent = CNAME[b.c] || b.c; c.title = 'Tap to change'; c.onclick = () => { if (!running) cycleCond(b); }; rh.append(c);
+  }
+  box.append(rh);
+  if (b.t === 'ifs') box.append(slotEl(b.yes, path.concat('y'), 'then'), slotEl(b.no, path.concat('n'), 'else'));
+  else box.append(slotEl(b.body, path.concat('b'), null));
+  if (b.t !== 'def') box.append(xBtn(() => removeAt(path)));
+  return box;
 }
 function renderProgram() {
   const s = $('strip'); s.innerHTML = '';
   if (!prog.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Your program goes here. Tap a card above.'; s.append(e); }
-  prog.forEach((b, i) => {
-    if (b.t !== 'rep') { s.append(cardEl(b, [i])); return; }
-    const box = document.createElement('div'); box.className = 'rep' + (openRep === i ? ' open' : ''); box.dataset.path = String(i);
-    const rh = document.createElement('div'); rh.className = 'rh';
-    const tg = document.createElement('button'); tg.textContent = '🔁'; tg.title = 'Open or close'; tg.onclick = () => { if (running) return; openRep = openRep === i ? -1 : i; SFX.tap(); renderProgram(); };
-    const rn = document.createElement('button'); rn.className = 'rn'; rn.textContent = '×' + b.n; rn.onclick = () => { if (!running) openPicker(b); };
-    rh.append(tg, rn);
-    const rb = document.createElement('div'); rb.className = 'rb';
-    if (!b.body.length) { const h = document.createElement('span'); h.className = 'hint'; h.textContent = 'cards go in here'; rb.append(h); }
-    b.body.forEach((c, j) => rb.append(cardEl(c, [i, j])));
-    const x = document.createElement('button'); x.className = 'x'; x.textContent = '✖'; x.onclick = () => removeAt([i]);
-    box.append(rh, rb, x); s.append(box);
-  });
+  prog.forEach((b, i) => s.append(cardEl(b, [i])));
   const l = $('limit');
-  if (l) { const n = cardCount(prog); l.textContent = puzzle.limit ? `Cards ${n} / ${puzzle.limit}` : puzzle.moveLimit ? `Moves ${countMoves()} / ${puzzle.moveLimit}` : `Cards ${n}`; l.classList.toggle('full', !!puzzle.limit && n >= puzzle.limit); }
+  if (l) { const n = cardCount(prog); l.textContent = puzzle.limit ? `Cards ${n} / ${puzzle.limit}` : puzzle.moveLimit ? `Moves ${countMoves(prog)} / ${puzzle.moveLimit}` : `Cards ${n}`; l.classList.toggle('full', !!puzzle.limit && n >= puzzle.limit); }
 }
-function countMoves() { let n = 0; prog.forEach(b => { n += b.t === 'rep' ? b.n * b.body.length : 1; }); return n; }
+function countMoves(list) { let n = 0; list.forEach(b => { n += b.t === 'rep' ? b.n * countMoves(b.body) : b.t === 'mv' || b.t === 'if' || b.t === 'fwd' ? 1 : 0; }); return n; }
 function openPicker(b) {
   const box = $('picker').firstElementChild; box.innerHTML = '';
-  for (let n = 2; n <= 12; n++) { const k = document.createElement('button'); k.textContent = n; k.onclick = () => { b.n = n; $('picker').classList.remove('on'); SFX.tap(); renderProgram(); }; box.append(k); }
+  for (let n = 2; n <= 12; n++) { const k = document.createElement('button'); k.textContent = n; k.onclick = () => { b.n = n; $('picker').classList.remove('on'); SFX.tap(); renderProgram(); resetRobot(); }; box.append(k); }
   $('picker').classList.add('on'); SFX.tap();
 }
 $('picker').onclick = e => { if (e.target.id === 'picker') $('picker').classList.remove('on'); };
 
 function resetRobot() {
-  if (!puzzle) return;
-  gemMeshes.forEach(m => { m.userData.taken = false; m.visible = true; m.scale.set(1, 1.3, 1); });
-  placeRobot(puzzle.start.x, puzzle.start.y, robot.userData.dir ?? 2);
+  if (!view) return;
+  gemMeshes.forEach(m => { m.userData.taken = false; m.visible = true; m.scale.set(1, 1.3, 1); if (m.userData.label) m.userData.label.visible = true; });
+  placeRobot(view.start.x, view.start.y, view.dir ?? robot.userData.dir ?? 2);
 }
 function highlight(path) {
   document.querySelectorAll('.run').forEach(e => e.classList.remove('run'));
   if (!path) return;
-  const el = document.querySelector(`[data-path="${path.join('.')}"]`); if (el) el.classList.add('run');
-  if (path.length === 2) { const r = document.querySelector(`.rep[data-path="${path[0]}"]`); if (r) r.classList.add('run'); }
+  for (let n = 1; n <= path.length; n += 2) { const el = document.querySelector(`[data-path="${path.slice(0, n).join('.')}"]`); if (el) el.classList.add('run'); }
 }
+const hasMoves = list => cardCount(list) > (list[0] && list[0].t === 'def' ? 1 : 0);
 
 async function go() {
   if (running || !puzzle) return;
   ac();
-  if (!prog.length) { SFX.no(); say('Tap some cards first.'); return; }
-  running = true; result = null; $('go').disabled = true; resetRobot();
-  const p = puzzle, r = simulate(p, prog);
+  if (!hasMoves(prog)) { SFX.no(); say('Tap some cards first.'); return; }
+  running = true; result = null; $('go').disabled = true;
+  const boards = puzzle.boards || [puzzle], results = [];
+  const total = boards.reduce((n, b) => n + simulate(b, prog, 400).steps.length, 0);
+  RUN = total > 40 ? 3 : total > 20 ? 1.8 : 1;
+  for (let bi = 0; bi < boards.length; bi++) {
+    if (boards.length > 1) { showBoard(bi); await tween(0.5, () => {}); }
+    resetRobot();
+    const r = simulate(boards[bi], prog, 400); results.push(r);
+    await animate(boards[bi], r);
+    if (!r.win) break;
+    if (bi < boards.length - 1) { tell(`Board ${bi + 1} done! ⭐`, false, 900); SFX.gem(); await tween(1.0, () => {}); }
+  }
+  RUN = 1; highlight(null);
+  await finish(results, boards);
+}
+async function animate(p, r) {
   let cx = p.start.x, cy = p.start.y;
   for (const s of r.steps) {
     highlight(s.path);
+    if (s.pause) { await tween(0.1, () => {}); continue; }
     const turn = FACE[s.d], from = robot.rotation.y; let dr = turn - from; while (dr > Math.PI) dr -= 2 * Math.PI; while (dr < -Math.PI) dr += 2 * Math.PI;
     if (Math.abs(dr) > 0.01) await tween(0.16, k => { robot.rotation.y = from + dr * k; });
     robot.userData.dir = s.d;
+    if (s.turn) { SFX.turn(); await tween(0.08, () => {}); continue; }
     const x0 = wx(p, cx), z0 = wz(p, cy);
     if (s.crash) {
       const x1 = x0 + DIRS[s.d][0] * 0.35, z1 = z0 + DIRS[s.d][1] * 0.35;
@@ -793,48 +1288,59 @@ async function go() {
     const x1 = wx(p, s.x), z1 = wz(p, s.y);
     await tween(0.3, k => { const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; robot.position.set(x0 + (x1 - x0) * e, Math.sin(k * Math.PI) * 0.28, z0 + (z1 - z0) * e); });
     cx = s.x; cy = s.y;
+    if (s.wrong) {
+      const m = gemMeshes[s.gem]; SFX.bonk(); burst(m.position.clone(), 0xFF4F8B, 16, 2.5);
+      await tween(0.35, k => { robot.rotation.z = Math.sin(k * 20) * 0.2 * (1 - k); });
+      break;
+    }
     if (s.gem >= 0) {
       const m = gemMeshes[s.gem]; m.userData.taken = true; SFX.gem(); burst(m.position.clone(), m.userData.color, 22, 3.2);
-      tween(0.25, k => { m.scale.set(1 + k, 1.3 * (1 + k), 1 + k); }).then(() => { m.visible = false; });
+      tween(0.25, k => { m.scale.set(1 + k, 1.3 * (1 + k), 1 + k); }).then(() => { m.visible = false; if (m.userData.label) m.userData.label.visible = false; });
     }
   }
-  highlight(null);
-  await finish(r);
 }
 
-async function finish(r) {
-  const p = puzzle;
-  if (r.win) {
+async function finish(results, boards) {
+  const p = puzzle, r = results[results.length - 1], bi = results.length - 1, multi = boards.length > 1;
+  if (results.length === boards.length && r.win) {
+    let bonus = 0;
+    if (p.kind === 'debug' && edits(prog, p.given) <= 1) bonus = 1;
+    if (p.kind === 'fewcards') { const c = cardCount(prog); bonus = c <= p.best ? 2 : c <= p.best + 2 ? 1 : 0; }
     result = 'win'; SFX.win(); burst(robot.position.clone().add(new THREE.Vector3(0, 0.8, 0)), 0xFFE14D, 30, 4); burst(robot.position.clone().add(new THREE.Vector3(0, 0.8, 0)), 0xFF5FD2, 24, 3.5);
-    const first = !missed; P.stars++; solved++;
+    const first = !missed; P.stars += 1 + bonus; solved++;
     const change = first ? record(true) : 0; persist(); showBadge();
-    tell(first ? 'Great coding! ⭐' : 'You did it! ⭐');
+    const stars = '⭐'.repeat(1 + bonus);
+    tell(first ? `Great coding! ${stars}` : `You did it! ${stars}`);
+    const praise = bonus === 2 ? 'Three stars. The shortest program.' : bonus === 1 && p.kind === 'debug' ? 'Fixed in one change. Two stars.' : bonus === 1 ? 'Two stars. A short program.' : first ? 'Great coding!' : 'You did it!';
     if (change === 1) { setTimeout(() => { SFX.up(); const b = $('badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }, 500 / SPEED); say(`Level up! ${LEVELS[P.lv].name}.`); }
-    else say(first ? 'Great coding!' : 'You did it!');
+    else say(praise);
     await tween(0.9, k => { robot.position.y = Math.sin(k * Math.PI) * 0.7; robot.rotation.y += 0.12; });
     await tween(0.6, () => {});
     running = false; $('go').disabled = false;
     newPuzzle();
     return;
   }
+  const b = boards[bi], where = multi ? `${p.kind === 'maze' ? 'Maze' : 'Board'} ${bi + 1}: ` : '';
   let why;
   if (r.crash) why = 'Bonk! Fix your program.';
-  else if (r.got < p.gems.length) why = r.got ? `${p.gems.length - r.got} more ${p.gems.length - r.got === 1 ? 'gem' : 'gems'} to get!` : 'Missed the gems!';
-  else if (p.moveLimit && r.moves > p.moveLimit) why = `${r.moves} moves. Try ${p.moveLimit}!`;
+  else if (r.wrong >= 0) why = `Gem ${r.wrong + 1} too soon! Go in order.`;
+  else if (r.stuck) why = 'The robot never finished!';
+  else if (r.got < b.gems.length) why = r.got ? `${b.gems.length - r.got} more ${b.gems.length - r.got === 1 ? 'gem' : 'gems'} to get!` : 'Missed the gems!';
+  else if (b.moveLimit && r.moves > b.moveLimit) why = `${r.moves} moves. Try ${b.moveLimit}!`;
   else why = `Too many cards!`;
   result = r.crash ? 'crash' : 'miss';
   if (!r.crash) SFX.no();
-  tell(why, true, 1800); say(why.replace(/!/g, '.'));
+  tell(where + why, true, 1800); say((where + why).replace(/!/g, '.'));
   if (!missed) { missed = true; const change = record(false); showBadge(); if (change === -1) say(`${why.replace(/!/g, '.')} Let's try an easier one next.`); }
   await tween(1.1, () => {});
   resetRobot(); running = false; $('go').disabled = false;
 }
 
 $('go').onclick = go;
-$('clear').onclick = () => { if (running) return; prog = []; openRep = -1; renderProgram(); resetRobot(); tone(400, 0.12, 'triangle', 0.12, 0, 0.5); };
+$('clear').onclick = () => { if (running) return; prog = startProgram(puzzle); openPath = puzzle.def && !puzzle.given ? [0, 'b'] : null; renderProgram(); resetRobot(); tone(400, 0.12, 'triangle', 0.12, 0, 0.5); };
 $('hint').onclick = () => {
   if (running) return;
-  prog = JSON.parse(JSON.stringify(puzzle.intended)); openRep = -1; renderProgram(); resetRobot(); SFX.tap();
+  prog = copy(puzzle.intended); openPath = null; renderProgram(); resetRobot(); SFX.tap();
   if (!missed) { missed = true; record(false); showBadge(); }
   say('Here is one way. Press Go to watch it.');
 };
@@ -843,13 +1349,41 @@ $('stage').addEventListener('pointerdown', () => { if (running) return; ac(); to
 
 // Test hook.
 window.ROBOT_PATH = {
-  LEVELS, START_LEVEL, generate, check, simulate, fewest, cardCount, record, plainPrograms,
+  LEVELS, START_LEVEL, generate, check, simulate, fewest, cardCount, record, plainPrograms, flatPrograms, fixedSolvable, edits,
   get P() { return P; }, reset() { P = { lv: START_LEVEL, st: { streak: 0, miss: 0 }, stars: 0 }; persist(); },
   setLevel(i) { P.lv = i; P.st = { streak: 0, miss: 0 }; persist(); newPuzzle(); },
   speed(s) { SPEED = s; },
-  state() { return { level: P.lv, puzzle: puzzle && Object.assign({}, puzzle, { walls: [...puzzle.walls], pink: [...puzzle.pink] }), program: prog, running, result, missed, solved, cards: cardCount(prog) }; },
-  setProgram(pr) { prog = JSON.parse(JSON.stringify(pr)); openRep = -1; renderProgram(); },
+  state() { return { level: P.lv, puzzle: puzzle && Object.assign({}, puzzle, { walls: [...view.walls], pink: [...view.pink], boards: undefined }), program: prog, running, result, missed, solved, cards: cardCount(prog), stars: P.stars }; },
+  setProgram(pr) { prog = copy(pr); openPath = null; renderProgram(); },
   go, newPuzzle,
+};
+// Self-check hook for tools/ladder-check.mjs: builds boards at a rung without touching the screen and throws on a bad one.
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START_LEVEL,
+  label: () => LEVELS[P.lv].name,
+  exercise(i, n) {
+    const out = [];
+    for (let k = 0; k < n; k++) {
+      const p = generate(i), c = check(p);
+      if (!c.ok) throw new Error(c.why.join(', '));
+      const boards = p.boards || [p];
+      for (const b of boards) {
+        if (!(b.w >= 3 && b.w <= 9 && b.h >= 3 && b.h <= 9)) throw new Error('board size ' + b.w + 'x' + b.h);
+        const r = simulate(b, p.intended, 400);
+        if (!r.win) throw new Error('planned program does not win');
+        const motion = r.steps.filter(s => !s.pause).length; if (motion > 110) throw new Error('planned run too long: ' + motion);
+      }
+      if (p.limit && cardCount(p.intended) > p.limit) throw new Error('intended over the limit');
+      if (p.given && simulate(boards[0], p.given, 400).win) throw new Error('bug already works');
+      const ins = instructions(p, 0), text = ins.short + ' ' + ins.speak + ' ' + LEVELS[i].name;
+      if (/NaN|undefined|null|\u2014/.test(text)) throw new Error('bad text: ' + text);
+      const pal = p.palette.filter(x => x !== 'mv');
+      for (const b of flat(p.intended)) { const t = b.split(':')[0]; if (b.includes(':') && !['mv', 'if', 'def'].includes(t) && !pal.includes(t)) throw new Error('planned program uses a card the palette lacks: ' + t); }
+      out.push(`${LEVELS[i].name}: ${ins.short} [${cardCount(p.intended)} cards${boards.length > 1 ? ', ' + boards.length + ' boards' : ''}]`);
+    }
+    return out;
+  },
 };
 
 showBadge(); newPuzzle();

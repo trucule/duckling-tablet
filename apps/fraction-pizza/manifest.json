@@ -1,20 +1,20 @@
 {
   "id": "fraction-pizza",
   "name": "Fraction Pizza",
-  "version": "1.0.2",
-  "description": "Cut pizzas and pies and serve slices: halves and quarters, equal fractions, adding slices, fractions on a number line.",
+  "version": "1.0.3",
+  "description": "Cut pizzas and pies and serve slices: halves and quarters, equal fractions, adding slices, fractions on a number line, then mixed numbers, multiplying and dividing fractions, percents, decimals, rates and probability.",
   "subjects": [
     "math"
   ],
-  "ageMin": 7,
-  "ageMax": 9,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/fraction-pizza",
   "about": {
     "concept": "Fractions as parts of a whole and as positions on a line. Cutting and serving slices makes equal parts, equivalent fractions and adding fractions concrete before they are written.",
-    "progression": "Halves and quarters come first, then thirds, sixths and eighths, then matching equal fractions, adding slices with the same denominator, and placing fractions on a number line.",
+    "progression": "Cutting a pizza into equal pieces comes first, then serving halves, quarters, thirds, sixths and eighths, naming and matching equal fractions, adding slices, placing fractions on a number line and comparing them. The upper rungs re-slice pizzas for equivalent fractions and unlike denominators, then cover mixed numbers, a fraction of a group, multiplying and dividing fractions, percents, decimals, proportional orders and unit rates, and the chance of a random slice in simplest form.",
     "lifeSkills": [
       "Dividing food and time fairly",
       "Reading recipes and measurements",
