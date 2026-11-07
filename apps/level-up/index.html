@@ -775,13 +775,14 @@ const shapes = [
   } },
 ];
 
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
 const SUBJECTS = [
-  { id: 'reading', name: 'Reading', icon: '📖', color: '#FFE7F0', levels: reading, start: 3 },
-  { id: 'math', name: 'Math', icon: '➗', color: '#E8F7FF', levels: math, start: 3 },
-  { id: 'color', name: 'Color Lab', icon: '🎨', color: '#FFF4D6', levels: color, start: 2 },
-  { id: 'patterns', name: 'Patterns', icon: '🔁', color: '#EAFBEF', levels: patterns, start: 3 },
-  { id: 'time', name: 'Time & Money', icon: '⏰', color: '#F1EAFF', levels: time, start: 3 },
-  { id: 'shapes', name: 'Shapes & Fractions', icon: '🔺', color: '#FFEDE4', levels: shapes, start: 2 },
+  { id: 'reading', name: 'Reading', icon: '📖', color: '#FFE7F0', levels: reading, start: (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('reading', reading.length, 3) : 3) },
+  { id: 'math', name: 'Math', icon: '➗', color: '#E8F7FF', levels: math, start: (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', math.length, 3) : 3) },
+  { id: 'color', name: 'Color Lab', icon: '🎨', color: '#FFF4D6', levels: color, start: (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('science', color.length, 2) : 2) },
+  { id: 'patterns', name: 'Patterns', icon: '🔁', color: '#EAFBEF', levels: patterns, start: (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('logic', patterns.length, 3) : 3) },
+  { id: 'time', name: 'Time & Money', icon: '⏰', color: '#F1EAFF', levels: time, start: (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', time.length, 3) : 3) },
+  { id: 'shapes', name: 'Shapes & Fractions', icon: '🔺', color: '#FFEDE4', levels: shapes, start: (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', shapes.length, 2) : 2) },
 ];
 const UP_STREAK = 4, WARMUP = 8;
 

@@ -7,6 +7,7 @@ import { HttpError, hashToken, inDays, inMinutes, newId, newToken } from '../uti
 import { redactText } from '../logging.js';
 import { randomInt } from 'node:crypto';
 import { deviceConfig } from './devices.js';
+import { SUBJECTS, gradeForAge } from './family.js';
 
 export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: Ctx }) {
   const h = (t: string) => hashToken(t, ctx.cfg.SESSION_SECRET);
@@ -49,7 +50,7 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
   app.post('/auth/code/pair', { config: { rateLimit: { max: 20, timeWindow: '15 minutes' } } }, async (req) => {
     const b = z.object({
       email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/),
-      childFirstName: z.string().trim().min(1).max(40).optional(),
+      childFirstName: z.string().trim().min(1).max(40).optional(), childAge: z.number().min(1).max(16).optional(),
       platform: z.enum(['android', 'ios', 'windows', 'web']), name: z.string().trim().min(1).max(60), shellVersion: z.string().max(30).optional(),
     }).parse(req.body);
     const devId = newId('dev'), devToken = newToken();
@@ -67,7 +68,11 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
         if (existing) childId = existing.id;
         else {
           childId = newId('chd');
-          await q.run("INSERT INTO child (id, family_id, first_name, levels, theme) VALUES ($1, $2, $3, '{}'::jsonb, '{}'::jsonb)", [childId, parent.family_id, b.childFirstName]);
+          // Every subject starts two years below the child's age (kindergarten level when the age is unknown).
+          const start = b.childAge !== undefined ? gradeForAge(b.childAge) : 0;
+          const bm = b.childAge !== undefined ? (() => { const d = new Date(); d.setMonth(d.getMonth() - Math.round(b.childAge! * 12)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })() : null;
+          await q.run("INSERT INTO child (id, family_id, first_name, birth_month, levels, theme) VALUES ($1, $2, $3, $4, $5::jsonb, '{}'::jsonb)",
+            [childId, parent.family_id, b.childFirstName, bm, JSON.stringify(Object.fromEntries(SUBJECTS.map((s) => [s, start])))]);
           await audit(q, parent.family_id, `parent:${parent.parent_id}`, 'child.created', { id: childId });
         }
       }

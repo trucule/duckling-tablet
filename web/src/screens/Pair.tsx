@@ -13,13 +13,14 @@ export function Pair() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [child, setChild] = useState('');
+  const [age, setAge] = useState('');
   const [name, setName] = useState(DEFAULT_NAME);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const run = async (fn: () => Promise<void>) => { setBusy(true); setError(''); try { await fn(); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } };
   const sendCode = (e: Event) => { e.preventDefault(); run(async () => { await api.requestCode(email.trim()); setStep('code'); }); };
-  const finish = (e: Event) => { e.preventDefault(); run(() => pairWithCode(email.trim(), code, child.trim() || undefined, name.trim() || DEFAULT_NAME)); };
+  const finish = (e: Event) => { e.preventDefault(); run(() => pairWithCode(email.trim(), code, child.trim() || undefined, Number(age) || undefined, name.trim() || DEFAULT_NAME)); };
   const pairCode = (e: Event) => { e.preventDefault(); run(() => pair(code.trim(), name.trim() || DEFAULT_NAME)); };
   const input = { style: { fontSize: 22, padding: '12px 14px', borderRadius: 12, border: '2px solid var(--line)', width: '100%', boxSizing: 'border-box' as const } };
 
@@ -56,9 +57,12 @@ export function Pair() {
       {step === 'child' && (
         <form class="card" onSubmit={finish}>
           <h2>Who is this tablet for?</h2>
-          <p>The child's first name. The narrator uses it, and the parent portal keeps her progress, avatar and stars under it. You can add more children on the website later.</p>
+          <p>The child's first name and age. The narrator uses the name; the age sets where every app starts (two years below her age, so a 7-year-old starts at kindergarten level and moves up as she gets things right). You can change levels and add more children on the website.</p>
           <label class="field"><span>Child's first name</span>
             <input autoFocus maxLength={40} value={child} onInput={(e) => setChild((e.target as HTMLInputElement).value)} placeholder="Ada" />
+          </label>
+          <label class="field"><span>Age</span>
+            <input type="number" inputMode="numeric" min={1} max={16} value={age} onInput={(e) => setAge((e.target as HTMLInputElement).value)} placeholder="7" style={{ maxWidth: 120 }} />
           </label>
           <label class="field"><span>Name for this tablet</span>
             <input value={name} maxLength={60} onInput={(e) => setName((e.target as HTMLInputElement).value)} />

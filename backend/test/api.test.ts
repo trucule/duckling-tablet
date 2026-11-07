@@ -268,6 +268,32 @@ describe('app requests', () => {
   });
 });
 
+describe('starting levels', () => {
+  it('starts every subject two years below the child\'s age, lets the parent choose, and keeps the age right', async () => {
+    const p = await signIn('levels@example.com');
+    const seven = (await app.inject({ method: 'POST', url: '/children', headers: p.auth, payload: { firstName: 'Ada', age: 7 } })).json();
+    expect(seven.age).toBe(7);
+    expect(seven.levels).toEqual({ reading: 0, math: 0, science: 0, logic: 0, art: 0, music: 0 }); // kindergarten level
+    const four = (await app.inject({ method: 'POST', url: '/children', headers: p.auth, payload: { firstName: 'Bo', age: 4 } })).json();
+    expect(four.levels.math).toBe(-1); // pre-K is the floor
+    const teen = (await app.inject({ method: 'POST', url: '/children', headers: p.auth, payload: { firstName: 'Cy', age: 16 } })).json();
+    expect(teen.levels.math).toBe(8); // 8th grade is the ceiling
+    const chosen = (await app.inject({ method: 'POST', url: '/children', headers: p.auth, payload: { firstName: 'Di', age: 9, startGrade: 4, levels: { reading: 6 } } })).json();
+    expect(chosen.levels).toMatchObject({ math: 4, reading: 6 });
+    expect((await app.inject({ method: 'POST', url: '/children', headers: p.auth, payload: { firstName: 'Ed', startGrade: 9 } })).statusCode).toBe(400);
+    // Later changes: one subject, or every subject at once, and the age.
+    const up = (await app.inject({ method: 'PUT', url: `/children/${seven.id}`, headers: p.auth, payload: { levels: { math: 2 } } })).json();
+    expect(up.levels).toMatchObject({ math: 2, reading: 0 });
+    const all = (await app.inject({ method: 'PUT', url: `/children/${seven.id}`, headers: p.auth, payload: { startGrade: 1, age: 8 } })).json();
+    expect(all.levels).toEqual({ reading: 1, math: 1, science: 1, logic: 1, art: 1, music: 1 });
+    expect(all.age).toBe(8);
+    // A tablet sees the levels in its config.
+    const d = await pair(p.auth, seven.id);
+    expect(d.config.child.levels.math).toBe(1);
+    expect(d.config.child.age).toBe(8);
+  });
+});
+
 describe('one-device signup', () => {
   it('pairs a tablet from an emailed code, creating the family, the child and the free trial in one step', async () => {
     await publish('music-box', '1.0.0', { starter: true });
@@ -278,11 +304,13 @@ describe('one-device signup', () => {
     const tablet = { platform: 'android', name: 'Kitchen tablet', shellVersion: '1.0.0' };
     // Wrong codes count; the right one works once.
     expect((await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'code@example.com', code: code === '000000' ? '000001' : '000000', ...tablet } })).statusCode).toBe(401);
-    const r = await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'code@example.com', code, childFirstName: 'Ada', ...tablet } });
+    const r = await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'code@example.com', code, childFirstName: 'Ada', childAge: 6, ...tablet } });
     expect(r.statusCode).toBe(200);
     const j = r.json();
     expect(j.newFamily).toBe(true);
     expect(j.config.child.firstName).toBe('Ada');
+    expect(j.config.child.levels).toEqual({ reading: -1, math: -1, science: -1, logic: -1, art: -1, music: -1 });
+    expect(j.config.child.age).toBe(6);
     expect(j.config.apps.map((a: any) => a.id)).toContain('music-box');
     expect(j.config.entitlement).toMatchObject({ status: 'trial', source: 'trial', daysLeft: 7 });
     expect((await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'code@example.com', code, ...tablet } })).statusCode).toBe(401);

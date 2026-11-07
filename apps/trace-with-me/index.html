@@ -747,7 +747,9 @@ const CURSIVE_LEVELS = [
   { name: 'Cursive words', words: 'cat,sun,dog,fish,cake,bike,frog,ship,tree,boat,moon,star,home,rain,nest,milk,duck,kite,snow,bird' },
   { name: 'Light guide', words: 'jumping,friend,school,turtle,purple,tiger,beach,smile,plane,laugh,people,again,winter,horse', light: true },
 ];
-const START = { spell: 3, cursive: 0 };
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const lf = (n, s) => (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('reading', n, s) : s);
+const START = { spell: lf(SPELL.length, 3), cursive: lf(CURSIVE_LEVELS.length, 0) };
 
 let P = { lv: Object.assign({}, START), st: {}, stars: 0, words: 0, cursive: 0 };
 try { const s = JSON.parse(localStorage.getItem('trace-v2') || 'null'); if (s) P = Object.assign(P, s, { lv: Object.assign({}, START, s.lv || {}), st: s.st || {} }); } catch (e) {}

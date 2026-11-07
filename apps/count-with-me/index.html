@@ -422,7 +422,9 @@ const LEVELS = {
   ],
 };
 // Where a new player starts: about 2nd grade.
-const START = { howmany: 3, giveme: 3, build: 0, story: 2 };
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const lf = (n, s) => (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', n, s) : s);
+const START = { howmany: lf(LEVELS.howmany.length, 3), giveme: lf(LEVELS.giveme.length, 3), build: lf(LEVELS.build.length, 0), story: lf(LEVELS.story.length, 2) };
 
 function tapTask(lo, hi) {
   const n = rnd(lo, hi), opts = new Set([n]);

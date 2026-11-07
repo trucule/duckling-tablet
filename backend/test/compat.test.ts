@@ -11,7 +11,7 @@ const COMPAT = readFileSync(join(import.meta.dirname, '..', '..', 'tools', 'duck
 const TONE = readFileSync(join(import.meta.dirname, 'fixtures', 'tone.mp3'));
 
 function page(appId: string, bridge: boolean) {
-  const b = bridge ? `window.DucklingApp = { appId: () => ${JSON.stringify(appId)}, deviceToken: () => 'dev-token-1', apiUrl: () => location.origin + '/api', childName: () => 'Ada', voice: () => 'en-US-AnaNeural' };` : '';
+  const b = bridge ? `window.DucklingApp = { appId: () => ${JSON.stringify(appId)}, deviceToken: () => 'dev-token-1', apiUrl: () => location.origin + '/api', childName: () => 'Ada', voice: () => 'en-US-AnaNeural', levels: () => JSON.stringify({ math: 5, reading: -1 }) };` : '';
   return `<!doctype html><html><head><script>${b}</script><script>${COMPAT}</script></head><body><div id="log"></div>
   <script>
     window.events = [];
@@ -78,6 +78,10 @@ describe('duckling-compat.js', () => {
       expect(await a.evaluate(() => localStorage.length)).toBe(1);
       expect(await a.evaluate(() => Object.keys(window.KidTablet))).toContain('say');
       expect(await a.evaluate(() => window.KidTablet.childName)).toBe('Ada');
+      // Levels: the parent's grade per subject, mapped onto an app's ladder (pre-K at the bottom, 8th at the top,
+      // 2nd grade where the app used to start everyone); an unknown subject reads as 2nd grade.
+      expect(await a.evaluate(() => [(window as any).KidTablet.grade('math'), (window as any).KidTablet.grade('reading'), (window as any).KidTablet.grade('music')])).toEqual([5, -1, 2]);
+      expect(await a.evaluate(() => { const lf = (window as any).KidTablet.levelFor; return [lf('reading', 11, 2), lf('music', 11, 2), lf('math', 11, 2), lf('math', 1, 0)]; })).toEqual([0, 2, 6, 0]);
 
       // A spoken line: one request with the token, then start, word boundaries and end from the real clip.
       const tts = () => requests.filter((r) => r.startsWith('Device '));

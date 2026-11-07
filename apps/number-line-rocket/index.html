@@ -502,7 +502,8 @@ function kitStart() {
 // from 0 to 10 up to 0 to 1000, then fractions and numbers below zero. Guesses are scored by how close they land.
 // Progress is kept in localStorage (key number-line-rocket-v1).
 // ---------------------------------------------------------------------------
-const APP = { key: 'number-line-rocket-v1', start: 2 };
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const APP = { key: 'number-line-rocket-v1', get start() { return (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', LEVELS.length, 2) : 2); } };
 // min/max of the line, step between tick marks, which ticks get numbers, and how a tap snaps.
 // snap 0 means free placement (an estimate). Fraction lines use a denominator d.
 const LV = (name, o) => ({ name, gen() { return makeTask(o); }, o });

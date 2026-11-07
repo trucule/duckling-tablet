@@ -4,7 +4,7 @@ import { shell } from './shell';
 
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
 
-export interface Child { id: string; firstName: string; grade: string | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; portraitUrl?: string | null; stars?: { earned: number; spent: number; balance: number } }
+export interface Child { id: string; firstName: string; grade: string | null; age?: number | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; portraitUrl?: string | null; stars?: { earned: number; spent: number; balance: number } }
 export interface InstalledApp { id: string; name: string; version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[]; tileUrl: string | null }
 export interface AllowEntry { host: string; tile?: { name: string; url: string; color?: string } }
 export interface Entitlement { status: 'trial' | 'active' | 'grace' | 'ended' | 'none'; source: string | null; periodEnd: string | null; daysLeft: number | null }
@@ -48,8 +48,8 @@ export const api = {
     'POST', '/devices/pair', { code, platform: shell.platform === 'web' ? 'web' : shell.platform, name, shellVersion: shell.shellVersion() }, false),
   // One-device signup: a code by email, then the family, the child and this tablet in one call.
   requestCode: (email: string) => call<{ sent: boolean }>('POST', '/auth/code', { email }, false),
-  pairWithCode: (email: string, code: string, childFirstName: string | undefined, name: string) => call<{ deviceId: string; deviceToken: string; newFamily: boolean; config: DeviceConfig }>(
-    'POST', '/auth/code/pair', { email, code, childFirstName, platform: shell.platform === 'web' ? 'web' : shell.platform, name, shellVersion: shell.shellVersion() }, false),
+  pairWithCode: (email: string, code: string, childFirstName: string | undefined, childAge: number | undefined, name: string) => call<{ deviceId: string; deviceToken: string; newFamily: boolean; config: DeviceConfig }>(
+    'POST', '/auth/code/pair', { email, code, childFirstName, childAge, platform: shell.platform === 'web' ? 'web' : shell.platform, name, shellVersion: shell.shellVersion() }, false),
   checkin: (battery?: number) => call<DeviceConfig>('POST', '/device/checkin', { shellVersion: shell.shellVersion(), ...(shell.pushToken() ? { pushToken: shell.pushToken() } : {}), ...(battery === undefined ? {} : { battery }) }),
   config: () => call<DeviceConfig>('GET', '/device/config'),
   reportInstalled: (apps: { package: string; label: string; icon?: string }[]) => call<{ otherApps: OtherApp[] }>('POST', '/device/apps-installed', { apps }),

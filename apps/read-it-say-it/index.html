@@ -905,7 +905,8 @@ const LEVELS = [
     return { text: `First the ${phrase(c1, a1)} ${c1.verb} ${relText(r1, p1)}, then ${n} ${phrase(c2, a2, true)} ${vform(c2.verb, true)} ${relText(r2, p2, true)}.`,
       scene: scene([actor(c1.an, a1), actor(c2.an, a2, NUMS.indexOf(n) + 2)], [{ a: 0, verb: c1.verb, rel: r1, place: p1 }, { a: 1, verb: c2.verb, rel: r2, place: p2 }]) }; }) },
 ];
-const START = 2;
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('reading', LEVELS.length, 2) : 2);
 const SENTENCE_LEVELS = LEVELS.length;
 
 // ---------------------------------------------------------------------------

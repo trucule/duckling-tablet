@@ -47,6 +47,7 @@ export async function checkin(): Promise<void> {
 function applyConfig(c: DeviceConfig) {
   applyHosts(c);
   shell.setChildInfo(c.child?.firstName ?? '', c.narratorVoice ?? '');
+  shell.setChildLevels(c.child?.levels ?? {});
   if (c.pinHash) shell.setPinHash(c.pinHash);
 }
 
@@ -168,8 +169,8 @@ function adopt(r: { deviceToken: string; config: DeviceConfig }) {
   go(shell.platform === 'web' ? 'home' : 'pin');
 }
 
-export async function pairWithCode(email: string, code: string, childFirstName: string | undefined, name: string) {
-  adopt(await api.pairWithCode(email, code, childFirstName, name));
+export async function pairWithCode(email: string, code: string, childFirstName: string | undefined, childAge: number | undefined, name: string) {
+  adopt(await api.pairWithCode(email, code, childFirstName, childAge, name));
 }
 
 // True while a tablet still needs the lockdown steps (the Home banner and the parent area's setup wording).

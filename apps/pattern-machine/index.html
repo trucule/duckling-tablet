@@ -340,7 +340,8 @@ const LEVELS = [
   { name: 'Secret pair', kind: 'infer', chain: 2, rules: ALL, choices: 3, turned: true },
   { name: 'Missing machine', kind: 'missing', chain: 3, rules: ALL, choices: 4, turned: true },
 ];
-const START_LEVEL = 2;
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const START_LEVEL = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('logic', LEVELS.length, 2) : 2);
 
 function pool(L) { const out = []; for (const t of L.rules) { if (t === 'paint') COLORS.forEach((_, c) => out.push({ t, c })); else out.push({ t }); } return out; }
 function randState(L) { return { shape: ri(0, SHAPES.length - 1), color: ri(0, COLORS.length - 1), rot: L.turned ? ri(0, 3) : 0, flip: L.turned ? ri(0, 1) : 0, size: ri(0, 2) }; }

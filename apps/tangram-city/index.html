@@ -503,7 +503,8 @@ function kitStart() {
 // diagonals into four quarter triangles, and every piece covers whole quarter triangles. A target is the set of
 // quarter triangles of a known solution, so every target can be filled, and any filling that covers it exactly wins.
 // ---------------------------------------------------------------------------
-const APP = { key: 'tangram-city-v1', start: 1 };
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const APP = { key: 'tangram-city-v1', get start() { return (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', LEVELS.length, 1) : 1); } };
 const BASE = { LT: [[0, 0], [2, 0], [0, 2]], MT: [[0, 0], [2, 0], [1, 1]], ST: [[0, 0], [1, 0], [0, 1]], SQ: [[0, 0], [1, 0], [1, 1], [0, 1]], PA: [[0, 0], [1, 0], [2, 1], [1, 1]] };
 const SET = ['LT', 'LT', 'MT', 'ST', 'ST', 'SQ', 'PA'];
 const PIECE_COLOR = [0xFF2E88, 0x00B4FF, 0xFF8A00, 0xFFE100, 0x6BFF3A, 0xB04DFF, 0x00F0D0];

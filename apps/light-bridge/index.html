@@ -312,7 +312,8 @@ const LEVELS = [
   { name: 'Giant glow', n: 9, k: 8 },
   { name: 'Light master', n: 9, k: 7 },
 ];
-const START_LEVEL = 2;
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const START_LEVEL = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('logic', LEVELS.length, 2) : 2);
 const COLORS = [0xFF2D4F, 0xFFE02E, 0x3B6BFF, 0x2ED84A, 0xFF4FD8, 0xFF8A1C, 0x22E0F0, 0x9B4DFF, 0xFFFFFF];
 const CNAMES = ['red', 'yellow', 'blue', 'green', 'pink', 'orange', 'aqua', 'purple', 'white'];
 

@@ -401,7 +401,8 @@ const LEVELS = [
   { name: 'Balanced tank', gen() { const F = rnd(5, 7), S = rnd(2, 3); return fill({ D: 5, goal: { groups: ['fish', 'snail', 'plant'] }, text: 'Balance the whole tank! Keep ' + F + ' fish, ' + S + ' snails and the plants healthy for 5 days.' }, { F, S }, { P: [[0, 6], 1], L: [[0, 3], 0], f: [[0, 5], 0] }); } },
   { name: 'Big food chain', gen() { return fill({ D: 5, B: 2, breed: true, goal: { groups: ['fish', 'big', 'snail', 'plant'], minEnd: 3 }, text: '2 big fish eat 2 small fish a day. Keep everyone healthy for 5 days, with 3 small fish left at the end.' }, { S: 2 }, { F: [[1, 10], 2], P: [[0, 6], 1], L: [[0, 3], 1], f: [[0, 5], 1] }); } },
 ];
-const START = 2;
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('science', LEVELS.length, 2) : 2);
 function genLevel(i) {
   for (let k = 0; k < 40; k++) {
     const lv = LEVELS[i].gen(); lv.level = i; lv.B = lv.B || 0;

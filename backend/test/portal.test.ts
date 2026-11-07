@@ -81,7 +81,14 @@ describe.skipIf(!ready)('parent portal', () => {
     expect(p.url()).not.toContain('token=');
 
     await p.getByPlaceholder('First name').fill('Ada');
+    await p.getByPlaceholder('Age').fill('7');
     await p.getByRole('button', { name: 'Add child' }).click();
+    // Seven years old: every subject starts at kindergarten level; one subject can be moved on its own.
+    await p.getByText('age 7 · Kindergarten level', { exact: false }).waitFor();
+    await p.getByRole('button', { name: 'Levels' }).click();
+    await p.locator('label', { hasText: 'Math' }).locator('select').selectOption('2');
+    await p.getByText('mixed levels', { exact: false }).waitFor();
+    await p.getByRole('button', { name: 'Done' }).click();
     await p.locator('.list li', { hasText: 'Ada' }).waitFor();
 
     await p.locator('select').nth(2).selectOption({ label: 'Ada' });

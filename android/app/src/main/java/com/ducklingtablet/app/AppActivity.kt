@@ -93,6 +93,7 @@ class AppActivity : AppCompatActivity() {
         @JavascriptInterface fun apiUrl(): String = "https://api.ducklingtablet.com"
         @JavascriptInterface fun childName(): String = prefs.childName
         @JavascriptInterface fun voice(): String = prefs.narratorVoice
+        @JavascriptInterface fun levels(): String = prefs.childLevels
     }
 
     private fun granted(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED

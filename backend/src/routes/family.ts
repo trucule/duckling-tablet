@@ -9,17 +9,25 @@ import { HttpError, hashToken, inDays, newId, newToken, notFound, safeEqual, sha
 import { redactText } from '../logging.js';
 import { notifyDevices } from '../notify.js';
 
-// Starting level per subject, 1 (youngest) to 10; the apps map it to their own level ladders.
-const levels = z.record(z.enum(['reading', 'math', 'science', 'art', 'music', 'logic']), z.number().int().min(1).max(10));
+// Difficulty is a grade on one scale for every subject: -1 pre-K, 0 kindergarten, 1 to 8. A child starts two
+// years below her age (a 7-year-old, in 2nd grade, starts at kindergarten level) unless the parent picks otherwise.
+export const SUBJECTS = ['reading', 'math', 'science', 'logic', 'art', 'music'] as const;
+export const gradeForAge = (age: number) => Math.max(-1, Math.min(8, Math.round(age) - 7));
+const gradeNum = z.number().int().min(-1).max(8);
+const levels = z.object({ reading: gradeNum, math: gradeNum, science: gradeNum, logic: gradeNum, art: gradeNum, music: gradeNum }).partial();
+const birthMonthFor = (age: number) => { const d = new Date(); d.setMonth(d.getMonth() - Math.round(age * 12)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+export const ageFrom = (birthMonth: string | null) => { if (!birthMonth) return null; const [y, m] = birthMonth.split('-').map(Number); const d = new Date(); return Math.max(0, Math.floor(((d.getFullYear() - y) * 12 + (d.getMonth() + 1 - m)) / 12)); };
 const theme = z.object({ colors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).max(4).optional(), interests: z.array(z.string().max(30)).max(8).optional() });
 const childBody = z.object({
   firstName: z.string().trim().min(1).max(30),
-  grade: z.enum(['pre-k', 'k', '1', '2', '3', '4', '5', '6']).nullable().optional(),
+  grade: z.enum(['pre-k', 'k', '1', '2', '3', '4', '5', '6', '7', '8']).nullable().optional(),
+  age: z.number().min(1).max(16).optional(),
+  startGrade: gradeNum.optional(),
   levels: levels.optional(),
   theme: theme.optional(),
 });
 
-export const childRow = (r: any) => r && ({ id: r.id, firstName: r.first_name, grade: r.grade, levels: r.levels, theme: r.theme });
+export const childRow = (r: any) => r && ({ id: r.id, firstName: r.first_name, grade: r.grade, age: ageFrom(r.birth_month), levels: r.levels, theme: r.theme });
 
 // Stars earned across apps minus what the avatar shop spent; null when the child has no avatar or stars yet.
 export const starsOf = async (q: Q, childId: string, avatar: { spent?: number } | null) => {
@@ -124,9 +132,12 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
     const a = await parentAuth(ctx, req);
     const b = childBody.parse(req.body);
     const id = newId('chd');
+    // Every subject starts at startGrade, else two years below the age, else kindergarten; explicit levels win.
+    const start = b.startGrade ?? (b.age !== undefined ? gradeForAge(b.age) : 0);
+    const levels = { ...Object.fromEntries(SUBJECTS.map((s) => [s, start])), ...(b.levels ?? {}) };
     return ctx.db.family(a.familyId, async (q) => {
-      await q.run('INSERT INTO child (id, family_id, first_name, grade, levels, theme) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb)',
-        [id, a.familyId, b.firstName, b.grade ?? null, JSON.stringify(b.levels ?? {}), JSON.stringify(b.theme ?? {})]);
+      await q.run('INSERT INTO child (id, family_id, first_name, grade, birth_month, levels, theme) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)',
+        [id, a.familyId, b.firstName, b.grade ?? null, b.age !== undefined ? birthMonthFor(b.age) : null, JSON.stringify(levels), JSON.stringify(b.theme ?? {})]);
       await audit(q, a.familyId, `parent:${a.parentId}`, 'child.created', { id });
       return childRow(await q.one('SELECT * FROM child WHERE id = $1', [id]));
     });
@@ -138,9 +149,10 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
     return ctx.db.family(a.familyId, async (q) => {
       const cur = await q.one('SELECT * FROM child WHERE id = $1', [req.params.id]);
       if (!cur) throw notFound('No such child');
-      await q.run('UPDATE child SET first_name = $1, grade = $2, levels = $3::jsonb, theme = $4::jsonb WHERE id = $5', [
+      const levels = b.startGrade !== undefined ? Object.fromEntries(SUBJECTS.map((s) => [s, b.startGrade])) : { ...cur.levels, ...(b.levels ?? {}) };
+      await q.run('UPDATE child SET first_name = $1, grade = $2, levels = $3::jsonb, theme = $4::jsonb, birth_month = $6 WHERE id = $5', [
         b.firstName ?? cur.first_name, b.grade === undefined ? cur.grade : b.grade,
-        JSON.stringify(b.levels ?? cur.levels), JSON.stringify(b.theme ?? cur.theme), cur.id]);
+        JSON.stringify(levels), JSON.stringify(b.theme ?? cur.theme), cur.id, b.age !== undefined ? birthMonthFor(b.age) : cur.birth_month]);
       await audit(q, a.familyId, `parent:${a.parentId}`, 'child.updated', { id: cur.id });
       return childRow(await q.one('SELECT * FROM child WHERE id = $1', [cur.id]));
     }).then((r) => { void notifyDevices(ctx, a.familyId); return r; });

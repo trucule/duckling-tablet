@@ -102,6 +102,7 @@ describe.skipIf(!ready)('child web app', () => {
     await t.getByPlaceholder('000000').fill(six);
     await t.getByRole('button', { name: 'Next' }).click();
     await t.getByPlaceholder('Ada').fill('Noor');
+    await t.getByPlaceholder('7').fill('5');
     await t.getByRole('button', { name: 'Finish setup' }).click();
     await t.getByRole('heading', { name: "Noor's tablet" }).waitFor();
     await t.getByRole('button', { name: 'Parent' }).click();

@@ -4,7 +4,6 @@ import { Requests } from './Requests';
 import { InstallCard } from '../install';
 import { useAppFilter, ageText } from '../appfilter';
 
-const GRADES = ['pre-k', 'k', '1', '2', '3', '4', '5', '6'];
 const COLORS = ['#ffb3c6', '#ffd36b', '#b3e5ff', '#c8f7c5', '#e0c3fc', '#ffcf99'];
 
 export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void }) {
@@ -13,7 +12,7 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
   const [code, setCode] = useState<{ code: string; until: number } | null>(null);
   const [codeChild, setCodeChild] = useState<string>('');
   const [newName, setNewName] = useState('');
-  const [newGrade, setNewGrade] = useState('1');
+  const [newAge, setNewAge] = useState(''); const [newStart, setNewStart] = useState<string>('');
   const [newColor, setNewColor] = useState(COLORS[0]);
   const [, tick] = useState(0);
   const [pin, setPin] = useState(''); const [pinAgain, setPinAgain] = useState(''); const [pinMsg, setPinMsg] = useState('');
@@ -25,7 +24,8 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
 
   const addChild = async (e: Event) => {
     e.preventDefault();
-    try { await api.addChild({ firstName: newName.trim(), grade: newGrade, theme: { colors: [newColor, '#b3e5ff'] } }); setNewName(''); await load(); }
+    const age = Number(newAge);
+    try { await api.addChild({ firstName: newName.trim(), ...(age ? { age } : {}), ...(newStart !== '' ? { startGrade: Number(newStart) } : {}), theme: { colors: [newColor, '#b3e5ff'] } }); setNewName(''); setNewAge(''); setNewStart(''); await load(); }
     catch (err) { setError((err as Error).message); }
   };
   const makeCode = async () => {
@@ -54,22 +54,22 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
 
       <div class="card">
         <h2>Children</h2>
-        {fam.children.length === 0 && <p>Add your child first: the name shows on the tablet's home screen, and the grade sets where apps start.</p>}
+        {fam.children.length === 0 && <p>Add your child first: the name shows on the tablet's home screen, and the starting level sets where every app begins.</p>}
         <ul class="list">
-          {fam.children.map((c: Child) => (
-            <li key={c.id}>
-              {c.portraitUrl ? <img class="portrait" src={c.portraitUrl} alt="" /> : <span class="swatch" style={{ background: c.theme?.colors?.[0] ?? '#eee' }} />}
-              <span class="grow"><strong>{c.firstName}</strong> <span class="muted">{c.grade ? `grade ${c.grade}` : ''}{c.stars ? ` · ${c.stars.earned} stars earned, ${c.stars.balance} to spend` : ''}</span></span>
-              <button class="btn quiet" onClick={async () => { if (confirm(`Remove ${c.firstName}'s profile?`)) { await api.deleteChild(c.id); load(); } }}>Remove</button>
-            </li>
-          ))}
+          {fam.children.map((c: Child) => <ChildRow key={c.id} c={c} onChange={load} onError={setError} />)}
         </ul>
-        <form class="row" onSubmit={addChild} style={{ marginTop: 12 }}>
-          <input placeholder="First name" required maxLength={30} value={newName} onInput={(e) => setNewName((e.target as HTMLInputElement).value)} style={{ maxWidth: 200 }} />
-          <select value={newGrade} onChange={(e) => setNewGrade((e.target as HTMLSelectElement).value)} style={{ maxWidth: 120 }}>{GRADES.map((g) => <option key={g} value={g}>{g === 'pre-k' ? 'Pre-K' : g === 'k' ? 'K' : `Grade ${g}`}</option>)}</select>
+        <form class="row" onSubmit={addChild} style={{ marginTop: 12, alignItems: 'center' }}>
+          <input placeholder="First name" required maxLength={30} value={newName} onInput={(e) => setNewName((e.target as HTMLInputElement).value)} style={{ maxWidth: 160 }} />
+          <input type="number" min={1} max={16} placeholder="Age" value={newAge} onInput={(e) => { setNewAge((e.target as HTMLInputElement).value); setNewStart(''); }} style={{ width: 70 }} />
+          <label class="muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>starts at
+            <select value={newStart !== '' ? newStart : String(gradeForAge(Number(newAge) || 7))} onChange={(e) => setNewStart((e.target as HTMLSelectElement).value)} style={{ maxWidth: 150 }}>
+              {GRADE_SCALE.map(([g, name]) => <option key={g} value={String(g)}>{name}</option>)}
+            </select>
+          </label>
           <select value={newColor} onChange={(e) => setNewColor((e.target as HTMLSelectElement).value)} style={{ maxWidth: 140 }}>{COLORS.map((c) => <option key={c} value={c}>{c}</option>)}</select>
           <button class="btn" disabled={!newName.trim()}>Add child</button>
         </form>
+        <p class="muted" style={{ marginTop: 8 }}>Every app starts two years below the child's age (a 7-year-old starts at kindergarten level) and moves up as she gets things right. Change the start here, or one subject at a time on her row.</p>
       </div>
 
       <div class="card">
@@ -170,5 +170,53 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
         </div>
       </div>
     </>
+  );
+}
+
+
+// Difficulty is one grade scale for every subject: pre-K to 8th. A child starts two years below her age.
+export const GRADE_SCALE: [number, string][] = [[-1, 'Pre-K level'], [0, 'Kindergarten level'], [1, '1st grade level'], [2, '2nd grade level'], [3, '3rd grade level'], [4, '4th grade level'], [5, '5th grade level'], [6, '6th grade level'], [7, '7th grade level'], [8, '8th grade level']];
+export const gradeForAge = (age: number) => Math.max(-1, Math.min(8, Math.round(age) - 7));
+const SUBJECT_NAMES: [string, string][] = [['reading', 'Reading'], ['math', 'Math'], ['science', 'Science'], ['logic', 'Logic'], ['art', 'Art'], ['music', 'Music']];
+const gradeName = (g: number) => GRADE_SCALE.find((x) => x[0] === g)?.[1].replace(' level', '') ?? '';
+
+function ChildRow({ c, onChange, onError }: { c: Child; onChange: () => void; onError: (m: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const levels = c.levels ?? {};
+  const values = SUBJECT_NAMES.map(([id]) => levels[id]).filter((v) => typeof v === 'number');
+  const same = values.length > 0 && values.every((v) => v === values[0]);
+  const save = async (b: Parameters<typeof api.updateChild>[1]) => { try { await api.updateChild(c.id, b); onChange(); } catch (e) { onError((e as Error).message); } };
+  return (
+    <li style={{ alignItems: 'flex-start' }}>
+      {c.portraitUrl ? <img class="portrait" src={c.portraitUrl} alt="" /> : <span class="swatch" style={{ background: c.theme?.colors?.[0] ?? '#eee' }} />}
+      <span class="grow">
+        <strong>{c.firstName}</strong> <span class="muted">{[c.age ? `age ${c.age}` : '', same ? `${gradeName(values[0])} level` : values.length ? 'mixed levels' : '', c.stars ? `${c.stars.earned} stars earned, ${c.stars.balance} to spend` : ''].filter(Boolean).join(' · ')}</span>
+        {open && (
+          <div style={{ marginTop: 8 }}>
+            <div class="row" style={{ alignItems: 'center' }}>
+              <span class="muted">Age</span>
+              <input type="number" min={1} max={16} value={c.age ?? ''} onChange={(e) => { const v = Number((e.target as HTMLInputElement).value); if (v) save({ age: v }); }} style={{ width: 70 }} />
+              <span class="muted">Every subject</span>
+              <select value={same ? String(values[0]) : ''} onChange={(e) => { const v = (e.target as HTMLSelectElement).value; if (v !== '') save({ startGrade: Number(v) }); }}>
+                {!same && <option value="">mixed</option>}
+                {GRADE_SCALE.map(([g, name]) => <option key={g} value={String(g)}>{name}</option>)}
+              </select>
+            </div>
+            <div class="row" style={{ alignItems: 'center', marginTop: 6 }}>
+              {SUBJECT_NAMES.map(([id, name]) => (
+                <label key={id} class="muted" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>{name}
+                  <select value={String(levels[id] ?? 0)} onChange={(e) => save({ levels: { [id]: Number((e.target as HTMLSelectElement).value) } })}>
+                    {GRADE_SCALE.map(([g, gn]) => <option key={g} value={String(g)}>{gn.replace(' level', '')}</option>)}
+                  </select>
+                </label>
+              ))}
+            </div>
+            <p class="muted" style={{ marginTop: 6 }}>Apps already in progress keep their place; the level sets where a new app starts.</p>
+          </div>
+        )}
+      </span>
+      <button class="btn quiet" onClick={() => setOpen(!open)}>{open ? 'Done' : 'Levels'}</button>
+      <button class="btn quiet" onClick={async () => { if (confirm(`Remove ${c.firstName}'s profile?`)) { await api.deleteChild(c.id); onChange(); } }}>Remove</button>
+    </li>
   );
 }

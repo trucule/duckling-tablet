@@ -21,6 +21,11 @@ class Prefs(context: Context) {
         get() = p.getString("childName", "") ?: ""
         set(v) { p.edit().putString("childName", v).apply() }
 
+    /** The child's level per subject as JSON ({"math": 2, ...}, grade scale -1 to 8), from the device config. */
+    var childLevels: String
+        get() = p.getString("childLevels", "{}") ?: "{}"
+        set(v) { p.edit().putString("childLevels", v).apply() }
+
     var narratorVoice: String
         get() = p.getString("narratorVoice", "en-US-AnaNeural") ?: "en-US-AnaNeural"
         set(v) { p.edit().putString("narratorVoice", v).apply() }

@@ -422,7 +422,10 @@ function say(t, done) { VOICE.say(t, NARRATOR, null, done); }
 // ---------------------------------------------------------------------------
 const LEVELS = [['🐣', 'little', 'Little', 'age 5'], ['📗', 'second', '2nd grade', 'age 7 to 8'], ['📘', 'third', '3rd grade', 'age 8 to 9']];
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
-let level = LEVELS.find(l => l[1] === store.get('story-level', 'second')) || LEVELS[1];
+// The story length and words start from the child's reading level (set by the parent): pre-K and K get little
+// stories, 1st and 2nd grade the middle ones, 3rd and up the longest.
+const levelDefault = (() => { const g = window.KidTablet && KidTablet.grade ? KidTablet.grade('reading') : 2; return g <= 0 ? 'little' : g <= 2 ? 'second' : 'third'; })();
+let level = LEVELS.find(l => l[1] === store.get('story-level', levelDefault)) || LEVELS[1];
 let selfRead = !!store.get('story-self-read', false);   // "I read": no automatic reading, she taps lines and words
 let stars = store.get('story-stars', 0) | 0;
 const grown = () => level[1] !== 'little';

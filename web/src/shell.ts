@@ -27,6 +27,7 @@ export interface Shell {
   setLockdown(on: boolean): void;
   setAllowedHosts(hosts: string[]): void;
   setChildInfo(name: string, voice: string): void;
+  setChildLevels(levels: Record<string, number>): void;
   release(): void;
   // Other apps: what is on the tablet, opening one for a number of seconds, and the permission that lets Duckling
   // come back when that time ends.
@@ -59,6 +60,7 @@ interface NativeShell {
   setLockdown(on: boolean): void;
   setAllowedHosts(csv: string): void;
   setChildInfo(name: string, voice: string): void;
+  setChildLevels?(json: string): void;
   release(): void;
   installedPackages?(): string;
   launchPackage?(pkg: string, seconds: number): void;
@@ -111,6 +113,7 @@ function native(n: NativeShell): Shell {
     setLockdown: (on) => n.setLockdown(on),
     setAllowedHosts: (hosts) => n.setAllowedHosts(hosts.join(',')),
     setChildInfo: (name, voice) => n.setChildInfo(name, voice),
+    setChildLevels: (l) => { try { n.setChildLevels?.(JSON.stringify(l)); } catch { /* older shell */ } },
     release: () => n.release(),
     installedPackages: () => { try { return JSON.parse(n.installedPackages?.() || '[]'); } catch { return []; } },
     launchPackage: (pkg, seconds) => n.launchPackage?.(pkg, seconds),
@@ -146,6 +149,7 @@ function browser(): Shell {
     setLockdown() {},
     setAllowedHosts() {},
     setChildInfo() {},
+    setChildLevels() {},
     release() { set('token', null); set('installed', null); set('pin', null); },
     installedPackages: () => [],
     launchPackage() { alert('On the tablet this opens the app.'); },

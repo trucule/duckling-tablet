@@ -356,7 +356,8 @@ const LEVELS = [
   { name: 'Fewest moves', kind: 'fewest', w: 6, h: 6, gems: [2, 3], walls: [5, 7], moves: [6, 12] },
   { name: 'Gem master', kind: 'fewest', w: 7, h: 7, gems: [3, 4], walls: [8, 11], moves: [9, 15] },
 ];
-const START_LEVEL = 2;
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const START_LEVEL = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('logic', LEVELS.length, 2) : 2);
 LEVELS.forEach(L => { L.palette = L.kind === 'arrows' ? ['mv'] : L.kind === 'loop' ? ['mv', 'rep'] : L.kind === 'if' ? ['mv', 'rep', 'if'] : ['mv', 'rep']; });
 
 const cardCount = pr => pr.reduce((n, b) => n + 1 + (b.t === 'rep' ? b.body.length : 0), 0);

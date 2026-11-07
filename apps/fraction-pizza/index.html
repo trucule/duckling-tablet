@@ -501,7 +501,8 @@ function kitStart() {
 // Fraction Pizza Kitchen. Customers order parts of pizzas and pies. She cuts, serves, names, adds and compares
 // fractions, then places them on a number line. Progress is kept in localStorage (key fraction-pizza-v1).
 // ---------------------------------------------------------------------------
-const APP = { key: 'fraction-pizza-v1', start: 1 };
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const APP = { key: 'fraction-pizza-v1', get start() { return (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', LEVELS.length, 1) : 1); } };
 const ORD = { 1: ['whole', 'wholes'], 2: ['half', 'halves'], 3: ['third', 'thirds'], 4: ['fourth', 'fourths'], 6: ['sixth', 'sixths'], 8: ['eighth', 'eighths'], 9: ['ninth', 'ninths'], 12: ['twelfth', 'twelfths'] };
 const NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen'];
 const fw = (n, d) => `${NUMW[n]} ${n === 1 ? ORD[d][0] : ORD[d][1]}`;

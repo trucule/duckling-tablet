@@ -711,7 +711,8 @@ const LEVELS = [
   L('7 notes, fast', 6, 7, 0.38), L('Backwards, 3 notes', 4, 3, 0.75, 1), L('Backwards, 4 notes', 4, 4, 0.7, 1),
   L('Backwards, 5 notes', 5, 5, 0.65, 1), L('Backwards, 5 notes, faster', 6, 5, 0.45, 1), L('Backwards, 6 notes, faster', 6, 6, 0.42, 1),
 ];
-const START = 3;
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('music', LEVELS.length, 3) : 3);
 // A tune never repeats one instrument three times in a row, and a tune of 3 or more uses at least 2 instruments.
 function makeTune(n, len, step, back) {
   let seq;

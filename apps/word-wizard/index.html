@@ -799,7 +799,8 @@ const LEVELS = [
     const all = ENDS.map(([b, e, q, p]) => [b + e, q, p, b + e]).concat(PRE.filter(x => (x[0] + x[1]).length <= 7).map(([p, b, q, pic]) => [p + b, q, pic, p + b]));
     const [w, q, pic, setup] = fresh(all, x => x[0]); return letterTask(w, { emoji: pic, decoys: 2, prompt: q, setup }); } },
 ];
-const START = 3;
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('reading', LEVELS.length, 3) : 3);
 
 // ---------------------------------------------------------------------------
 // Progress

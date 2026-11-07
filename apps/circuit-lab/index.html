@@ -502,7 +502,8 @@ const LEVELS = [
       solution: [...sws.map(e => part(e, 'switch')), ...gaps.map(e => part(e, 'wire'))], inv: { switch: 3, wire: gaps.length + 1 } });
   } },
 ];
-const START = 2;
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('science', LEVELS.length, 2) : 2);
 
 function build(fixed, extra) {
   const c = { cols: COLS, rows: ROWS, parts: {} };

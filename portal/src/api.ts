@@ -2,7 +2,7 @@
 // cookie, but the portal and the API are on different hosts so the bearer header is what counts).
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
 
-export interface Child { id: string; firstName: string; grade: string | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; stars?: { earned: number; spent: number; balance: number }; portraitUrl?: string | null }
+export interface Child { id: string; firstName: string; grade: string | null; age?: number | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; stars?: { earned: number; spent: number; balance: number }; portraitUrl?: string | null }
 export interface Device { id: string; childId: string | null; platform: string; name: string; state: string; shellVersion: string | null; battery: number | null; lastSeenAt: string | null }
 export interface Attachment { id: string; requestId: string; contentType: string; size: number; url: string; createdAt: string }
 export interface AppRequest { id: string; title: string; description: string; childGrade: string | null; installWhenReady: boolean; status: string; appId: string | null; createdAt: string; updatedAt: string; attachments: Attachment[] }
@@ -36,8 +36,8 @@ export const api = {
   verify: (token: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/verify', { token }),
   logout: () => call('POST', '/auth/logout', {}),
   family: () => call<Family>('GET', '/family'),
-  addChild: (b: { firstName: string; grade?: string | null; theme?: Child['theme'] }) => call<Child>('POST', '/children', b),
-  updateChild: (id: string, b: Partial<{ firstName: string; grade: string | null; theme: Child['theme'] }>) => call<Child>('PUT', `/children/${id}`, b),
+  addChild: (b: { firstName: string; grade?: string | null; age?: number; startGrade?: number; levels?: Record<string, number>; theme?: Child['theme'] }) => call<Child>('POST', '/children', b),
+  updateChild: (id: string, b: Partial<{ firstName: string; grade: string | null; age: number; startGrade: number; levels: Record<string, number>; theme: Child['theme'] }>) => call<Child>('PUT', `/children/${id}`, b),
   deleteChild: (id: string) => call('DELETE', `/children/${id}`),
   pairingCode: (childId: string | null) => call<{ code: string; expiresInMinutes: number }>('POST', '/devices/pairing-codes', { childId }),
   device: (id: string) => call<DeviceDetail>('GET', `/devices/${id}`),

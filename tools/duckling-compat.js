@@ -28,6 +28,19 @@
   var API = read('apiUrl', 'https://api.ducklingtablet.com').replace(/\/$/, '');
   var CHILD = read('childName', '');
   var VOICE = read('voice', 'en-US-AnaNeural');
+  // The child's level per subject on one grade scale: -1 pre-K, 0 kindergarten, 1 to 8. Set by the parent (two years
+  // below the child's age by default). Apps map it onto their own ladders with levelFor().
+  var LEVELS = {};
+  try { LEVELS = JSON.parse(read('levels', '{}')) || {}; } catch (e) {}
+  var grade = function (subject) { var g = LEVELS[subject]; return typeof g === 'number' && isFinite(g) ? Math.max(-1, Math.min(8, Math.round(g))) : 2; };
+  // Where a ladder of `count` levels starts for this child, given the index that fits a 2nd grader (`start2nd`):
+  // pre-K opens at the bottom, 8th grade at the top, 2nd grade at start2nd, the rest in between.
+  var levelFor = function (subject, count, start2nd) {
+    if (!(count > 1)) return 0;
+    var g = grade(subject), s = Math.max(0, Math.min(count - 1, start2nd | 0)), idx;
+    if (g <= 2) idx = Math.round(s * (g + 1) / 3); else idx = Math.round(s + (count - 1 - s) * (g - 2) / 6);
+    return Math.max(0, Math.min(count - 1, idx));
+  };
 
   // ---- 1. Per-app localStorage ------------------------------------------------------------------------------------
   try {
@@ -46,7 +59,7 @@
 
   // ---- 3. The small bridge for apps that look for it -----------------------------------------------------------------
   window.KidTablet = {
-    platform: bridge ? 'duckling' : 'browser', appId: APP_ID, childName: CHILD, narratorVoice: VOICE,
+    platform: bridge ? 'duckling' : 'browser', appId: APP_ID, childName: CHILD, narratorVoice: VOICE, levels: LEVELS, grade: grade, levelFor: levelFor,
     say: function (text, opts) { var u = new SpeechSynthesisUtterance(String(text)); if (opts && opts.rate) u.rate = opts.rate; window.speechSynthesis.speak(u); return u; }
   };
 

@@ -427,7 +427,8 @@ const LEVELS = [
     return choiceQuest('Mystery planet! ' + cl[0][0] + ' ' + cl[1][0] + ' Who am I?', ch, t, 'It is ' + t + '!', 'mystery', [t]);
   } },
 ];
-const START = 2;
+// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('science', LEVELS.length, 2) : 2);
 function genLevel(i) { const q = LEVELS[i].gen(); q.level = i; return q; }
 // The right answer worked out again from the facts, so tests can check each quest.
 function recheck(q) {
