@@ -386,6 +386,21 @@ describe('ai proxy', () => {
   });
 });
 
+describe('cross-origin access', () => {
+  it('lets the portal and the web app use every verb, and no other origin', async () => {
+    const portal = 'https://parents.ducklingtablet.com';
+    for (const [method, url] of [['DELETE', '/devices/dev_x'], ['PUT', '/devices/dev_x/apps/music-box'], ['POST', '/requests'], ['GET', '/family']]) {
+      const r = await app.inject({ method: 'OPTIONS', url, headers: { origin: portal, 'access-control-request-method': method, 'access-control-request-headers': 'authorization,content-type' } });
+      expect(r.statusCode, `${method} ${url}`).toBe(204);
+      expect(r.headers['access-control-allow-origin']).toBe(portal);
+      expect(String(r.headers['access-control-allow-methods'])).toContain(method);
+      expect(String(r.headers['access-control-allow-headers']).toLowerCase()).toContain('authorization');
+    }
+    const other = await app.inject({ method: 'OPTIONS', url: '/family', headers: { origin: 'https://evil.example', 'access-control-request-method': 'GET' } });
+    expect(other.headers['access-control-allow-origin']).toBeUndefined();
+  });
+});
+
 describe('account deletion', () => {
   it('deletes the family and tells its devices to release', async () => {
     const p = await signIn('p@example.com'); const d = await pair(p.auth);
