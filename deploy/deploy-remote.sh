@@ -36,6 +36,12 @@ if [ -z "${DUCKLING_PULLED:-}" ]; then
   DUCKLING_PULLED=1 exec bash "$SRC/deploy/deploy-remote.sh" "$@"
 fi
 
+# Files the service reads as the duckling user: readable by its group, nothing else. A file copied in by hand as root
+# would otherwise be unreadable to the service (that happened with the FCM key on 2026-11-06).
+for f in /opt/duckling/.env /opt/duckling/ca-certificate.crt /opt/duckling/fcm-service-account.json; do
+  [ -f "$f" ] && chown root:duckling "$f" && chmod 640 "$f"
+done
+
 cd "$SRC/backend"
 # The droplet has 1 GB shared with Pitch Jam: keep npm and tsc small.
 export NODE_OPTIONS=--max-old-space-size=384
