@@ -22,6 +22,8 @@ export interface Shell {
   lockdownStatus(): LockdownStatus;
   requestHomeRole(): void;
   openSecuritySettings(): void;
+  openWifiSettings(): void;
+  networkStatus(): 'wifi' | 'cellular' | 'other' | 'none';
   setLockdown(on: boolean): void;
   setAllowedHosts(hosts: string[]): void;
   setChildInfo(name: string, voice: string): void;
@@ -46,6 +48,8 @@ interface NativeShell {
   lockdownStatus(): string;
   requestHomeRole(): void;
   openSecuritySettings(): void;
+  openWifiSettings?(): void;
+  networkStatus?(): string;
   setLockdown(on: boolean): void;
   setAllowedHosts(csv: string): void;
   setChildInfo(name: string, voice: string): void;
@@ -90,6 +94,8 @@ function native(n: NativeShell): Shell {
     lockdownStatus: () => { try { return JSON.parse(n.lockdownStatus()); } catch { return { homeRole: false, deviceSecure: false, pinned: false, lockdownOn: false }; } },
     requestHomeRole: () => n.requestHomeRole(),
     openSecuritySettings: () => n.openSecuritySettings(),
+    openWifiSettings: () => { try { n.openWifiSettings?.(); } catch { /* older shell */ } },
+    networkStatus: () => { try { return (n.networkStatus?.() as ReturnType<Shell['networkStatus']>) || (navigator.onLine ? 'other' : 'none'); } catch { return navigator.onLine ? 'other' : 'none'; } },
     setLockdown: (on) => n.setLockdown(on),
     setAllowedHosts: (hosts) => n.setAllowedHosts(hosts.join(',')),
     setChildInfo: (name, voice) => n.setChildInfo(name, voice),
@@ -119,6 +125,8 @@ function browser(): Shell {
     lockdownStatus: () => ({ homeRole: false, deviceSecure: false, pinned: false, lockdownOn: false }),
     requestHomeRole() { alert('On the tablet this opens the home app chooser.'); },
     openSecuritySettings() { alert('On the tablet this opens the security settings.'); },
+    openWifiSettings() { alert('On the tablet this opens the Wi-Fi settings.'); },
+    networkStatus: () => (navigator.onLine ? 'other' : 'none'),
     setLockdown() {},
     setAllowedHosts() {},
     setChildInfo() {},

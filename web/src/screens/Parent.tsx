@@ -47,6 +47,19 @@ export function Parent() {
       )}
 
       <div class="card">
+        <h2>Wi-Fi</h2>
+        <p>{{ wifi: 'Connected to Wi-Fi.', cellular: 'Connected through mobile data.', other: 'Connected.', none: 'Not connected to the internet. Installed apps still work; new apps, the narrator voice and changes from the website wait until the tablet is back online.' }[shell.networkStatus()]}</p>
+        {android && (
+          <>
+            <p>On a plane, in a hotel or at a cafe: open Android's Wi-Fi settings, pick the network, and if it asks you to sign in, tap "Sign in to network" in the notification that appears (or the network's own entry) and finish its page. Then press Back until Duckling is showing. The lockdown comes back on its own.</p>
+            <div class="row">
+              <button class="pill" onClick={() => shell.openWifiSettings()}>Choose a Wi-Fi network</button>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div class="card">
         <h2>This device</h2>
         <p>{c?.child ? `${c.child.firstName}'s` : 'Unassigned'} {shell.platform === 'web' ? 'browser' : 'tablet'} · id {c?.deviceId ?? '?'} · shell {shell.shellVersion()}</p>
         <p>Apps, the website list, the child's profile, time limits and the subscription are chosen in the parent portal at parents.ducklingtablet.com. Changes made there reach this tablet {instantUpdates() ? 'within seconds while it is on and online' : 'when it is opened, and every three hours'}; the button below fetches them now.</p>

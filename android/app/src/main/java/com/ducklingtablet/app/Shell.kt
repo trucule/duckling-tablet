@@ -90,6 +90,31 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
 
     @JavascriptInterface fun openSecuritySettings() { main.post { activity.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) } }
 
+    /**
+     * Android's Wi-Fi settings, from the parent area: a parent picks a network (and signs in on a captive portal if
+     * the network has one), then comes back with Back. The lockdown is lifted for that visit and comes back in
+     * onResume. An app cannot join networks itself without device-owner provisioning.
+     */
+    @JavascriptInterface fun openWifiSettings() {
+        main.post {
+            activity.unpin()
+            try { activity.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) {
+                try { activity.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) } catch (_: Exception) {}
+            }
+        }
+    }
+
+    /** "wifi", "cellular", "other" or "none": what the tablet is connected through right now. */
+    @JavascriptInterface fun networkStatus(): String {
+        val cm = activity.getSystemService(android.net.ConnectivityManager::class.java) ?: return "none"
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return "none"
+        return when {
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+            else -> "other"
+        }
+    }
+
     @JavascriptInterface fun setLockdown(on: Boolean) {
         prefs.lockdownOn = on
         main.post { if (on) activity.pin() else activity.unpin() }
