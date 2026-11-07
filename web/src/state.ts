@@ -1,7 +1,7 @@
 // App state: the device config from the server, the catalog, and what the shell has installed. Installs the server
 // expects (starter apps at pairing, apps a parent added remotely) are downloaded as soon as the config arrives.
 import { signal, computed } from '@preact/signals';
-import { api, ReleasedError, type DeviceConfig, type CatalogApp } from './api';
+import { api, ReleasedError, type DeviceConfig, type CatalogApp, type OtherApp } from './api';
 import { shell } from './shell';
 
 export const config = signal<DeviceConfig | null>(null);
@@ -35,6 +35,7 @@ export async function checkin(): Promise<void> {
     applyConfig(c);
     if (c.state === 'release') { await releaseDevice(true); return; }
     void installMissing(c);
+    void reportInstalled();
   } catch (e) {
     if (e instanceof ReleasedError) { await releaseDevice(false); return; }
     lastError.value = (e as Error).message;
@@ -44,10 +45,65 @@ export async function checkin(): Promise<void> {
 // What the shell needs from the config: the websites it may open, the child's name and voice for the apps, and the
 // family PIN (set on the website or on another tablet).
 function applyConfig(c: DeviceConfig) {
-  shell.setAllowedHosts(c.allowlist.map((w) => w.host.replace(/^\*\./, '')));
+  applyHosts(c);
   shell.setChildInfo(c.child?.firstName ?? '', c.narratorVoice ?? '');
   if (c.pinHash) shell.setPinHash(c.pinHash);
 }
+
+// ---- Websites the shell may open right now: the allowlist, every site during travel mode, and the sites of other
+// apps while they have time. Re-evaluated every minute, since windows open and close and travel mode ends.
+const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const hhmm = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+
+// Seconds an app may still be open today, and why not when it may not.
+export function otherAppState(a: OtherApp): { ok: boolean; secondsLeft: number; reason: string } {
+  if (a.window) {
+    const now = hhmm(), inWindow = a.window.start <= a.window.end ? (now >= a.window.start && now < a.window.end) : (now >= a.window.start || now < a.window.end);
+    if (!inWindow) return { ok: false, secondsLeft: 0, reason: `Open ${a.window.start} to ${a.window.end}` };
+  }
+  if (a.dailyMinutes === null) return { ok: true, secondsLeft: 6 * 3600, reason: '' };
+  const left = a.dailyMinutes * 60 - a.usedSecondsToday;
+  if (left <= 0) return { ok: false, secondsLeft: 0, reason: 'Done for today' };
+  return { ok: true, secondsLeft: left, reason: `${Math.ceil(left / 60)} min left today` };
+}
+
+export const travelActive = (c: DeviceConfig | null) => !!c?.travel.active && !!c.travel.until && new Date(c.travel.until).getTime() > Date.now();
+
+function applyHosts(c: DeviceConfig) {
+  if (travelActive(c)) { shell.setAllowedHosts(['*']); return; }
+  const hosts = new Set(c.allowlist.map((w) => w.host.replace(/^\*\./, '')));
+  for (const a of c.otherApps ?? []) if (otherAppState(a).ok) for (const h of a.hosts) hosts.add(h.replace(/^\*\./, ''));
+  shell.setAllowedHosts([...hosts]);
+}
+setInterval(() => { if (config.value) { applyHosts(config.value); config.value = { ...config.value }; } }, 60_000);
+
+// The tablet's own apps go up once per session so the parent can allow them; the shell lists them.
+let reportedInstalled = false;
+async function reportInstalled() {
+  if (reportedInstalled || shell.platform === 'web') return;
+  const apps = shell.installedPackages();
+  if (!apps.length) return;
+  reportedInstalled = true;
+  try { const r = await api.reportInstalled(apps); if (config.value) config.value = { ...config.value, otherApps: r.otherApps }; } catch { reportedInstalled = false; }
+}
+
+// Opening another app: for as long as it has today, at most. The shell comes back when that ends.
+export function openOtherApp(a: OtherApp) {
+  const st = otherAppState(a);
+  if (!st.ok) { lastError.value = `${a.label}: ${st.reason}`; return; }
+  shell.launchPackage(a.package, Math.min(st.secondsLeft, 6 * 3600));
+}
+window.addEventListener('duckling:otherapp', async (e) => {
+  const { pkg, seconds, reason } = (e as CustomEvent<{ pkg: string; seconds: number; reason: string }>).detail;
+  if (reason === 'missing') { lastError.value = 'That app is not on this tablet any more.'; reportedInstalled = false; void reportInstalled(); return; }
+  if (seconds <= 0) return;
+  // Count it locally at once, then on the server.
+  if (config.value) {
+    config.value = { ...config.value, otherApps: (config.value.otherApps ?? []).map((a) => a.package === pkg ? { ...a, usedSecondsToday: a.usedSecondsToday + seconds } : a) };
+    applyHosts(config.value);
+  }
+  try { const r = await api.otherAppUsage(pkg, seconds, localDay()); if (config.value) { config.value = { ...config.value, otherApps: r.otherApps }; applyHosts(config.value); } } catch { /* counted locally; the next check-in reconciles */ }
+});
 
 // Apps the server lists for this device but the shell does not have yet (or has at an older version).
 async function installMissing(c: DeviceConfig) {

@@ -113,6 +113,35 @@ describe.skipIf(!ready)('parent portal', () => {
     expect(cfg.apps.map((a: { id: string }) => a.id)).not.toContain('music-box');
     expect(cfg.allowlist[0]).toMatchObject({ host: 'pbskids.org', tile: { name: 'PBS Kids', url: 'https://pbskids.org' } });
 
+    // Every site for a custom time: 90 minutes.
+    await p.getByPlaceholder('3').fill('90');
+    await p.locator('select').last().selectOption('minutes');
+    await p.getByRole('button', { name: 'Allow', exact: true }).click();
+    await p.getByText('On until', { exact: false }).waitFor();
+    const travel = (await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json()).travel;
+    expect(new Date(travel.until).getTime() - Date.now()).toBeGreaterThan(85 * 60_000);
+    await p.getByRole('button', { name: 'End now' }).click();
+    await p.getByText('Off.', { exact: false }).waitFor();
+
+    // The tablet's own apps: reported by the tablet, allowed here with minutes, hours and sites.
+    await fetch(`${api}/device/apps-installed`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Device ${paired.deviceToken}` },
+      body: JSON.stringify({ apps: [{ package: 'com.google.android.apps.youtube.kids', label: 'YouTube Kids' }, { package: 'com.example.puzzles', label: 'Puzzle Pals' }] }) });
+    await p.reload();
+    await p.getByRole('heading', { name: 'Other apps on this tablet' }).waitFor();
+    const row = p.locator('li', { hasText: 'YouTube Kids' });
+    await row.getByRole('button', { name: 'Allow' }).click();
+    await row.getByText('0 of 30 min used today').waitFor();
+    await row.locator('select').selectOption('60');
+    await row.getByText('0 of 60 min used today').waitFor();
+    await row.locator('input[type=time]').first().fill('15:00');
+    await row.locator('input[type=time]').last().fill('18:00');
+    await row.getByRole('button', { name: 'Set hours' }).click();
+    await row.getByPlaceholder('Websites it needs', { exact: false }).fill('youtubekids.com, ytimg.com');
+    await row.getByRole('button', { name: 'Save sites' }).click();
+    await expect.poll(async () => (await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json()).otherApps).toEqual([
+      { package: 'com.google.android.apps.youtube.kids', label: 'YouTube Kids', icon: null, allowed: true, dailyMinutes: 60, window: { start: '15:00', end: '18:00' }, hosts: ['youtubekids.com', 'ytimg.com'], usedSecondsToday: 0 }]);
+    await p.screenshot({ path: join(dir, 'portal-device-other.png'), fullPage: true });
+
     p.once('dialog', (d) => d.accept());
     await p.getByRole('button', { name: 'Remove this tablet' }).click();
     await p.getByRole('heading', { name: 'Devices' }).waitFor();

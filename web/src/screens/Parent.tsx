@@ -57,6 +57,15 @@ export function Parent() {
         </div>
       )}
 
+      {android && (
+        <div class="card">
+          <h2>Other apps</h2>
+          <p>Apps already on this tablet can appear on the home screen with a daily allowance, chosen in the parent portal under this tablet. {c?.otherApps?.length ? `${c.otherApps.length} allowed now.` : 'None allowed yet.'}</p>
+          <p>While another app is open the lockdown is lifted; Duckling comes back on its own when the time ends. For that it needs permission to appear over other apps{shell.canDrawOverlays() ? ': granted.' : '.'}</p>
+          {!shell.canDrawOverlays() && <div class="row"><button class="pill" onClick={() => shell.openOverlaySettings()}>Allow Duckling to appear over other apps</button></div>}
+        </div>
+      )}
+
       <div class="card">
         <h2>Wi-Fi</h2>
         <p>{{ wifi: 'Connected to Wi-Fi.', cellular: 'Connected through mobile data.', other: 'Connected.', none: 'Not connected to the internet. Installed apps still work; new apps, the narrator voice and changes from the website wait until the tablet is back online.' }[shell.networkStatus()]}</p>

@@ -411,6 +411,52 @@ describe('child avatar and stars', () => {
   });
 });
 
+describe('other apps and travel', () => {
+  it('lists the tablet\'s own apps for the parent, applies the allowance, window and sites, and counts use per local day', async () => {
+    const p = await signIn('other@example.com'); const d = await pair(p.auth);
+    const icon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
+    const reported = await app.inject({ method: 'POST', url: '/device/apps-installed', headers: d.dev, payload: { apps: [
+      { package: 'com.google.android.apps.youtube.kids', label: 'YouTube Kids', icon }, { package: 'org.khanacademy.kids', label: 'Khan Kids' }, { package: 'bad name', label: 'x' }] } });
+    expect(reported.statusCode).toBe(400); // one bad package name fails the whole report
+    await app.inject({ method: 'POST', url: '/device/apps-installed', headers: d.dev, payload: { apps: [
+      { package: 'com.google.android.apps.youtube.kids', label: 'YouTube Kids', icon }, { package: 'org.khanacademy.kids', label: 'Khan Kids' }] } });
+    // Nothing is allowed yet: the tablet sees none, the parent sees both.
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json().otherApps).toEqual([]);
+    const seen = (await app.inject({ method: 'GET', url: `/devices/${d.deviceId}`, headers: p.auth })).json().otherApps;
+    expect(seen.map((a: any) => [a.label, a.allowed, a.icon])).toEqual([['Khan Kids', false, null], ['YouTube Kids', false, icon]]);
+    // The parent allows one with 30 minutes a day, a window, and the sites it needs.
+    const set = await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/other-apps/com.google.android.apps.youtube.kids`, headers: p.auth,
+      payload: { allowed: true, dailyMinutes: 30, window: { start: '15:00', end: '18:30' }, hosts: ['youtubekids.com', '*.ytimg.com'] } });
+    expect(set.statusCode).toBe(200);
+    expect((await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/other-apps/org.khanacademy.kids`, headers: p.auth, payload: { window: { start: '25:00', end: '18:00' } } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/other-apps/com.nope.app`, headers: p.auth, payload: { allowed: true } })).statusCode).toBe(404);
+    const cfg = (await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json();
+    expect(cfg.otherApps).toEqual([{ package: 'com.google.android.apps.youtube.kids', label: 'YouTube Kids', icon, allowed: true, dailyMinutes: 30, window: { start: '15:00', end: '18:30' }, hosts: ['youtubekids.com', '*.ytimg.com'], usedSecondsToday: 0 }]);
+    // Use is counted on the day the tablet names; a second session adds to it; another day starts at zero.
+    const today = new Date().toISOString().slice(0, 10);
+    await app.inject({ method: 'POST', url: '/device/other-app-usage', headers: d.dev, payload: { package: 'com.google.android.apps.youtube.kids', seconds: 600, day: today } });
+    const after2 = (await app.inject({ method: 'POST', url: '/device/other-app-usage', headers: d.dev, payload: { package: 'com.google.android.apps.youtube.kids', seconds: 300, day: today } })).json();
+    expect(after2.otherApps[0].usedSecondsToday).toBe(900);
+    const other = (await app.inject({ method: 'POST', url: '/device/other-app-usage', headers: d.dev, payload: { package: 'com.google.android.apps.youtube.kids', seconds: 60, day: '2030-01-01' } })).json();
+    expect(other.otherApps[0].usedSecondsToday).toBe(60);
+    // A report without an app keeps the parent's settings and marks it absent; it comes back on the next report.
+    await app.inject({ method: 'POST', url: '/device/apps-installed', headers: d.dev, payload: { apps: [{ package: 'org.khanacademy.kids', label: 'Khan Kids' }] } });
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json().otherApps).toEqual([]);
+    await app.inject({ method: 'POST', url: '/device/apps-installed', headers: d.dev, payload: { apps: [{ package: 'com.google.android.apps.youtube.kids', label: 'YouTube Kids' }] } });
+    const back = (await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json().otherApps[0];
+    expect(back).toMatchObject({ allowed: true, dailyMinutes: 30, icon, hosts: ['youtubekids.com', '*.ytimg.com'] });
+    // Another family's parent cannot touch it.
+    const b = await signIn('other-b@example.com');
+    expect((await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/other-apps/com.google.android.apps.youtube.kids`, headers: b.auth, payload: { allowed: false } })).statusCode).toBe(404);
+    // Travel mode takes minutes now; hours still work.
+    const t = (await app.inject({ method: 'POST', url: `/devices/${d.deviceId}/travel`, headers: p.auth, payload: { minutes: 45 } })).json();
+    expect(t.active).toBe(true);
+    expect(new Date(t.until).getTime() - Date.now()).toBeGreaterThan(44 * 60_000);
+    expect(new Date(t.until).getTime() - Date.now()).toBeLessThan(46 * 60_000);
+    expect((await app.inject({ method: 'POST', url: `/devices/${d.deviceId}/travel`, headers: p.auth, payload: { minutes: 0 } })).json().active).toBe(false);
+  });
+});
+
 describe('push', () => {
   it('tells the tablets concerned after a parent change, and forgets tokens FCM no longer knows', async () => {
     const p = await signIn('push@example.com'); const d1 = await pair(p.auth); const d2 = await pair(p.auth);

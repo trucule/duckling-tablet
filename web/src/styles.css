@@ -83,3 +83,10 @@ button { font: inherit; color: inherit; }
 
 .included { margin: 8px 0 0; padding-left: 20px; }
 .included li { margin: 6px 0; }
+
+/* Other apps: the tablet's own apps a parent allowed, with today's time */
+h2.section { margin: 22px 0 10px; font-size: 20px; color: #4a5560; }
+.tile .art.plain { background: #fff; display: grid; place-items: center; }
+.tile .art.plain img { width: 64px; height: 64px; }
+.tile .sub { display: block; font-size: 13px; color: #6b7580; margin-top: 2px; }
+.tile.off { opacity: .55; }

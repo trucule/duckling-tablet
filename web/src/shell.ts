@@ -28,6 +28,12 @@ export interface Shell {
   setAllowedHosts(hosts: string[]): void;
   setChildInfo(name: string, voice: string): void;
   release(): void;
+  // Other apps: what is on the tablet, opening one for a number of seconds, and the permission that lets Duckling
+  // come back when that time ends.
+  installedPackages(): { package: string; label: string; icon?: string }[];
+  launchPackage(pkg: string, seconds: number): void;
+  canDrawOverlays(): boolean;
+  openOverlaySettings(): void;
 }
 
 // The Android side exposes synchronous string-returning methods; async work calls back into window.DucklingWeb.
@@ -54,10 +60,14 @@ interface NativeShell {
   setAllowedHosts(csv: string): void;
   setChildInfo(name: string, voice: string): void;
   release(): void;
+  installedPackages?(): string;
+  launchPackage?(pkg: string, seconds: number): void;
+  canDrawOverlays?(): boolean;
+  openOverlaySettings?(): void;
 }
 
 declare global {
-  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void } }
+  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void } }
 }
 
 const pending = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
@@ -71,6 +81,8 @@ window.DucklingWeb = {
   onResume() { window.dispatchEvent(new Event('duckling:resume')); },
   // A push from the server (a parent changed something), or a new push token to report.
   onPush() { window.dispatchEvent(new Event('duckling:push')); },
+  // Another app's turn ended (the child came back, or the time ran out): how long it was open.
+  onOtherApp(pkg, seconds, reason) { window.dispatchEvent(new CustomEvent('duckling:otherapp', { detail: { pkg, seconds, reason } })); },
 };
 
 function native(n: NativeShell): Shell {
@@ -100,6 +112,10 @@ function native(n: NativeShell): Shell {
     setAllowedHosts: (hosts) => n.setAllowedHosts(hosts.join(',')),
     setChildInfo: (name, voice) => n.setChildInfo(name, voice),
     release: () => n.release(),
+    installedPackages: () => { try { return JSON.parse(n.installedPackages?.() || '[]'); } catch { return []; } },
+    launchPackage: (pkg, seconds) => n.launchPackage?.(pkg, seconds),
+    canDrawOverlays: () => { try { return !!n.canDrawOverlays?.(); } catch { return false; } },
+    openOverlaySettings: () => n.openOverlaySettings?.(),
   };
 }
 
@@ -131,6 +147,10 @@ function browser(): Shell {
     setAllowedHosts() {},
     setChildInfo() {},
     release() { set('token', null); set('installed', null); set('pin', null); },
+    installedPackages: () => [],
+    launchPackage() { alert('On the tablet this opens the app.'); },
+    canDrawOverlays: () => false,
+    openOverlaySettings() { alert('On the tablet this opens the overlay permission.'); },
   };
 }
 

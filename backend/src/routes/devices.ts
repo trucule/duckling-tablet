@@ -27,7 +27,24 @@ async function setSetting(q: Q, familyId: string, deviceId: string, key: string,
     ON CONFLICT (device_id, key) DO UPDATE SET value = excluded.value`, [familyId, deviceId, key, JSON.stringify(value ?? null)]);
 }
 
-export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string) {
+const PACKAGE = /^[A-Za-z][\w]*(\.[A-Za-z][\w]*)+$/;
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// The tablet's other apps: every present one for parents, only the allowed ones for the tablet.
+export async function otherAppsFor(q: Q, deviceId: string, familyId: string, allowedOnly: boolean, day?: string) {
+  const rows = await q.all(`SELECT * FROM device_other_app WHERE device_id = $1 AND present ${allowedOnly ? 'AND allowed' : ''} ORDER BY lower(label)`, [deviceId]);
+  const usage = await q.all<{ package: string; seconds: number }>('SELECT package, seconds FROM other_app_usage WHERE device_id = $1 AND day = $2', [deviceId, day ?? new Date().toISOString().slice(0, 10)]);
+  const used = Object.fromEntries(usage.map((u) => [u.package, u.seconds]));
+  void familyId;
+  return rows.map((r: any) => ({
+    package: r.package, label: r.label, icon: r.icon ?? null, allowed: r.allowed,
+    dailyMinutes: r.daily_minutes ?? null, window: r.window_start && r.window_end ? { start: r.window_start, end: r.window_end } : null,
+    hosts: r.hosts ?? [], usedSecondsToday: used[r.package] ?? 0,
+  }));
+}
+
+// forParent: the full list of the tablet's other apps (the tablet itself gets only the allowed ones).
+export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent = false) {
   const d = await q.one('SELECT * FROM device WHERE id = $1', [deviceId]);
   if (!d) throw notFound('No such device');
   const childRaw = d.child_id ? await q.one('SELECT * FROM child WHERE id = $1', [d.child_id]) : null;
@@ -47,6 +64,8 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string) {
     allowlist: await getSetting(q, deviceId, 'allowlist', [] as unknown[]),
     travel: { active: !!travelUntil && travelUntil > now(), until: travelUntil },
     limits: await getSetting(q, deviceId, 'limits', {}),
+    // Apps installed outside Duckling that a parent allowed, with today's use (the tablet's local day).
+    otherApps: await otherAppsFor(q, deviceId, d.family_id, !forParent),
     narratorVoice: ctx.cfg.NARRATOR_VOICE,
     serverTime: now(),
   };
@@ -104,7 +123,7 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
 
   app.get<{ Params: { id: string } }>('/devices/:id', async (req) => {
     const a = await parentAuth(ctx, req);
-    return ctx.db.family(a.familyId, async (q) => { await myDevice(q, req.params.id); return deviceConfig(ctx, q, req.params.id); });
+    return ctx.db.family(a.familyId, async (q) => { await myDevice(q, req.params.id); return deviceConfig(ctx, q, req.params.id, true); });
   });
 
   app.put<{ Params: { id: string } }>('/devices/:id', async (req) => {
@@ -195,14 +214,40 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
     }));
   });
 
+  // Other apps: a parent allows an app the tablet already has, with a daily allowance, a time window and the websites
+  // that open only while the app has time.
+  app.put<{ Params: { id: string; pkg: string } }>('/devices/:id/other-apps/:pkg', async (req) => {
+    const a = await parentAuth(ctx, req);
+    if (!PACKAGE.test(req.params.pkg)) throw badRequest('Bad package name');
+    const b = z.object({
+      allowed: z.boolean().optional(),
+      dailyMinutes: z.number().int().min(1).max(1440).nullable().optional(),
+      window: z.object({ start: z.string().regex(HHMM), end: z.string().regex(HHMM) }).nullable().optional(),
+      hosts: z.array(host).max(50).optional(),
+    }).parse(req.body);
+    return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
+      const d = await myDevice(q, req.params.id);
+      const cur = await q.one('SELECT * FROM device_other_app WHERE device_id = $1 AND package = $2', [d.id, req.params.pkg]);
+      if (!cur) throw notFound('The tablet has not reported that app');
+      await q.run(`UPDATE device_other_app SET allowed = $3, daily_minutes = $4, window_start = $5, window_end = $6, hosts = $7::jsonb, updated_at = now() WHERE device_id = $1 AND package = $2`,
+        [d.id, req.params.pkg, b.allowed ?? cur.allowed, b.dailyMinutes === undefined ? cur.daily_minutes : b.dailyMinutes,
+          b.window === undefined ? cur.window_start : (b.window?.start ?? null), b.window === undefined ? cur.window_end : (b.window?.end ?? null),
+          JSON.stringify(b.hosts ?? cur.hosts ?? [])]);
+      await audit(q, a.familyId, `parent:${a.parentId}`, 'device.other_app', { id: d.id, package: req.params.pkg, allowed: b.allowed ?? cur.allowed });
+      return { otherApps: await otherAppsFor(q, d.id, a.familyId, false) };
+    }));
+  });
+
   // Travel mode: lifts the website allowlist for N hours (default 6); 0 ends it now.
   app.post<{ Params: { id: string } }>('/devices/:id/travel', async (req) => {
     const a = await parentAuth(ctx, req);
-    const { hours } = z.object({ hours: z.number().int().min(0).max(48).default(6) }).parse(req.body ?? {});
+    // Minutes (1 to 2880) or, for older callers, hours; 0 ends it now.
+    const b = z.object({ minutes: z.number().int().min(0).max(2880).optional(), hours: z.number().int().min(0).max(48).optional() }).parse(req.body ?? {});
+    const minutes = b.minutes ?? (b.hours === undefined ? 360 : b.hours * 60);
     return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
       const d = await myDevice(q, req.params.id);
-      await setSetting(q, a.familyId, d.id, 'travel_until', hours ? new Date(Date.now() + hours * 3_600_000).toISOString() : null);
-      await audit(q, a.familyId, `parent:${a.parentId}`, 'travel.set', { device: d.id, hours });
+      await setSetting(q, a.familyId, d.id, 'travel_until', minutes ? new Date(Date.now() + minutes * 60_000).toISOString() : null);
+      await audit(q, a.familyId, `parent:${a.parentId}`, 'travel.set', { device: d.id, minutes });
       return (await deviceConfig(ctx, q, d.id)).travel;
     }));
   });
@@ -215,6 +260,33 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
       await q.run(`UPDATE device SET shell_version = COALESCE($1, shell_version), battery = COALESCE($2, battery),
         push_token = COALESCE($3, push_token), last_seen_at = now() WHERE id = $4`, [b.shellVersion ?? null, b.battery ?? null, b.pushToken ?? null, dv.deviceId]);
       return deviceConfig(ctx, q, dv.deviceId);
+    });
+  });
+
+  // The tablet's launchable apps, reported at check-in (apps no longer there are kept, marked absent, so a parent's
+  // settings survive a reinstall). Labels and small icons only.
+  app.post('/device/apps-installed', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const b = z.object({ apps: z.array(z.object({ package: z.string().regex(PACKAGE).max(200), label: z.string().trim().min(1).max(80), icon: z.string().regex(/^data:image\/(png|webp);base64,[A-Za-z0-9+/=]+$/).max(12_000).optional() })).max(300) }).parse(req.body);
+    return ctx.db.family(dv.familyId, async (q) => {
+      await q.run('UPDATE device_other_app SET present = false WHERE device_id = $1', [dv.deviceId]);
+      for (const a of b.apps) {
+        await q.run(`INSERT INTO device_other_app (family_id, device_id, package, label, icon, present) VALUES ($1, $2, $3, $4, $5, true)
+          ON CONFLICT (device_id, package) DO UPDATE SET label = excluded.label, icon = COALESCE(excluded.icon, device_other_app.icon), present = true, updated_at = now()`,
+          [dv.familyId, dv.deviceId, a.package, a.label, a.icon ?? null]);
+      }
+      return { otherApps: await otherAppsFor(q, dv.deviceId, dv.familyId, true) };
+    });
+  });
+
+  // Time spent in another app, counted by the tablet from launch to its return; added to the tablet's local day.
+  app.post('/device/other-app-usage', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const b = z.object({ package: z.string().regex(PACKAGE), seconds: z.number().int().min(0).max(86_400), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).parse(req.body);
+    return ctx.db.family(dv.familyId, async (q) => {
+      await q.run(`INSERT INTO other_app_usage (family_id, device_id, package, day, seconds) VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (device_id, package, day) DO UPDATE SET seconds = other_app_usage.seconds + excluded.seconds, updated_at = now()`, [dv.familyId, dv.deviceId, b.package, b.day, b.seconds]);
+      return { otherApps: await otherAppsFor(q, dv.deviceId, dv.familyId, true, b.day) };
     });
   });
 

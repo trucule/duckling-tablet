@@ -8,7 +8,8 @@ export interface Attachment { id: string; requestId: string; contentType: string
 export interface AppRequest { id: string; title: string; description: string; childGrade: string | null; installWhenReady: boolean; status: string; appId: string | null; createdAt: string; updatedAt: string; attachments: Attachment[] }
 export interface Entitlement { status: 'trial' | 'active' | 'grace' | 'ended' | 'none'; source: string | null; periodEnd: string | null; daysLeft: number | null }
 export interface Family { familyId: string; you: string; pinSet: boolean; subscription: Entitlement; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
-export interface DeviceDetail { deviceId: string; state: string; child: Child | null; apps: { id: string; name: string; version: string; tileUrl: string | null }[]; hidden: string[]; allowlist: { host: string; tile?: { name: string; url: string } }[]; travel: { active: boolean; until: string | null } }
+export interface OtherApp { package: string; label: string; icon: string | null; allowed: boolean; dailyMinutes: number | null; window: { start: string; end: string } | null; hosts: string[]; usedSecondsToday: number }
+export interface DeviceDetail { deviceId: string; state: string; child: Child | null; apps: { id: string; name: string; version: string; tileUrl: string | null }[]; hidden: string[]; allowlist: { host: string; tile?: { name: string; url: string } }[]; travel: { active: boolean; until: string | null }; otherApps: OtherApp[] }
 export interface CatalogApp { id: string; name: string; tileUrl: string | null; description: string; demoUrl: string | null; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; about: { concept: string; progression: string; lifeSkills: string[] } | null }
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
@@ -46,7 +47,8 @@ export const api = {
   hideApp: (id: string, app: string, hidden: boolean) => call(hidden ? 'PUT' : 'DELETE', `/devices/${id}/hidden/${app}`, hidden ? {} : undefined),
   installApp: (id: string, app: string) => call('PUT', `/devices/${id}/apps/${app}`, {}),
   settings: (id: string, b: { allowlist?: { host: string; tile?: { name: string; url: string } }[] }) => call<DeviceDetail>('PUT', `/devices/${id}/settings`, b),
-  travel: (id: string, hours: number) => call('POST', `/devices/${id}/travel`, { hours }),
+  travel: (id: string, minutes: number) => call('POST', `/devices/${id}/travel`, { minutes }),
+  otherApp: (id: string, pkg: string, b: { allowed?: boolean; dailyMinutes?: number | null; window?: { start: string; end: string } | null; hosts?: string[] }) => call('PUT', `/devices/${id}/other-apps/${encodeURIComponent(pkg)}`, b),
   catalog: () => call<{ apps: CatalogApp[] }>('GET', '/catalog'),
   setPin: (pin: string) => call<{ set: boolean }>('PUT', '/family/pin', { pin }),
   inviteParent: (email: string) => call<{ sent: boolean }>('POST', '/family/parents/invite', { email }),

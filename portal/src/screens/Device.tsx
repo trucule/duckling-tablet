@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { api, type DeviceDetail, type CatalogApp, type Family as FamilyT } from '../api';
+import { api, type DeviceDetail, type CatalogApp, type Family as FamilyT, type OtherApp } from '../api';
 import { useAppFilter } from '../appfilter';
 
 // One device: child, apps (install or hide), websites, travel mode, release.
@@ -66,8 +66,22 @@ export function Device({ id, onBack }: { id: string; onBack: () => void }) {
           <input placeholder="Name on the tile" value={siteName} onInput={(e) => setSiteName((e.target as HTMLInputElement).value)} style={{ maxWidth: 200 }} />
           <button class="btn" disabled={!host.trim()}>Allow site</button>
         </form>
-        <p class="muted" style={{ marginTop: 12 }}>Travel mode: {d.travel.active ? `on until ${new Date(d.travel.until!).toLocaleTimeString()}` : 'off'}.
-          <button class="btn quiet" style={{ marginLeft: 8 }} onClick={() => act(() => api.travel(id, d.travel.active ? 0 : 6))}>{d.travel.active ? 'End now' : 'Allow every site for 6 hours'}</button></p>
+        <div style={{ marginTop: 14 }}>
+          <strong>Allow every site for a while</strong>
+          <p class="muted" style={{ margin: '4px 0 8px' }}>For a flight, a hotel, a school project. {d.travel.active ? `On until ${new Date(d.travel.until!).toLocaleString()}.` : 'Off.'}</p>
+          {d.travel.active
+            ? <button class="btn quiet" onClick={() => act(() => api.travel(id, 0))}>End now</button>
+            : <TravelPicker onPick={(m) => act(() => api.travel(id, m))} />}
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Other apps on this tablet</h2>
+        <p>Apps installed outside Duckling. Allow one and it appears on the home screen in its own section, for the minutes a day and the hours you set; the websites you list open only while the app has time. While another app is open the lockdown is lifted, and Duckling comes back when the time ends.</p>
+        {d.otherApps.length === 0 && <p class="muted">The tablet has not reported its apps yet; it does at its next sync.</p>}
+        <ul class="list">
+          {d.otherApps.map((a) => <OtherAppRow key={a.package} a={a} onSave={(b) => act(() => api.otherApp(id, a.package, b))} />)}
+        </ul>
       </div>
 
       <div class="card">
@@ -76,5 +90,59 @@ export function Device({ id, onBack }: { id: string; onBack: () => void }) {
         <button class="btn danger" onClick={async () => { if (confirm('Remove this tablet from the family?')) { try { await api.removeDevice(id); onBack(); } catch (e) { setError((e as Error).message); } } }}>Remove this tablet</button>
       </div>
     </>
+  );
+}
+
+
+const DURATIONS: [number, string][] = [[30, '30 minutes'], [60, '1 hour'], [120, '2 hours'], [240, '4 hours'], [480, '8 hours'], [1440, '24 hours']];
+
+function TravelPicker({ onPick }: { onPick: (minutes: number) => void }) {
+  const [custom, setCustom] = useState('');
+  const [unit, setUnit] = useState<'minutes' | 'hours'>('hours');
+  const minutes = Math.round(Number(custom) * (unit === 'hours' ? 60 : 1));
+  return (
+    <div class="row" style={{ alignItems: 'center' }}>
+      {DURATIONS.map(([m, label]) => <button key={m} class="btn quiet" onClick={() => onPick(m)}>{label}</button>)}
+      <span class="muted">or</span>
+      <input type="number" min={1} max={unit === 'hours' ? 48 : 2880} placeholder="3" value={custom} onInput={(e) => setCustom((e.target as HTMLInputElement).value)} style={{ width: 70 }} />
+      <select value={unit} onChange={(e) => setUnit((e.target as HTMLSelectElement).value as 'minutes' | 'hours')}><option value="minutes">minutes</option><option value="hours">hours</option></select>
+      <button class="btn" disabled={!(minutes >= 1 && minutes <= 2880)} onClick={() => onPick(minutes)}>Allow</button>
+    </div>
+  );
+}
+
+const MINUTES: [number | null, string][] = [[15, '15 min a day'], [30, '30 min a day'], [45, '45 min a day'], [60, '1 hour a day'], [90, '1.5 hours a day'], [120, '2 hours a day'], [null, 'No daily limit']];
+
+function OtherAppRow({ a, onSave }: { a: OtherApp; onSave: (b: { allowed?: boolean; dailyMinutes?: number | null; window?: { start: string; end: string } | null; hosts?: string[] }) => void }) {
+  const [start, setStart] = useState(a.window?.start ?? '');
+  const [end, setEnd] = useState(a.window?.end ?? '');
+  const [hosts, setHosts] = useState(a.hosts.join(', '));
+  const used = Math.round(a.usedSecondsToday / 60);
+  return (
+    <li style={{ alignItems: 'flex-start' }}>
+      {a.icon ? <img src={a.icon} alt="" style={{ width: 40, height: 40, borderRadius: 10 }} /> : <span class="swatch" />}
+      <span class="grow">
+        <strong>{a.label}</strong> <span class="muted">{a.allowed ? (a.dailyMinutes !== null ? `${used} of ${a.dailyMinutes} min used today` : 'allowed, no daily limit') : 'not shown on the tablet'}</span>
+        {a.allowed && (
+          <div style={{ marginTop: 8 }}>
+            <div class="row" style={{ alignItems: 'center' }}>
+              <select value={String(a.dailyMinutes)} onChange={(e) => { const v = (e.target as HTMLSelectElement).value; onSave({ dailyMinutes: v === 'null' ? null : Number(v) }); }}>
+                {MINUTES.map(([m, label]) => <option key={String(m)} value={String(m)}>{label}</option>)}
+              </select>
+              <span class="muted">between</span>
+              <input type="time" value={start} onChange={(e) => setStart((e.target as HTMLInputElement).value)} />
+              <span class="muted">and</span>
+              <input type="time" value={end} onChange={(e) => setEnd((e.target as HTMLInputElement).value)} />
+              <button class="btn quiet" disabled={!!start !== !!end} onClick={() => onSave({ window: start && end ? { start, end } : null })}>{start && end ? 'Set hours' : 'Any time'}</button>
+            </div>
+            <div class="row" style={{ alignItems: 'center', marginTop: 8 }}>
+              <input placeholder="Websites it needs, like youtubekids.com, ytimg.com" value={hosts} onInput={(e) => setHosts((e.target as HTMLInputElement).value)} style={{ flex: 1, minWidth: 260 }} />
+              <button class="btn quiet" onClick={() => onSave({ hosts: hosts.split(/[,\s]+/).map((h) => h.trim().toLowerCase()).filter(Boolean) })}>Save sites</button>
+            </div>
+          </div>
+        )}
+      </span>
+      <button class={`btn ${a.allowed ? 'quiet' : 'primary'}`} onClick={() => onSave({ allowed: !a.allowed, ...(a.allowed ? {} : { dailyMinutes: a.dailyMinutes ?? 30 }) })}>{a.allowed ? 'Remove' : 'Allow'}</button>
+    </li>
   );
 }

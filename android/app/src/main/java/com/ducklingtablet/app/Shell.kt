@@ -10,7 +10,13 @@ import android.os.Looper
 import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.util.Base64
+import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 
 /**
@@ -101,6 +107,54 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
             try { activity.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) {
                 try { activity.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) } catch (_: Exception) {}
             }
+        }
+    }
+
+    // ---- Other apps: apps already on the tablet, shown in Duckling once a parent allows them.
+
+    /**
+     * Every launchable app except Duckling itself, as JSON [{package, label, icon}], icon a 48-pixel PNG data URL.
+     * Built once per process; the web app reports it at check-in.
+     */
+    @JavascriptInterface fun installedPackages(): String {
+        cachedPackages?.let { return it }
+        val pm = activity.packageManager
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val out = JSONArray()
+        val seen = HashSet<String>()
+        for (ri in pm.queryIntentActivities(launcher, 0)) {
+            val pkg = ri.activityInfo.packageName
+            if (pkg == activity.packageName || !seen.add(pkg)) continue
+            val o = JSONObject().put("package", pkg).put("label", ri.loadLabel(pm).toString().take(80))
+            try {
+                val d = ri.loadIcon(pm)
+                val bmp = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888)
+                val c = Canvas(bmp); d.setBounds(0, 0, 48, 48); d.draw(c)
+                val bytes = ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+                if (bytes.size < 9000) o.put("icon", "data:image/png;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP))
+            } catch (_: Exception) {}
+            out.put(o)
+        }
+        return out.toString().also { cachedPackages = it }
+    }
+    private var cachedPackages: String? = null
+
+    /** Whether Duckling may draw over other apps, which is what lets it come back when another app's time ends. */
+    @JavascriptInterface fun canDrawOverlays(): Boolean = Settings.canDrawOverlays(activity)
+    @JavascriptInterface fun openOverlaySettings() {
+        main.post { try { activity.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${activity.packageName}"))) } catch (_: Exception) {} }
+    }
+
+    /**
+     * Opens another app for up to [seconds]. The lockdown is lifted while it runs (Android lets no pinned app
+     * start another); when the time ends, or the child comes back, Duckling returns to the front, pins itself
+     * again, and tells the web app how long the app was open.
+     */
+    @JavascriptInterface fun launchPackage(pkg: String, seconds: Int) {
+        main.post {
+            val intent = activity.packageManager.getLaunchIntentForPackage(pkg) ?: run { js("window.DucklingWeb && DucklingWeb.onOtherApp && DucklingWeb.onOtherApp(${q(pkg)}, 0, 'missing')"); return@post }
+            activity.beginOtherApp(pkg, seconds)
+            try { activity.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) { activity.endOtherApp("failed") }
         }
     }
 

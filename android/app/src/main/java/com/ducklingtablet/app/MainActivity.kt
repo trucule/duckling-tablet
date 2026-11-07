@@ -5,6 +5,9 @@ import android.app.ActivityManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.view.View
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
@@ -96,14 +99,41 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun isAllowed(host: String): Boolean = allowedHosts.any { host == it || host.endsWith(".$it") }
+    private fun isAllowed(host: String): Boolean = "*" in allowedHosts || allowedHosts.any { host == it || host.endsWith(".$it") }
     private fun blocked() = WebResourceResponse("text/plain", "utf-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
     override fun onResume() {
         super.onResume()
         hideSystemBars()
+        if (otherPkg != null) endOtherApp("returned")
         if (prefs.lockdownOn && !isPinned()) pin()
         web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()", null)
+    }
+
+    // ---- Another app's turn: unpinned while it runs, back to the front when its time ends.
+    private var otherPkg: String? = null
+    private var otherStart = 0L
+    private val otherTimer = Handler(Looper.getMainLooper())
+    private val comeBack = Runnable { bringToFront() }
+
+    fun beginOtherApp(pkg: String, seconds: Int) {
+        unpin()
+        otherPkg = pkg; otherStart = SystemClock.elapsedRealtime()
+        otherTimer.removeCallbacks(comeBack)
+        otherTimer.postDelayed(comeBack, seconds.coerceIn(10, 6 * 3600) * 1000L)
+    }
+
+    fun endOtherApp(reason: String) {
+        val pkg = otherPkg ?: return
+        val secs = ((SystemClock.elapsedRealtime() - otherStart) / 1000L).toInt()
+        otherPkg = null
+        otherTimer.removeCallbacks(comeBack)
+        web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onOtherApp && DucklingWeb.onOtherApp(${org.json.JSONObject.quote(pkg)}, $secs, ${org.json.JSONObject.quote(reason)})", null)
+    }
+
+    /** From the background this needs "Display over other apps"; the parent area asks for it when other apps are on. */
+    private fun bringToFront() {
+        try { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)) } catch (_: Exception) {}
     }
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent) }

@@ -9,8 +9,11 @@ export interface InstalledApp { id: string; name: string; version: string; url: 
 export interface AllowEntry { host: string; tile?: { name: string; url: string; color?: string } }
 export interface Entitlement { status: 'trial' | 'active' | 'grace' | 'ended' | 'none'; source: string | null; periodEnd: string | null; daysLeft: number | null }
 
+export interface OtherApp { package: string; label: string; icon: string | null; allowed: boolean; dailyMinutes: number | null; window: { start: string; end: string } | null; hosts: string[]; usedSecondsToday: number }
+
 export interface DeviceConfig {
   entitlement?: Entitlement;
+  otherApps?: OtherApp[];
   deviceId: string; state: 'active' | 'release' | 'released'; child: Child | null; apps: InstalledApp[]; hidden: string[];
   allowlist: AllowEntry[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string;
 }
@@ -49,6 +52,8 @@ export const api = {
     'POST', '/auth/code/pair', { email, code, childFirstName, platform: shell.platform === 'web' ? 'web' : shell.platform, name, shellVersion: shell.shellVersion() }, false),
   checkin: (battery?: number) => call<DeviceConfig>('POST', '/device/checkin', { shellVersion: shell.shellVersion(), ...(shell.pushToken() ? { pushToken: shell.pushToken() } : {}), ...(battery === undefined ? {} : { battery }) }),
   config: () => call<DeviceConfig>('GET', '/device/config'),
+  reportInstalled: (apps: { package: string; label: string; icon?: string }[]) => call<{ otherApps: OtherApp[] }>('POST', '/device/apps-installed', { apps }),
+  otherAppUsage: (pkg: string, seconds: number, day: string) => call<{ otherApps: OtherApp[] }>('POST', '/device/other-app-usage', { package: pkg, seconds, day }),
   catalog: () => call<{ apps: CatalogApp[] }>('GET', '/catalog', undefined, false),
   install: (id: string) => call<{ installed: boolean }>('PUT', `/device/apps/${id}`),
   uninstall: (id: string) => call<{ installed: boolean }>('DELETE', `/device/apps/${id}`),

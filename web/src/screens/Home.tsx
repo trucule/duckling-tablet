@@ -1,4 +1,4 @@
-import { config, installed, installing, childName, go, setupNeeded, retryInstall } from '../state';
+import { config, installed, installing, childName, go, setupNeeded, retryInstall, openOtherApp, otherAppState } from '../state';
 import { shell } from '../shell';
 import type { InstalledApp } from '../api';
 
@@ -46,6 +46,23 @@ export function Home() {
           <span class="name">Library</span>
         </button>
       </div>
+      {(c?.otherApps ?? []).length > 0 && (
+        <>
+          <h2 class="section">Other apps</h2>
+          <div class="grid">
+            {c!.otherApps!.map((a) => {
+              const st = otherAppState(a);
+              return (
+                <button class={`tile ${st.ok ? '' : 'off'}`} key={a.package} onClick={() => openOtherApp(a)} aria-label={a.label}>
+                  <span class="art plain">{a.icon ? <img src={a.icon} alt="" /> : <span>&#128241;</span>}</span>
+                  <span class="name">{a.label}</span>
+                  <span class="sub">{st.reason || (a.dailyMinutes === null ? 'Any time' : '')}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
       <button class="parent-button" onClick={() => go('pin')}>Parent</button>
     </div>
   );
