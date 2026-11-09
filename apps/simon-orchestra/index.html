@@ -215,12 +215,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Simon Orchestra</title>
 <!--
-  Simon Orchestra. A melody-and-lights memory game: the 3D orchestra plays a tune, then she plays it back by tapping the
+  Simon Orchestra. A melody-and-lights echo game: the 3D orchestra plays, then she plays it back by tapping the
   instruments (or the big pads under them). One file, offline. Sounds are made with WebAudio.
   Ladder (four right first try in a row moves up, two missed in a row moves down; localStorage key simon-orchestra-v1):
-    1-3 short tunes on 3 or 4 instruments, played slowly    4-7 longer tunes, up to 6 notes on 5 instruments
-    8-10 faster tunes on up to 6 instruments                11-15 play the tune backwards
-  New players start at level 4 (four notes on four instruments).
+  seventeen rungs from a steady beat (pre-K) to chord progressions and composing to a rule (8th grade). The list with
+  grade bands sits above LEVELS in the script. Every rung keeps the echo shape: the orchestra plays or the staff shows
+  something, the child answers on the pads, and a right answer first try counts toward the next rung.
+  New players start from the child's music level; without the tablet they start on rung 4 (four instruments, 3 to 4 notes).
   three.js r149 is included below under its MIT license: Copyright 2010-2023 three.js authors, https://threejs.org,
   SPDX-License-Identifier: MIT.
 -->
@@ -252,6 +253,20 @@
   .pad.off { filter: saturate(.5) brightness(.7); }
   #pads.wait .pad { cursor: default; }
   @media (max-height: 760px) { .pad { height: 84px; font-size: 44px; width: 112px; } }
+  /* Note and choice pads: a small emoji, a big label (do, E4, Major, IV) and a small second line. */
+  .pad { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 4px; line-height: 1; box-sizing: border-box; }
+  .pad.note .em { font-size: 20px; }
+  .pad.note .lb { font-size: 26px; font-weight: 900; margin-top: 3px; white-space: nowrap; }
+  .pad.note .sb { font-size: 13px; font-weight: 700; opacity: .85; margin-top: 3px; white-space: nowrap; }
+  #pads.many .pad.note .em { font-size: 16px; }
+  #pads.many .pad.note .lb { font-size: 22px; }
+  .pad.loud .em { font-size: 44px; } .pad.soft .em { font-size: 20px; }
+  #ask.long { font-size: 24px; padding: 11px 20px; }
+  /* The staff panel: notes, rhythms, key signatures and chord names, drawn as SVG under the dots. */
+  #staff { position: absolute; left: 50%; top: 126px; transform: translateX(-50%); background: #fff; border: 4px solid var(--ink); border-radius: 18px; padding: 4px 12px; z-index: 3; pointer-events: none; box-shadow: 0 6px 0 #0007; max-width: calc(100% - 40px); }
+  #staff.off { display: none; }
+  #staff svg { display: block; max-width: 100%; height: auto; }
+  #staff .big { font-size: 36px; font-weight: 900; padding: 6px 14px; letter-spacing: 3px; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -266,6 +281,7 @@
   <div id="stage">
     <div id="ask">Watch and listen!</div>
     <div id="dots"></div>
+    <div id="staff" class="off"></div>
     <div id="toast"></div>
   </div>
   <div id="pads"></div>
@@ -698,21 +714,92 @@ window.Kit = (function () {
 'use strict';
 const $ = id => document.getElementById(id);
 const pick = a => a[Math.floor(Math.random() * a.length)];
+const rint = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const T = THREE;
 
 // ---------------------------------------------------------------------------
-// Levels. n: instruments, len: notes in the tune, step: seconds per note, back: play it backwards.
+// Instruments, pitches and names.
+// Degrees count up the C major scale from middle C: 0 is do (C4), 4 is sol (G4), 7 is high do (C5), 10 is fa (F5).
 // ---------------------------------------------------------------------------
-const L = (name, n, len, step, back) => ({ name, n, len, step, back: !!back, gen: () => makeTune(n, len, step, back) });
-const LEVELS = [
-  L('2 notes, 3 instruments', 3, 2, 0.8), L('3 notes, 3 instruments', 3, 3, 0.8), L('3 notes, 4 instruments', 4, 3, 0.75),
-  L('4 notes, 4 instruments', 4, 4, 0.7), L('5 notes, 4 instruments', 4, 5, 0.7), L('5 notes, 5 instruments', 5, 5, 0.65),
-  L('6 notes, 5 instruments', 5, 6, 0.65), L('5 notes, faster', 5, 5, 0.45), L('6 notes, faster', 6, 6, 0.42),
-  L('7 notes, fast', 6, 7, 0.38), L('Backwards, 3 notes', 4, 3, 0.75, 1), L('Backwards, 4 notes', 4, 4, 0.7, 1),
-  L('Backwards, 5 notes', 5, 5, 0.65, 1), L('Backwards, 5 notes, faster', 6, 5, 0.45, 1), L('Backwards, 6 notes, faster', 6, 6, 0.42, 1),
+const INST = [
+  { name: 'Drum', emoji: '🥁', color: '#FF1E46', f: 196, family: 0 }, { name: 'Marimba', emoji: '🎶', color: '#FF7A00', f: 329.6, family: 0 }, { name: 'Trumpet', emoji: '🎺', color: '#FFC300', f: 392, family: 1 },
+  { name: 'Harp', emoji: '🪕', color: '#22D35B', f: 440, family: 2 }, { name: 'Piano', emoji: '🎹', color: '#1E6BFF', f: 523.3, family: 3 }, { name: 'Chimes', emoji: '🔔', color: '#B53DFF', f: 659.3, family: 0 },
 ];
-// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
-const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('music', LEVELS.length, 3) : 3);
+const FAMILY = [{ name: 'Percussion', emoji: '🥁', color: '#FF1E46' }, { name: 'Brass', emoji: '🎺', color: '#FFC300' }, { name: 'Strings', emoji: '🪕', color: '#22D35B' }, { name: 'Keyboard', emoji: '🎹', color: '#1E6BFF' }];
+const C4 = 261.63;
+const hz = semi => C4 * Math.pow(2, semi / 12);
+const MAJOR = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17];
+const SOLF = ['do', 're', 'mi', 'fa', 'sol', 'la', 'ti', 'do', 're', 'mi', 'fa'];
+const LETTER = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F'];
+const DEGC = ['#FF1E46', '#FF7A00', '#FFC300', '#22D35B', '#1E6BFF', '#8A3FFC', '#FF4F8B'];
+const degHz = d => hz(MAJOR[d]);
+const noteName = d => LETTER[d] + (4 + Math.floor(d / 7));
+const CHORDS = { I: [0, 2, 4], IV: [3, 5, 7], V: [4, 6, 1], vi: [5, 7, 2] };
+const CHORD_NAMES = { I: 'do mi sol', IV: 'fa la do', V: 'sol ti re', vi: 'la do mi' };
+const PITCHED = [1, 2, 3, 4, 5];
+// A pad: what the child taps. inst and f (one pitch or a chord of pitches) make its sound, stage says which model lights.
+const padInst = i => ({ name: INST[i].name, emoji: INST[i].emoji, color: INST[i].color, inst: i, f: INST[i].f, v: 1, stage: i });
+const padNote = (inst, d, stage, letters) => ({ name: SOLF[d], label: letters ? noteName(d) : SOLF[d], sub: letters ? '' : (d >= 7 ? 'high ' : '') + LETTER[d], emoji: INST[inst].emoji, color: DEGC[d % 7], inst, f: degHz(d), v: 1, stage, deg: d });
+const stageOf = pads => pads.map(p => ({ inst: p.inst, color: p.color }));
+const notePads = (inst, degs, letters) => { const pads = degs.map((d, k) => padNote(inst, d, k, letters)); return { pads, stage: stageOf(pads) }; };
+const choicePads = list => list.map((c, k) => ({ name: c.name, label: c.label || c.name, sub: c.sub || '', emoji: c.emoji || '', color: c.color || INST[k % 6].color, inst: c.inst == null ? 4 : c.inst, f: c.f == null ? INST[4].f : c.f, v: c.v == null ? 0.6 : c.v, stage: c.stage }));
+const spread = n => { const out = []; for (let i = 0; i < n; i++) out.push(n === 1 ? 0.5 : i / (n - 1)); return out; };
+// A melody that moves by steps and skips, never the same note three times in a row.
+function walk(len, lo, hi, maxStep, start) {
+  const seq = [start == null ? rint(lo, hi) : start];
+  while (seq.length < len) { let x; do { x = seq[seq.length - 1] + rint(-maxStep, maxStep); } while (x < lo || x > hi || (seq.length >= 2 && x === seq[seq.length - 1] && x === seq[seq.length - 2])); seq.push(x); }
+  return seq;
+}
+function walkVaried(len, lo, hi, maxStep, start, distinct) { let s, k = 0; do { s = walk(len, lo, hi, maxStep, start); } while (new Set(s).size < distinct && ++k < 60); return s; }
+
+// ---------------------------------------------------------------------------
+// Levels. Each rung names one idea a music teacher would name, and each gen() builds one round:
+// pads (what the child taps), stage (which models stand on stage), play (what the orchestra does first),
+// answer (the pads to tap, in order) and the words on the screen. The round code is the same for every rung.
+//   0  Steady beat            pre-K      the drum plays a steady beat, tap it back the same number of times
+//   1  Loud and soft          pre-K      echo 2 to 3 sounds, each loud or soft
+//   2  High and low           K          echo 2 to 3 notes, each high or low
+//   3  Echo 3 to 4 notes      1st        the classic echo on four instruments (the demo plays this rung)
+//   4  Long and short         2nd        tap a rhythm of long and short notes back in time
+//   5  Instrument families    2nd/3rd    hear an instrument, name its family
+//   6  Melodic echo           3rd        echo 5 to 6 notes of do re mi fa sol, shown on a two-line staff
+//   7  Read the rhythm        4th        read quarter, half and eighth notes, clap them in time
+//   8  Scales                 4th/5th    play the scale in order, or find the missing step
+//   9  Intervals              5th        two notes play, name the interval from three choices
+//  10  Major and minor        5th/6th    hear a chord or phrase, say major or minor
+//  11  Time signatures        6th        count the beats in a bar, 3 or 4
+//  12  Chords                 6th/7th    play the three notes of the I, IV or V chord
+//  13  Read the treble staff  7th        tap the note shown on a five-line staff
+//  14  Keys and transposing   7th/8th    name a key signature, or play a tune one step higher
+//  15  Chord progressions     8th        echo I V vi IV, or fill the missing chord
+//  16  Compose a phrase       8th        make an eight-note phrase that follows a rule and ends on do
+// ---------------------------------------------------------------------------
+// g is the grade a rung is for (-1 pre-K, 0 K, 1 to 8); a child opens on the first rung at or above her grade.
+const L = (name, g, kind, gen) => ({ name, g, kind, gen });
+const LEVELS = [
+  L('Steady beat', -1, 'beat', genBeat),
+  L('Loud and soft', -1, 'dynamics', genDynamics),
+  L('High and low', 0, 'pitch', genHighLow),
+  L('Echo 3 to 4 notes', 1, 'echo', () => echoTune(4, pick([3, 4]), 0.7)),
+  L('Long and short', 2, 'rhythm', genRhythm),
+  L('Instrument families', 3, 'family', genFamily),
+  L('Melodic echo', 3, 'melody', genMelody),
+  L('Read the rhythm', 4, 'notation', genReadRhythm),
+  L('Scales', 4, 'scale', genScale),
+  L('Intervals', 5, 'interval', genInterval),
+  L('Major and minor', 5, 'mode', genMode),
+  L('Time signatures', 6, 'meter', genMeter),
+  L('Chords', 6, 'chord', genChord),
+  L('Read the treble staff', 7, 'treble', genTreble),
+  L('Keys and transposing', 7, 'key', genKeys),
+  L('Chord progressions', 8, 'progression', genProgression),
+  L('Compose a phrase', 8, 'compose', genCompose),
+];
+// Where a new player starts: the first rung for the child's grade in this subject (set by the parent). An older
+// tablet without rungFor maps grades across the ladder with 2nd grade at index 4. Without the tablet at all (a plain
+// browser, the demo recording) the app opens on index 3, the four-instrument echo.
+const START = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('music', LEVELS.map(l => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('music', LEVELS.length, 4) : 3));
 // A tune never repeats one instrument three times in a row, and a tune of 3 or more uses at least 2 instruments.
 function makeTune(n, len, step, back) {
   let seq;
@@ -721,6 +808,233 @@ function makeTune(n, len, step, back) {
     for (let i = 0; i < len; i++) { let x; do { x = Math.floor(Math.random() * n); } while (i >= 2 && seq[i - 1] === x && seq[i - 2] === x); seq.push(x); }
   } while (len >= 3 && new Set(seq).size < 2);
   return { n, seq, step, back: !!back, answer: back ? seq.slice().reverse() : seq.slice() };
+}
+function echoTune(n, len, step, back) {
+  const m = makeTune(n, len, step, back);
+  const pads = []; for (let i = 0; i < n; i++) pads.push(padInst(i));
+  return { kind: 'echo', pads, stage: stageOf(pads), seq: m.seq, n, step, back: m.back,
+    play: m.seq.map((i, k) => ({ pads: [i], gap: step, dot: k })), answer: m.answer,
+    ask: back ? '👀 Watch! Then play it backwards ⏪' : '👀 Watch and listen!', cls: back ? 'back' : '', sayWatch: back ? 'Watch and listen. Then play it backwards!' : 'Watch and listen!',
+    turn: back ? '⏪ Your turn! Backwards!' : '🎵 Your turn!', sayTurn: back ? 'Your turn. Start with the last one!' : 'Your turn!',
+    desc: 'echo ' + m.seq.map(i => INST[i].name).join(' ') };
+}
+
+// Rung 0. The drum plays a steady beat of 3 to 6; the child taps the drum that many times.
+function genBeat() {
+  const k = rint(3, 6), pads = [padInst(0)];
+  return { kind: 'beat', pads, stage: stageOf(pads), play: Array.from({ length: k }, (_, i) => ({ pads: [0], gap: 0.6, dot: i })), answer: Array(k).fill(0),
+    ask: '🥁 Listen to the beat!', sayWatch: 'Listen to the steady beat.', turn: `🥁 Tap the beat ${k} times!`, sayTurn: `Your turn. Tap the drum ${k} times.`,
+    missText: 'Oops! Listen again 👂', desc: `steady beat x${k}` };
+}
+// Rung 1. The same instrument plays loud or soft; the child echoes with the LOUD pad and the soft pad.
+function genDynamics() {
+  const inst = pick([0, 1, 4]), len = rint(2, 3);
+  const pads = [
+    { name: 'Loud', label: 'LOUD', emoji: INST[inst].emoji, color: INST[inst].color, inst, f: INST[inst].f, v: 1, stage: 0, cls: 'loud' },
+    { name: 'Soft', label: 'soft', emoji: INST[inst].emoji, color: '#8A3FFC', inst, f: INST[inst].f, v: 0.2, stage: 0, cls: 'soft' },
+  ];
+  let seq; do { seq = Array.from({ length: len }, () => rint(0, 1)); } while (new Set(seq).size < 2);
+  return { kind: 'dynamics', pads, stage: [{ inst, color: INST[inst].color }], play: seq.map((i, k) => ({ pads: [i], gap: 0.9, dot: k })), answer: seq,
+    ask: '👂 Loud or soft?', sayWatch: 'Listen. Is each one loud or soft?', turn: '🎵 Your turn! Loud or soft?', sayTurn: 'Your turn. Play it back, loud or soft.',
+    desc: 'dynamics ' + seq.map(i => pads[i].name).join(' ') };
+}
+// Rung 2. Two copies of one instrument, a low note and a high note an octave apart.
+function genHighLow() {
+  const inst = pick([1, 3, 4, 5]), len = rint(2, 3);
+  const pads = [
+    { name: 'Low', label: 'Low', sub: '⬇️', emoji: INST[inst].emoji, color: '#1E6BFF', inst, f: hz(0), v: 1, stage: 0 },
+    { name: 'High', label: 'High', sub: '⬆️', emoji: INST[inst].emoji, color: '#FFC300', inst, f: hz(12), v: 0.8, stage: 1 },
+  ];
+  let seq; do { seq = Array.from({ length: len }, () => rint(0, 1)); } while (new Set(seq).size < 2);
+  return { kind: 'pitch', pads, stage: stageOf(pads), play: seq.map((i, k) => ({ pads: [i], gap: 0.9, dot: k })), answer: seq,
+    ask: '👂 High or low?', sayWatch: 'Listen. Is each note high or low?', turn: '🎵 Your turn! High or low?', sayTurn: 'Your turn. Play it back, high or low.',
+    desc: 'pitch ' + seq.map(i => pads[i].name).join(' ') };
+}
+// Rung 4. Long and short notes on the drum. The child taps them back in time; each gap may be 150 ms early or late.
+function genRhythm() {
+  const k = rint(4, 5), S = 0.4, Lg = 0.8;
+  let durs; do { durs = Array.from({ length: k }, () => pick([S, Lg])); } while (new Set(durs).size < 2);
+  const pads = [padInst(0)];
+  let t = 0; const total = durs.reduce((a, b) => a + b, 0);
+  const blocks = durs.map(d => { const b = { at: t / total, w: d / total }; t += d; return b; });
+  return { kind: 'rhythm', pads, stage: stageOf(pads), play: durs.map((d, i) => ({ pads: [0], gap: d, dot: i })), answer: Array(k).fill(0), timed: true, gaps: durs.slice(0, k - 1),
+    staff: { blocks }, ask: '👂 Long and short!', sayWatch: 'Listen to the long notes and the short notes.', turn: '🥁 Tap it back in time!', sayTurn: 'Your turn. Tap the long and short notes in time.',
+    missText: '⏱️ Keep the beat. Listen again.', sayMiss: 'Keep the beat. Listen again.', desc: 'rhythm ' + durs.map(d => d === S ? 'short' : 'long').join(' ') };
+}
+// Rung 5. One instrument plays unseen; the child names its family. The right answer lights the player.
+function genFamily() {
+  const inst = rint(0, 5), fam = INST[inst].family, base = INST[inst].f;
+  const riff = inst === 0 ? [base, base, base] : [base, base * 1.25, base * 1.5];
+  const pads = choicePads(FAMILY.map((f, k) => ({ name: f.name, emoji: f.emoji, color: f.color, inst: [0, 2, 3, 4][k], f: [196, 392, 440, 523.3][k], v: 0.6 })));
+  const all = INST.map((x, i) => ({ inst: i, color: x.color }));
+  return { kind: 'family', pads, stage: all, wide: true, play: riff.map(f => ({ sound: [{ inst, f, v: 1 }], gap: 0.5 })), answer: [fam], reveal: inst,
+    ask: '🎧 Who is playing?', sayWatch: 'Listen. Which family of instruments is playing?', turn: '🎧 Which family played that?', sayTurn: 'Which family played that?',
+    missText: 'Not that family. Listen again 👂', sayMiss: 'Not that family. Listen again.', sayWin: `Yes. The ${INST[inst].name.toLowerCase()} is in the ${FAMILY[fam].name.toLowerCase()} family.`,
+    desc: `family ${INST[inst].name} = ${FAMILY[fam].name}` };
+}
+// Rung 6. Five to six notes on do re mi fa sol, shown as note heads on a two-line staff.
+function genMelody() {
+  const inst = pick(PITCHED), len = rint(5, 6), seq = walkVaried(len, 0, 4, 2, pick([0, 2, 4]), 3);
+  const { pads, stage } = notePads(inst, [0, 1, 2, 3, 4]);
+  const at = spread(len);
+  return { kind: 'melody', pads, stage, play: seq.map((d, k) => ({ pads: [d], gap: 0.6, dot: k, show: k })), answer: seq,
+    staff: { lines: 2, notes: seq.map((d, k) => ({ pos: d, at: at[k], type: 'head' })) },
+    ask: '👀 Watch the notes!', sayWatch: 'Watch the notes and listen.', turn: '🎵 Play it back!', sayTurn: 'Your turn. Play it back.',
+    desc: 'melody ' + seq.map(d => SOLF[d]).join(' ') };
+}
+// Two bars of 4/4 from quarter notes, half notes and pairs of eighths.
+function bar4() { const out = []; let b = 0; while (b < 4) { const opts = [['q', 1], ['q', 1], ['ee', 1]].concat(4 - b >= 2 ? [['h', 2]] : []); const [c, d] = pick(opts); out.push(c); b += d; } return out; }
+// Rung 7. The staff shows a rhythm; after a count-in the child claps it on the drum, in time.
+function genReadRhythm() {
+  const BEAT = 0.6; let cells, onsets;
+  do { cells = bar4().concat(bar4()); onsets = cells.reduce((n, c) => n + (c === 'ee' ? 2 : 1), 0); } while (onsets < 5 || onsets > 9);
+  const notes = [], gaps = []; let t = 0, beam = 0;
+  cells.forEach((c, i) => {
+    if (c === 'ee') { beam++; notes.push({ type: 'e', at: t / 8, beam }, { type: 'e', at: (t + 0.5) / 8, beam }); gaps.push(BEAT / 2, BEAT / 2); t += 1; }
+    else if (c === 'h') { notes.push({ type: 'h', at: t / 8 }); gaps.push(BEAT * 2); t += 2; }
+    else { notes.push({ type: 'q', at: t / 8 }); gaps.push(BEAT); t += 1; }
+  });
+  const pads = [padInst(0)];
+  const countIn = [1, 2, 3, 4].map(() => ({ sound: [{ inst: 1, f: 1318.5, v: 0.35 }], gap: BEAT }));
+  const demo = notes.map((n, i) => ({ pads: [0], gap: gaps[i], dot: i, show: i })).concat([{ gap: 0.4 }], countIn);
+  return { kind: 'notation', pads, stage: stageOf(pads), play: countIn, demo, answer: Array(onsets).fill(0), timed: true, gaps: gaps.slice(0, onsets - 1), hearDemo: true,
+    staff: { lines: 1, notes, bars: [0.5], end: 1 },
+    ask: '🎼 Read it. Count in: 1 2 3 4', sayWatch: 'Read the rhythm. Quarter notes get one beat, half notes two, eighth notes half a beat. Count in.', turn: '🥁 Clap it on the drum!', sayTurn: 'Clap it on the drum.',
+    missText: '⏱️ Not in time. Here it is.', sayMiss: 'Not quite in time. Listen to it once, then try again.', desc: 'read rhythm ' + cells.join(' ') };
+}
+// Rung 8. Play the scale in order, or hear a scale with one silent step and tap the missing note.
+function genScale() {
+  const inst = pick(PITCHED), { pads, stage } = notePads(inst, [0, 1, 2, 3, 4, 5, 6, 7]);
+  const kind = pick(['up', 'up', 'down', 'five', 'missing', 'missing', 'missing']);
+  if (kind === 'missing') {
+    const m = rint(1, 6), seq = [0, 1, 2, 3, 4, 5, 6, 7], at = spread(8);
+    return { kind: 'scale', pads, stage, play: seq.map((d, k) => d === m ? { gap: 0.55, show: k } : { pads: [d], gap: 0.55, show: k }), answer: [m], staffOffset: m,
+      staff: { lines: 5, clef: true, notes: seq.map((d, k) => d === m ? { pos: d - 2, at: at[k], type: 'q', text: '?', ghost: true } : { pos: d - 2, at: at[k], type: 'q' }) },
+      ask: '👂 One step is missing!', sayWatch: 'Listen to the scale. One step is missing.', turn: '🎵 Which step is missing?', sayTurn: 'Which step is missing? Tap it.',
+      missText: 'Not that step. Listen again 👂', desc: 'scale missing ' + SOLF[m] };
+  }
+  const seq = kind === 'up' ? [0, 1, 2, 3, 4, 5, 6, 7] : kind === 'down' ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4];
+  const words = kind === 'up' ? 'up: do to high do' : kind === 'down' ? 'down: high do to do' : 'do re mi fa sol', at = spread(seq.length);
+  return { kind: 'scale', pads, stage, play: seq.map((d, k) => ({ pads: [d], gap: 0.45, dot: k, show: k })), answer: seq,
+    staff: { lines: 5, clef: true, notes: seq.map((d, k) => ({ pos: d - 2, at: at[k], type: 'q' })) },
+    ask: `🎼 The scale ${kind === 'five' ? '' : kind}`.trim(), sayWatch: `Listen to the scale ${words}.`, turn: `🎵 Play the scale ${words}`, sayTurn: `Your turn. Play the scale ${words}.`,
+    missText: 'Not that step. Try again 👂', desc: 'scale ' + kind };
+}
+// Rung 9. Two notes play; the child names the interval. Steps are 2nds, skips are 3rds, anything wider is a leap.
+const INTERVALS = [{ k: 1, name: '2nd', sub: 'step' }, { k: 2, name: '3rd', sub: 'skip' }, { k: 3, name: '4th', sub: 'leap' }, { k: 4, name: '5th', sub: 'leap' }, { k: 5, name: '6th', sub: 'leap' }, { k: 7, name: 'Octave', sub: 'leap' }];
+function genInterval() {
+  const inst = pick(PITCHED), lo = rint(0, 3), iv = pick(INTERVALS), hi = lo + iv.k;
+  const others = shuffle(INTERVALS.filter(x => x !== iv)).slice(0, 2), set = [iv].concat(others).sort((a, b) => a.k - b.k);
+  const pads = choicePads(set.map((x, k) => ({ name: x.name, sub: x.sub, emoji: ['🎵', '🎶', '🎼'][k], inst, f: degHz(lo + x.k), v: 0.7 })));
+  return { kind: 'interval', pads, stage: [{ inst, color: INST[inst].color }], wide: true, answer: [set.indexOf(iv)],
+    play: [{ sound: [{ inst, f: degHz(lo), v: 1 }], stage: [0], gap: 0.7, show: 0 }, { sound: [{ inst, f: degHz(hi), v: 1 }], stage: [0], gap: 0.7, show: 1 }, { sound: [{ inst, f: degHz(lo), v: 0.8 }, { inst, f: degHz(hi), v: 0.8 }], stage: [0], gap: 0.9 }],
+    staff: { lines: 5, clef: true, notes: [{ pos: lo - 2, at: 0.3, type: 'q' }, { pos: hi - 2, at: 0.7, type: 'q' }] },
+    ask: '👂 How far apart?', sayWatch: 'Listen to two notes. How far apart are they?', turn: '🎵 Name the interval', sayTurn: 'Name the interval.',
+    missText: 'Not that one. Listen again 👂', sayMiss: `Not that one. Count the letter names from ${LETTER[lo]} up.`, desc: `interval ${SOLF[lo]} to ${SOLF[hi]} = ${iv.name}` };
+}
+// Rung 10. A chord or a short phrase, major or minor.
+function genMode() {
+  const inst = pick(PITCHED), minor = rint(0, 1) === 1, root = pick([0, 2, 5, 7]), third = minor ? 3 : 4, chord = rint(0, 1) === 0;
+  const f = s => hz(root + s);
+  const play = chord
+    ? [{ sound: [0, third, 7].map(s => ({ inst, f: f(s), v: 0.7 })), stage: [0], gap: 1.2 }, { sound: [0, third, 7].map(s => ({ inst, f: f(s), v: 0.7 })), stage: [0], gap: 1.2 }]
+    : [0, third, 7, third, 0].map(s => ({ sound: [{ inst, f: f(s), v: 1 }], stage: [0], gap: 0.5 }));
+  const pads = choicePads([{ name: 'Major', sub: 'bright', emoji: '☀️', color: '#FFC300', inst, f: [f(0), f(4), f(7)], v: 0.5 }, { name: 'Minor', sub: 'dark', emoji: '🌙', color: '#1E6BFF', inst, f: [f(0), f(3), f(7)], v: 0.5 }]);
+  return { kind: 'mode', pads, stage: [{ inst, color: INST[inst].color }], wide: true, play, answer: [minor ? 1 : 0],
+    ask: '👂 Major or minor?', sayWatch: 'Listen. Does it sound major, bright, or minor, dark?', turn: '🎵 Major or minor?', sayTurn: 'Major or minor?',
+    missText: 'Listen to the mood again 👂', sayMiss: 'Listen to the mood again. Major sounds bright. Minor sounds dark.', desc: `mode ${chord ? 'chord' : 'phrase'} ${minor ? 'minor' : 'major'}` };
+}
+// Rung 11. A strong beat then weak beats, in 3 or in 4. The child counts and picks the number.
+function genMeter() {
+  const n = pick([3, 4]), bars = n === 3 ? 3 : 2, play = [];
+  for (let b = 0; b < bars; b++) for (let i = 0; i < n; i++) play.push(i === 0 ? { sound: [{ inst: 0, f: 196, v: 1 }], stage: [0], gap: 0.5 } : { sound: [{ inst: 0, f: 330, v: 0.3 }], gap: 0.5 });
+  const pads = choicePads([{ name: '3', label: '3', sub: 'beats in a bar', emoji: '🥁', color: '#22D35B', inst: 0, f: 196, v: 0.6 }, { name: '4', label: '4', sub: 'beats in a bar', emoji: '🥁', color: '#FF7A00', inst: 0, f: 196, v: 0.6 }]);
+  return { kind: 'meter', pads, stage: [{ inst: 0, color: INST[0].color }], wide: true, play, answer: [n === 3 ? 0 : 1],
+    ask: '👂 Count the beats!', sayWatch: 'Count the beats. The strong beat is one.', turn: '🎵 In 3 or in 4?', sayTurn: 'Is it in three or in four?',
+    missText: 'Count from the strong beat 👂', sayMiss: 'Count again from the strong beat. One, and then the soft beats.', desc: `meter ${n}` };
+}
+// Rung 12. The I, IV or V chord, shown on the staff and named; the child plays its three notes in any order.
+function genChord() {
+  const inst = pick([1, 3, 4]), { pads, stage } = notePads(inst, [0, 1, 2, 3, 4, 5, 6, 7]);
+  const name = pick(['I', 'IV', 'V']), degs = CHORDS[name], named = rint(0, 1) === 0;
+  const notes = degs.map(d => ({ pos: d - 2, at: 0.5, type: 'head' }));
+  return { kind: 'chord', pads, stage, answer: degs.slice(), anyOrder: true, play: [{ pads: [degs[0]], gap: 0.8, v: 0.8 }],
+    staff: { lines: 5, clef: true, notes, text: `${name} chord` },
+    onWin: () => { playEvent({ pads: degs, v: 0.7 }, 1.0); return 1.2; },
+    ask: named ? `🎼 ${name} chord: ${CHORD_NAMES[name]}` : `🎼 Play the ${name} chord`, sayWatch: named ? `The ${name} chord is ${CHORD_NAMES[name]}.` : `Play the ${name} chord.`,
+    turn: `🎵 Play the ${name} chord`, sayTurn: `Play the three notes of the ${name} chord.`,
+    missText: `Not in the ${name} chord. Try again`, sayMiss: `That note is not in the ${name} chord. It is ${CHORD_NAMES[name]}.`, desc: `chord ${name}${named ? ' named' : ''}` };
+}
+// Rung 13. One or two notes on the treble staff; the child taps the pad with that letter name.
+function genTreble() {
+  const inst = 4, degs = [2, 3, 4, 5, 6, 7, 8, 9, 10], { pads, stage } = notePads(inst, degs, true);
+  const count = rint(0, 2) === 0 ? 2 : 1, seq = Array.from({ length: count }, () => rint(0, degs.length - 1));
+  if (count === 2 && seq[1] === seq[0]) seq[1] = (seq[0] + rint(1, 8)) % degs.length;
+  const at = count === 1 ? [0.5] : [0.35, 0.65];
+  return { kind: 'treble', pads, stage, answer: seq, play: [{ gap: 0.3 }],
+    staff: { lines: 5, clef: true, notes: seq.map((i, k) => ({ pos: degs[i] - 2, at: at[k], type: 'q' })) },
+    onWin: () => { seq.forEach((i, k) => setTimeout(() => hit(i, 0.4), k * 450 * speed())); return count * 0.5; },
+    ask: count === 1 ? '🎼 Find this note' : '🎼 Find these two notes', sayWatch: count === 1 ? 'Find this note on the staff.' : 'Find these two notes, in order.', turn: '🎵 Tap the note' + (count === 1 ? '' : 's'), sayTurn: count === 1 ? 'Tap its name.' : 'Tap their names in order.',
+    missText: 'Lines: E G B D F. Spaces: F A C E', sayMiss: 'Not that one. The lines are E, G, B, D, F. The spaces spell face.', desc: 'treble ' + seq.map(i => noteName(degs[i])).join(' ') };
+}
+// Rung 14. Name a key from its signature, or play a tune one step higher than it was played.
+const KEYS = [{ name: 'C major', sharps: 0, root: 0 }, { name: 'G major', sharps: 1, root: 7 }, { name: 'D major', sharps: 2, root: 2 }, { name: 'A major', sharps: 3, root: 9 }, { name: 'F major', flats: 1, root: 5 }, { name: 'B flat major', flats: 2, root: 10 }, { name: 'E flat major', flats: 3, root: 3 }];
+function genKeys() {
+  const inst = pick([1, 3, 4]);
+  if (rint(0, 1) === 0) {
+    const key = pick(KEYS), others = shuffle(KEYS.filter(k => k !== key)).slice(0, 2), set = shuffle([key].concat(others));
+    const sig = key.sharps ? `${key.sharps} sharp${key.sharps > 1 ? 's' : ''}` : key.flats ? `${key.flats} flat${key.flats > 1 ? 's' : ''}` : 'no sharps or flats';
+    const pads = choicePads(set.map((k, i) => ({ name: k.name, label: k.name.replace(' major', ''), sub: 'major', emoji: '🎼', color: ['#FF7A00', '#22D35B', '#1E6BFF'][i], inst, f: [0, 4, 7].map(s => hz(k.root + s)), v: 0.5 })));
+    return { kind: 'key', pads, stage: [{ inst, color: INST[inst].color }], wide: true, answer: [set.indexOf(key)],
+      play: [{ sound: [0, 4, 7].map(s => ({ inst, f: hz(key.root + s), v: 0.7 })), stage: [0], gap: 1.2 }],
+      staff: { lines: 5, clef: true, key: { sharps: key.sharps || 0, flats: key.flats || 0 }, notes: [] },
+      ask: '🎼 Which key is this?', sayWatch: `This key signature has ${sig}. Which key is it?`, turn: '🎵 Name the key', sayTurn: 'Name the key.',
+      missText: 'Count the sharps or flats 🎼', sayMiss: `Count the sharps or flats. This signature has ${sig}.`, desc: `key ${key.name}` };
+  }
+  const { pads, stage } = notePads(inst, [0, 1, 2, 3, 4, 5, 6, 7]);
+  const seq = walkVaried(4, 0, 5, 2, 0, 3), up = seq.map(d => d + 1), at = spread(4);
+  return { kind: 'key', pads, stage, answer: up, staffOffset: 4, play: seq.map((d, k) => ({ pads: [d], gap: 0.55, show: k })),
+    staff: { lines: 5, clef: true, notes: seq.map((d, k) => ({ pos: d - 2, at: at[k] * 0.45 + 0.02, type: 'q' })).concat(up.map((d, k) => ({ pos: d - 2, at: at[k] * 0.45 + 0.53, type: 'q', ghost: true }))), bars: [0.5] },
+    ask: '🎼 Hear it on do. Play it on re', sayWatch: 'This tune starts on do. Play the same tune one step higher, starting on re.', turn: '🎵 Play it one step higher', sayTurn: 'Play it one step higher. Start on re.',
+    missText: 'Every note moves up one step', sayMiss: 'Every note moves up one step. Start on re.', desc: 'transpose ' + seq.map(d => SOLF[d]).join(' ') + ' > ' + up.map(d => SOLF[d]).join(' ') };
+}
+// Rung 15. Four chord pads. Echo a progression, fill the missing chord, or bring a phrase home to I.
+const PROGS = [['I', 'V', 'vi', 'IV'], ['I', 'IV', 'V', 'I'], ['vi', 'IV', 'I', 'V'], ['I', 'vi', 'IV', 'V'], ['I', 'IV', 'vi', 'V'], ['IV', 'I', 'V', 'I']];
+function genProgression() {
+  const inst = pick([3, 4]), names = ['I', 'IV', 'V', 'vi'];
+  const pads = choicePads(names.map((n, k) => ({ name: n + ' chord', label: n, sub: CHORD_NAMES[n], emoji: INST[inst].emoji, color: DEGC[[0, 3, 4, 5][k]], inst, f: CHORDS[n].map(degHz), v: 0.55, stage: k })));
+  const stage = stageOf(pads), prog = pick(PROGS), idx = prog.map(n => names.indexOf(n)), mode = pick(['echo', 'echo', 'blank', 'home']);
+  const chordEv = (k, extra) => Object.assign({ pads: [idx[k]], gap: 0.9 }, extra || {});
+  if (mode === 'echo') return { kind: 'progression', pads, stage, wide: true, answer: idx, play: idx.map((_, k) => chordEv(k, { dot: k })),
+    ask: '👂 Four chords', sayWatch: 'Listen to four chords.', turn: '🎵 Play the chords back', sayTurn: 'Play the four chords back.',
+    missText: 'Not that chord. Listen again 👂', desc: 'progression echo ' + prog.join(' ') };
+  if (mode === 'blank') {
+    const b = rint(1, 3), shown = prog.map((n, k) => k === b ? '?' : n).join('  ');
+    return { kind: 'progression', pads, stage, wide: true, answer: [idx[b]], play: idx.map((_, k) => chordEv(k)),
+      staff: { text: shown, big: true }, ask: '👂 Listen for the hidden chord', sayWatch: 'One chord is hidden. Listen for it.', turn: '🎵 Which chord is hidden?', sayTurn: 'Which chord is hidden?',
+      missText: 'Not that chord. Listen again 👂', desc: 'progression blank ' + shown };
+  }
+  const lead = pick([['I', 'IV', 'V'], ['I', 'vi', 'V'], ['IV', 'I', 'V'], ['vi', 'IV', 'V']]), li = lead.map(n => names.indexOf(n));
+  return { kind: 'progression', pads, stage, wide: true, answer: [0], play: li.map(i => ({ pads: [i], gap: 0.9 })),
+    staff: { text: lead.join('  ') + '  ?', big: true }, ask: '👂 Three chords. Then home', sayWatch: 'Three chords. Which chord brings the phrase home?', turn: '🎵 Bring it home', sayTurn: 'Which chord brings it home?',
+    missText: 'Home is the I chord 🏠', sayMiss: 'Not home yet. A phrase comes home on the one chord.', desc: 'progression home ' + lead.join(' ') };
+}
+// Rung 16. Eight notes, two to a bar, that follow a rule. The app checks the rule and plays the phrase back.
+const RULES = [
+  { text: 'End on do', say: 'Make an eight note tune. End on do.', check: s => s[7] % 7 !== 0 ? `It ended on ${SOLF[s[7]]}. End on do.` : null },
+  { text: 'Start and end on do', say: 'Make an eight note tune. Start on do and end on do.', check: s => s[0] % 7 !== 0 ? `It started on ${SOLF[s[0]]}. Start on do.` : s[7] % 7 !== 0 ? `It ended on ${SOLF[s[7]]}. End on do.` : null },
+  { text: 'Steps only. End on do', steps: true, say: 'Make an eight note tune using only steps. End on do.', check: s => { for (let i = 1; i < 8; i++) if (Math.abs(s[i] - s[i - 1]) > 1) return `${SOLF[s[i - 1]]} to ${SOLF[s[i]]} is not a step.`; return s[7] % 7 !== 0 ? `It ended on ${SOLF[s[7]]}. End on do.` : null; } },
+  { text: 'No leap past a 5th. End on do', say: 'Make an eight note tune. No leap bigger than a fifth. End on do.', check: s => { for (let i = 1; i < 8; i++) if (Math.abs(s[i] - s[i - 1]) > 4) return `${SOLF[s[i - 1]]} to ${SOLF[s[i]]} leaps too far.`; return s[7] % 7 !== 0 ? `It ended on ${SOLF[s[7]]}. End on do.` : null; } },
+];
+function genCompose() {
+  const inst = pick(PITCHED), { pads, stage } = notePads(inst, [0, 1, 2, 3, 4, 5, 6, 7]), rule = pick(RULES);
+  const base = rule.check, check = s => base(s) || (new Set(s).size < 3 ? 'Use at least three different notes.' : null);
+  const solution = rule.steps ? [1, 2, 3, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 3, 1, 0];
+  return { kind: 'compose', pads, stage, len: 8, answer: null, rule: check, solution, play: [{ pads: [0], gap: 0.8, v: 0.8 }],
+    staff: { lines: 5, clef: true, notes: [], slots: 8, bars: [0.25, 0.5, 0.75] },
+    onWin: () => { const s = taps.slice(); s.forEach((d, k) => setTimeout(() => { hit(d, 0.3); drawStaff(tune, k); }, k * 450 * speed())); return s.length * 0.45 + 0.4; },
+    ask: `✏️ Rule: ${rule.text}`, sayWatch: rule.say + ' Two notes to a bar. Here is do.', turn: `✏️ 8 notes. ${rule.text}`, sayTurn: 'Your turn. Eight notes.',
+    sayMiss: 'Try again.', desc: 'compose: ' + rule.text };
 }
 
 // ---------------------------------------------------------------------------
@@ -739,46 +1053,48 @@ function record(right) {
 }
 
 // ---------------------------------------------------------------------------
-// Sound: six synth instruments on a pentatonic scale, so every tune sounds like music.
+// Sound: six synth instruments. Each takes a pitch (its own note when none is given) and a loudness.
 // ---------------------------------------------------------------------------
 let actx = null, noiseBuf = null, master = null;
 function audio() {
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); master = actx.createDynamicsCompressor(); master.connect(actx.destination); } catch (e) {} }
-  if (actx && actx.state === 'suspended') actx.resume(); return actx;
+  if (actx && actx.state === 'suspended') { try { actx.resume(); } catch (e) {} } return actx;
 }
 function noise(a) { if (!noiseBuf) { noiseBuf = a.createBuffer(1, a.sampleRate, a.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; } const s = a.createBufferSource(); s.buffer = noiseBuf; return s; }
 function osc(a, type, f, dest, when, stop) { const o = a.createOscillator(); o.type = type; o.frequency.value = f; o.connect(dest); o.start(when); o.stop(stop); return o; }
-function env(a, when, peak, attack, decay) { const g = a.createGain(); g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(peak, when + attack); g.gain.exponentialRampToValueAtTime(0.0001, when + attack + decay); g.connect(master); return g; }
+function env(a, when, peak, attack, decay) { const g = a.createGain(); g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), when + attack); g.gain.exponentialRampToValueAtTime(0.0001, when + attack + decay); g.connect(master); return g; }
 const PLAY = [
-  // Drum: a pitched tom with a stick click.
-  (a, t) => { const g = env(a, t, 0.9, 0.004, 0.45); const o = osc(a, 'sine', 196, g, t, t + 0.5); o.frequency.setValueAtTime(240, t); o.frequency.exponentialRampToValueAtTime(130, t + 0.3);
-    const n = noise(a), f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2500; const g2 = env(a, t, 0.35, 0.002, 0.05); n.connect(f).connect(g2); n.start(t); n.stop(t + 0.08); },
+  // Drum: a pitched tom with a stick click. The pitch shifts the whole tom.
+  (a, t, f = 196, v = 1) => { const r = f / 196; const g = env(a, t, 0.9 * v, 0.004, 0.45); const o = osc(a, 'sine', 196 * r, g, t, t + 0.5); o.frequency.setValueAtTime(240 * r, t); o.frequency.exponentialRampToValueAtTime(130 * r, t + 0.3);
+    const n = noise(a), fl = a.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = 2500; const g2 = env(a, t, 0.35 * v, 0.002, 0.05); n.connect(fl).connect(g2); n.start(t); n.stop(t + 0.08); },
   // Marimba: E4.
-  (a, t) => { const g = env(a, t, 0.5, 0.004, 0.5); osc(a, 'sine', 329.6, g, t, t + 0.6); const g2 = env(a, t, 0.22, 0.002, 0.07); osc(a, 'sine', 329.6 * 4, g2, t, t + 0.1); },
+  (a, t, f = 329.6, v = 1) => { const g = env(a, t, 0.5 * v, 0.004, 0.5); osc(a, 'sine', f, g, t, t + 0.6); const g2 = env(a, t, 0.22 * v, 0.002, 0.07); osc(a, 'sine', f * 4, g2, t, t + 0.1); },
   // Trumpet: G4, a bright filtered sawtooth.
-  (a, t) => { const g = env(a, t, 0.3, 0.04, 0.5); const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(800, t); f.frequency.linearRampToValueAtTime(3200, t + 0.08); f.frequency.exponentialRampToValueAtTime(1200, t + 0.5); f.connect(g);
-    const o = osc(a, 'sawtooth', 392, f, t, t + 0.6); const v = a.createOscillator(), vg = a.createGain(); v.frequency.value = 6; vg.gain.value = 4; v.connect(vg).connect(o.frequency); v.start(t); v.stop(t + 0.6); },
+  (a, t, f = 392, v = 1) => { const g = env(a, t, 0.3 * v, 0.04, 0.5); const fl = a.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.setValueAtTime(800, t); fl.frequency.linearRampToValueAtTime(3200, t + 0.08); fl.frequency.exponentialRampToValueAtTime(1200, t + 0.5); fl.connect(g);
+    const o = osc(a, 'sawtooth', f, fl, t, t + 0.6); const vb = a.createOscillator(), vg = a.createGain(); vb.frequency.value = 6; vg.gain.value = 4; vb.connect(vg).connect(o.frequency); vb.start(t); vb.stop(t + 0.6); },
   // Harp: A4, a plucked string.
-  (a, t) => { const g = env(a, t, 0.45, 0.003, 0.9); osc(a, 'triangle', 440, g, t, t + 1); const g2 = env(a, t, 0.15, 0.003, 0.3); osc(a, 'sine', 880, g2, t, t + 0.4); const g3 = env(a, t, 0.06, 0.002, 0.15); osc(a, 'square', 1320, g3, t, t + 0.2); },
+  (a, t, f = 440, v = 1) => { const g = env(a, t, 0.45 * v, 0.003, 0.9); osc(a, 'triangle', f, g, t, t + 1); const g2 = env(a, t, 0.15 * v, 0.003, 0.3); osc(a, 'sine', f * 2, g2, t, t + 0.4); const g3 = env(a, t, 0.06 * v, 0.002, 0.15); osc(a, 'square', f * 3, g3, t, t + 0.2); },
   // Piano: C5.
-  (a, t) => { const g = env(a, t, 0.4, 0.005, 0.8); osc(a, 'triangle', 523.3, g, t, t + 0.9); const g2 = env(a, t, 0.12, 0.003, 0.4); osc(a, 'sine', 1046.5, g2, t, t + 0.5); const g3 = env(a, t, 0.05, 0.003, 0.25); osc(a, 'sawtooth', 523.3, g3, t, t + 0.3); },
+  (a, t, f = 523.3, v = 1) => { const g = env(a, t, 0.4 * v, 0.005, 0.8); osc(a, 'triangle', f, g, t, t + 0.9); const g2 = env(a, t, 0.12 * v, 0.003, 0.4); osc(a, 'sine', f * 2, g2, t, t + 0.5); const g3 = env(a, t, 0.05 * v, 0.003, 0.25); osc(a, 'sawtooth', f, g3, t, t + 0.3); },
   // Chimes: E5, a bell.
-  (a, t) => { const g = env(a, t, 0.35, 0.003, 1.3); osc(a, 'sine', 659.3, g, t, t + 1.4); const g2 = env(a, t, 0.15, 0.002, 0.8); osc(a, 'sine', 659.3 * 2.76, g2, t, t + 0.9); const g3 = env(a, t, 0.08, 0.002, 0.4); osc(a, 'sine', 659.3 * 5.4, g3, t, t + 0.5); },
+  (a, t, f = 659.3, v = 1) => { const g = env(a, t, 0.35 * v, 0.003, 1.3); osc(a, 'sine', f, g, t, t + 1.4); const g2 = env(a, t, 0.15 * v, 0.002, 0.8); osc(a, 'sine', f * 2.76, g2, t, t + 0.9); const g3 = env(a, t, 0.08 * v, 0.002, 0.4); osc(a, 'sine', f * 5.4, g3, t, t + 0.5); },
 ];
-function playSound(i) { const a = audio(); if (a) PLAY[i](a, a.currentTime + 0.01); }
+// Plays instrument i at one pitch or a chord of pitches. Nothing here waits on the audio context; without one it is silent.
+function playSound(i, f, v) {
+  const a = audio(); if (!a) return;
+  const fs = Array.isArray(f) ? f : [f], vol = (v == null ? 1 : v) * (fs.length > 1 ? 0.7 : 1);
+  try { fs.forEach(x => PLAY[i](a, a.currentTime + 0.01, x == null ? undefined : x, vol)); } catch (e) {}
+}
 function buzz() { const a = audio(); if (!a) return; const t = a.currentTime; const g = env(a, t, 0.18, 0.01, 0.4); osc(a, 'square', 140, g, t, t + 0.45).frequency.exponentialRampToValueAtTime(90, t + 0.4); }
 function fanfare() { const a = audio(); if (!a) return; const t = a.currentTime + 0.02; [0, 1, 2, 3, 4, 5].forEach((i, k) => PLAY[[1, 2, 3, 4, 5, 4][k]](a, t + k * 0.11)); PLAY[0](a, t + 0.66); PLAY[5](a, t + 0.66); }
 Kit.sfx = k => { if (k === 'pop') playSound(1); };
+const plain = t => String(t || '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{FE0F}\u{200D}]/gu, '').replace(/\s+/g, ' ').trim();
 function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.95; u.pitch = 1.15; speechSynthesis.speak(u); } catch (e) {} }
 
 // ---------------------------------------------------------------------------
 // The orchestra.
 // ---------------------------------------------------------------------------
 const K = Kit.init($('stage'));
-const INST = [
-  { name: 'Drum', emoji: '🥁', color: '#FF1E46' }, { name: 'Marimba', emoji: '🎶', color: '#FF7A00' }, { name: 'Trumpet', emoji: '🎺', color: '#FFC300' },
-  { name: 'Harp', emoji: '🪕', color: '#22D35B' }, { name: 'Piano', emoji: '🎹', color: '#1E6BFF' }, { name: 'Chimes', emoji: '🔔', color: '#B53DFF' },
-];
 const m = (geo, color, o) => new T.Mesh(geo, Kit.mat(color, o));
 const box = (w, h, d, c, x, y, z) => { const b = m(new T.BoxGeometry(w, h, d), c); b.position.set(x || 0, y || 0, z || 0); return b; };
 const cyl = (rt, rb, h, c, x, y, z, seg) => { const b = m(new T.CylinderGeometry(rt, rb, h, seg || 20), c); b.position.set(x || 0, y || 0, z || 0); return b; };
@@ -804,35 +1120,49 @@ const BUILD = [
 const stage = cyl(5.8, 6.1, 0.4, '#8A3FFC', 0, 0.2, -0.5, 48); K.scene.add(stage);
 const rim = new T.Mesh(new T.TorusGeometry(5.9, 0.08, 8, 64), Kit.mat('#FFC300', { emissive: new T.Color('#FFC300'), emissiveIntensity: 0.8 })); rim.rotation.x = Math.PI / 2; rim.position.set(0, 0.4, -0.5); K.scene.add(rim);
 K.sky('night'); K.weather('night');
-let inst = [];
-function layout(n) {
+let inst = [], stageKey = '';
+// Puts one model per entry of spec ({ inst, color }) on the arc. A rung may show one soloist or up to nine copies.
+function layout(spec) {
   inst.forEach(o => K.scene.remove(o.g, o.glow, o.beam)); inst = [];
+  const n = spec.length, arc = n <= 3 ? 1.2 : n === 4 ? 1.6 : n <= 6 ? 2.0 : n <= 8 ? 2.25 : 2.4, s = n === 1 ? 1.6 : n <= 4 ? 1.35 : n === 5 ? 1.2 : n === 6 ? 1.05 : n <= 8 ? 0.88 : 0.8;
   for (let i = 0; i < n; i++) {
-    const c = INST[i].color, g = new T.Group(), body = BUILD[i](c); g.add(body);
+    const c = spec[i].color, g = new T.Group(), body = BUILD[spec[i].inst](c); g.add(body);
     // An unseen tap target, so a tap between the bars or strings still counts.
-    const hit = new T.Mesh(new T.CylinderGeometry(0.85, 0.85, 2.0, 12), new T.MeshBasicMaterial({ visible: false })); hit.position.y = 0.9; g.add(hit);
-    const a = n === 1 ? 0 : (-0.5 + i / (n - 1)) * (n <= 3 ? 1.2 : n === 4 ? 1.6 : 2.0), r = 4.2;
-    g.position.set(Math.sin(a) * r, 0.4, -Math.cos(a) * r * 0.55 + 0.6); g.rotation.y = -a * 0.6; const s = n <= 4 ? 1.35 : n === 5 ? 1.2 : 1.05; g.scale.setScalar(s);
+    const hitBox = new T.Mesh(new T.CylinderGeometry(0.85, 0.85, 2.0, 12), new T.MeshBasicMaterial({ visible: false })); hitBox.position.y = 0.9; g.add(hitBox);
+    const a = n === 1 ? 0 : (-0.5 + i / (n - 1)) * arc, r = 4.2;
+    g.position.set(Math.sin(a) * r, 0.4, -Math.cos(a) * r * 0.55 + 0.6); g.rotation.y = -a * 0.6; g.scale.setScalar(s);
     const glow = new T.Mesh(new T.CircleGeometry(0.9, 32), new T.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.35 })); glow.rotation.x = -Math.PI / 2; glow.position.copy(g.position); glow.position.y = 0.42;
     const beam = new T.Mesh(new T.ConeGeometry(1.1, 7, 24, 1, true), new T.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.0, depthWrite: false, side: T.DoubleSide })); beam.position.copy(g.position); beam.position.y = 3.9;
     K.scene.add(g, glow, beam);
     const mats = []; body.traverse(x => { if (x.isMesh) { x.material = x.material.clone(); mats.push(x.material); } });
-    inst.push({ g, body, glow, beam, mats, s, lit: 0, base: g.position.clone() });
+    inst.push({ g, body, glow, beam, mats, s, lit: 0, base: g.position.clone(), color: c, inst: spec[i].inst });
   }
-  K.inst = inst;
+  K.inst = inst; stageKey = JSON.stringify(spec);
 }
-// Lighting up an instrument: a spotlight, a glow, a bounce, its moving parts and flying notes.
-function light(i, dur) {
-  const o = inst[i]; if (!o) return; o.lit = dur;
-  playSound(i);
-  const pad = $('pads').children[i]; if (pad) { pad.classList.add('lit'); setTimeout(() => pad.classList.remove('lit'), Math.max(180, dur * 800)); }
+// Lighting up a model: a spotlight, a glow, a bounce, its moving parts and flying notes.
+function glow(si, dur, color) {
+  const o = inst[si]; if (!o) return; o.lit = dur;
   for (let k = 0; k < 3; k++) setTimeout(() => K.note({ position: o.g.position.clone().add(new T.Vector3(0, 0.6 * o.s, 0)), scale: { x: o.s } }), k * 90);
-  K.burst(o.g.position.clone().add(new T.Vector3(0, 1.2 * o.s, 0)), [INST[i].color, '#ffffff', '#FFE45C'], 14, { speed: 3.5 });
+  K.burst(o.g.position.clone().add(new T.Vector3(0, 1.2 * o.s, 0)), [color || o.color, '#ffffff', '#FFE45C'], 14, { speed: 3.5 });
   o.t0 = performance.now();
+}
+function padLit(pi, dur) { const pad = $('pads').children[pi]; if (pad) { pad.classList.add('lit'); setTimeout(() => pad.classList.remove('lit'), Math.max(180, dur * 800)); } }
+// A pad sounds, lights, and lights its model on stage.
+function hit(pi, dur, vol) {
+  const p = tune && tune.pads[pi]; if (!p) return;
+  playSound(p.inst, p.f, (p.v == null ? 1 : p.v) * (vol == null ? 1 : vol)); padLit(pi, dur);
+  if (p.stage != null) glow(p.stage, dur, p.color);
+}
+// One step of what the orchestra plays: pads, loose sounds, models to light, a note on the staff to mark.
+function playEvent(ev, dur) {
+  if (ev.pads) ev.pads.forEach(pi => hit(pi, dur, ev.v));
+  if (ev.sound) ev.sound.forEach(s => playSound(s.inst, s.f, s.v));
+  if (ev.stage) ev.stage.forEach(si => glow(si, dur));
+  if (ev.show != null) drawStaff(tune, ev.show);
 }
 K.onFrame(dt => {
   for (let i = 0; i < inst.length; i++) {
-    const o = inst[i], c = INST[i].color;
+    const o = inst[i];
     if (o.lit > 0) o.lit -= dt;
     const on = Math.max(0, o.lit) > 0 ? 1 : 0, age = o.t0 ? (performance.now() - o.t0) / 1000 : 9;
     o.beam.material.opacity += ((on ? 0.28 : 0) - o.beam.material.opacity) * Math.min(1, dt * 14);
@@ -845,83 +1175,217 @@ K.onFrame(dt => {
     if (!on && phase === 'won') { o.g.rotation.z = Math.sin(performance.now() / 160 + i) * 0.12; } else o.g.rotation.z *= 0.9;
   }
 });
-function buildPads(n) {
+// The pads under the stage. Echo rungs keep the big emoji pads; note and choice pads carry a label and a small name.
+function buildPads(t) {
   const pads = $('pads'); pads.innerHTML = '';
-  for (let i = 0; i < n; i++) { const b = document.createElement('button'); b.className = 'pad'; b.style.background = INST[i].color; b.textContent = INST[i].emoji; b.title = INST[i].name; b.dataset.i = i; b.onpointerdown = e => { e.preventDefault(); press(i); }; pads.appendChild(b); }
+  const n = t.pads.length, gap = 14, avail = innerWidth - 28, maxW = t.wide ? 200 : (innerHeight <= 760 ? 112 : 130);
+  const w = Math.max(60, Math.min(maxW, Math.floor((avail - gap * (n - 1)) / n)));
+  t.pads.forEach((p, i) => {
+    const b = document.createElement('button'); b.className = 'pad' + (p.label ? ' note' : '') + (p.cls ? ' ' + p.cls : ''); b.style.background = p.color; b.style.width = w + 'px';
+    if (p.label) { b.innerHTML = `<span class="em">${p.emoji}</span><span class="lb">${p.label}</span>` + (p.sub ? `<span class="sb">${p.sub}</span>` : ''); } else b.textContent = p.emoji;
+    b.title = p.name || p.label; b.dataset.i = i; b.onpointerdown = e => { e.preventDefault(); press(i); }; pads.appendChild(b);
+  });
+  pads.classList.toggle('many', n >= 8);
+}
+
+// ---------------------------------------------------------------------------
+// The staff panel: a small SVG drawn from tune.staff. pos counts half spaces up from the bottom line, so on the
+// treble staff E4 is 0, middle C is -2 (a ledger line) and F5 is 8. A two-line staff holds do re mi fa sol.
+// ---------------------------------------------------------------------------
+function clefPath(cx, gy, s) {
+  const top = gy - 4.2 * s, bot = gy + 2.4 * s;
+  return `M ${cx + 0.1 * s},${bot} C ${cx - 0.9 * s},${bot + 0.1 * s} ${cx - 0.6 * s},${bot - 1.2 * s} ${cx + 0.35 * s},${bot - 0.9 * s} L ${cx - 0.1 * s},${top + 0.6 * s} C ${cx - 0.3 * s},${top} ${cx + 0.7 * s},${top - 0.2 * s} ${cx + 0.6 * s},${top + 1.2 * s} C ${cx + 0.5 * s},${top + 2.4 * s} ${cx - 1.3 * s},${gy - 1.2 * s} ${cx - 1.3 * s},${gy + 0.2 * s} C ${cx - 1.3 * s},${gy + 1.3 * s} ${cx - 0.2 * s},${gy + 1.5 * s} ${cx + 0.5 * s},${gy + 1.1 * s} C ${cx + 1.3 * s},${gy + 0.6 * s} ${cx + 1.0 * s},${gy - 0.7 * s} ${cx - 0.1 * s},${gy - 0.6 * s} C ${cx - 0.8 * s},${gy - 0.5 * s} ${cx - 0.9 * s},${gy + 0.4 * s} ${cx - 0.2 * s},${gy + 0.5 * s}`;
+}
+const sharpGlyph = (x, y) => `<g stroke="#2B2140" stroke-width="1.8" fill="none"><line x1="${x - 2.5}" x2="${x - 2.5}" y1="${y - 8}" y2="${y + 8}"/><line x1="${x + 2.5}" x2="${x + 2.5}" y1="${y - 9}" y2="${y + 7}"/><line x1="${x - 6}" x2="${x + 6}" y1="${y - 1.5}" y2="${y - 4}" stroke-width="2.6"/><line x1="${x - 6}" x2="${x + 6}" y1="${y + 4.5}" y2="${y + 2}" stroke-width="2.6"/></g>`;
+const flatGlyph = (x, y) => `<g stroke="#2B2140" stroke-width="1.8" fill="none"><line x1="${x - 3}" x2="${x - 3}" y1="${y - 14}" y2="${y + 4}"/><path d="M ${x - 3},${y + 4} C ${x + 7},${y - 3} ${x + 5},${y - 7} ${x - 3},${y - 2}" stroke-width="2.2"/></g>`;
+function drawStaff(t, now) {
+  const el = $('staff'), s = t && t.staff; if (!s) { el.className = 'off'; el.innerHTML = ''; return; }
+  el.className = '';
+  if (s.text && !s.lines && !s.blocks) { el.innerHTML = `<div class="big">${s.text}</div>`; return; }
+  const W = 540; let g = '';
+  if (s.blocks) {
+    // Long and short notes as bars on one line; the current one glows.
+    const H = 44; g += `<line x1="10" x2="${W - 10}" y1="34" y2="34" stroke="#2B2140" stroke-width="1.6"/>`;
+    s.blocks.forEach((b, i) => { const x = 20 + b.at * (W - 40), w = Math.max(14, b.w * (W - 40) - 10); g += `<rect x="${x}" y="8" width="${w}" height="26" rx="8" fill="${i === now ? '#FF7A00' : '#1E6BFF'}" stroke="#2B2140" stroke-width="2"/>`; });
+    el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg>`; return;
+  }
+  const lines = s.lines || 5, sp = lines === 2 ? 20 : 12, top = lines === 1 ? 44 : lines === 2 ? 34 : 30, bottom = top + (lines - 1) * sp, H = lines === 1 ? bottom + 22 : lines === 2 ? bottom + 30 : bottom + 30;
+  const y = p => bottom - p * sp / 2;
+  for (let i = 0; i < lines; i++) g += `<line x1="8" x2="${W - 8}" y1="${top + i * sp}" y2="${top + i * sp}" stroke="#2B2140" stroke-width="1.6"/>`;
+  let x0 = 16;
+  if (s.clef) { g += `<path d="${clefPath(30, y(2), sp)}" fill="none" stroke="#2B2140" stroke-width="2.4" stroke-linecap="round"/>`; x0 = 54; }
+  if (s.key) { [8, 5, 9, 6].slice(0, s.key.sharps).forEach((p, k) => { g += sharpGlyph(x0 + 6 + k * 13, y(p)); }); [4, 7, 2, 6].slice(0, s.key.flats).forEach((p, k) => { g += flatGlyph(x0 + 8 + k * 13, y(p)); }); x0 += 8 + 13 * ((s.key.sharps || 0) + (s.key.flats || 0)); }
+  const span = W - x0 - 36, X = at => x0 + 18 + at * span;
+  (s.bars || []).forEach(b => { g += `<line x1="${X(b) - 12}" x2="${X(b) - 12}" y1="${top}" y2="${lines === 1 ? top + 14 : bottom}" stroke="#2B2140" stroke-width="2"/>`; });
+  if (s.end) g += `<line x1="${W - 10}" x2="${W - 10}" y1="${top}" y2="${lines === 1 ? top + 14 : bottom}" stroke="#2B2140" stroke-width="3"/>`;
+  if (s.slots) { const at = spread(s.slots); for (let i = 0; i < s.slots; i++) if (!s.notes[i]) g += `<circle cx="${X(at[i])}" cy="${y(2)}" r="4" fill="#cfc8e0"/>`; }
+  const stems = [];
+  s.notes.forEach((n, i) => {
+    const p = n.pos == null ? 0 : n.pos, cx = X(n.at), cy = y(p), r = sp * 0.5, hot = i === now;
+    const ink = n.ghost ? '#8A3FFC' : '#2B2140', fill = n.type === 'h' || n.type === 'w' ? (hot ? '#FFE45C' : '#fff') : hot ? '#FF7A00' : ink;
+    if (lines === 2 && p >= 4) g += `<line x1="${cx - r * 1.8}" x2="${cx + r * 1.8}" y1="${y(4)}" y2="${y(4)}" stroke="#2B2140" stroke-width="1.6"/>`;
+    if (lines === 5) { for (let q = -2; q >= p; q -= 2) g += `<line x1="${cx - r * 1.8}" x2="${cx + r * 1.8}" y1="${y(q)}" y2="${y(q)}" stroke="#2B2140" stroke-width="1.6"/>`; for (let q = 10; q <= p; q += 2) g += `<line x1="${cx - r * 1.8}" x2="${cx + r * 1.8}" y1="${y(q)}" y2="${y(q)}" stroke="#2B2140" stroke-width="1.6"/>`; }
+    if (n.text) { g += `<text x="${cx}" y="${cy + 6}" font-size="18" font-weight="900" text-anchor="middle" fill="${hot ? '#FF7A00' : '#8A3FFC'}">${n.text}</text>`; return; }
+    g += `<ellipse cx="${cx}" cy="${cy}" rx="${r * 1.2}" ry="${r * 0.85}" transform="rotate(-20 ${cx} ${cy})" fill="${fill}" stroke="${hot ? '#FF7A00' : ink}" stroke-width="2"/>`;
+    if (n.type === 'q' || n.type === 'h' || n.type === 'e') {
+      const up = lines < 5 || p < 4, sx = up ? cx + r * 1.1 : cx - r * 1.1, sy = up ? cy - sp * 2.7 : cy + sp * 2.7;
+      g += `<line x1="${sx}" x2="${sx}" y1="${cy}" y2="${sy}" stroke="${hot ? '#FF7A00' : ink}" stroke-width="2"/>`;
+      if (n.type === 'e') { if (n.beam) stems.push({ beam: n.beam, sx, sy, hot }); else g += `<path d="M ${sx},${sy} c 2,6 10,8 8,18" fill="none" stroke="${ink}" stroke-width="2.4"/>`; }
+    }
+  });
+  const groups = {}; stems.forEach(st => { (groups[st.beam] = groups[st.beam] || []).push(st); });
+  Object.values(groups).forEach(gr => { if (gr.length > 1) g += `<line x1="${gr[0].sx}" x2="${gr[gr.length - 1].sx}" y1="${gr[0].sy}" y2="${gr[0].sy}" stroke="#2B2140" stroke-width="5"/>`; });
+  if (s.text) g += `<text x="${W - 14}" y="${top - 10}" font-size="16" font-weight="900" text-anchor="end" fill="#2B2140">${s.text}</text>`;
+  el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg>`;
 }
 
 // ---------------------------------------------------------------------------
 // Round
 // ---------------------------------------------------------------------------
-let tune = null, phase = 'idle', pos = 0, missed = false, playToken = 0;
+let tune = null, phase = 'idle', pos = 0, missed = false, playToken = 0, taps = [], lastTap = 0, demoNext = false;
+const TOL = 150; // ms early or late a timed tap may land
 const speed = () => (window.SIMON_ORCHESTRA && window.SIMON_ORCHESTRA.fast) ? 0.12 : 1;
 const sleep = s => new Promise(r => setTimeout(r, s * 1000 * speed()));
-function setAsk(text, cls) { const a = $('ask'); a.textContent = text; a.className = cls || ''; }
-function dots() { const d = $('dots'); d.innerHTML = ''; for (let i = 0; i < tune.seq.length; i++) { const e = document.createElement('div'); e.className = 'dot' + (phase === 'input' && i < pos ? ' on' : ''); d.appendChild(e); } }
+function setAsk(text, cls) { const a = $('ask'); a.textContent = text; a.className = (cls || '') + (text.length > 24 ? ' long' : ''); }
+function dots() { const d = $('dots'); d.innerHTML = ''; const n = tune.answer ? tune.answer.length : tune.len; for (let i = 0; i < n; i++) { const e = document.createElement('div'); e.className = 'dot' + (phase === 'input' && i < pos ? ' on' : ''); d.appendChild(e); } }
 function newRound(speak = true) {
-  playToken++; missed = false; pos = 0;
+  playToken++; missed = false; pos = 0; taps = []; demoNext = false;
   const lv = LEVELS[P.lv]; tune = lv.gen();
-  if (inst.length !== tune.n) { layout(tune.n); buildPads(tune.n); }
-  badge(); playTune(speak);
+  if (JSON.stringify(tune.stage) !== stageKey) layout(tune.stage);
+  aim(); buildPads(tune); badge(); playTune(speak);
 }
-async function playTune(speak) {
-  const my = ++playToken; phase = 'watch'; pos = 0; dots(); $('pads').classList.add('wait');
-  setAsk(tune.back ? '👀 Watch! Then play it backwards ⏪' : '👀 Watch and listen!', tune.back ? 'back' : '');
-  if (speak) say(tune.back ? 'Watch and listen. Then play it backwards!' : 'Watch and listen!');
+async function playTune(speak, demo) {
+  const my = ++playToken; phase = 'watch'; pos = 0; taps = []; dots(); $('pads').classList.add('wait');
+  setAsk(tune.ask, tune.cls || ''); if (speak) say(tune.sayWatch || plain(tune.ask));
+  if (tune.rule) tune.staff.notes = [];
+  drawStaff(tune, -1);
   await sleep(speak ? 1.4 : 0.7);
-  for (let i = 0; i < tune.seq.length; i++) {
+  const evs = demo && tune.demo ? tune.demo : tune.play;
+  for (let i = 0; i < evs.length; i++) {
     if (my !== playToken) return;
-    light(tune.seq[i], tune.step * 0.7 * speed());
-    const d = $('dots').children[i]; if (d) d.classList.add('on');
-    await sleep(tune.step);
+    const ev = evs[i], gap = ev.gap == null ? 0.5 : ev.gap;
+    playEvent(ev, gap * 0.7 * speed());
+    if (ev.dot != null) { const d = $('dots').children[ev.dot]; if (d) d.classList.add('on'); }
+    await sleep(gap);
   }
   if (my !== playToken) return;
   [...$('dots').children].forEach(d => d.classList.remove('on'));
-  phase = 'input'; pos = 0; $('pads').classList.remove('wait');
-  setAsk(tune.back ? '⏪ Your turn! Backwards!' : '🎵 Your turn!', 'turn');
-  if (speak !== false) say(tune.back ? 'Your turn. Start with the last one!' : 'Your turn!');
+  drawStaff(tune, -1);
+  phase = 'input'; pos = 0; taps = []; lastTap = 0; $('pads').classList.remove('wait');
+  setAsk(tune.turn, 'turn');
+  if (speak !== false) say(tune.sayTurn || plain(tune.turn));
 }
 function press(i) {
   audio();
-  if (phase !== 'input') { if (phase !== 'watch') light(i, 0.25); return; }
-  if (i >= tune.n) return;
-  if (tune.answer[pos] === i) {
-    light(i, 0.3); pos++; dots();
+  if (phase !== 'input') { if (phase !== 'watch') hit(i, 0.25); return; }
+  const p = tune.pads[i]; if (!p) return;
+  const now = performance.now();
+  // Composing: every tap counts; the rule is checked when the phrase is full.
+  if (tune.rule) {
+    hit(i, 0.3); taps.push(i); pos = taps.length; dots();
+    tune.staff.notes = taps.map((d, k) => ({ pos: tune.pads[d].deg - 2, at: spread(tune.len)[k], type: 'q' })); drawStaff(tune, pos - 1);
+    if (pos === tune.len) { const bad = tune.rule(taps); if (bad) miss('✏️ ' + bad, bad + ' Try again.'); else win(); }
+    return;
+  }
+  if (tune.anyOrder && taps.includes(i)) { hit(i, 0.3); return; }
+  let ok = tune.anyOrder ? tune.answer.includes(i) : tune.answer[pos] === i, why = null;
+  // Timed rungs judge each gap against the pattern. The fast test mode plays too quickly for a gap to mean anything, so it skips the judgment.
+  if (ok && tune.timed && pos > 0 && speed() === 1) { const off = now - lastTap - tune.gaps[pos - 1] * 1000; if (Math.abs(off) > TOL) { ok = false; why = off < 0 ? 'early' : 'late'; } }
+  if (ok) {
+    hit(i, 0.3); lastTap = now; taps.push(i); pos++; dots();
+    if (tune.staff && tune.staff.notes && !tune.anyOrder) drawStaff(tune, (tune.staffOffset || 0) + pos - 1);
     if (pos === tune.answer.length) win();
     return;
   }
-  // Wrong note: only the first miss on a tune counts. Then the tune plays again.
-  phase = 'oops'; buzz(); const o = inst[i]; if (o) o.t0 = performance.now() - 0.1;
-  K.quake(); let change = 0;
+  // Wrong note (or a tap out of time): only the first miss on a tune counts. Then the tune plays again.
+  const bump = tune.pads[i]; if (bump && bump.stage != null && inst[bump.stage]) inst[bump.stage].t0 = performance.now() - 0.1;
+  miss(why ? (why === 'early' ? '⏱️ Too early. Listen again.' : '⏱️ Too late. Listen again.') : tune.missText, why ? `Too ${why}. Listen again.` : tune.sayMiss);
+}
+function miss(text, spoken) {
+  phase = 'oops'; buzz(); K.quake(); let change = 0;
   if (!missed) { missed = true; change = record(false); }
-  setAsk('Oops! Listen again 👂', ''); say(pick(['Oops! Listen again.', 'Not that one. Listen again!', 'Almost! Here it comes again.']));
-  badge(); if (change < 0) toast('Shorter tunes');
-  setTimeout(() => { if (phase === 'oops') playTune(false); }, 1300 * speed());
+  setAsk(text || 'Oops! Listen again 👂', ''); say(spoken || pick(['Oops! Listen again.', 'Not that one. Listen again!', 'Almost! Here it comes again.']));
+  badge(); if (change < 0) toast('Easier tunes');
+  demoNext = !!tune.demo;
+  setTimeout(() => { if (phase === 'oops') playTune(false, demoNext); }, 1300 * speed());
 }
 async function win() {
   phase = 'won'; P.stars++; const change = missed ? 0 : record(true); badge();
   setAsk(pick(['🎉 Bravo!', '🌟 Beautiful music!', '👏 Encore!', '🎶 You did it!']), 'turn');
-  say(pick(['Bravo!', 'Beautiful music!', 'You did it!', 'What a concert!']));
-  fanfare(); K.weather('confetti');
-  inst.forEach((o, k) => setTimeout(() => { o.t0 = performance.now(); K.burst(o.g.position.clone().add(new T.Vector3(0, 1.5, 0)), [INST[k].color, '#FFE45C', '#ffffff'], 18, { speed: 4 }); }, k * 110));
-  if (change > 0) { setTimeout(() => { toast('Level up! ⬆️'); say('Level up! ' + LEVELS[P.lv].name); }, 900); }
+  say(tune.sayWin || pick(['Bravo!', 'Beautiful music!', 'You did it!', 'What a concert!']));
+  if (tune.reveal != null && inst[tune.reveal]) { glow(tune.reveal, 1.0); playSound(inst[tune.reveal].inst); }
+  const extra = tune.onWin ? (tune.onWin() || 0) : 0, wait = extra * 1000 * speed();
+  setTimeout(() => {
+    fanfare(); K.weather('confetti');
+    inst.forEach((o, k) => setTimeout(() => { o.t0 = performance.now(); K.burst(o.g.position.clone().add(new T.Vector3(0, 1.5, 0)), [o.color, '#FFE45C', '#ffffff'], 18, { speed: 4 }); }, k * 110));
+  }, wait);
+  if (change > 0) { setTimeout(() => { toast('Level up! ⬆️'); say('Level up! ' + LEVELS[P.lv].name); }, 900 + wait); }
   const my = playToken;
-  setTimeout(() => { K.weather('night'); if (my === playToken && !window.SIMON_ORCHESTRA.hold) newRound(); }, 3200 * speed());
+  setTimeout(() => { K.weather('night'); if (my === playToken && !window.SIMON_ORCHESTRA.hold) newRound(); }, 3200 * speed() + wait);
 }
 function badge() { $('badge').textContent = `Level ${P.lv + 1}: ${LEVELS[P.lv].name}`; $('stars').textContent = '⭐ ' + P.stars; }
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1600); }
-$('hear').onclick = () => { audio(); if (phase === 'input' || phase === 'won') { if (phase === 'won') return; playTune(false); } };
+$('hear').onclick = () => { audio(); if (phase === 'input') playTune(false, !!tune.hearDemo); };
 $('skip').onclick = () => { audio(); newRound(); };
-// Tapping an instrument in the 3D scene works like its pad.
+// Tapping a model in the 3D scene works like its pad. A model with no pad (the family rung) just plays its sound.
 const ray = new T.Raycaster();
 $('stage').addEventListener('pointerdown', e => {
   const r = K.renderer.domElement.getBoundingClientRect(); ray.setFromCamera(new T.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), K.camera);
-  const hit = ray.intersectObjects(inst.map(o => o.g), true)[0]; if (!hit) return;
-  const i = inst.findIndex(o => { let x = hit.object; while (x) { if (x === o.g) return true; x = x.parent; } return false; }); if (i >= 0) press(i);
+  const hitObj = ray.intersectObjects(inst.map(o => o.g), true)[0]; if (!hitObj) return;
+  const si = inst.findIndex(o => { let x = hitObj.object; while (x) { if (x === o.g) return true; x = x.parent; } return false; }); if (si < 0) return;
+  const pi = tune ? tune.pads.findIndex(p => p.stage === si) : -1;
+  if (pi >= 0) press(pi); else { audio(); glow(si, 0.25); playSound(inst[si].inst); }
 });
-K.camZ = 7.0; K.camera.position.set(0, 3.4, innerWidth / Math.max(1, innerHeight) < 1.2 ? 9.4 : 7.0); K.camera.lookAt(0, 1.1, -1.4);
-layout(LEVELS[P.lv].n); buildPads(LEVELS[P.lv].n); badge(); tune = LEVELS[P.lv].gen(); dots(); setAsk('👆 Tap to start the music!', 'turn');
+K.camZ = 7.0; K.camera.position.set(0, 3.4, innerWidth / Math.max(1, innerHeight) < 1.2 ? 9.4 : 7.0);
+// With a staff panel on screen the camera looks a little higher, so the orchestra sits below the panel.
+function aim() { K.camera.lookAt(0, tune && tune.staff ? 2.4 : 1.1, -1.4); }
+tune = LEVELS[P.lv].gen(); layout(tune.stage); aim(); buildPads(tune); badge(); dots(); drawStaff(tune, -1); setAsk('👆 Tap to start the music!', 'turn');
 document.addEventListener('pointerdown', function first() { audio(); if (phase === 'idle') newRound(); }, { once: true });
+
+// ---------------------------------------------------------------------------
+// Self-check hook for tools/ladder-check.mjs: builds rounds at a rung without touching the screen and throws on a bad one.
+// ---------------------------------------------------------------------------
+function checkTune(t, i) {
+  const bad = msg => { throw new Error(`rung ${i} (${LEVELS[i].name}): ${msg}`); };
+  const num = x => typeof x === 'number' && isFinite(x);
+  const text = x => { if (x == null) return; if (/undefined|NaN|null/.test(String(x))) bad('bad text ' + JSON.stringify(x)); };
+  if (!t || !Array.isArray(t.pads) || !t.pads.length) bad('no pads');
+  if (t.pads.length > 9) bad('too many pads');
+  t.pads.forEach((p, k) => {
+    if (!INST[p.inst]) bad(`pad ${k} instrument`); if (!p.color || !p.emoji && !p.label) bad(`pad ${k} face`);
+    (Array.isArray(p.f) ? p.f : [p.f]).forEach(f => { if (!num(f) || f < 20 || f > 5000) bad(`pad ${k} pitch ${f}`); });
+    if (p.v != null && !(num(p.v) && p.v > 0 && p.v <= 1)) bad(`pad ${k} volume`); if (p.stage != null && !t.stage[p.stage]) bad(`pad ${k} stage`);
+    [p.label, p.sub, p.name].forEach(text);
+  });
+  if (!Array.isArray(t.stage) || !t.stage.length || t.stage.length > 9) bad('stage'); t.stage.forEach(s => { if (!INST[s.inst] || !s.color) bad('stage model'); });
+  if (!Array.isArray(t.play)) bad('no play'); if (t.play.length > 24) bad('play too long');
+  t.play.forEach((ev, k) => {
+    if (ev.gap != null && !(num(ev.gap) && ev.gap >= 0 && ev.gap <= 3)) bad(`event ${k} gap`);
+    (ev.pads || []).forEach(pi => { if (!t.pads[pi]) bad(`event ${k} pad ${pi}`); });
+    (ev.sound || []).forEach(s => { if (!INST[s.inst] || !num(s.f) || !num(s.v)) bad(`event ${k} sound`); });
+    (ev.stage || []).forEach(si => { if (!t.stage[si]) bad(`event ${k} stage`); });
+  });
+  if (t.rule) {
+    if (!(t.len >= 2) || !Array.isArray(t.solution) || t.solution.length !== t.len) bad('compose setup');
+    t.solution.forEach(pi => { if (!t.pads[pi]) bad('solution pad'); });
+    const r = t.rule(t.solution); if (r) bad('solution fails its own rule: ' + r);
+    if (!t.rule([1, 1, 1, 1, 1, 1, 1, 1])) bad('rule accepts a phrase that ends on re');
+  } else {
+    if (!Array.isArray(t.answer) || !t.answer.length || t.answer.length > 16) bad('answer length');
+    t.answer.forEach(pi => { if (!t.pads[pi]) bad('answer pad ' + pi); });
+    if (t.anyOrder && new Set(t.answer).size !== t.answer.length) bad('chord repeats a note');
+    if (t.timed) { if (!Array.isArray(t.gaps) || t.gaps.length !== t.answer.length - 1) bad('gaps'); t.gaps.forEach(gp => { if (!(num(gp) && gp >= 0.25)) bad('gap too short for a tap'); }); }
+  }
+  if (t.staff && t.staff.notes) t.staff.notes.forEach(n => { if (!num(n.at) || n.at < 0 || n.at > 1 || (n.pos != null && !num(n.pos))) bad('staff note'); if (n.pos != null && (n.pos < -2 || n.pos > 10)) bad('staff note off the staff'); });
+  [t.ask, t.turn, t.sayWatch, t.sayTurn, t.missText, t.sayMiss, t.sayWin, t.desc, LEVELS[i].name].forEach(text);
+  if (!t.desc) bad('no description');
+}
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START,
+  label: () => LEVELS[P.lv].name,
+  exercise: (i, n) => { const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); checkTune(t, i); out.push(t.desc); } return out; },
+};
 
 // Test hook.
 window.SIMON_ORCHESTRA = {
