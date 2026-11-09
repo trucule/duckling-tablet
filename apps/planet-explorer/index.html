@@ -225,11 +225,16 @@
     Orbits and spins run at their true relative speeds. Planets are tilted by their real axial tilt.
     The space view spreads the planets out and enlarges the small ones so they can be tapped. The Look closer view
     shows two worlds at their true relative size.
-  Quests: find a planet, planet order, bigger or smaller, jump tests, day length, how high, seasons, year length,
-  weight on other worlds and mystery planets.
+  Quests, lowest rung first: find a planet, planet order, bigger or smaller, jump tests, day length, how high, seasons,
+  year length, weight on other worlds and mystery planets. Above those, for 3rd grade to 8th: the tilt and the seasons
+  on a 3D Earth, Moon phases on an orbit with eight spots, weight from a gravity factor on a number pad, orbits and
+  years, the scale of the solar system on a strip, eclipses, the Sun as a star and the speed of light, comets,
+  asteroids and dwarf planets, the lives of stars and galaxies, and Kepler's laws with exoplanet transit curves.
+  The ladder and its grade bands are listed in a comment above the UPPER rungs.
   Four right first try in a row moves up a level; two missed quests in a row moves down.
-  Progress is kept in localStorage (key planet-explorer-v1). New players start at a 2nd grade level.
-  Test hook: window.PLANET_EXPLORER.
+  Progress is kept in localStorage (key planet-explorer-v1). New players start at the child's science grade, or at
+  the 2nd grade rung when none is set.
+  Test hooks: window.PLANET_EXPLORER and window.DucklingLadder.
   three.js r149 is inlined below under its MIT License (Copyright 2010-2023 three.js authors).
 -->
 <style>
@@ -256,6 +261,26 @@
   .ans:active { transform: translateY(4px); box-shadow: 0 3px 0 var(--ink); }
   .ans.no { background: #ddd; color: #888; }
   .ans.yes { background: var(--leaf); }
+  /* Longer answers on the upper rungs: smaller text, and the longest wrap inside a fixed width button. */
+  .ans.sm { font-size: 21px; padding: 10px 16px; border-width: 4px; border-radius: 20px; box-shadow: 0 5px 0 var(--ink); }
+  .ans.xs { font-size: 17px; padding: 8px 14px; border-width: 4px; border-radius: 18px; box-shadow: 0 5px 0 var(--ink); max-width: 300px; text-align: left; line-height: 1.2; }
+  .ans b.n { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 17px; display: inline-flex; align-items: center; justify-content: center; }
+  #askRow.narrow { max-width: 78%; }
+  #hint.up { bottom: 100px; }
+  #corner { position: absolute; left: 14px; top: 14px; z-index: 2; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .tool.mini { font-size: 18px; padding: 7px 12px; border-width: 3px; border-radius: 16px; box-shadow: 0 4px 0 var(--ink); }
+  #ask.long { font-size: 21px; }
+  #ask.xl { font-size: 18px; }
+  #ov { position: absolute; z-index: 2; display: none; border: 4px solid var(--ink); border-radius: 22px; background: #fffffff2; box-shadow: 0 6px 0 var(--grape); }
+  #ov.on { display: block; }
+  #pad { position: absolute; right: 14px; bottom: 16px; z-index: 2; display: none; background: #fffffff2; border: 4px solid var(--ink); border-radius: 22px; padding: 10px; }
+  #pad.on { display: block; }
+  #padv { font-size: 26px; font-weight: 900; text-align: right; background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 4px 12px; min-height: 36px; margin-bottom: 8px; white-space: nowrap; }
+  #pad .keys { display: grid; grid-template-columns: repeat(3, 60px); gap: 6px; }
+  #pad .keys button { font-size: 24px; font-weight: 900; height: 50px; border: 3px solid var(--ink); border-radius: 14px; background: #fff; box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
+  #pad .keys button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+  #pad .keys button.ok { background: var(--leaf); }
+  #pad .keys button.del { background: #FFD9E6; }
   .tool { border: 4px solid var(--ink); border-radius: 22px; padding: 10px 18px; font-size: 22px; font-weight: 900; cursor: pointer; background: var(--sky); box-shadow: 0 5px 0 var(--ink); }
   .tool.big { background: var(--sun); font-size: 30px; padding: 14px 30px; }
   #info { position: absolute; right: 14px; top: 92px; z-index: 2; background: #fffffff2; border: 4px solid var(--ink); border-radius: 24px; padding: 10px 16px; font-size: 19px; font-weight: 700; display: none; min-width: 250px; }
@@ -296,6 +321,9 @@
     <div id="jumps"></div>
     <div id="peak"></div>
     <div id="hint"></div>
+    <div id="corner"></div>
+    <canvas id="ov"></canvas>
+    <div id="pad"><div id="padv"></div><div class="keys"><button>7</button><button>8</button><button>9</button><button>4</button><button>5</button><button>6</button><button>1</button><button>2</button><button>3</button><button class="del" title="Delete">⌫</button><button>0</button><button class="ok">OK</button></div></div>
     <div id="bottom"></div>
     <div id="card"></div>
   </main>
@@ -371,46 +399,46 @@ const CLUES = {
 function argBy(list, f) { return list.reduce((a, b) => (f(b) > f(a) ? b : a)); }
 
 const LEVELS = [
-  { name: 'Find a planet', gen() { const t = pick(PLANETS); return { kind: 'fly', text: 'Fly to ' + t + '! Tap it.', ans: t, why: t + ' is the ' + ORD[PLANETS.indexOf(t)] + ' planet from the Sun.' }; } },
-  { name: 'Planet order', gen() {
+  { name: 'Find a planet', g: -1, gen() { const t = pick(PLANETS); return { kind: 'fly', text: 'Fly to ' + t + '! Tap it.', ans: t, why: t + ' is the ' + ORD[PLANETS.indexOf(t)] + ' planet from the Sun.' }; } },
+  { name: 'Planet order', g: 1, gen() {
     const v = rnd(0, 3);
     if (v === 0) return { kind: 'fly', text: 'Fly to the planet closest to the Sun!', ans: argBy(PLANETS, w => -DATA[w].dist), why: 'Mercury is closest to the Sun.' };
     if (v === 1) return { kind: 'fly', text: 'Fly to the planet farthest from the Sun!', ans: argBy(PLANETS, w => DATA[w].dist), why: 'Neptune is farthest from the Sun.' };
     const n = rnd(1, 6), t = PLANETS.slice().sort((a, b) => DATA[a].dist - DATA[b].dist)[n];
     return { kind: 'fly', text: 'Count out from the Sun. Fly to the ' + ORD[n] + ' planet!', ans: t, why: t + ' is the ' + ORD[n] + ' planet from the Sun.' };
   } },
-  { name: 'Big or small', gen() {
+  { name: 'Big or small', g: 2, gen() {
     const [a, b] = pairBy(WORLDS, w => DATA[w].d, 1.3), big = Math.random() < 0.6, ans = (DATA[a].d > DATA[b].d) === big ? a : b, o = ans === a ? b : a;
     const r = DATA[ans].d / DATA[o].d;
     return choiceQuest('Which is ' + (big ? 'bigger' : 'smaller') + ', ' + isWorld(a) + ' or ' + isWorld(b) + '?', [a, b], ans,
       big ? Cap(isWorld(ans)) + ' is ' + times(r) + ' as wide as ' + isWorld(o) + '.' : Cap(isWorld(ans)) + ' is smaller. ' + Cap(isWorld(o)) + ' is ' + times(1 / r) + ' as wide.', 'size', [a, b]);
   } },
-  { name: 'Jump test', gen() {
+  { name: 'Jump test', g: 2, gen() {
     const [a, b] = pairBy(WORLDS.filter(w => w !== 'Earth' || Math.random() < 0.5), jumpFt, 1.25), ans = jumpFt(a) > jumpFt(b) ? a : b;
     return choiceQuest('Where can you jump higher, ' + isWorld(a) + ' or ' + isWorld(b) + '? Land and try!', [a, b], ans,
       'Less gravity pulls you down on ' + isWorld(ans) + ', so the same jump goes higher: ' + ftText(jumpFt(ans)) + '!', 'jump', [a, b]);
   } },
-  { name: 'Day length', gen() {
+  { name: 'Day length', g: 2, gen() {
     const [a, b] = pairBy(WORLDS, w => DATA[w].day, 1.3), long = Math.random() < 0.6, ans = (DATA[a].day > DATA[b].day) === long ? a : b;
     return choiceQuest('Which has a ' + (long ? 'longer' : 'shorter') + ' day, ' + isWorld(a) + ' or ' + isWorld(b) + '?', [a, b], ans,
       'A day is sunrise to sunrise. On ' + isWorld(ans) + ' it is ' + dayText(ans) + '. On ' + isWorld(ans === a ? b : a) + ' it is ' + dayText(ans === a ? b : a) + '.', 'day', [a, b]);
   } },
-  { name: 'How high?', gen() {
+  { name: 'How high?', g: 3, gen() {
     const w = pick(WORLDS.filter(x => x !== 'Earth')), right = catOf(jumpFt(w)), wrong = shuffle(HOW_HIGH.map(c => c[0]).filter(c => c !== right)).slice(0, 2);
     return choiceQuest('You jump 1 foot high on Earth. About how high on ' + isWorld(w) + '?', shuffle([right, ...wrong]), right,
       'Gravity on ' + isWorld(w) + ' is ' + (DATA[w].g < G_EARTH ? 'weaker' : 'stronger') + ' than on Earth, so the same jump goes ' + ftText(jumpFt(w)) + ' high.', 'jump', [w]);
   } },
-  { name: 'Seasons', gen() {
+  { name: 'Seasons', g: 3, gen() {
     const [a, b] = pairBy(PLANETS, seasonTilt, 10, true), ans = seasonTilt(a) > seasonTilt(b) ? a : b;
     return choiceQuest('Which planet has bigger seasons, ' + a + ' or ' + b + '?', [a, b], ans,
       'Seasons come from being tipped. ' + ans + ' is tipped about ' + Math.round(seasonTilt(ans)) + ' degrees, and ' + (ans === a ? b : a) + ' about ' + Math.round(seasonTilt(ans === a ? b : a)) + '.' + (ans === 'Uranus' ? ' Uranus is on its side!' : ''), 'seasons', [a, b]);
   } },
-  { name: 'Year length', gen() {
+  { name: 'Year length', g: 3, gen() {
     const [a, b] = pairBy(PLANETS, w => DATA[w].year, 1.5), long = Math.random() < 0.6, ans = (DATA[a].year > DATA[b].year) === long ? a : b;
     return choiceQuest('A year is one trip around the Sun. Which has a ' + (long ? 'longer' : 'shorter') + ' year, ' + a + ' or ' + b + '?', [a, b], ans,
       'Planets farther out travel a bigger circle, slower. A year on ' + a + ' is ' + yearText(a) + ', on ' + b + ' ' + yearText(b) + '.', 'year', [a, b]);
   } },
-  { name: 'Weigh in', gen() {
+  { name: 'Weigh in', g: 3, gen() {
     for (let k = 0; k < 100; k++) {
       const lb = pick([10, 20, 30, 40, 50, 60, 80, 100]), w = pick(WORLDS.filter(x => x !== 'Earth')), right = Math.round(weightOn(w, lb));
       const others = shuffle(WORLDS.filter(x => x !== w).map(x => Math.round(weightOn(x, lb)))).filter((v, i, a) => a.indexOf(v) === i);
@@ -422,17 +450,399 @@ const LEVELS = [
     }
     throw new Error('no weigh quest');
   } },
-  { name: 'Mystery planet', gen() {
+  { name: 'Mystery planet', g: 4, gen() {
     const t = pick(PLANETS), cl = shuffle(CLUES[t].slice()).slice(0, 2), ch = shuffle([t, ...shuffle(PLANETS.filter(x => x !== t)).slice(0, 3)]);
     return choiceQuest('Mystery planet! ' + cl[0][0] + ' ' + cl[1][0] + ' Who am I?', ch, t, 'It is ' + t + '!', 'mystery', [t]);
   } },
 ];
-// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
-const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('science', LEVELS.length, 2) : 2);
+// ---------------------------------------------------------------------------
+// Upper rungs (3rd grade and up). Each rung draws from a bank of question makers. A maker returns a quest of kind
+// choice (buttons), type (number pad), order (tap the buttons in order) or place (tap a spot on the Moon's orbit),
+// and may carry a view: a small 3D setup (tilt, moon, world) or a 2D panel (strip, curve, orbit) shown with it.
+// ---------------------------------------------------------------------------
+const PHASES = ['New moon', 'Waxing crescent', 'First quarter', 'Waxing gibbous', 'Full moon', 'Waning gibbous', 'Third quarter', 'Waning crescent'];
+const PHASE_WHY = [
+  'Between Earth and the Sun, the Moon turns its dark half to us. That is a new moon.',
+  'Just past new, a thin sliver of the lit half shows. That is a waxing crescent.',
+  'A quarter of the way around, we see half of the lit half. That is first quarter.',
+  'More than half shows, and it is still growing. That is waxing gibbous.',
+  'Opposite the Sun, the whole lit half faces us. That is a full moon.',
+  'Past full, more than half shows, and it is shrinking. That is waning gibbous.',
+  'Three quarters of the way around, the other half looks lit. That is third quarter.',
+  'Nearly back to new, a thin sliver shows. That is a waning crescent.',
+];
+const HEMI = ['Northern Hemisphere', 'Southern Hemisphere'];
+const gFactor = w => Math.round(DATA[w].g / G_EARTH * 100) / 100;
+const LIGHT = 299792;            // km per second
+const SUN_KM = 1392700;          // the Sun's diameter in km
+const BALL_CM = 24;              // a basketball stands in for the Sun
+const scaleM = w => DATA[w].dist * 1e6 / SUN_KM * BALL_CM / 100;   // metres from the model Sun
+const lightMin = w => DATA[w].dist * 1e6 / LIGHT / 60;
+function lightText(min) { if (min < 60) return 'About ' + Math.round(min) + ' minutes'; const h = Math.round(min / 30) / 2; return 'About ' + (h % 1 ? Math.floor(h) + ' and a half hours' : h + ' hours'); }
+function metresText(m) { return 'About ' + (m < 100 ? Math.round(m) : Math.round(m / 10) * 10) + ' meters'; }
+function mkmText(p) { const d = DATA[p].dist; return 'About ' + (d < 300 ? Math.round(d / 10) * 10 : Math.round(d / 100) * 100) + ' million km'; }
+const AU_TXT = { Mercury: 'About 0.4', Venus: 'About 0.7', Mars: 'About 1.5', Jupiter: 'About 5', Saturn: 'About 10', Uranus: 'About 19', Neptune: 'About 30' };
+const INNER = PLANETS.slice(0, 4), OUTER = PLANETS.slice(4);
+
+function mc(text, right, wrongs, why, extra) {
+  const ch = shuffle([right].concat(shuffle(wrongs.filter((x, i, a) => x !== right && a.indexOf(x) === i)).slice(0, 3)));
+  return Object.assign({ kind: 'choice', text, choices: ch, ans: right, why, topic: 'bank', worlds: [] }, extra || {});
+}
+function typed(text, ans, unit, why, extra) { return Object.assign({ kind: 'type', text, ans, unit, why, topic: 'bank', worlds: [] }, extra || {}); }
+function ordered(text, items, why, extra) { let ch = shuffle(items.slice()); if (ch.join('|') === items.join('|')) ch = items.slice().reverse(); return Object.assign({ kind: 'order', text, choices: ch, ans: items.slice(), why, topic: 'bank', worlds: [] }, extra || {}); }
+function placed(text, spot, why, extra) { return Object.assign({ kind: 'place', text, ans: spot, why, topic: 'bank', worlds: [] }, extra || {}); }
+const bank = list => () => pick(list)();
+const TV = side => ({ view: { type: 'tilt', side: side || pick([1, -1]) } });
+const MV = (spot, shadows) => ({ view: { type: 'moon', spot: spot == null ? rnd(0, 7) : spot, inset: true, shadows: !!shadows } });
+const WV = w => ({ view: { type: 'world', w } });
+
+// Rung 10: day and night, the tilt and the seasons.
+const TILT_Q = [
+  () => { const s = pick([1, -1]); return mc('Look at Earth. The north pole leans ' + (s > 0 ? 'toward' : 'away from') + ' the Sun. Which half of Earth has summer?', s > 0 ? HEMI[0] : HEMI[1], HEMI, 'The half that leans toward the Sun gets more direct light and longer days. That is summer.', TV(s)); },
+  () => { const s = pick([1, -1]); return mc('Look at Earth. The north pole leans ' + (s > 0 ? 'toward' : 'away from') + ' the Sun. Which half of Earth has winter?', s > 0 ? HEMI[1] : HEMI[0], HEMI, 'The half that leans away gets slanted light and short days. That is winter.', TV(s)); },
+  () => mc('It is June. Which hemisphere has summer?', HEMI[0], HEMI, 'In June the north pole leans toward the Sun, so the Northern Hemisphere has summer.', TV(1)),
+  () => mc('It is December. Which hemisphere has summer?', HEMI[1], HEMI, 'In December the south pole leans toward the Sun, so the Southern Hemisphere has summer.', TV(-1)),
+  () => mc('It is December. Which hemisphere has winter?', HEMI[0], HEMI, 'In December the north pole leans away from the Sun. The Northern Hemisphere has winter.', TV(-1)),
+  () => mc('It is June. Which hemisphere has the longest days?', HEMI[0], HEMI, 'In June the north leans toward the Sun. Days there are long and the Sun climbs high.', TV(1)),
+  () => mc('Look at Earth. Which side has night?', 'The side facing away from the Sun', ['The side facing the Sun', 'The top half', 'The bottom half'], 'The Sun lights one half of Earth at a time. The other half is in its own shadow. That is night.', TV()),
+  () => mc('What makes day turn into night?', 'Earth spins once a day', ['The Sun goes around Earth', 'The Moon blocks the Sun', 'Earth moves closer to the Sun'], 'Earth spins. Your town turns into the sunlight for day and out of it for night.', TV()),
+  () => mc('What gives Earth its seasons?', 'Earth is tilted as it goes around the Sun', ['Earth gets closer to the Sun in summer', 'The Sun gets hotter in summer', 'The Moon pulls on Earth'], 'Earth is tilted about 23 degrees. The half leaning toward the Sun has summer.', TV()),
+  () => mc('How long does Earth take to spin around once?', 'About 24 hours', ['About 365 days', 'About 1 hour', 'About 30 days'], 'One spin is one day, 24 hours.', TV()),
+  () => mc('How long does Earth take to go around the Sun once?', 'About 365 days', ['About 24 hours', 'About 30 days', 'About 10 years'], 'One trip around the Sun is one year, about 365 days.', TV()),
+  () => mc('It is summer in Australia, in the south. What season is it in Canada, in the north?', 'Winter', ['Summer', 'Spring', 'Fall'], 'The two halves have opposite seasons. When the south leans toward the Sun, the north leans away.', TV(-1)),
+  () => mc('Earth spins toward the east. So the Sun seems to rise in the ...', 'East', ['West', 'North', 'South'], 'Earth turns east, so the Sun comes into view on the eastern side first.', TV()),
+  () => mc('Where on Earth are the seasons the mildest?', 'Near the equator', ['Near the North Pole', 'Near the South Pole', 'On high mountains'], 'The equator gets strong sunlight all year, so its seasons change very little.', TV()),
+  () => mc('Why is summer warmer? In summer, sunlight hits the ground ...', 'More directly, and the days are longer', ['From farther away', 'Only at night', 'More from the side'], 'Direct light and long days warm the ground more.', TV()),
+  () => mc('At the North Pole in June, the Sun ...', 'Stays up all day and all night', ['Never rises', 'Rises only at noon', 'Sets every hour'], 'In June the north pole leans toward the Sun and stays in the light as Earth spins.', TV(1)),
+  () => mc('At the North Pole in December, the Sun ...', 'Does not rise at all', ['Stays up all day', 'Rises in the west', 'Is twice as big'], 'In December the north pole leans away from the Sun and stays in the dark as Earth spins.', TV(-1)),
+  () => mc('Which planet is tipped almost all the way over, about 98 degrees?', 'Uranus', ['Earth', 'Jupiter', 'Mars'], 'Uranus rolls around the Sun on its side. Each pole gets 42 years of light, then 42 of dark.', TV()),
+  () => mc('Jupiter is tipped only 3 degrees. Its seasons are ...', 'Almost none', ['Huge', 'The same as Earth\'s', 'Twice as big as Earth\'s'], 'Little tilt means little change in sunlight through the year.', TV()),
+  () => mc('Mars is tipped 25 degrees, close to Earth\'s 23. Mars has ...', 'Seasons much like Earth\'s, but almost twice as long', ['No seasons', 'Only one season', 'Seasons that last a week'], 'A similar tilt gives similar seasons. A Mars year is 687 days, so each season is longer.', TV()),
+  () => mc('Earth\'s axis points at the same star all year. That star is ...', 'Polaris, the North Star', ['The Sun', 'Sirius', 'Mars'], 'The axis keeps pointing the same way as Earth goes around. That is why the tilt makes seasons.', TV()),
+  () => mc('On the first day of spring and the first day of fall, day and night are ...', 'About the same length', ['Day is much longer', 'Night is much longer', 'Both 24 hours'], 'On those two days neither pole leans toward the Sun, so light splits evenly.', TV()),
+  () => mc('In the picture, the Sun lights ...', 'Half of Earth at a time', ['All of Earth', 'Only the top of Earth', 'A quarter of Earth'], 'A round ball always has one half toward the light and one half away.', TV()),
+];
+
+// Rung 11: moon phases.
+const MOON_Q = [];
+for (let k = 0; k < 8; k++) {
+  MOON_Q.push(() => placed('Tap the spot where the Moon looks like a ' + PHASES[k].toLowerCase() + ' from Earth.', k, PHASE_WHY[k], { view: { type: 'moon', start: (k + 3) % 8, inset: true } }));
+  MOON_Q.push(() => mc('The Moon is at spot ' + (k + 1) + '. What phase do we see from Earth?', PHASES[k], PHASES, PHASE_WHY[k], MV(k)));
+}
+MOON_Q.push(
+  () => mc('Why does the Moon show phases?', 'We see different amounts of its sunlit half', ['Earth\'s shadow covers part of it', 'The Moon changes shape', 'Clouds hide part of it'], 'Half of the Moon is always lit. As it goes around Earth, we see more or less of that lit half.', MV()),
+  () => mc('Where does moonlight come from?', 'Sunlight bouncing off the Moon', ['The Moon makes its own light', 'City lights', 'Starlight'], 'The Moon does not glow. It reflects the Sun.', MV()),
+  () => mc('How long is it from one full moon to the next?', 'About a month, 29 and a half days', ['About 7 days', 'About 1 year', 'About 24 hours'], 'The whole cycle of phases takes about 29 and a half days.', MV(4)),
+  () => mc('A waxing moon is ...', 'Growing bigger each night', ['Shrinking each night', 'Always full', 'Always dark'], 'Waxing means growing. The lit part grows from new moon to full moon.', MV(rnd(1, 3))),
+  () => mc('A waning moon is ...', 'Shrinking each night', ['Growing each night', 'Always full', 'Bright red'], 'Waning means shrinking. The lit part shrinks from full moon back to new.', MV(rnd(5, 7))),
+  () => { const k = rnd(0, 7); return mc('Which phase comes right after the ' + PHASES[k].toLowerCase() + '?', PHASES[(k + 1) % 8], PHASES, 'The Moon moves on around Earth to the next spot. ' + PHASE_WHY[(k + 1) % 8], MV(k)); },
+  () => { const k = rnd(0, 7); return mc('Which phase comes right before the ' + PHASES[k].toLowerCase() + '?', PHASES[(k + 7) % 8], PHASES, 'One spot back along the orbit. ' + PHASE_WHY[(k + 7) % 8], MV(k)); },
+  () => mc('At first quarter, how much of the Moon\'s face looks lit?', 'Half', ['A quarter', 'All of it', 'None of it'], 'First quarter means a quarter of the way around the orbit. We see half of the face lit.', MV(2)),
+  () => mc('Why do we always see the same side of the Moon?', 'It spins once for each trip around Earth', ['It does not spin at all', 'It spins very fast', 'Earth hides the other side'], 'One spin takes as long as one orbit, so the same face always points at Earth.', MV()),
+  () => mc('How long does the Moon take to go once around Earth?', 'About 27 days', ['About 7 days', 'About 365 days', 'About 1 day'], 'The Moon takes about 27 days to go around Earth once.', MV()),
+  () => mc('Half of the Moon is always lit by the Sun. True or false?', 'True', ['False'], 'The Sun always lights the half facing it. Phases are about how much of that half we can see.', MV()),
+  () => mc('The dark part of the Moon is dark because ...', 'It faces away from the Sun', ['Earth\'s shadow is on it', 'It is made of black rock', 'It is covered in water'], 'The dark part is the Moon\'s own night side.', MV()),
+);
+
+// Rung 12: gravity and weight with the number pad.
+const WHO = ['You', 'A dog', 'A backpack', 'A rover', 'A bike', 'A bag of apples'];
+const LBS = [20, 25, 30, 40, 50, 60, 75, 80, 100, 120, 150, 200, 250, 300];
+const exact = (lb, f) => Math.abs(lb * f - Math.round(lb * f)) < 1e-9;
+function weighOut() {
+  const w = pick(WORLDS.filter(x => x !== 'Earth')), f = gFactor(w), lb = pick(LBS.filter(l => exact(l, f))), s = pick(WHO), you = s === 'You';
+  return typed(s + (you ? ' weigh ' : ' weighs ') + lb + ' pounds on Earth. Gravity on ' + isWorld(w) + ' is ' + f + ' times Earth\'s. How much ' + (you ? 'do you' : 'does it') + ' weigh on ' + isWorld(w) + '? Type the pounds.',
+    Math.round(lb * f), 'pounds', lb + ' times ' + f + ' is ' + Math.round(lb * f) + '. Gravity on ' + isWorld(w) + ' is ' + (f < 1 ? 'weaker' : 'stronger') + ', so the same mass weighs ' + (f < 1 ? 'less' : 'more') + '.', WV(w));
+}
+function weighBack() {
+  const w = pick(WORLDS.filter(x => x !== 'Earth')), f = gFactor(w), lb = pick(LBS.filter(l => exact(l, f))), s = pick(WHO), you = s === 'You', x = Math.round(lb * f);
+  return typed(s + (you ? ' weigh ' : ' weighs ') + x + ' pounds on ' + isWorld(w) + ', where gravity is ' + f + ' times Earth\'s. How much ' + (you ? 'do you' : 'does it') + ' weigh on Earth? Type the pounds.',
+    lb, 'pounds', x + ' divided by ' + f + ' is ' + lb + '. Earth weight times the factor gives the weight on ' + isWorld(w) + '.', WV(w));
+}
+function massSame() { const w = pick(WORLDS.filter(x => x !== 'Earth')), kg = rnd(10, 30) * 2; return typed('Your mass is ' + kg + ' kilograms on Earth. What is your mass on ' + isWorld(w) + '? Type the kilograms.', kg, 'kg', 'Mass is how much stuff you are made of. It stays ' + kg + ' kilograms everywhere. Only weight changes.', WV(w)); }
+function sixth() { const n = rnd(5, 40); return typed('Gravity on the Moon is about one sixth of Earth\'s. A box weighs ' + (6 * n) + ' pounds on Earth. About how much on the Moon? Type the pounds.', n, 'pounds', (6 * n) + ' divided by 6 is ' + n + '.', WV('Moon')); }
+const GRAV_Q = [weighOut, weighOut, weighOut, weighBack, weighBack, massSame, sixth,
+  () => mc('Why do you weigh less on the Moon?', 'The Moon has less mass, so its gravity is weaker', ['There is no air on the Moon', 'The Moon is farther from the Sun', 'You get lighter in space'], 'Less mass means a weaker pull. Your mass is the same, but the Moon pulls on it less.', WV('Moon')),
+  () => { const w = pick(WORLDS.filter(x => x !== 'Earth')); return mc('You fly to ' + isWorld(w) + '. What stays the same?', 'Your mass', ['Your weight', 'Both change', 'Neither changes'], 'Mass is the amount of stuff in you. Weight is gravity pulling on that mass, so weight changes.', WV(w)); },
+  () => { const ws = shuffle(WORLDS.slice()).slice(0, 4), a = argBy(ws, w => DATA[w].g); return mc('Which of these has the strongest gravity at its surface?', a, ws, Cap(isWorld(a)) + ' pulls hardest here. Its gravity is ' + gFactor(a) + ' times Earth\'s.', WV(a)); },
+  () => { const ws = shuffle(WORLDS.slice()).slice(0, 4), a = argBy(ws, w => -DATA[w].g); return mc('Which of these has the weakest gravity at its surface?', a, ws, Cap(isWorld(a)) + ' pulls least here. Its gravity is ' + gFactor(a) + ' times Earth\'s.', WV(a)); },
+  () => mc('Weight is ...', 'The pull of gravity on your mass', ['How much stuff you are made of', 'How tall you are', 'How fast you fall'], 'Weight is a force. More gravity, more weight. Same mass.', WV('Earth')),
+  () => mc('Gravity pulls harder when a planet ...', 'Has more mass', ['Is hotter', 'Spins faster', 'Is farther from the Sun'], 'More mass means a stronger pull at the surface. Size matters too, but mass is the key.', WV('Jupiter')),
+  () => mc('Astronauts float in the space station because ...', 'They are falling around Earth together with the station', ['There is no gravity in space', 'They are too far away for gravity', 'The station has special floors'], 'Gravity up there is almost as strong as on the ground. The station is always falling, and so are they.', WV('Earth')),
+  () => mc('What keeps the Moon going around Earth?', 'Earth\'s gravity', ['The wind', 'Magnets', 'The Moon\'s engines'], 'Earth\'s pull bends the Moon\'s path into a circle around us.', WV('Moon')),
+  () => mc('You drop a feather and a hammer on the Moon, where there is no air. Which lands first?', 'They land at the same time', ['The hammer', 'The feather', 'Neither falls'], 'With no air, gravity speeds up everything the same. An Apollo astronaut tried it.', WV('Moon')),
+  () => mc('Jupiter\'s gravity is about 2.4 times Earth\'s. A 50 pound dog would feel like ...', 'About 120 pounds', ['About 50 pounds', 'About 20 pounds', 'About 500 pounds'], '50 times 2.4 is 120. A heavy dog to carry.', WV('Jupiter')),
+];
+
+// Rung 13: orbits and years.
+const yrs = p => DATA[p].year / 365.25;
+const ORBIT_Q = [
+  () => mc('Which planet has the longest year?', 'Neptune', PLANETS, 'Neptune is farthest out. Its path is the longest and it moves the slowest, so one trip takes 165 Earth years.'),
+  () => mc('Why does Neptune have the longest year?', 'It is farthest out, so its path is longest and it moves slowest', ['It is the biggest planet', 'It spins very slowly', 'It is the coldest planet'], 'Far from the Sun the pull is weaker, so the planet moves slower along a much longer path.'),
+  () => mc('Which planet has the shortest year?', 'Mercury', PLANETS, 'Mercury is closest to the Sun. Its path is short and it moves fast. One year is 88 days.'),
+  () => { const ps = shuffle(PLANETS.slice()).slice(0, pick([3, 4])), up = Math.random() < 0.6, items = ps.slice().sort((a, b) => up ? DATA[a].year - DATA[b].year : DATA[b].year - DATA[a].year); return ordered('Tap these planets in order, ' + (up ? 'shortest year first.' : 'longest year first.'), items, 'Farther from the Sun means a longer year. ' + items.map(p => p + ': ' + yearText(p)).join('. ') + '.'); },
+  () => { const ps = shuffle(PLANETS.slice()).slice(0, pick([3, 4])), up = Math.random() < 0.6, items = ps.slice().sort((a, b) => up ? DATA[a].year - DATA[b].year : DATA[b].year - DATA[a].year); return ordered('Tap these planets in order, ' + (up ? 'shortest year first.' : 'longest year first.'), items, 'Farther from the Sun means a longer year. ' + items.map(p => p + ': ' + yearText(p)).join('. ') + '.'); },
+  () => { const p = pick(['Jupiter', 'Saturn', 'Uranus', 'Neptune']); return mc('Which planet takes about ' + Math.round(yrs(p)) + ' Earth years to go around the Sun?', p, OUTER, 'A ' + p + ' year is ' + yearText(p) + '.'); },
+  () => { const p = pick(['Mercury', 'Venus', 'Mars']); return mc('Which planet takes about ' + Math.round(DATA[p].year) + ' Earth days to go around the Sun?', p, INNER, 'A ' + p + ' year is ' + yearText(p) + '.'); },
+  () => mc('A year on Mars is 687 Earth days. About how many Earth years is that?', 'Almost 2', ['About 1', 'About 4', 'About 10'], '687 days is 1.9 Earth years. Mars is farther out, so its year is longer.'),
+  () => mc('A planet farther from the Sun has a ...', 'Longer year', ['Shorter year', 'Year the same as Earth\'s', 'Shorter day'], 'A bigger path and a slower speed both make the year longer.'),
+  () => mc('What is a year?', 'One trip around the Sun', ['One spin of the planet', 'One trip of the Moon around Earth', 'Twelve days'], 'A year is one full orbit around the Sun.'),
+  () => mc('Venus goes around the Sun in 225 days. Is a Venus year longer or shorter than Earth\'s?', 'Shorter', ['Longer', 'The same'], 'Venus is closer to the Sun than Earth, so its year is shorter: 225 days to our 365.'),
+  () => mc('You are 10 Earth years old. About how many Mercury years is that? A Mercury year is 88 days.', 'About 40', ['About 10', 'About 4', 'About 100'], '10 Earth years is 3,652 days. Divide by 88 and you get about 41 Mercury years.'),
+  () => mc('You are 12 Earth years old. About how many Jupiter years is that? A Jupiter year is about 12 Earth years.', 'About 1', ['About 12', 'About 144', 'About 6'], 'One Jupiter year is 12 Earth years, so you would be about 1 Jupiter year old.'),
+  () => mc('What keeps the planets going around the Sun?', 'The Sun\'s gravity', ['The solar wind', 'Magnets', 'Nothing, they just drift'], 'The Sun\'s pull bends each planet\'s path into an orbit.'),
+  () => mc('The path a planet takes around the Sun is called its ...', 'Orbit', ['Spin', 'Season', 'Axis'], 'Each planet follows its own orbit around the Sun.'),
+  () => mc('Which planet moves fastest along its orbit?', 'Mercury', ['Earth', 'Jupiter', 'Neptune'], 'Mercury races along at 47 km every second. Neptune moves at about 5.'),
+  () => mc('Earth travels about 30 km every second around the Sun. Neptune moves ...', 'Slower, about 5 km per second', ['Faster, about 100 km per second', 'At the same speed', 'Backwards'], 'Far from the Sun, the pull is weaker and planets move slower.'),
+  () => mc('Saturn\'s year is 29 Earth years. Jupiter\'s is 12. Saturn\'s year is about ...', 'Two and a half times as long', ['Half as long', 'The same length', 'Ten times as long'], '29 divided by 12 is about 2.4.'),
+  () => { const [a, b] = pairBy(PLANETS, w => DATA[w].year, 1.5), ans = DATA[a].year > DATA[b].year ? a : b; return mc('Which takes longer to go around the Sun, ' + a + ' or ' + b + '?', ans, [a, b], ans + ' is farther out. Its year is ' + yearText(ans) + '. The other is ' + yearText(ans === a ? b : a) + '.'); },
+  () => mc('Mercury\'s year is 88 days. Earth\'s is 365. About how many Mercury years fit in one Earth year?', 'About 4', ['About 2', 'About 10', 'About 88'], '365 divided by 88 is about 4.'),
+  () => mc('Uranus takes 84 Earth years to orbit. A person born there would have how many birthdays by age 84?', 'One', ['84', 'Twelve', 'None, Uranus does not move'], 'One orbit is one birthday. Uranus takes 84 of our years to make it.'),
+];
+
+// Rung 14: the scale of the solar system, read from a strip.
+function kmStrip(group, q, hide) { return { type: 'strip', max: group === INNER ? 250 : 5000, tick: group === INNER ? 50 : 1000, unit: 'million km', marks: group.filter(p => !hide || p === q || p === hide).map(p => ({ x: DATA[p].dist, label: p === q ? '?' : p, col: DATA[p].col, q: p === q })) }; }
+function mStrip(group, q) { return { type: 'strip', ball: true, max: group === INNER ? 50 : 1000, tick: group === INNER ? 10 : 200, unit: 'meters', marks: [{ x: scaleM(q), label: '?', col: DATA[q].col, q: true }] }; }
+function auStrip(group, q) { return { type: 'strip', max: group === INNER ? 2 : 32, tick: group === INNER ? 0.5 : 5, unit: 'AU', marks: group.filter(p => p === q || p === 'Earth').map(p => ({ x: DATA[p].dist / DATA.Earth.dist, label: p === q ? '?' : 'Earth', col: DATA[p].col, q: p === q })) }; }
+const SCALE_Q = [
+  () => { const g = pick([INNER, OUTER]), p = pick(g); return mc('Read the strip. About how far is ' + p + ' from the Sun?', mkmText(p), g.map(mkmText), p + ' sits at the ? mark, ' + mkmText(p).toLowerCase() + ' from the Sun.', { view: kmStrip(g, p) }); },
+  () => { const g = pick([INNER, OUTER]), p = pick(g); return mc('Read the strip. About how far is ' + p + ' from the Sun?', mkmText(p), g.map(mkmText), p + ' sits at the ? mark, ' + mkmText(p).toLowerCase() + ' from the Sun.', { view: kmStrip(g, p) }); },
+  () => { const g = pick([INNER, OUTER]), ref = g === INNER ? 'Earth' : 'Jupiter', p = pick(g.filter(x => x !== ref)); return mc('Only ' + ref + ' is labelled. Which planet sits at the ? mark?', p, g, p + ' is the ' + ORD[PLANETS.indexOf(p)] + ' planet, ' + mkmText(p).toLowerCase() + ' from the Sun.', { view: kmStrip(g, p, ref) }); },
+  () => { const g = pick([INNER, OUTER]), ref = g === INNER ? 'Earth' : 'Jupiter', p = pick(g.filter(x => x !== ref)); return mc('Only ' + ref + ' is labelled. Which planet sits at the ? mark?', p, g, p + ' is the ' + ORD[PLANETS.indexOf(p)] + ' planet, ' + mkmText(p).toLowerCase() + ' from the Sun.', { view: kmStrip(g, p, ref) }); },
+  () => { const g = pick([INNER, OUTER]), p = pick(g); return mc('If the Sun were a basketball, about how far away would ' + p + ' be? Read the strip.', metresText(scaleM(p)), g.map(x => metresText(scaleM(x))), 'With a 24 cm Sun, ' + p + ' is ' + metresText(scaleM(p)).toLowerCase() + ' away. The real distance is ' + mkmText(p).toLowerCase() + '.', { view: mStrip(g, p) }); },
+  () => { const g = pick([INNER, OUTER]), p = pick(g); return mc('If the Sun were a basketball, about how far away would ' + p + ' be? Read the strip.', metresText(scaleM(p)), g.map(x => metresText(scaleM(x))), 'With a 24 cm Sun, ' + p + ' is ' + metresText(scaleM(p)).toLowerCase() + ' away. The real distance is ' + mkmText(p).toLowerCase() + '.', { view: mStrip(g, p) }); },
+  () => mc('If the Sun were a basketball, how big would Earth be?', 'A peppercorn, about 2 mm', ['A tennis ball', 'A large marble, about 2.5 cm', 'A grape'], 'The Sun is 109 Earths wide. A 24 cm ball divided by 109 is about 2 mm.', { view: mStrip(INNER, 'Earth') }),
+  () => mc('If the Sun were a basketball, how big would Jupiter be?', 'A large marble, about 2.5 cm', ['A tennis ball', 'A peppercorn, about 2 mm', 'A grain of sand'], 'Jupiter is a tenth as wide as the Sun. A tenth of 24 cm is about 2.5 cm.', { view: mStrip(OUTER, 'Jupiter') }),
+  () => mc('If the Sun were a basketball, how big would the Moon be?', 'A grain of sand, less than 1 mm', ['A pea, about 1 cm', 'A tennis ball', 'A large marble, about 2.5 cm'], 'The Moon is 400 times smaller than the Sun. 24 cm divided by 400 is about 0.6 mm.', { view: mStrip(INNER, 'Earth') }),
+  () => mc('If the Sun were a basketball, the Moon would be how far from the model Earth?', 'About 7 cm', ['About 7 m', 'About 70 cm', 'About 7 mm'], 'The Moon is 384,000 km away. At this scale that is about 7 cm, about the width of your hand.', { view: mStrip(INNER, 'Earth') }),
+  () => { const p = pick(Object.keys(AU_TXT)), g = INNER.includes(p) ? INNER : OUTER; return mc('Earth is 1 AU from the Sun. Read the strip. About how many AU is ' + p + '?', AU_TXT[p], Object.values(AU_TXT), 'One AU is the Earth to Sun distance, 150 million km. ' + p + ' is ' + AU_TXT[p].toLowerCase() + ' AU out.', { view: auStrip(g, p) }); },
+  () => { const p = pick(Object.keys(AU_TXT)), g = INNER.includes(p) ? INNER : OUTER; return mc('Earth is 1 AU from the Sun. Read the strip. About how many AU is ' + p + '?', AU_TXT[p], Object.values(AU_TXT), 'One AU is the Earth to Sun distance, 150 million km. ' + p + ' is ' + AU_TXT[p].toLowerCase() + ' AU out.', { view: auStrip(g, p) }); },
+  () => mc('How many Earths would fit side by side across the Sun?', 'About 109', ['About 10', 'About 1,000', 'About 2'], 'The Sun is 1.39 million km wide. Earth is 12,756 km wide. That is 109 Earths across.', WV('Sun')),
+  () => mc('How many Earths would fit side by side across Jupiter?', 'About 11', ['About 2', 'About 109', 'About 1,000'], 'Jupiter is 142,984 km wide. Earth is 12,756. That is about 11 Earths across.', WV('Jupiter')),
+  () => mc('Mars at its closest is 56 million km from Earth. The Moon is 384,000 km away. Mars is about ...', '150 times farther than the Moon', ['Twice as far as the Moon', 'Closer than the Moon', '10 times farther than the Moon'], '56 million divided by 384 thousand is about 146.', { view: kmStrip(INNER, 'Mars') }),
+  () => mc('If the Sun were a basketball in your town, the nearest other star would be ...', 'About 7,000 km away, across an ocean', ['Across the street', 'About 7 km away, in the next town', 'On the Moon'], 'Proxima Centauri is 40 trillion km away. Even with a basketball Sun, that is 7,000 km.', WV('Sun')),
+  () => mc('What does AU stand for?', 'Astronomical unit, the Earth to Sun distance', ['Atomic unit', 'A unit of time', 'The width of the Sun'], 'One AU is about 150 million km. It keeps solar system distances easy to compare.', { view: auStrip(OUTER, 'Jupiter') }),
+  () => mc('Which takes up more of the solar system: the planets, or the empty space between them?', 'The empty space', ['The planets', 'They are equal'], 'Planets are tiny next to the gaps. On a basketball Sun scale, Earth is a peppercorn 26 meters away.', { view: mStrip(INNER, 'Earth') }),
+];
+
+// Rung 15: eclipses.
+const ECL_Q = [
+  () => placed('Tap the spot where the Moon can block the Sun for people on Earth. That is a solar eclipse.', 0, 'The Moon sits between the Sun and Earth. Its small shadow falls on Earth. This can only happen at new moon.', { view: { type: 'moon', start: 3, inset: true, shadows: true } }),
+  () => placed('Tap the spot where the Moon passes through Earth\'s shadow. That is a lunar eclipse.', 4, 'Earth sits between the Sun and the Moon, and the Moon moves into Earth\'s shadow. This can only happen at full moon.', { view: { type: 'moon', start: 1, inset: true, shadows: true } }),
+  () => placed('Where must the Moon be for a solar eclipse? Tap the spot.', 0, 'A solar eclipse needs the Moon between the Sun and Earth, at the new moon spot.', { view: { type: 'moon', start: 6, inset: true, shadows: true } }),
+  () => placed('Where must the Moon be for a lunar eclipse? Tap the spot.', 4, 'A lunar eclipse needs Earth between the Sun and the Moon, at the full moon spot.', { view: { type: 'moon', start: 2, inset: true, shadows: true } }),
+  () => ordered('Tap them in a line for a solar eclipse. Start with the Sun.', ['Sun', 'Moon', 'Earth'], 'Sun, Moon, Earth. The Moon in the middle casts its shadow on Earth.', MV(0, true)),
+  () => ordered('Tap them in a line for a lunar eclipse. Start with the Sun.', ['Sun', 'Earth', 'Moon'], 'Sun, Earth, Moon. Earth in the middle casts its shadow on the Moon.', MV(4, true)),
+  () => mc('A solar eclipse can only happen at which phase of the Moon?', 'New moon', PHASES, 'Only at new moon is the Moon between the Sun and Earth.', MV(0, true)),
+  () => mc('A lunar eclipse can only happen at which phase of the Moon?', 'Full moon', PHASES, 'Only at full moon is Earth between the Sun and the Moon.', MV(4, true)),
+  () => mc('In a solar eclipse, what is in the middle?', 'The Moon', ['Earth', 'The Sun', 'Mars'], 'The Moon passes between the Sun and Earth and covers the Sun.', MV(0, true)),
+  () => mc('In a lunar eclipse, what is in the middle?', 'Earth', ['The Moon', 'The Sun', 'Venus'], 'Earth passes between the Sun and the Moon, and its shadow falls on the Moon.', MV(4, true)),
+  () => mc('Why is there not an eclipse every month?', 'The Moon\'s orbit is tilted about 5 degrees, so the shadows usually miss', ['The Moon is too small', 'The Sun moves out of the way', 'Eclipses need a leap year'], 'Most months the Moon passes a little above or below the line, so no shadow lands.', MV(null, true)),
+  () => mc('Who can see a total solar eclipse?', 'Only people inside the Moon\'s small shadow on Earth', ['Everyone on Earth', 'Everyone on the day side', 'People on the Moon'], 'The Moon\'s dark shadow is only about 100 to 250 km wide where it touches Earth.', MV(0, true)),
+  () => mc('Who can see a lunar eclipse?', 'Everyone on the night side of Earth', ['Only people in a narrow path', 'Only people at the equator', 'Nobody, it happens in the day'], 'The Moon is in Earth\'s shadow, so anyone who can see the Moon sees the eclipse.', MV(4, true)),
+  () => mc('Why does the Moon often look red during a lunar eclipse?', 'Earth\'s air bends red sunlight into Earth\'s shadow', ['The Moon gets hot', 'Mars is behind it', 'The Moon is covered in rust'], 'The same red light that colors sunsets reaches the Moon through Earth\'s air.', MV(4, true)),
+  () => mc('The Moon and the Sun look about the same size in our sky because ...', 'The Sun is about 400 times wider but also about 400 times farther away', ['They are the same size', 'The Moon is bigger than the Sun', 'The Moon is a mirror'], 'That lucky match is why the Moon can just cover the Sun.', MV(0, true)),
+  () => mc('During a total solar eclipse you can see the Sun\'s faint outer layer. It is called the ...', 'Corona', ['Crater', 'Core', 'Comet'], 'The corona is the Sun\'s thin outer atmosphere. The bright disk has to be covered to see it.', MV(0, true)),
+  () => mc('How long does the total part of a solar eclipse last in one place?', 'A few minutes', ['A few seconds', 'A few hours', 'A whole day'], 'The Moon\'s shadow moves fast. Totality lasts at most about 7 minutes, usually less.', MV(0, true)),
+  () => mc('When the Moon is a bit farther away, it cannot cover the whole Sun and a ring of Sun shows. This is ...', 'An annular eclipse', ['A lunar eclipse', 'A blue moon', 'A sunset'], 'Annular means ring. The Moon\'s orbit is not a perfect circle, so its size in the sky changes.', MV(0, true)),
+  () => mc('Is it safe to look at a partly covered Sun without eclipse glasses?', 'No, never', ['Yes, if it is cloudy', 'Yes, for one minute', 'Yes, through sunglasses'], 'Even a sliver of Sun can hurt your eyes. Use real eclipse glasses or a pinhole.', MV(0, true)),
+  () => mc('In a total lunar eclipse, the Moon is inside Earth\'s darkest shadow. That shadow is called the ...', 'Umbra', ['Penumbra', 'Corona', 'Aurora'], 'The umbra is the dark central shadow. The lighter edge is the penumbra.', MV(4, true)),
+  () => mc('If you stood on the Moon during a lunar eclipse, what would you see?', 'Earth covering the Sun', ['The Moon covering the Sun', 'Nothing unusual', 'Mars covering the Sun'], 'From the Moon, a lunar eclipse is a solar eclipse made by Earth.', MV(4, true)),
+  () => mc('A solar eclipse happens during the ...', 'Day', ['Night', 'Evening only', 'Winter only'], 'The Sun has to be up for the Moon to cover it.', MV(0, true)),
+  () => mc('Which is seen more often from any one town: a lunar eclipse or a total solar eclipse?', 'A lunar eclipse', ['A total solar eclipse', 'They are equally common'], 'A lunar eclipse is seen by the whole night side. A total solar eclipse path is narrow.', MV(4, true)),
+];
+
+// Rung 16: the Sun as a star, the speed of light and light-years.
+const LT = {}; for (const p of PLANETS) LT[p] = lightText(lightMin(p));
+const SUN_Q = [
+  () => mc('How long does sunlight take to reach Earth?', 'About 8 minutes', ['About 8 seconds', 'About 8 hours', 'About 8 days'], 'Light covers 150 million km in 8 minutes and 20 seconds.', WV('Sun')),
+  () => mc('How fast does light travel?', 'About 300,000 km every second', ['About 300 km every second', 'About 300,000 km every hour', 'About as fast as a jet'], 'Light moves 299,792 km per second. Nothing goes faster.', WV('Sun')),
+  () => mc('What is the Sun?', 'A star', ['A planet', 'A big moon', 'A comet'], 'The Sun is an ordinary star. It looks huge because it is close.', WV('Sun')),
+  () => mc('Why does the Sun look so much bigger than the other stars?', 'It is much closer to us', ['It is the biggest star there is', 'It is the hottest star', 'It is the only real star'], 'Many stars are bigger. The next nearest star is 270,000 times farther away than the Sun.', WV('Sun')),
+  () => mc('What is the Sun mostly made of?', 'Hydrogen and helium', ['Rock and iron', 'Burning wood', 'Hot water'], 'About three quarters hydrogen and one quarter helium, all as hot gas.', WV('Sun')),
+  () => mc('How does the Sun make its energy?', 'By fusing hydrogen into helium in its core', ['By burning like a fire', 'By electricity', 'By spinning fast'], 'In the core, hydrogen atoms squeeze together into helium and release energy.', WV('Sun')),
+  () => mc('After the Sun, which star is nearest to Earth?', 'Proxima Centauri', ['Polaris', 'Sirius', 'Betelgeuse'], 'Proxima Centauri is a small red star about 4.2 light-years away.', WV('Sun')),
+  () => mc('How far away is Proxima Centauri, the nearest star after the Sun?', 'About 4 light-years', ['About 4 light-minutes', 'About 4 million km', 'About 400 light-years'], 'Its light takes 4.2 years to reach us.', WV('Sun')),
+  () => mc('A light-year measures ...', 'Distance', ['Time', 'Brightness', 'Speed'], 'A light-year is how far light travels in one year, about 9.5 trillion km.', WV('Sun')),
+  () => mc('How far is one light-year?', 'About 9.5 trillion km', ['About 300,000 km', 'About 150 million km', 'About 1 million km'], 'Light goes 300,000 km each second for a whole year. That adds up to 9.5 trillion km.', WV('Sun')),
+  () => mc('The light you see tonight from Proxima Centauri left the star about ...', '4 years ago', ['4 minutes ago', '4 days ago', '400 years ago'], 'It is 4.2 light-years away, so its light is 4 years old when it reaches your eye.', WV('Sun')),
+  () => mc('You look at a star 100 light-years away. You are seeing light that left it ...', '100 years ago', ['Just now', '100 days ago', '100 minutes ago'], 'Looking far away is looking back in time.', WV('Sun')),
+  () => { const p = pick(PLANETS); return mc('How long does sunlight take to reach ' + p + '?', LT[p], Object.values(LT), p + ' is ' + mkmText(p).toLowerCase() + ' from the Sun. Light covers that in ' + LT[p].toLowerCase() + '.', WV(p)); },
+  () => { const p = pick(PLANETS); return mc('How long does sunlight take to reach ' + p + '?', LT[p], Object.values(LT), p + ' is ' + mkmText(p).toLowerCase() + ' from the Sun. Light covers that in ' + LT[p].toLowerCase() + '.', WV(p)); },
+  () => mc('Light takes 8 minutes to reach Earth. Jupiter is about 5 times farther from the Sun. Sunlight reaches Jupiter in ...', 'About 40 minutes', ['About 8 minutes', 'About 2 minutes', 'About 5 hours'], '5 times 8 is 40. The true time is 43 minutes.', WV('Jupiter')),
+  () => mc('The Moon is 384,000 km away. Light goes 300,000 km each second. Moonlight reaches you in ...', 'A little more than 1 second', ['About 8 minutes', 'About 1 hour', 'No time at all'], '384,000 divided by 300,000 is 1.3 seconds.', WV('Moon')),
+  () => { const n = rnd(2, 10); return typed('Light goes 300,000 km in 1 second. How far does it go in ' + n + ' seconds? Type the km.', n * 300000, 'km', n + ' times 300,000 is ' + (n * 300000).toLocaleString('en-US') + ' km.', WV('Sun')); },
+  () => { const n = rnd(2, 10); return typed('Light goes 300,000 km in 1 second. How far does it go in ' + n + ' seconds? Type the km.', n * 300000, 'km', n + ' times 300,000 is ' + (n * 300000).toLocaleString('en-US') + ' km.', WV('Sun')); },
+  () => mc('How old is the Sun?', 'About 4.6 billion years', ['About 4,600 years', 'About 4.6 million years', 'About 46 billion years'], 'The Sun and the planets formed together about 4.6 billion years ago.', WV('Sun')),
+  () => mc('How hot is the surface of the Sun?', 'About 5,500 degrees Celsius', ['About 55 degrees', 'About 550 degrees', 'About 5.5 million degrees'], 'The surface is about 5,500 degrees. The core is about 15 million.', WV('Sun')),
+  () => mc('Sunspots are ...', 'Cooler, darker patches on the Sun', ['Holes through the Sun', 'Planets in front of the Sun', 'Clouds on the Sun'], 'Sunspots are a bit cooler than the rest of the surface, so they look dark next to it.', WV('Sun')),
+  () => mc('The stream of tiny particles blowing out from the Sun is called the ...', 'Solar wind', ['Solar rain', 'Sunbeam', 'Corona'], 'The solar wind flows past all the planets. On Earth it makes the northern lights.', WV('Sun')),
+  () => mc('Stars look like tiny dots at night because ...', 'They are very far away', ['They are very small', 'They are cold', 'They are behind the Moon'], 'Many are bigger than the Sun. Distance makes them look like points.', WV('Sun')),
+  () => mc('What color is sunlight really?', 'White, a mix of all colors', ['Yellow only', 'Red only', 'Blue only'], 'A prism or a rainbow splits sunlight into every color.', WV('Sun')),
+];
+
+// Rung 17: comets, asteroids, dwarf planets, moons and the belts.
+const KINDS = ['Planet', 'Dwarf planet', 'Moon', 'Asteroid', 'Comet'];
+const OBJ = [
+  ['Pluto', 'Dwarf planet', 'It is round and goes around the Sun, but it shares its zone beyond Neptune with many icy bodies.', 'Pluto has not cleared its orbit, so since 2006 it counts as a dwarf planet in the Kuiper belt.'],
+  ['Ceres', 'Dwarf planet', 'It is round, 940 km wide, and the biggest thing in the belt between Mars and Jupiter.', 'Ceres is round but shares its orbit with thousands of asteroids, so it is a dwarf planet.'],
+  ['Eris', 'Dwarf planet', 'It is round, about the size of Pluto, and orbits far beyond Neptune among icy bodies.', 'Eris is a dwarf planet. Finding it in 2005 led to the new rules for what a planet is.'],
+  ['Haumea', 'Dwarf planet', 'It is a fast spinning, egg shaped world beyond Neptune with two small moons and a ring.', 'Haumea is one of the five dwarf planets the IAU has named.'],
+  ['Makemake', 'Dwarf planet', 'It is a round, icy world in the Kuiper belt, a bit smaller than Pluto.', 'Makemake is a dwarf planet in the Kuiper belt.'],
+  ['Halley', 'Comet', 'It is a ball of ice and dust that grows a long tail near the Sun and comes back every 76 years.', 'Halley\'s Comet is a comet. It returns in 2061.'],
+  ['Hale-Bopp', 'Comet', 'It is a dirty snowball that glowed with two tails when it passed the Sun in 1997.', 'Hale-Bopp is a comet. Its tails were sunlight pushing dust and gas away.'],
+  ['NEOWISE', 'Comet', 'It is an icy body that swung past the Sun in 2020, trailing a tail of dust.', 'NEOWISE is a comet.'],
+  ['Vesta', 'Asteroid', 'It is a rocky, lumpy body 525 km wide in the belt between Mars and Jupiter.', 'Vesta is an asteroid, one of the biggest in the asteroid belt.'],
+  ['Bennu', 'Asteroid', 'It is a dark, rocky pile 500 m wide that a spacecraft took a sample from in 2020.', 'Bennu is an asteroid. OSIRIS REx brought bits of it back to Earth in 2023.'],
+  ['Ryugu', 'Asteroid', 'It is a rocky, diamond shaped body about 1 km wide that a Japanese probe landed on.', 'Ryugu is an asteroid. Hayabusa2 returned a sample in 2020.'],
+  ['Ida', 'Asteroid', 'It is a rocky body 56 km long in the asteroid belt with its own tiny moon, Dactyl.', 'Ida is an asteroid. Even asteroids can have moons.'],
+  ['Titan', 'Moon', 'It goes around Saturn and has thick orange air and lakes of liquid methane.', 'Titan is a moon of Saturn, the second biggest moon in the solar system.'],
+  ['Europa', 'Moon', 'It goes around Jupiter and hides an ocean of water under its icy shell.', 'Europa is a moon of Jupiter.'],
+  ['Ganymede', 'Moon', 'It goes around Jupiter and is bigger than the planet Mercury.', 'Ganymede is a moon of Jupiter, the biggest moon in the solar system.'],
+  ['Io', 'Moon', 'It goes around Jupiter and has hundreds of active volcanoes.', 'Io is a moon of Jupiter.'],
+  ['Triton', 'Moon', 'It goes around Neptune backwards and has geysers of nitrogen.', 'Triton is a moon of Neptune.'],
+  ['Charon', 'Moon', 'It goes around Pluto and is half as wide as Pluto itself.', 'Charon is Pluto\'s biggest moon.'],
+  ['Phobos', 'Moon', 'It is a small lumpy rock that goes around Mars three times a day.', 'Phobos is a moon of Mars.'],
+  ['Mercury', 'Planet', 'It is round, goes around the Sun, and has swept its orbit clear of other bodies.', 'Mercury is a planet, the smallest of the eight.'],
+  ['Neptune', 'Planet', 'It is a big round world that goes around the Sun and rules its own orbit.', 'Neptune is a planet, the eighth from the Sun.'],
+  ['Mars', 'Planet', 'It is round, goes around the Sun, and has cleared its orbit. Two small moons go around it.', 'Mars is a planet.'],
+];
+const SMALL_Q = OBJ.map(o => () => mc(o[0] + '. ' + o[2] + ' What kind of object is it?', o[1], KINDS, o[3])).concat([
+  () => mc('How many planets are in our solar system?', 'Eight', ['Nine', 'Seven', 'Ten'], 'Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus and Neptune. Pluto is a dwarf planet.'),
+  () => mc('Why is Pluto called a dwarf planet?', 'It has not cleared its orbit of other objects', ['It is too cold', 'It is too far away', 'It has no moons'], 'A planet is round, orbits the Sun and has cleared its zone. Pluto shares its zone with the Kuiper belt.'),
+  () => mc('Where is the asteroid belt?', 'Between Mars and Jupiter', ['Between Earth and Mars', 'Beyond Neptune', 'Inside Mercury\'s orbit'], 'Most asteroids orbit in a wide belt between Mars and Jupiter.'),
+  () => mc('Where is the Kuiper belt?', 'Beyond Neptune', ['Between Mars and Jupiter', 'Between Venus and Earth', 'Around Saturn'], 'The Kuiper belt is a ring of icy bodies past Neptune. Pluto lives there.'),
+  () => mc('A comet\'s tail always points ...', 'Away from the Sun', ['Toward the Sun', 'Behind the comet', 'Down'], 'Sunlight and the solar wind push the gas and dust away from the Sun.'),
+  () => mc('What is a comet mostly made of?', 'Ice and dust', ['Rock and metal', 'Hot gas', 'Water and fish'], 'A comet is a dirty snowball. Near the Sun the ice turns to gas and makes a tail.'),
+  () => mc('What is an asteroid mostly made of?', 'Rock and metal', ['Ice and dust', 'Gas', 'Lava'], 'Asteroids are rocky or metal leftovers from when the planets formed.'),
+  () => mc('A streak of light from a space rock burning up in the air is called a ...', 'Meteor', ['Meteorite', 'Comet', 'Planet'], 'A meteor is the flash. People call them shooting stars.'),
+  () => mc('A space rock that reaches the ground is called a ...', 'Meteorite', ['Meteor', 'Comet', 'Asteroid belt'], 'Meteoroid in space, meteor in the air, meteorite on the ground.'),
+  () => mc('A small rock still out in space is called a ...', 'Meteoroid', ['Meteorite', 'Meteor', 'Moon'], 'Meteoroid in space, meteor in the air, meteorite on the ground.'),
+  () => mc('The far, cold shell of comets around the whole solar system is called the ...', 'Oort cloud', ['Kuiper belt', 'Asteroid belt', 'Milky Way'], 'The Oort cloud is thousands of times farther than Neptune. Long period comets come from there.'),
+  () => mc('Which is the largest object in the asteroid belt?', 'Ceres', ['Vesta', 'Pluto', 'Phobos'], 'Ceres is 940 km wide, big enough to be round, so it is also a dwarf planet.'),
+  () => mc('Halley\'s Comet comes back every ...', 'About 76 years', ['About 7 years', 'About 760 years', 'Every year'], 'It last came in 1986 and returns in 2061.'),
+  () => mc('Which planets have rings?', 'All four giant planets', ['Only Saturn', 'Saturn and Mars', 'None of them'], 'Saturn\'s rings are the brightest, but Jupiter, Uranus and Neptune have faint rings too.'),
+  () => mc('Pluto\'s biggest moon is ...', 'Charon', ['Titan', 'Europa', 'Phobos'], 'Charon is half as wide as Pluto. The two circle each other.'),
+  () => mc('A dwarf planet is round and orbits the Sun, but ...', 'It shares its orbit with many other objects', ['It is square', 'It orbits a planet', 'It has no gravity'], 'That one rule separates the eight planets from the dwarf planets.'),
+  () => mc('What made the craters on the Moon and Mercury?', 'Asteroids and comets hitting them', ['Volcanoes', 'Wind', 'Rain'], 'With no air to burn them up, space rocks hit the ground and leave craters.'),
+  () => mc('Which is bigger, Pluto or Earth\'s Moon?', 'Earth\'s Moon', ['Pluto', 'They are the same size'], 'The Moon is 3,475 km wide. Pluto is 2,377 km wide.'),
+  () => mc('How many dwarf planets has the IAU officially named?', 'Five', ['One', 'Fifty', 'None'], 'Ceres, Pluto, Haumea, Makemake and Eris. Many more likely wait beyond Neptune.'),
+]);
+
+// Rung 18: the lives of stars and galaxies.
+const STAR_Q = [
+  () => ordered('Tap the stages of a star like our Sun in order, from the start.', ['Nebula', 'Shining star', 'Red giant', 'White dwarf'], 'A cloud of gas squeezes into a star. It shines for billions of years, swells into a red giant, then shrinks to a white dwarf.'),
+  () => ordered('Tap the stages of a very massive star in order, from the start.', ['Nebula', 'Massive star', 'Supernova', 'Neutron star or black hole'], 'Heavy stars burn fast, explode as a supernova, and leave a neutron star or a black hole.'),
+  () => ordered('Tap the star colors from hottest to coolest.', ['Blue', 'White', 'Yellow', 'Red'], 'Blue stars are the hottest and red stars are the coolest. The Sun is in between.'),
+  () => ordered('Tap them from smallest to biggest.', ['Earth', 'The Sun', 'The solar system', 'The Milky Way'], 'Earth fits in the Sun a million times. The Sun is a dot in the solar system, which is a dot in the galaxy.'),
+  () => ordered('Tap them from the inside out. Where do we live?', ['Earth', 'The solar system', 'The Milky Way', 'The universe'], 'Earth is in the solar system, which is in the Milky Way, which is one galaxy among billions.'),
+  () => ordered('Tap them from nearest to farthest from Earth.', ['The Moon', 'The Sun', 'Proxima Centauri', 'The Andromeda galaxy'], 'The Moon is 1 light-second away, the Sun 8 light-minutes, Proxima 4 light-years, Andromeda 2.5 million light-years.'),
+  () => mc('What kind of star is the Sun?', 'A medium sized yellow star in the middle of its life', ['A red giant', 'A white dwarf', 'A blue supergiant'], 'The Sun is a main sequence star, about halfway through its 10 billion year life.'),
+  () => mc('Where are stars born?', 'In clouds of gas and dust called nebulas', ['Inside planets', 'In black holes', 'In the ocean'], 'Gravity pulls a cloud together until the center gets hot enough to shine.'),
+  () => mc('What will the Sun become at the very end of its life?', 'A white dwarf', ['A black hole', 'A supernova', 'A planet'], 'The Sun is not heavy enough to explode. It will swell, puff off its outer layers and leave a white dwarf.'),
+  () => mc('Which stars end in a supernova explosion?', 'Very massive stars', ['All stars', 'Small red stars', 'Stars like the Sun'], 'Only stars much heavier than the Sun blow up.'),
+  () => mc('What can be left after a giant star explodes?', 'A neutron star or a black hole', ['A new planet', 'A comet', 'Nothing at all'], 'The core collapses into a tiny neutron star, or a black hole if it is heavy enough.'),
+  () => mc('What is a galaxy?', 'Billions of stars held together by gravity', ['A single big star', 'A group of planets', 'A cloud on Earth'], 'A galaxy also holds gas, dust and dark matter.'),
+  () => mc('What is the name of our galaxy?', 'The Milky Way', ['Andromeda', 'The solar system', 'Orion'], 'We live in the Milky Way. On a dark night you can see it as a hazy band.'),
+  () => mc('What shape is the Milky Way?', 'A spiral with a bar across the middle', ['A ball', 'A cube', 'A flat ring'], 'The Milky Way is a barred spiral galaxy about 100,000 light-years across.'),
+  () => mc('Where is the Sun in the Milky Way?', 'In a spiral arm, about halfway out from the center', ['Right at the center', 'At the very edge', 'Outside it'], 'The Sun is about 26,000 light-years from the center, in the Orion Arm.'),
+  () => mc('About how many stars are in the Milky Way?', 'Hundreds of billions', ['A few thousand', 'About a million', 'Exactly one hundred'], 'Estimates run from 100 billion to 400 billion stars.'),
+  () => mc('How wide is the Milky Way?', 'About 100,000 light-years', ['About 100 light-years', 'About 1 light-year', 'About 8 light-minutes'], 'Light takes about 100,000 years to cross our galaxy.'),
+  () => mc('The nearest big galaxy to ours is ...', 'Andromeda', ['The Milky Way', 'Proxima Centauri', 'Orion'], 'Andromeda is 2.5 million light-years away. It and the Milky Way are slowly moving toward each other.'),
+  () => mc('How far away is the Andromeda galaxy?', 'About 2.5 million light-years', ['About 4 light-years', 'About 100,000 light-years', 'About 8 light-minutes'], 'Its light left 2.5 million years ago, before modern humans existed.'),
+  () => mc('What color are the hottest stars?', 'Blue', ['Red', 'Yellow', 'Green'], 'Hot things glow blue white. Cooler stars glow orange and red.'),
+  () => mc('What color are the coolest stars?', 'Red', ['Blue', 'White', 'Green'], 'Red stars are the coolest and often the smallest. Proxima Centauri is one.'),
+  () => mc('The hazy band of light across the night sky is ...', 'Our own galaxy seen from inside', ['A cloud', 'The Moon\'s glow', 'Another galaxy'], 'We look along the disk of the Milky Way and see billions of faraway stars blended together.'),
+  () => mc('How much longer will the Sun shine as it does now?', 'About 5 billion more years', ['About 5,000 years', 'About 5 million years', 'About 50 years'], 'The Sun has used about half of its hydrogen fuel.'),
+  () => mc('What sits at the center of the Milky Way?', 'A giant black hole', ['The Sun', 'A planet', 'Nothing'], 'Sagittarius A star is 4 million times the mass of the Sun.'),
+  () => mc('What is a black hole?', 'A place where gravity is so strong that not even light escapes', ['An empty hole in space', 'A dark planet', 'A burned out comet'], 'Black holes form when a huge star\'s core collapses.'),
+  () => mc('A supernova is ...', 'The explosion of a massive star', ['A new star being born', 'A very bright planet', 'A comet near the Sun'], 'For a few weeks a supernova can outshine its whole galaxy.'),
+  () => mc('Most of the stars you can see at night are ...', 'In our own Milky Way', ['In Andromeda', 'In the solar system', 'Planets'], 'Every single star you see by eye is inside the Milky Way.'),
+  () => mc('Roughly how many galaxies are there?', 'Far more than 100 billion', ['Exactly one', 'About 100', 'About a million'], 'Every deep photo of the sky is full of galaxies.'),
+];
+
+// Rung 19: Kepler in plain words, and finding exoplanets by the transit dip.
+const E_ORB = 0.55;
+function orbitView(showSpeeds, at) {
+  const L = shuffle(['A', 'B', 'C']), v1 = rnd(24, 48), v2 = Math.round(v1 * 0.49), v3 = Math.round(v1 * 0.29);
+  return { type: 'orbit', pts: [{ th: 0, label: L[0], speed: v1 }, { th: pick([1.75, -1.75]), label: L[1], speed: v2 }, { th: Math.PI, label: L[2], speed: v3 }], showSpeeds: !!showSpeeds, at: at == null ? rnd(0, 2) : at };
+}
+function curveView(o) { return Object.assign({ type: 'curve', xmax: 30, xunit: 'days', xtick: 5, ymin: 94, dips: [] }, o); }
+const KEP_Q = [
+  () => { const v = orbitView(false); return mc('Where does the planet move fastest?', v.pts[0].label, ['A', 'B', 'C'], 'Point ' + v.pts[0].label + ' is closest to the Sun. The pull is strongest there, so the planet moves fastest.', { view: v }); },
+  () => { const v = orbitView(false); return mc('Where does the planet move slowest?', v.pts[2].label, ['A', 'B', 'C'], 'Point ' + v.pts[2].label + ' is farthest from the Sun. The planet crawls there and speeds up as it falls back in.', { view: v }); },
+  () => { const v = orbitView(false); return mc('Which point is closest to the Sun?', v.pts[0].label, ['A', 'B', 'C'], 'The Sun sits at one focus of the ellipse, near point ' + v.pts[0].label + '. That is called perihelion.', { view: v }); },
+  () => { const v = orbitView(true); return mc('Read the speeds on the orbit. How fast is the planet at point ' + v.pts[2].label + ', farthest from the Sun?', v.pts[2].speed + ' km/s', v.pts.map(p => p.speed + ' km/s'), 'At ' + v.pts[2].label + ' it moves ' + v.pts[2].speed + ' km per second, its slowest.', { view: v }); },
+  () => { const v = orbitView(true); return mc('Read the speeds on the orbit. How fast is the planet at the point nearest the Sun?', v.pts[0].speed + ' km/s', v.pts.map(p => p.speed + ' km/s'), 'At ' + v.pts[0].label + ', nearest the Sun, it moves ' + v.pts[0].speed + ' km per second, its fastest.', { view: v }); },
+  () => { const v = orbitView(true); return mc('Read the orbit. At which point does the planet move ' + v.pts[1].speed + ' km/s?', v.pts[1].label, ['A', 'B', 'C'], 'Point ' + v.pts[1].label + ' is in between, so its speed is in between too.', { view: v }); },
+  () => { const v = orbitView(false, 1); return mc('At point ' + v.pts[1].label + ' the planet moves ' + v.pts[1].speed + ' km/s. At point ' + v.pts[0].label + ', closer to the Sun, it moves ...', 'Faster', ['Slower', 'The same speed'], 'Closer to the Sun means a stronger pull and a faster planet. Kepler saw this in 1609.', { view: v }); },
+  () => { const v = orbitView(false, 0); return mc('At point ' + v.pts[0].label + ' the planet moves ' + v.pts[0].speed + ' km/s. At point ' + v.pts[2].label + ', far from the Sun, it moves ...', 'Slower', ['Faster', 'The same speed'], 'Far from the Sun the pull is weaker and the planet slows down.', { view: v }); },
+  () => { const v = orbitView(false); return mc('A planet sweeps out equal areas in equal times. So near the Sun it must move ...', 'Faster', ['Slower', 'The same speed', 'Backwards'], 'Near the Sun the line to the planet is short, so it must sweep fast to cover the same area.', { view: v }); },
+  () => { const v = orbitView(false); return mc('The shape of a planet\'s orbit is ...', 'An ellipse, a stretched circle', ['A perfect circle', 'A square', 'A straight line'], 'Kepler\'s first law. Most planet orbits are nearly round, but comets have long thin ellipses.', { view: v }); },
+  () => { const v = orbitView(false); return mc('Where does the Sun sit in a planet\'s orbit?', 'At one focus of the ellipse, off center', ['At the exact center', 'On the orbit itself', 'Outside the orbit'], 'The Sun is at a focus, so the planet is sometimes closer and sometimes farther.', { view: v }); },
+  () => { const v = orbitView(false); return mc('Who worked out these laws of planet motion about 400 years ago?', 'Johannes Kepler', ['Isaac Newton', 'Galileo Galilei', 'Albert Einstein'], 'Kepler used Tycho Brahe\'s careful measurements of Mars. Newton later explained why with gravity.', { view: v }); },
+  () => { const v = orbitView(false); return mc('Earth is closest to the Sun in early January. When does Earth move fastest?', 'January', ['July', 'April', 'October'], 'Closest means fastest. Earth moves about 1 km per second faster in January than in July.', { view: v }); },
+  () => { const v = orbitView(false, 2); return mc('A comet far out from the Sun moves ...', 'Very slowly, then speeds up as it falls in', ['Very fast', 'At a steady speed', 'Not at all'], 'Comets spend most of their time crawling far from the Sun, then whip around it.', { view: v }); },
+  () => { const v = orbitView(false); return mc('Kepler\'s third law says a planet farther from the Sun ...', 'Takes longer to orbit', ['Takes less time to orbit', 'Orbits in the same time', 'Stops orbiting'], 'Neptune takes 165 years. Mercury takes 88 days.', { view: v }); },
+  () => { const v = orbitView(false); return mc('If a planet\'s orbit were a perfect circle, its speed would ...', 'Stay the same all the way around', ['Speed up and slow down', 'Get faster every year', 'Be zero'], 'Only a changing distance changes the speed.', { view: v }); },
+  () => { const v = curveView({ dips: [{ t: rnd(8, 20), dur: 1.4, depth: pick([1, 2, 3]) }] }); return mc('A star\'s brightness over time. What made the dip?', 'A planet passed in front of the star', ['The star turned off', 'A cloud on Earth', 'The star moved away'], 'A planet crossing its star blocks a little light. That crossing is called a transit.', { view: v }); },
+  () => { const d = pick([1, 2, 3, 4, 5]), v = curveView({ dips: [{ t: rnd(8, 20), dur: 1.4, depth: d }] }); return mc('Read the graph. How much dimmer did the star get during the transit?', 'About ' + d + '%', [1, 2, 3, 4, 5].map(x => 'About ' + x + '%'), 'The line drops from 100% to ' + (100 - d) + '%, so the planet blocked ' + d + '% of the light.', { view: v }); },
+  () => { const d = pick([1, 2, 3, 4, 5]), v = curveView({ dips: [{ t: rnd(8, 20), dur: 1.4, depth: d }] }); return mc('Read the graph. How much dimmer did the star get during the transit?', 'About ' + d + '%', [1, 2, 3, 4, 5].map(x => 'About ' + x + '%'), 'The line drops from 100% to ' + (100 - d) + '%, so the planet blocked ' + d + '% of the light.', { view: v }); },
+  () => { const P = pick([4, 6, 8, 10, 12]), t0 = rnd(2, 4), dips = []; for (let t = t0; t < 30; t += P) dips.push({ t, dur: 1.2, depth: 3 }); return mc('The dips repeat. Read the graph. How many days apart are they? That is the planet\'s year.', P + ' days', [4, 6, 8, 10, 12].map(x => x + ' days'), 'One dip every ' + P + ' days means the planet goes around its star in ' + P + ' days.', { view: curveView({ dips }) }); },
+  () => { const P = pick([4, 6, 8, 10, 12]), t0 = rnd(2, 4), dips = []; for (let t = t0; t < 30; t += P) dips.push({ t, dur: 1.2, depth: 3 }); return mc('The dips repeat. Read the graph. How many days apart are they? That is the planet\'s year.', P + ' days', [4, 6, 8, 10, 12].map(x => x + ' days'), 'One dip every ' + P + ' days means the planet goes around its star in ' + P + ' days.', { view: curveView({ dips }) }); },
+  () => { const D = pick([2, 3, 4, 6, 8]), v = curveView({ xmax: 24, xunit: 'hours', xtick: 4, dips: [{ t: 12, dur: D, depth: 2 }] }); return mc('Read the graph. About how many hours did the planet take to cross in front of its star?', D + ' hours', [2, 3, 4, 6, 8].map(x => x + ' hours'), 'The dip starts at ' + (12 - D / 2) + ' hours and ends at ' + (12 + D / 2) + ' hours, so the transit lasted ' + D + ' hours.', { view: v }); },
+  () => { const a = pick([1, 2]), b = pick([3, 4, 5]), swap = Math.random() < 0.5, v = curveView({ dips: [{ t: 9, dur: 1.4, depth: swap ? b : a, label: 'A' }, { t: 21, dur: 1.4, depth: swap ? a : b, label: 'B' }] }); return mc('Two planets cross the same star. Which dip was made by the bigger planet?', swap ? 'Dip A' : 'Dip B', ['Dip A', 'Dip B'], 'A bigger planet blocks more light, so it makes the deeper dip.', { view: v }); },
+  () => mc('A bigger planet crossing its star makes a dip that is ...', 'Deeper', ['Shallower', 'Farther apart', 'Red'], 'The dip depth tells the planet\'s size compared with its star.', { view: curveView({ dips: [{ t: 10, dur: 1.4, depth: 1 }, { t: 22, dur: 1.4, depth: 4 }] }) }),
+  () => mc('A planet farther from its star makes dips that are ...', 'Farther apart in time', ['Closer together in time', 'Deeper', 'Brighter'], 'Farther out means a longer year, so more time passes between crossings.', { view: curveView({ dips: [{ t: 4, dur: 1.2, depth: 2 }, { t: 16, dur: 1.2, depth: 2 }, { t: 28, dur: 1.2, depth: 2 }] }) }),
+  () => mc('Finding a planet by watching its star dim a little is called the ...', 'Transit method', ['Telescope method', 'Gravity method', 'Radio method'], 'Most known exoplanets were found this way.', { view: curveView({ dips: [{ t: 15, dur: 1.4, depth: 2 }] }) }),
+  () => mc('Planets that go around other stars are called ...', 'Exoplanets', ['Dwarf planets', 'Comets', 'Moons'], 'Thousands of exoplanets are known. Many were found by their transit dips.', { view: curveView({ dips: [{ t: 15, dur: 1.4, depth: 2 }] }) }),
+  () => mc('A space telescope found thousands of exoplanets by watching for dips. It was named after ...', 'Johannes Kepler', ['Isaac Newton', 'Galileo Galilei', 'Edwin Hubble'], 'The Kepler telescope stared at 150,000 stars from 2009 to 2018.', { view: curveView({ dips: [{ t: 7, dur: 1.2, depth: 1 }, { t: 17, dur: 1.2, depth: 1 }, { t: 27, dur: 1.2, depth: 1 }] }) }),
+  () => mc('A dip 1% deep means the planet is about ... as wide as its star.', 'One tenth', ['One hundredth', 'Half', 'Just as wide'], 'Blocked light goes with area. A tenth of the width is a hundredth of the area, 1%.', { view: curveView({ dips: [{ t: 15, dur: 1.4, depth: 1 }] }) }),
+];
+
+// The ladder. Each rung carries g, the grade it is for (-1 pre-K, 0 K, 1 to 8). A child opens on the first rung
+// whose g reaches their science grade.
+//  0 Find a planet         g -1  pre-K      tap the named planet
+//  1 Planet order          g 1   K / 1st    closest, farthest, the nth planet out
+//  2 Big or small          g 2   2nd        which of two worlds is wider
+//  3 Jump test             g 2   2nd        where a jump goes higher (weaker gravity)
+//  4 Day length            g 2   2nd        which world has the longer day
+//  5 How high?             g 3   3rd        how high a 1 foot jump goes elsewhere
+//  6 Seasons               g 3   3rd        which planet is tipped more
+//  7 Year length           g 3   3rd        which planet has the longer year
+//  8 Weigh in              g 3   3rd        pick the weight on another world
+//  9 Mystery planet        g 4   4th        name the planet from two clues
+// 10 Tilt and seasons      g 4   4th        tilted Earth in 3D: day and night, which hemisphere has summer
+// 11 Moon phases           g 4   4th        set the Moon's spot for a phase, name the phase shown
+// 12 Gravity math          g 5   5th        weight on other worlds from a stated factor, typed on the number pad
+// 13 Orbits and years      g 5   5th        longest year and why, order planets by orbital period
+// 14 Scale model           g 6   6th        read distances from a scaled strip, basketball Sun
+// 15 Eclipses              g 6   6th        line up Sun, Earth and Moon, who sees what
+// 16 Our star              g 7   7th        the Sun as a star, speed of light, light-years
+// 17 Small worlds          g 7   7th        classify comets, asteroids, dwarf planets, moons, the belts
+// 18 Stars and galaxies    g 8   8th        order a star's life, the Milky Way's place
+// 19 Kepler and exoplanets g 8   8th        faster when closer, read a speed off an orbit, read a transit light curve
+const UPPER = [
+  { name: 'Tilt and seasons', g: 4, gen: bank(TILT_Q) },
+  { name: 'Moon phases', g: 4, gen: bank(MOON_Q) },
+  { name: 'Gravity math', g: 5, gen: bank(GRAV_Q) },
+  { name: 'Orbits and years', g: 5, gen: bank(ORBIT_Q) },
+  { name: 'Scale model', g: 6, gen: bank(SCALE_Q) },
+  { name: 'Eclipses', g: 6, gen: bank(ECL_Q) },
+  { name: 'Our star', g: 7, gen: bank(SUN_Q) },
+  { name: 'Small worlds', g: 7, gen: bank(SMALL_Q) },
+  { name: 'Stars and galaxies', g: 8, gen: bank(STAR_Q) },
+  { name: 'Kepler and exoplanets', g: 8, gen: bank(KEP_Q) },
+];
+for (const l of UPPER) LEVELS.push(l);
+// Where a new player starts: the first rung whose grade (g) reaches the child's science grade, set by the parent.
+// Older tablets without rungFor spread the grades over the ladder with rung 2 as the 2nd grade rung. No grade: rung 2.
+const START = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('science', LEVELS.map(l => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('science', LEVELS.length, 2) : 2));
 function genLevel(i) { const q = LEVELS[i].gen(); q.level = i; return q; }
-// The right answer worked out again from the facts, so tests can check each quest.
+// The right answer worked out again from the facts, so tests can check each quest. Banked questions on the upper
+// rungs carry their answer with them, so recheck hands it back as is.
 function recheck(q) {
   const T = q.text;
+  if (q.topic === 'bank') return q.ans;
   if (q.kind === 'fly') {
     if (/closest/.test(T)) return argBy(PLANETS, w => -DATA[w].dist);
     if (/farthest/.test(T)) return argBy(PLANETS, w => DATA[w].dist);
@@ -609,15 +1019,194 @@ function worldPos(w) { return BODY[w].mesh.getWorldPosition(new THREE.Vector3())
 function planetCam(w) { const p = worldPos(w), r = BODY[w].r * (w === 'Saturn' ? 1.8 : 1), dir = p.clone().setY(0).normalize(); if (!dir.lengthSq()) dir.set(0, 0, 1); const side = new THREE.Vector3(-dir.z, 0, dir.x); return { pos: p.clone().addScaledVector(dir, -r * 2.6).addScaledVector(side, r * 3.6).add(new THREE.Vector3(0, r * 1.5, 0)), look: p.clone().addScaledVector(side, -r * 0.6) }; }
 function flyCam(to, ms = 1300) { camAnim = { from: camera.position.clone(), fromLook: camTarget.clone(), to, t0: performance.now(), ms }; SND.whoosh(); }
 function setMode(m) {
-  mode = m; space.visible = m === 'space' || m === 'planet'; compare.visible = m === 'compare'; surface.visible = m === 'surface';
+  mode = m; space.visible = m === 'space' || m === 'planet'; compare.visible = m === 'compare'; surface.visible = m === 'surface'; viewG.visible = m === 'view';
+  sunLight.visible = m !== 'view'; ambient.intensity = m === 'view' ? 0.12 : 0.5;
   for (const w of WORLDS) labels[w].visible = m === 'space';
   scene.background = m === 'surface' ? new THREE.Color(SKY[focus]) : SPACE_BG.clone();
   $('info').classList.toggle('on', m === 'planet' || m === 'surface'); $('jumps').style.display = (m === 'surface' || (task && task.topic === 'jump')) ? 'flex' : 'none';
-  $('hint').textContent = m === 'space' ? 'Tap a planet to fly there. Drag to turn.' : '';
+  $('pad').classList.toggle('on', m === 'view' && !!task && task.kind === 'type');
+  const kindHint = task && task.kind === 'place' ? 'Tap a yellow spot.' : task && task.kind === 'order' ? 'Tap them one at a time, in order.' : '';
+  $('hint').textContent = m === 'space' ? (kindHint || 'Tap a planet to fly there. Drag to turn.') : m === 'view' ? kindHint : '';
+  $('hint').classList.toggle('up', m === 'view'); $('askRow').classList.toggle('narrow', m === 'view'); $('corner').innerHTML = '';
   $('peak').style.display = 'none';
   renderBottom();
+  drawOverlay();
 }
 function goSpace() { focus = null; timeOn = true; setMode('space'); flyCam(spaceCam()); }
+
+// ---------------------------------------------------------------------------
+// Views for the upper rungs: a tilted Earth by the Sun, the Moon's orbit with eight spots, one world by itself,
+// and 2D panels (a distance strip, a light curve, an orbit) drawn on the overlay canvas.
+// ---------------------------------------------------------------------------
+const viewG = new THREE.Group(); viewG.visible = false; viewG.position.set(0, -80, 0); scene.add(viewG);
+const MOON_R = 4.2;
+let view = null;
+const spotPos = k => { const a = Math.PI + k * Math.PI / 4; return new THREE.Vector3(Math.cos(a) * MOON_R, 0, -Math.sin(a) * MOON_R); };
+function clearView() { while (viewG.children.length) viewG.remove(viewG.children[0]); view = null; }
+function numTex(n) { return canvasTex(128, 128, (g) => { g.fillStyle = '#2B2140'; g.beginPath(); g.arc(64, 64, 58, 0, 7); g.fill(); g.fillStyle = '#FFC93C'; g.font = '900 84px Segoe UI, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n), 64, 70); }); }
+function badge(txt, x, y, z, size) { const b = new THREE.Sprite(new THREE.SpriteMaterial({ map: numTex(txt), depthTest: false })); b.scale.set(size, size, 1); b.position.set(x, y, z); b.renderOrder = 10; viewG.add(b); return b; }
+function sprite(txt, x, y, z, w, h) { const l = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(txt), depthTest: false })); l.scale.set(w || 2.2, h || 0.55, 1); l.position.set(x, y, z); l.renderOrder = 10; viewG.add(l); return l; }
+function sunBall(x, y, z, r, lit) {
+  const s = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 20), new THREE.MeshBasicMaterial({ color: 0xFFD23C })); s.position.set(x, y, z); viewG.add(s);
+  const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex('rgba(255,240,180,1)', 'rgba(255,150,40,0.6)'), blending: THREE.AdditiveBlending, depthWrite: false })); g.scale.set(r * 5, r * 5, 1); g.position.set(x, y, z); viewG.add(g);
+  if (lit !== false) { const L = new THREE.PointLight(0xFFF2D6, 2.2, 0, 0); L.position.set(x, y, z); viewG.add(L); }
+  return s;
+}
+function showView(v) {
+  clearView(); view = Object.assign({ spin: [] }, v);
+  const base = viewG.position, at = (x, y, z) => base.clone().add(new THREE.Vector3(x, y, z)); let cam = null;
+  if (v.type === 'tilt') {
+    const e = makeWorld('Earth', 2.0); viewG.add(e.holder); view.spin.push(e.mesh);
+    const eq = new THREE.Mesh(new THREE.TorusGeometry(2.03, 0.025, 8, 64), new THREE.MeshBasicMaterial({ color: 0xFFC93C })); eq.rotation.x = Math.PI / 2; e.tilt.add(eq);
+    const n = badge('N', 0, 3.25, 0, 0.75), s = badge('S', 0, -3.25, 0, 0.75); e.tilt.add(n); e.tilt.add(s);
+    sunBall(v.side * 8.2, 0, 0, 1.25); sprite('Sun', v.side * 8.2, -2.3, 0, 3.0, 0.75);
+    sprite(v.side > 0 ? 'June' : 'December', -v.side * 6.0, 3.0, 0, 3.4, 0.85);
+    cam = { pos: at(0, 2.0, 15.5), look: at(0, 0.1, 0) };
+  } else if (v.type === 'moon') {
+    const e = makeWorld('Earth', 1.0); viewG.add(e.holder); view.spin.push(e.mesh);
+    const m = makeWorld('Moon', 0.34); m.axis.visible = false; viewG.add(m.holder); view.moon = m;
+    const L = new THREE.PointLight(0xFFF2D6, 2.4, 0, 0); L.position.set(-60, 0, 0); viewG.add(L);
+    sunBall(-11.2, 0, 0, 1.6, false); sprite('Sun', -11.2, -2.5, 0, 3.4, 0.85); sprite('Sunlight', -7.4, 1.9, 0, 3.6, 0.9);
+    view.spots = [];
+    for (let k = 0; k < 8; k++) {
+      const p = spotPos(k), ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.56, 32), new THREE.MeshBasicMaterial({ color: 0xFFC93C, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }));
+      ring.rotation.x = -Math.PI / 2; ring.position.copy(p); viewG.add(ring); view.spots.push(ring);
+      badge(k + 1, p.x, 0.75, p.z, 0.8);
+    }
+    const orbit = new THREE.Mesh(new THREE.RingGeometry(MOON_R - 0.02, MOON_R + 0.02, 96), new THREE.MeshBasicMaterial({ color: 0x8E7CFF, transparent: true, opacity: 0.5, side: THREE.DoubleSide })); orbit.rotation.x = -Math.PI / 2; viewG.add(orbit);
+    if (v.shadows) {
+      const es = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.72, 6.2, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0x5A48A8, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false })); es.rotation.z = Math.PI / 2; es.position.set(3.1, 0, 0); viewG.add(es);
+      const ms = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.06, 3.4, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0x5A48A8, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false })); ms.rotation.z = Math.PI / 2; ms.position.set(-MOON_R + 1.9, 0, 0); viewG.add(ms); view.moonShadow = ms;
+    }
+    moonAt(v.spot != null ? v.spot : v.start != null ? v.start : 2);
+    cam = { pos: at(0, 16.4, 10.6), look: at(0, 0, 0.2) };
+  } else if (v.type === 'world') {
+    if (v.w === 'Sun') { sunBall(-2.4, 0, 0, 2.4, false); sprite('The Sun', -2.4, -3.3, 0, 3.0, 0.75); }
+    else { const b = makeWorld(v.w, v.w === 'Saturn' ? 1.3 : 1.75); b.holder.position.set(-2.6, 0.3, 0); viewG.add(b.holder); view.spin.push(b.mesh); sprite(Cap(isWorld(v.w)), -2.6, -2.5, 0, 3.4, 0.85); const L = new THREE.PointLight(0xFFF2D6, 2.0, 0, 0); L.position.set(-9, 6, 12); viewG.add(L); }
+    cam = { pos: at(0, 0.3, 10.5), look: at(-0.6, 0, 0) };
+  } else { cam = { pos: at(0, 0, 14), look: at(0, 0, 0) }; }
+  setMode('view'); flyCam(cam, 900);
+}
+function moonAt(k) { if (!view || !view.moon) return; view.spot = k; view.moon.holder.position.copy(spotPos(k)); if (view.moonShadow) view.moonShadow.visible = k === 0; drawOverlay(); }
+function spotHit(x, y) {
+  if (!view || !view.spots) return null; let best = null, bd = 1e9;
+  view.spots.forEach((r, k) => { const s = screenOf(r.getWorldPosition(new THREE.Vector3())), d = Math.hypot(s.x - x, s.y - y); if (s.z < 1 && d < 46 && d < bd) { bd = d; best = k; } });
+  return best;
+}
+
+// The overlay canvas: a Moon phase inset, or a full panel for the strip, the light curve and the orbit.
+const ov = $('ov');
+function drawOverlay() {
+  const v = mode === 'view' && task && task.view ? task.view : null;
+  if (!v || !['moon', 'strip', 'curve', 'orbit'].includes(v.type) || (v.type === 'moon' && !v.inset)) { ov.className = ''; return; }
+  // The panel sits between the prompt and the answer buttons, however tall each of those is on this screen.
+  const main = $('main').getBoundingClientRect(), W = main.width, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const top = $('askRow').getBoundingClientRect().bottom - main.top + 10;
+  const bb = $('bottom').getBoundingClientRect(), room = (bb.height ? bb.top - main.top : main.height - 16) - top - 12;
+  const size = v.type === 'moon' ? [170, Math.min(196, room)] : v.type === 'strip' ? [Math.min(760, W - 40), Math.min(220, room)] : [Math.min(700, W - 40), Math.min(330, room)];
+  const [w, h] = size; ov.width = w * dpr; ov.height = h * dpr; ov.style.width = w + 'px'; ov.style.height = h + 'px';
+  ov.style.left = (v.type === 'moon' ? W - w - 14 : (W - w) / 2) + 'px'; ov.style.top = top + 'px';
+  ov.className = 'on';
+  const g = ov.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  g.font = '800 16px Segoe UI, system-ui, sans-serif'; g.fillStyle = '#2B2140'; g.textBaseline = 'middle';
+  if (v.type === 'moon') drawPhase(g, w, h, view ? view.spot : v.spot);
+  else if (v.type === 'strip') drawStrip(g, w, h, v);
+  else if (v.type === 'curve') drawCurve(g, w, h, v);
+  else drawOrbit(g, w, h, v);
+}
+function drawPhase(g, w, h, k) {
+  g.textAlign = 'center'; g.fillText('From Earth', w / 2, 20);
+  const cx = w / 2, cy = 102, r = 56, ph = (k || 0) * Math.PI / 4, lit = '#F3EFFF', dark = '#1B1830';
+  g.save(); g.beginPath(); g.arc(cx, cy, r, 0, 7); g.clip(); g.fillStyle = dark; g.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+  if (k === 4) { g.fillStyle = lit; g.fillRect(cx - r, cy - r, 2 * r, 2 * r); }
+  else if (k) {
+    const right = k < 4; g.fillStyle = lit; g.fillRect(right ? cx : cx - r, cy - r, r, 2 * r);
+    const f = (1 - Math.cos(ph)) / 2, ex = Math.abs(Math.cos(ph)) * r;
+    if (Math.abs(f - 0.5) > 0.01) { g.fillStyle = f < 0.5 ? dark : lit; g.beginPath(); g.ellipse(cx, cy, Math.max(0.5, ex), r, 0, 0, 7); g.fill(); }
+  }
+  g.globalAlpha = 0.18; g.fillStyle = '#6E6680'; [[-20, -14, 9], [14, 6, 7], [-6, 26, 6], [24, -26, 5]].forEach(c => { g.beginPath(); g.arc(cx + c[0], cy + c[1], c[2], 0, 7); g.fill(); }); g.globalAlpha = 1;
+  g.restore(); g.strokeStyle = '#2B2140'; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke();
+  g.fillStyle = '#2B2140'; g.fillText('Spot ' + ((k || 0) + 1), w / 2, h - 18);
+}
+function fmtNum(x) { return Number.isInteger(x) ? x.toLocaleString('en-US') : String(x); }
+function drawStrip(g, w, h, v) {
+  const x0 = 78, x1 = w - 36, y = h * 0.56, px = x => x0 + (x1 - x0) * x / v.max;
+  g.textAlign = 'left'; g.fillText(v.ball ? 'The Sun as a basketball. Distances in ' + v.unit + '.' : 'Distance from the Sun in ' + v.unit + '.', 16, 22);
+  g.strokeStyle = '#2B2140'; g.lineWidth = 3; g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
+  g.textAlign = 'center'; g.font = '700 14px Segoe UI, system-ui, sans-serif';
+  for (let t = 0; t <= v.max + 1e-9; t += v.tick) { const x = px(t); g.beginPath(); g.moveTo(x, y - 8); g.lineTo(x, y + 8); g.stroke(); g.fillStyle = '#2B2140'; g.fillText(fmtNum(Math.round(t * 100) / 100), x, y + 26); }
+  g.save(); g.beginPath(); g.rect(0, 0, w, h); g.clip();
+  g.fillStyle = v.ball ? '#E8732A' : '#FFD23C'; g.beginPath(); g.arc(x0 - 40, y, 32, 0, 7); g.fill(); g.lineWidth = 3; g.strokeStyle = '#2B2140'; g.stroke();
+  if (v.ball) { g.beginPath(); g.moveTo(x0 - 40, y - 32); g.lineTo(x0 - 40, y + 32); g.moveTo(x0 - 72, y); g.lineTo(x0 - 8, y); g.stroke(); }
+  g.restore();
+  g.font = '800 15px Segoe UI, system-ui, sans-serif';
+  v.marks.forEach((m, i) => {
+    const x = px(m.x); g.fillStyle = m.q ? '#FF4F8B' : m.col; g.beginPath(); g.arc(x, y, m.q ? 11 : 8, 0, 7); g.fill(); g.strokeStyle = '#2B2140'; g.lineWidth = 2.5; g.stroke();
+    const ly = y - (m.q ? 38 : (i % 2 ? 24 : 44)); g.fillStyle = '#2B2140'; g.font = (m.q ? '900 22px ' : '800 15px ') + 'Segoe UI, system-ui, sans-serif'; g.fillText(m.label, Math.min(w - 30, Math.max(x0 + 10, x)), ly);
+  });
+}
+function drawCurve(g, w, h, v) {
+  const L = 72, R = w - 24, T = 44, B = h - 50, ymin = v.ymin || 94, X = t => L + (R - L) * t / v.xmax, Y = b => B - (B - T) * (b - ymin) / (100.6 - ymin);
+  g.textAlign = 'left'; g.fillText('Brightness of a star over time', 16, 20);
+  g.strokeStyle = '#D9D2EC'; g.lineWidth = 1.5; g.font = '700 14px Segoe UI, system-ui, sans-serif'; g.textAlign = 'right';
+  for (let b = ymin; b <= 100; b++) { g.beginPath(); g.moveTo(L, Y(b)); g.lineTo(R, Y(b)); g.stroke(); g.fillStyle = '#2B2140'; g.fillText(b + '%', L - 8, Y(b)); }
+  g.textAlign = 'center';
+  for (let t = 0; t <= v.xmax; t += v.xtick) { g.beginPath(); g.moveTo(X(t), T); g.lineTo(X(t), B); g.stroke(); g.fillText(String(t), X(t), B + 16); }
+  g.fillText('Time in ' + v.xunit, (L + R) / 2, B + 36);
+  g.strokeStyle = '#2B2140'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(L, T); g.lineTo(L, B); g.lineTo(R, B); g.stroke();
+  const bright = t => { let b = 100; for (const d of v.dips) { const a = Math.abs(t - d.t), half = d.dur / 2, ramp = d.dur * 0.12; if (a < half - ramp) b -= d.depth; else if (a < half) b -= d.depth * (half - a) / ramp; } return b; };
+  g.strokeStyle = '#9B6BFF'; g.lineWidth = 3.5; g.beginPath();
+  for (let x = L; x <= R; x += 1) { const t = (x - L) / (R - L) * v.xmax, y = Y(bright(t)); if (x === L) g.moveTo(x, y); else g.lineTo(x, y); }
+  g.stroke();
+  g.fillStyle = '#2B2140'; g.font = '900 18px Segoe UI, system-ui, sans-serif';
+  for (const d of v.dips) if (d.label) g.fillText(d.label, X(d.t), Y(100 - d.depth) + 18);
+}
+function drawOrbit(g, w, h, v) {
+  const cx = w / 2 - 10, cy = h / 2 + 14, b = Math.min((h - 90) / 2, 130), a = Math.min((w - 150) / 2, b / Math.sqrt(1 - E_ORB * E_ORB)), fx = cx + a * E_ORB;
+  g.textAlign = 'left'; g.fillText('A planet\'s orbit. The Sun is at one focus.', 16, 20);
+  g.strokeStyle = '#8E7CFF'; g.lineWidth = 3; g.beginPath(); g.ellipse(cx, cy, a, b, 0, 0, 7); g.stroke();
+  g.fillStyle = '#FFD23C'; g.beginPath(); g.arc(fx, cy, 17, 0, 7); g.fill(); g.strokeStyle = '#2B2140'; g.lineWidth = 2.5; g.stroke();
+  g.fillStyle = '#2B2140'; g.font = '800 15px Segoe UI, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('Sun', fx, cy + 32);
+  v.pts.forEach((p, i) => {
+    const x = cx + a * Math.cos(p.th), y = cy + b * Math.sin(p.th), out = Math.sign(Math.cos(p.th)) || 1;
+    g.fillStyle = i === v.at ? '#3D8BFF' : '#fff'; g.beginPath(); g.arc(x, y, i === v.at ? 12 : 8, 0, 7); g.fill(); g.strokeStyle = '#2B2140'; g.lineWidth = 2.5; g.stroke();
+    g.fillStyle = '#2B2140'; g.font = '900 22px Segoe UI, system-ui, sans-serif';
+    const lx = p.th === 0 || p.th === Math.PI ? x + out * 30 : x, ly = p.th === 0 || p.th === Math.PI ? y : y + Math.sign(Math.sin(p.th)) * 30;
+    g.fillText(p.label, lx, ly);
+    if (v.showSpeeds || i === v.at) { g.font = '800 15px Segoe UI, system-ui, sans-serif'; g.fillText(p.speed + ' km/s', lx, ly + 22); }
+  });
+}
+
+// The number pad for typed answers.
+let typedStr = '';
+function padShow() { $('padv').textContent = (typedStr || ' ') + (task && task.unit ? ' ' + task.unit : ''); }
+$('pad').addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (!b || !task || task.kind !== 'type' || won) return; SND.tap();
+  if (b.classList.contains('del')) typedStr = typedStr.slice(0, -1);
+  else if (b.classList.contains('ok')) { if (typedStr) padOk(); return; }
+  else if (typedStr.length < 9) typedStr += b.textContent.trim();
+  padShow();
+});
+function padOk() {
+  const v = Number(typedStr); typedStr = ''; padShow();
+  if (Math.abs(v - task.ans) <= (task.tol || 0)) { win(); return; }
+  SND.miss(); if (!missed) { missed = true; record(false); }
+  const t = 'Not quite. Try again.'; showCard('Hmm!', t, true); say(t);
+}
+function pickSpot(k) {
+  if (!task || task.kind !== 'place' || won) return; SND.tap(); moonAt(k);
+  if (k === task.ans) { win(); return; }
+  SND.miss(); if (!missed) { missed = true; record(false); }
+  const t = 'At spot ' + (k + 1) + ' the Moon looks like a ' + PHASES[k].toLowerCase() + '. Try another spot.'; showCard('Not that spot', t, true); say(t);
+}
+function orderTap(c) {
+  if (!task || task.kind !== 'order' || won) return; task.placed = task.placed || [];
+  if (task.placed.includes(c)) return;
+  if (task.ans[task.placed.length] === c) { SND.tap(); task.placed.push(c); renderBottom(); if (task.placed.length === task.ans.length) win(); return; }
+  SND.miss(); if (!missed) { missed = true; record(false); }
+  const t = 'Not quite. Which one comes next?'; showCard('Hmm!', t, true); say(t);
+  document.querySelectorAll('.ans').forEach(e => { if (e.dataset.a === c) { e.classList.add('no'); setTimeout(() => e.classList.remove('no'), 700); } });
+}
 function visit(w) {
   focus = w; timeOn = false; setMode('planet'); flyCam(planetCam(w)); showInfo(w); SND.tap();
 }
@@ -663,7 +1252,9 @@ let ptr = null;
 canvas.addEventListener('pointerdown', ev => { ac(); ptr = { x: ev.clientX, y: ev.clientY, yaw, moved: false }; });
 window.addEventListener('pointermove', ev => { if (!ptr || mode !== 'space') return; const dx = ev.clientX - ptr.x; if (Math.abs(dx) > 10) ptr.moved = true; if (ptr.moved) { yaw = ptr.yaw - dx * 0.006; camAnim = null; const c = spaceCam(); camera.position.copy(c.pos); camTarget.copy(c.look); camera.lookAt(camTarget); } });
 window.addEventListener('pointerup', ev => {
-  if (!ptr) return; const p = ptr; ptr = null; if (p.moved || mode !== 'space') return;
+  if (!ptr) return; const p = ptr; ptr = null; if (p.moved) return;
+  if (mode === 'view') { const k = spotHit(ev.clientX, ev.clientY); if (k != null) pickSpot(k); return; }
+  if (mode !== 'space') return;
   let best = null, bd = 1e9;
   for (const w of WORLDS) { const s = planetScreen(w), d = Math.hypot(s.x - ev.clientX, s.y - ev.clientY), rad = 48 + (w === 'Moon' ? -18 : 0); if (s.z < 1 && d < rad && d < bd) { bd = d; best = w; } }
   if (best) tapPlanet(best);
@@ -675,21 +1266,31 @@ window.addEventListener('pointerup', ev => {
 let task = null, missed = false, won = false, nextTimer = null;
 function newRound(speak = true) {
   clearTimeout(nextTimer); nextTimer = null; hideCard(); missed = false; won = false; jump = null; jumpsSeen = {};
-  task = genLevel(P.lv); $('ask').textContent = task.text; $('jumps').innerHTML = '';
+  task = genLevel(P.lv); $('ask').textContent = task.text; $('ask').className = task.text.length > 150 ? 'xl' : task.text.length > 85 ? 'long' : ''; $('jumps').innerHTML = '';
+  typedStr = ''; padShow();
   $('badge').textContent = 'Level ' + (P.lv + 1) + ': ' + LEVELS[P.lv].name; $('stars').textContent = '⭐ ' + P.stars;
-  fit(); goSpace(); if (speak) say(task.text);
+  fit(); if (task.view) { focus = null; timeOn = true; showView(task.view); } else goSpace();
+  if (speak) say(task.text);
 }
 function dot(w) { return DATA[w] ? '<i style="background:' + DATA[w].col + '"></i>' : ''; }
 function renderBottom() {
   const b = $('bottom'); b.innerHTML = ''; if (!task) return;
-  const add = (cls, html, fn, extra) => { const e = document.createElement('button'); e.className = cls; e.innerHTML = html; e.onclick = fn; if (extra) Object.assign(e.dataset, extra); b.appendChild(e); return e; };
-  if (mode !== 'space') add('tool', '🌌 Back to space', goSpace);
+  const add = (cls, html, fn, extra) => { const e = document.createElement('button'); e.className = cls; e.innerHTML = html; e.onclick = fn; if (extra) Object.assign(e.dataset, extra); (mode === 'view' && /tool/.test(cls) ? $('corner') : b).appendChild(e); return e; };
+  // In a view the tool buttons sit in the top left corner, so the whole bottom row is free for the answers.
+  if (mode !== 'space') add(mode === 'view' ? 'tool mini' : 'tool', mode === 'view' ? '🌌 Space' : '🌌 Back to space', goSpace);
+  if (mode === 'space' && task.view) add('tool', '🔭 Look again', () => showView(task.view));
   if (mode === 'planet') add('tool', '🚀 Land and jump', () => land(focus));
   if (mode === 'surface') add('tool big', '🦘 Jump!', doJump);
+  // Longer answers get a smaller button so four of them still fit across a 1024 wide screen.
+  const longest = task.choices ? Math.max(...task.choices.map(c => String(c).length)) : 0, size = longest > 24 ? ' xs' : longest > 12 ? ' sm' : '';
   if (task.kind === 'choice') {
     if (mode === 'space' && task.worlds.length === 2 && ['size', 'day', 'seasons', 'year'].includes(task.topic)) add('tool', '👀 Look closer', () => showCompare(task.worlds));
     if (mode === 'space' && task.topic === 'jump') task.worlds.forEach(w => add('tool', '🚀 Land on ' + isWorld(w), () => { focus = w; land(w); }));
-    task.choices.forEach(c => { const e = add('ans', dot(c) + (DATA[c] ? isWorld(c) : c), () => answer(c), { a: c }); if (task.tried && task.tried.includes(c)) e.classList.add('no'); });
+    task.choices.forEach(c => { const e = add('ans' + size, dot(c) + (DATA[c] ? isWorld(c) : c), () => answer(c), { a: c }); if (task.tried && task.tried.includes(c)) e.classList.add('no'); });
+  }
+  if (task.kind === 'order') {
+    const placed = task.placed || [];
+    task.choices.forEach(c => { const i = placed.indexOf(c), e = add('ans' + size, (i >= 0 ? '<b class="n">' + (i + 1) + '</b>' : '') + dot(c) + c, () => orderTap(c), { a: c }); if (i >= 0) e.classList.add('yes'); });
   }
 }
 function tapPlanet(w) {
@@ -747,6 +1348,7 @@ function frame(now) {
   BODY.Moon.angle += timeOn ? dt * 2 * Math.PI / (ORBIT_SEC * 27.3 / DATA.Mercury.year) : 0; BODY.Moon.holder.position.set(Math.cos(BODY.Moon.angle) * 1.8, 0, -Math.sin(BODY.Moon.angle) * 1.8);
   for (const w of WORLDS) BODY[w].mesh.rotation.y += dt * 2 * Math.PI / (SPIN_SEC * DATA[w].spin / DATA.Earth.spin);
   compareWorlds.forEach((w, i) => { const b = compare.userData['b' + i]; if (b) b.mesh.rotation.y += dt * 2 * Math.PI / (SPIN_SEC * DATA[w].spin / DATA.Earth.spin); });
+  if (view && mode === 'view') for (const m of view.spin) m.rotation.y += dt * 0.35;
   sunGlow.material.rotation = t * 0.05; sun.scale.setScalar(1 + Math.sin(t * 2) * 0.01);
   if (camAnim) {
     const u = Math.min(1, (now - camAnim.t0) / camAnim.ms), e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
@@ -771,12 +1373,43 @@ function frame(now) {
 $('hear').onclick = () => say(task.text);
 $('skip').onclick = () => newRound();
 
+// Self-check for tools/ladder-check.mjs: every quest a rung makes has a real answer among its choices, a solvable
+// setup, numbers in range and no broken text.
+const BAD_TEXT = /NaN|undefined|null|\[object/;
+function checkQuest(q, i) {
+  const bad = m => { throw new Error('rung ' + i + ' (' + LEVELS[i].name + '): ' + m + ' in ' + JSON.stringify(q.text).slice(0, 80)); };
+  const okText = s => typeof s === 'string' && s.trim().length > 0 && !BAD_TEXT.test(s);
+  if (!okText(q.text) || !okText(q.why)) bad('broken text');
+  if (q.view) { const v = q.view; if (v.type === 'moon' && v.spot != null && !(v.spot >= 0 && v.spot < 8)) bad('bad spot'); if (v.type === 'world' && v.w !== 'Sun' && !DATA[v.w]) bad('unknown world'); if (v.type === 'strip' && !(v.marks.length && v.marks.every(m => m.x >= 0 && m.x <= v.max && okText(m.label)))) bad('strip mark off the strip'); if (v.type === 'curve' && !(v.dips.length && v.dips.every(d => d.t > 0 && d.t < v.xmax && d.depth > 0 && 100 - d.depth >= v.ymin))) bad('dip off the graph'); if (v.type === 'orbit' && !(v.pts.length === 3 && v.pts.every(p => okText(p.label) && p.speed > 0))) bad('bad orbit'); }
+  if (q.kind === 'fly') { if (!PLANETS.includes(q.ans) || recheck(q) !== q.ans) bad('fly answer'); return; }
+  if (q.kind === 'choice') {
+    if (!Array.isArray(q.choices) || q.choices.length < 2 || q.choices.length > 5) bad('choice count');
+    if (new Set(q.choices).size !== q.choices.length || !q.choices.every(okText)) bad('duplicate or broken choice');
+    if (!q.choices.includes(q.ans)) bad('answer not offered');
+    if (recheck(q) !== q.ans) bad('answer does not match the facts');
+    return;
+  }
+  if (q.kind === 'type') { if (!Number.isFinite(q.ans) || q.ans < 0 || q.ans > 3000000 || !Number.isInteger(q.ans)) bad('typed answer out of range'); if (!okText(q.unit)) bad('unit'); return; }
+  if (q.kind === 'order') { if (!Array.isArray(q.ans) || q.ans.length < 3 || q.ans.length > 5) bad('order length'); if (q.choices.slice().sort().join('|') !== q.ans.slice().sort().join('|')) bad('order choices differ from answer'); if (!q.ans.every(okText) || new Set(q.ans).size !== q.ans.length) bad('order items'); return; }
+  if (q.kind === 'place') { if (!Number.isInteger(q.ans) || q.ans < 0 || q.ans > 7) bad('spot out of range'); if (!q.view || q.view.type !== 'moon') bad('place without the moon view'); return; }
+  bad('unknown kind ' + q.kind);
+}
+function describeQuest(q) { return q.kind + ': ' + q.text + ' => ' + (Array.isArray(q.ans) ? q.ans.join(' > ') : q.kind === 'place' ? 'spot ' + (q.ans + 1) : String(q.ans)); }
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START,
+  label: () => LEVELS[P.lv].name,
+  exercise(i, n) { const out = []; for (let k = 0; k < n; k++) { const q = genLevel(i); checkQuest(q, i); out.push(describeQuest(q)); } return out; },
+};
+
 window.PLANET_EXPLORER = {
   stay() { clearTimeout(nextTimer); nextTimer = null; },
-  DATA, PLANETS, WORLDS, LEVELS, START, jumpFt, weightOn, seasonTilt, catOf, recheck, CLUES, record, gen: genLevel, newRound,
-  tapPlanet, answer, land, doJump, jumpPlan, visit, goSpace, showCompare, planetScreen,
+  DATA, PLANETS, WORLDS, LEVELS, START, jumpFt, weightOn, seasonTilt, catOf, recheck, CLUES, record, gen: genLevel, newRound, checkQuest,
+  tapPlanet, answer, land, doJump, jumpPlan, visit, goSpace, showCompare, planetScreen, pickSpot, orderTap, showView,
+  spotScreen(k) { return view && view.spots ? screenOf(view.spots[k].getWorldPosition(new THREE.Vector3())) : null; },
+  type(v) { typedStr = String(v); padShow(); padOk(); },
   setLevel(i) { P.lv = i; P.st = { streak: 0, miss: 0 }; persist(); newRound(false); },
-  get state() { return { level: P.lv, streak: P.st.streak, miss: P.st.miss, stars: P.stars, task, missed, won, mode, focus, jumping: !!jump, jumpsSeen: Object.assign({}, jumpsSeen), astroY: astro.position.y }; },
+  get state() { return { level: P.lv, streak: P.st.streak, miss: P.st.miss, stars: P.stars, task, missed, won, mode, focus, jumping: !!jump, jumpsSeen: Object.assign({}, jumpsSeen), astroY: astro.position.y, spot: view ? view.spot : null }; },
 };
 fit(); { const c = spaceCam(); camera.position.copy(c.pos); camTarget.copy(c.look); camera.lookAt(camTarget); }
 newRound(false); requestAnimationFrame(frame);

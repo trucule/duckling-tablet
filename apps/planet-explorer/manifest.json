@@ -1,20 +1,20 @@
 {
   "id": "planet-explorer",
   "name": "Planet Explorer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Fly to each planet, land and jump. Gravity, day length and size come from the NASA fact sheet.",
   "subjects": [
     "science"
   ],
-  "ageMin": 6,
-  "ageMax": 9,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/planet-explorer",
   "about": {
     "concept": "Scale and physical law. Each planet's gravity, size and day length come from NASA's fact sheet, so jumping on Mars or waiting out a day on Venus shows differences as feelings, not only numbers.",
-    "progression": "The child first visits and compares two planets by jumping. Later visits ask for predictions (where will a jump go highest), ordering planets by size or day length, and reading the fact cards.",
+    "progression": "The ladder starts at pre-K with finding and ordering planets, moves through comparing size, gravity, day and year length and weight in 2nd and 3rd grade, then climbs to the tilt and the seasons, Moon phases, weight from a gravity factor, orbits, the scale of the solar system, eclipses, the Sun and the speed of light, comets and dwarf planets, the lives of stars and galaxies, and Kepler's laws with exoplanet transit curves by 8th grade. Each rung draws from a bank of questions and 3D or graph setups, and four right in a row moves the child up.",
     "lifeSkills": [
       "Comparing and ordering",
       "Reading reference information",
