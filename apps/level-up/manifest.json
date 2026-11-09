@@ -1,23 +1,23 @@
 {
   "id": "level-up",
   "name": "Level Up",
-  "version": "1.0.2",
-  "description": "Six subjects, each a ladder of levels from kindergarten to 4th grade: reading, math, color science, patterns, time and money, shapes and fractions.",
+  "version": "1.0.3",
+  "description": "Six subjects, each a ladder of levels from pre-K to 8th grade: reading, math, color science, patterns, time and money, shapes and fractions.",
   "subjects": [
     "reading",
     "math",
     "science",
     "logic"
   ],
-  "ageMin": 5,
-  "ageMax": 9,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/level-up",
   "about": {
     "concept": "Mastery in small steps across six subjects. Each subject is a ladder of levels; a level is passed by getting a run of answers right, so the child always works at the edge of what they know.",
-    "progression": "Ladders run from kindergarten to fourth grade in reading, math, color science, patterns, time and money, and shapes and fractions. The child sees the next rung and what it needs.",
+    "progression": "Each subject is a ladder of 15 to 20 rungs from pre-K to 8th grade: reading climbs from letter sounds through roots, figurative language and grammar to text structure; math from counting through fractions, decimals and equations to slope, exponents and the Pythagorean theorem; Color Lab from naming colors to the electromagnetic spectrum; Patterns from ABAB to sequences and if-then logic; Time and Money from telling hours to compound interest; Shapes and Fractions from naming shapes to circles, transformations and similar triangles. Four right in a row moves up a rung, and the child starts at the rung the tablet picks for her grade.",
     "lifeSkills": [
       "Telling time and counting money",
       "Reading for meaning",
