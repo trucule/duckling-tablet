@@ -249,10 +249,11 @@
   sentence's own words. Without a microphone she taps each word as she reads it, and a parent can turn on "Trust me"
   (one big "I read it" button). The parent switch is behind the gear button: press and hold it.
   Ladder (four right first try in a row moves up, two missed in a row moves down; localStorage key read-it-say-it-v1):
-    1 three words   2 four words   3 a place (to the tree)   4 more describing words, counting
-    5 two actions   6 two animals  7 weather and time (when, so)   8 first and then, long sentences
+    levels 1 to 8 are sentences made on the spot (pre-K to 2nd grade), levels 9 to 17 are passages from passages.js
+    (2nd to 8th grade), read one sentence at a time with questions afterwards. The full list is above LEVELS below.
   A sentence is a miss when the listening time runs out before it is read, or when "Hear it" was needed first.
-  New players start at level 3 (2nd grade).
+  A passage counts as right when it was read without help and most questions were answered right on the first try.
+  New players start from the child's reading grade (KidTablet.rungFor over each rung's g); 2nd grade opens at level 8.
   three.js r149 is included below under its MIT license: Copyright 2010-2023 three.js authors, https://threejs.org,
   SPDX-License-Identifier: MIT.
 -->
@@ -316,6 +317,13 @@
   #app.passage .w.missed { background-color: #FFC2CF; }
   #app.passage .w.now { background-color: #FFD000; }
   #app.passage .w.done { animation: none; }
+  /* A new paragraph, a line of a poem, a gap between stanzas. */
+  #app.passage .brk { display: block; height: 0; }
+  #app.passage .brk.para, #app.passage .brk.stanza { height: 14px; }
+  #app.poem #words { padding-left: 7%; }
+  /* How to read the current part: a question, an exclamation, someone talking. */
+  #expr { display: none; font-size: 18px; font-weight: 800; color: #fff; background: #8A3FFC; border: 3px solid var(--ink); border-radius: 999px; padding: 4px 16px; }
+  #expr.on { display: inline-block; }
   /* Words with a meaning: a dotted line inside the word's own box, so the next line cannot cover it. */
   #app.passage .w.gl { background-image: radial-gradient(circle, #8A3FFC 1.6px, transparent 1.8px); background-size: 8px 5px; background-repeat: repeat-x; background-position: 2px 100%; position: relative; z-index: 1; }
   #gloss { position: fixed; z-index: 9; max-width: 420px; background: #fff; border: 4px solid var(--ink); border-radius: 18px; padding: 10px 14px; font-size: 21px; font-weight: 600; display: none; box-shadow: 0 6px 0 #2B214055; }
@@ -325,7 +333,7 @@
   #quiz.on { display: block; }
   #quiz .q { font-size: 30px; font-weight: 800; margin: 2px 0 12px; }
   #quiz .n { font-size: 17px; font-weight: 800; color: #6b5f80; }
-  #quiz .opts { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+  #quiz .opts { display: flex; flex-direction: column; gap: 10px; align-items: stretch; max-height: 46vh; overflow-y: auto; touch-action: pan-y; padding: 0 4px 6px; }
   #quiz .opt { font-size: 25px; font-weight: 700; text-align: left; border: 4px solid var(--ink); border-radius: 18px; background: #fff; padding: 10px 18px; box-shadow: 0 5px 0 #2B2140; }
   #quiz .opt.right { background: #5CFF8F; }
   #quiz .opt.wrong { background: #FF9AAE; animation: shake .4s; }
@@ -345,6 +353,7 @@
   </header>
   <div id="card">
     <div id="ptitle"></div>
+    <div id="expr"></div>
     <div id="words"></div>
     <div id="quiz"></div>
     <div id="controls">
@@ -871,26 +880,47 @@ function phrase(c, adjs, num) { const noun = num ? c.an.p : c.an.s; return [...a
 let lastText = '';
 function make(f) { let t, guard = 0; do { t = f(); } while (t.text === lastText && guard++ < 20); lastText = t.text; t.words = t.text.split(' '); return t; }
 function scene(actors, steps, pre) { return { actors, steps, pre: pre || {} }; }
+// The ladder, pre-K to 8th grade. Levels 1 to 8 are sentences made here; levels 9 to 17 come from passages.js.
+// Each rung's g is the grade it is for (-1 pre-K, 0 K, 1 to 8), used by KidTablet.rungFor to pick the opening rung.
+//   index  level  name                 grade        what she does
+//     0      1    Three words          pre-K (g -1) reads "The cat hops." aloud
+//     1      2    Four words           pre-K (g -1) one describing word: "The big cat hops."
+//     2      3    Where it goes        K (g 0)      a place: "A frog hops to the rock."
+//     3      4    Describing and counting  K (g 0)  two describing words, or a number word and a plural
+//     4      5    Two actions          1st (g 1)    "... hops to the rock and then it spins."
+//     5      6    Two animals          1st (g 1)    two clauses joined by "and" or "while"
+//     6      7    Weather and time     1st (g 1)    "It is raining, so ...", "When the sun comes up, ..."
+//     7      8    First and then       2nd (g 2)    two clauses with "First ... then ...", long sentences
+//     8      9    Short stories        2nd to 3rd (g 2)  three or four sentences, then a who or what question
+//     9     10    Main idea            3rd to 4th (g 3)  a paragraph with longer words, then a main idea question
+//    10     11    Read with feeling    4th (g 4)    60 to 90 words with a question and an exclamation, then order of events
+//    11     12    True stories         5th (g 5)    nonfiction, then what a word means in the passage
+//    12     13    Between the lines    5th to 6th (g 5)  a story that leaves something unsaid, then an inference
+//    13     14    Two paragraphs       6th (g 6)    two paragraphs, then a compare question
+//    14     15    Poems                7th (g 7)    a poem with figurative language, then what a line means
+//    15     16    Make a case          7th to 8th (g 7)  an argument paragraph, then its claim and its evidence
+//    16     17    Sum it up            8th (g 8)    academic vocabulary, then the best one-sentence summary of three
+// Every passage level has at least eight passages, each read one sentence at a time with tap-to-answer questions.
 const LEVELS = [
-  { name: 'Three words', gen: () => make(() => { const c = clause({ verbs: ['hops', 'runs', 'jumps', 'spins', 'dances', 'sleeps', 'sings', 'swims', 'flies'] });
+  { name: 'Three words', g: -1, gen: () => make(() => { const c = clause({ verbs: ['hops', 'runs', 'jumps', 'spins', 'dances', 'sleeps', 'sings', 'swims', 'flies'] });
     return { text: `The ${c.an.s} ${c.verb}.`, scene: scene([actor(c.an, [])], [{ a: 0, verb: c.verb }]) }; }) },
-  { name: 'Four words', gen: () => make(() => { const c = clause({}); const adj = adjFor(1);
+  { name: 'Four words', g: -1, gen: () => make(() => { const c = clause({}); const adj = adjFor(1);
     return { text: `The ${phrase(c, adj)} ${c.verb}.`, scene: scene([actor(c.an, adj)], [{ a: 0, verb: c.verb }]) }; }) },
-  { name: 'Where it goes', gen: () => make(() => { const c = clause({ place: true }); const [r, p] = c.pl;
+  { name: 'Where it goes', g: 0, gen: () => make(() => { const c = clause({ place: true }); const [r, p] = c.pl;
     return { text: `${pick(['The', 'A'])} ${c.an.s} ${c.verb} ${relText(r, p)}.`, scene: scene([actor(c.an, [])], [{ a: 0, verb: c.verb, rel: r, place: p }]) }; }) },
-  { name: 'Describing and counting', gen: () => make(() => { const c = clause({ place: true }); const [r, p] = c.pl;
+  { name: 'Describing and counting', g: 0, gen: () => make(() => { const c = clause({ place: true }); const [r, p] = c.pl;
     if (Math.random() < 0.5) { const adj = adjFor(2); return { text: `The ${phrase(c, adj)} ${c.verb} ${relText(r, p)}.`, scene: scene([actor(c.an, adj)], [{ a: 0, verb: c.verb, rel: r, place: p }]) }; }
     const n = pick(NUMS), adj = adjFor(1); return { text: `${cap(n)} ${phrase(c, adj, true)} ${vform(c.verb, true)} ${relText(r, p, true)}.`, scene: scene([actor(c.an, adj, NUMS.indexOf(n) + 2)], [{ a: 0, verb: c.verb, rel: r, place: p }]) }; }) },
-  { name: 'Two actions', gen: () => make(() => { const c = clause({ place: true }); const [r, p] = c.pl; const adj = adjFor(1);
+  { name: 'Two actions', g: 1, gen: () => make(() => { const c = clause({ place: true }); const [r, p] = c.pl; const adj = adjFor(1);
     const v2 = pick(c.an.moves.filter(v => v !== c.verb && !['swims', 'flies'].includes(v)).concat(c.verb === 'spins' ? [] : ['spins']));
     const link = pick(['and then it', 'and then it', 'and it']);
     return { text: `The ${phrase(c, adj)} ${c.verb} ${relText(r, p)} ${link} ${v2}.`, scene: scene([actor(c.an, adj)], [{ a: 0, verb: c.verb, rel: r, place: p }, { a: 0, verb: v2 }]) }; }) },
-  { name: 'Two animals', gen: () => make(() => { const c1 = clause({ place: true }); let c2; do { c2 = clause({ place: Math.random() < 0.6 }); } while (c2.an === c1.an || c2.verb === c1.verb);
+  { name: 'Two animals', g: 1, gen: () => make(() => { const c1 = clause({ place: true }); let c2; do { c2 = clause({ place: Math.random() < 0.6 }); } while (c2.an === c1.an || c2.verb === c1.verb);
     const adj = adjFor(1), [r1, p1] = c1.pl, join = pick([', and', ' while']);
     const tail = c2.pl ? ` ${relText(c2.pl[0], c2.pl[1])}` : '';
     return { text: `The ${c1.an.s} ${c1.verb} ${relText(r1, p1)}${join} the ${phrase(c2, adj)} ${c2.verb}${tail}.`,
       scene: scene([actor(c1.an, []), actor(c2.an, adj)], [{ a: 0, verb: c1.verb, rel: r1, place: p1 }, { a: 1, verb: c2.verb, rel: c2.pl && c2.pl[0], place: c2.pl && c2.pl[1], together: join === ' while' }]) }; }) },
-  { name: 'Weather and time', gen: () => make(() => {
+  { name: 'Weather and time', g: 1, gen: () => make(() => {
     const kind = pick(['sunrise', 'rain', 'snow', 'night']);
     if (kind === 'rain') { const c = clause({ animals: ANIMALS.filter(a => !a.water && !a.flier), verbs: ['runs', 'hops', 'jumps'] }); const adj = adjFor(1);
       return { text: `It is raining, so the ${phrase(c, adj)} ${c.verb} into the house.`, scene: scene([actor(c.an, adj)], [{ a: 0, verb: c.verb, rel: 'into', place: 'house' }], { weather: 'rain', sky: 'storm' }) }; }
@@ -900,34 +930,41 @@ const LEVELS = [
       return { text: `At night, the sleepy ${c.an.s} sleeps ${relText(r, p)}.`, scene: scene([actor(c.an, ['sleepy'])], [{ a: 0, verb: 'sleeps', rel: r, place: p }], { sky: 'night', weather: 'night', late: true }) }; }
     const c = clause({ place: true, verbs: ['flies', 'runs', 'hops', 'jumps', 'dances'] }); const [r, p] = c.pl; const adj = adjFor(1);
     return { text: `When the sun comes up, the ${phrase(c, adj)} ${c.verb} ${relText(r, p)}.`, scene: scene([actor(c.an, adj)], [{ a: 0, verb: c.verb, rel: r, place: p }], { sunrise: true }) }; }) },
-  { name: 'First and then', gen: () => make(() => { const c1 = clause({ place: true }); let c2; do { c2 = clause({ place: true }); } while (c2.an === c1.an || c2.pl[1] === c1.pl[1]);
+  { name: 'First and then', g: 2, gen: () => make(() => { const c1 = clause({ place: true }); let c2; do { c2 = clause({ place: true }); } while (c2.an === c1.an || c2.pl[1] === c1.pl[1]);
     const a1 = adjFor(1), a2 = adjFor(1), n = pick(NUMS), [r1, p1] = c1.pl, [r2, p2] = c2.pl;
     return { text: `First the ${phrase(c1, a1)} ${c1.verb} ${relText(r1, p1)}, then ${n} ${phrase(c2, a2, true)} ${vform(c2.verb, true)} ${relText(r2, p2, true)}.`,
       scene: scene([actor(c1.an, a1), actor(c2.an, a2, NUMS.indexOf(n) + 2)], [{ a: 0, verb: c1.verb, rel: r1, place: p1 }, { a: 1, verb: c2.verb, rel: r2, place: p2 }]) }; }) },
 ];
-// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
-const START = (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('reading', LEVELS.length, 2) : 2);
 const SENTENCE_LEVELS = LEVELS.length;
 
 // ---------------------------------------------------------------------------
-// Passages (passages.js): paragraphs from grade 2 up to young adult, read one sentence at a time.
-// A "|" in the text breaks a long sentence into two reading parts. Each part may have a scene cue.
+// Passages (passages.js): paragraphs from 2nd grade to 8th, read one sentence at a time.
+// A "|" in the text breaks a long sentence into two reading parts. A blank line starts a new paragraph. In a poem
+// every line is a reading part and a blank line ends a stanza. Each part may have a scene cue.
 // ---------------------------------------------------------------------------
-function buildPassage(src) {
-  const parts = src.text.replace(/\s+/g, ' ').trim().split(/\s*\|\s*|(?<!\b(?:Mr|Mrs|Ms|Dr|St)\.)(?<=[.!?;:]['"’”)]?)\s+(?=['"‘“(]?[A-Z])/);
+const SENTENCE_END = /\s*\|\s*|(?<!\b(?:Mr|Mrs|Ms|Dr|St)\.)(?<=[.!?;:]['"’”)]?)\s+(?=['"‘“(]?[A-Z])/;
+function buildPassage(src, tier) {
+  tier = tier || {};
   const words = [], chunks = [];
-  for (const part of parts) {
-    const ws = part.split(' ').filter(Boolean); if (!ws.length) continue;
-    chunks.push({ a: words.length, b: words.length + ws.length, cue: src.cues && src.cues[chunks.length] || '' }); words.push(...ws);
-  }
+  const blocks = String(src.text).replace(/\r/g, '').trim().split(/\n\s*\n/);
+  blocks.forEach((block, bi) => {
+    const parts = src.poem || tier.poem ? block.split('\n') : block.replace(/\s+/g, ' ').trim().split(SENTENCE_END);
+    parts.forEach((part, pi) => {
+      const ws = part.trim().split(/\s+/).filter(Boolean); if (!ws.length) return;
+      const c = { a: words.length, b: words.length + ws.length, cue: src.cues && src.cues[chunks.length] || '' };
+      if (src.poem || tier.poem) c.brk = bi > 0 && pi === 0 ? 'stanza' : pi > 0 ? 'line' : '';
+      else if (bi > 0 && pi === 0) c.brk = 'para';
+      chunks.push(c); words.push(...ws);
+    });
+  });
   const gloss = {}; for (const [k, v] of Object.entries(src.gloss || {})) gloss[k.toLowerCase()] = v;
-  return { kind: 'passage', title: src.title, by: src.by || '', set: src.set || '', text: words.join(' '), words, chunks, gloss, quiz: src.quiz || [], src };
+  return { kind: 'passage', title: src.title, by: src.by || '', set: src.set || '', expr: !!(src.expr || tier.expr), poem: !!(src.poem || tier.poem), text: words.join(' '), words, chunks, gloss, quiz: src.quiz || [], src };
 }
 // The words the listener hears for chunk c: hyphenated words are heard as their parts.
 function hearWords(t, c) {
   const out = [], owner = [];
   for (let i = c.a; i < c.b; i++) {
-    const bits = t.words[i].split(/[-–—]+/).filter(x => RISpeech.norm(x));
+    const bits = t.words[i].split(/[-\u2013\u2014]+/).filter(x => RISpeech.norm(x));
     (bits.length ? bits : [t.words[i]]).forEach(b => { out.push(b); owner.push(i); });
   }
   return { words: out, owner };
@@ -936,9 +973,13 @@ function hearWords(t, c) {
 function restWords() { const out = { words: [], owner: [] }; for (let k = ci; k < task.chunks.length; k++) { const h = hearWords(task, task.chunks[k]); out.words.push(...h.words); out.owner.push(...h.owner); } return out; }
 const glossKey = w => String(w).toLowerCase().replace(/’/g, "'").replace(/^[^a-z]+|[^a-z]+$/g, '').replace(/'s$/, '');
 for (const tier of (window.RISI_PASSAGES || [])) {
-  const pool = tier.list.map(buildPassage);
-  LEVELS.push({ name: tier.name, grade: tier.grade, passage: true, pool, gen() { let t, guard = 0; do { t = pick(pool); } while (t.text === lastText && pool.length > 1 && guard++ < 20); lastText = t.text; return t; } });
+  const pool = tier.list.map(src => buildPassage(src, tier));
+  LEVELS.push({ name: tier.name, grade: tier.grade, g: tier.g, passage: true, pool, words: tier.words, gen() { let t, guard = 0; do { t = pick(pool); } while (t.text === lastText && pool.length > 1 && guard++ < 20); lastText = t.text; return t; } });
 }
+// Where a new player starts: the first rung meant for the child's reading grade (set by the parent), from each rung's
+// g. Older tablets without rungFor spread the grades over the ladder with 2nd grade at index 2. Unknown grade means
+// 2nd grade.
+const START = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('reading', LEVELS.map(l => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('reading', LEVELS.length, 2) : 2));
 
 // ---------------------------------------------------------------------------
 // Progress and settings
@@ -1092,7 +1133,7 @@ function newRound() {
   stopListening(); clearTimeout(nextTimer); hideGloss(); round++; missed = false; phase = 'read'; tapPos = 0;
   task = LEVELS[P.lv].gen(); got = task.words.map(() => false);
   ci = 0; readMs = 0; qi = 0; qFirst = 0; qMissed = false; hw = isPassage() ? hearWords(task, task.chunks[0]) : null;
-  $('app').classList.toggle('passage', isPassage()); $('quiz').classList.remove('on'); $('quiz').innerHTML = ''; $('words').style.display = '';
+  $('app').classList.toggle('passage', isPassage()); $('app').classList.toggle('poem', isPassage() && task.poem); $('quiz').classList.remove('on'); $('quiz').innerHTML = ''; $('words').style.display = '';
   setTitle();
   renderWords(); badge(); controls();
   K.clear(true); K.sky('day', 0.6); K.weather('clear'); sketchReset();
@@ -1100,10 +1141,12 @@ function newRound() {
   if (isPassage()) warmUp(task);
   status(readHint());
 }
-function setTitle() { $('ptitle').textContent = isPassage() ? (task.by ? `“${task.title}” by ${task.by}` : task.title) : ''; }
+function setTitle() { const g = LEVELS[P.lv].grade; $('ptitle').textContent = isPassage() ? (task.by ? `“${task.title}” by ${task.by}` : task.title) + (g ? ` (grade ${g})` : '') : ''; }
 function renderWords() {
   const box = $('words'); box.innerHTML = ''; box.scrollTop = 0;
+  const breaks = {}; if (isPassage()) for (const c of task.chunks) if (c.brk) breaks[c.a] = c.brk;
   task.words.forEach((w, i) => {
+    if (breaks[i]) { const b = document.createElement('span'); b.className = 'brk ' + breaks[i]; box.appendChild(b); }
     const s = document.createElement('span'); s.className = 'w' + (got[i] ? ' heard' : ''); s.textContent = w; s.dataset.i = i;
     if (isPassage() && task.gloss[glossKey(w)]) s.classList.add('gl');
     s.onpointerdown = e => tapWord(i, e); box.appendChild(s);
@@ -1118,18 +1161,31 @@ function paint(cls) {
     if (isPassage()) { const inCur = phase === 'read' && c && i >= c.a && i < c.b; el.classList.toggle('cur', inCur); el.classList.toggle('read', !inCur && (phase !== 'read' || (c && i < c.a))); }
   });
 }
+// How to read the current part, on the levels that teach expression: a question, an exclamation, or someone talking.
+function exprHint() {
+  const el = $('expr'); let t = '';
+  if (isPassage() && task.expr && phase === 'read' && ci < task.chunks.length) {
+    const c = task.chunks[ci], last = task.words[c.b - 1].replace(/['"’”)]+$/, ''), first = task.words[c.a];
+    if (/\?$/.test(last)) t = 'This part asks a question. Let your voice go up at the end.';
+    else if (/!$/.test(last)) t = 'This part is exciting. Read it with energy.';
+    else if (/^['"‘“]/.test(first) || /['"’”]$/.test(task.words[c.b - 1])) t = 'Someone is talking. Read it the way they would say it.';
+  }
+  el.textContent = t; el.classList.toggle('on', !!t);
+}
 function controls() {
   const m = engineMode(), pas = isPassage(), reading = phase === 'read';
   $('mic').style.display = m === 'mic' && reading ? '' : 'none';
   $('trust').style.display = (m === 'trust' || (pas && m === 'tap')) && reading ? 'inline-block' : 'none';
   $('trust').textContent = pas ? '✅ I read the yellow part' : '✅ I read it!';
-  $('listen').style.display = phase === 'quiz' && pas ? 'none' : '';
+  $('listen').style.display = '';
   $('next').style.display = phase === 'won' ? 'inline-block' : 'none';
   $('mic').disabled = m === 'mic' && RISpeech.status === 'loading';
   [...$('parent').querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.mode === P.mode));
   $('engineInfo').textContent = 'Speech check: ' + (RISpeech.engine === 'vosk' ? 'offline (Vosk), ready' : RISpeech.status === 'loading' ? 'loading the offline listener...' : RISpeech.engine === 'webspeech' ? 'the browser listener' : 'no microphone check, so words are tapped') + (RISpeech.error ? ' (' + RISpeech.error + ')' : '');
+  exprHint();
 }
-function badge() { const lv = LEVELS[P.lv]; $('badge').textContent = `Level ${P.lv + 1}: ${lv.name}` + (lv.grade ? ` (grade ${lv.grade})` : ''); $('stars').textContent = '⭐ ' + P.stars; }
+// The badge keeps to the level name so it fits a 1024-wide header; the grade band goes with the passage title.
+function badge() { const lv = LEVELS[P.lv]; $('badge').textContent = `Level ${P.lv + 1}: ${lv.name}`; $('stars').textContent = '⭐ ' + P.stars; }
 function status(t) { $('status').textContent = t; }
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1600); }
 function miss() { if (!missed) { missed = true; const c = record(false); badge(); if (c < 0) toast(P.lv < SENTENCE_LEVELS ? 'Shorter sentences' : 'An easier story'); } }
@@ -1226,7 +1282,7 @@ function chunkDone() {
   if (listening && chunkT0) { const t = performance.now(); readMs += t - chunkT0; chunkT0 = t; }
   ci++;
   if (ci >= task.chunks.length) { paint(); return passageRead(); }
-  hw = hearWords(task, task.chunks[ci]); paint();
+  hw = hearWords(task, task.chunks[ci]); paint(); exprHint();
   const el = $('words').querySelectorAll('.w')[task.chunks[ci].a]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
   if (listening) { armTimer(); status(pick(['Keep going!', 'Nice! Next part.', 'Great! Keep reading.'])); }
   else status(engineMode() === 'mic' ? 'Nice! Tap the microphone for the next part.' : pick(['Nice! Now the next part.', 'Great! Keep reading.']));
@@ -1282,6 +1338,8 @@ async function success() {
 }
 function hearIt() {
   if (phase === 'won') { say(task.text); return; }
+  // During the questions, Hear it reads the question and its answers in the order they are shown.
+  if (phase === 'quiz') { const q = task.quiz[qi]; if (q) say(`${q[0]} ${quizOrder[qi].map(o => o.t).join('. ')}.`); return; }
   if (phase !== 'read') return;
   stopListening(); miss(); // needing to hear it first is not a first-try read
   const els = [...$('words').querySelectorAll('.w')], c = isPassage() ? task.chunks[ci] : { a: 0, b: task.words.length };
@@ -1356,8 +1414,8 @@ function bootSpeech() {
   if (P.mode !== 'auto') return;
   $('bar').style.display = 'block'; status('Getting my ears ready...');
   RISpeech.loadVosk(p => { $('bar').firstChild.style.width = Math.round(p * 100) + '%'; })
-    .then(() => { $('bar').style.display = 'none'; if (phase === 'read' && !listening) status('Tap the microphone, then read it out loud.'); controls(); })
-    .catch(() => { $('bar').style.display = 'none'; RISpeech.engine = RISpeech.hasWebSpeech() ? 'webspeech' : 'tap'; controls(); if (phase === 'read') status(engineMode() === 'mic' ? 'Tap the microphone, then read it out loud.' : 'Read each word out loud and tap it.'); });
+    .then(() => { $('bar').style.display = 'none'; controls(); if (phase === 'read' && !listening) status(readHint()); })
+    .catch(() => { $('bar').style.display = 'none'; RISpeech.engine = RISpeech.hasWebSpeech() ? 'webspeech' : 'tap'; controls(); if (phase === 'read' && !listening) status(readHint()); });
 }
 RISpeech.onEngineLost = () => { stopListening(); controls(); status('The microphone check is not working, so tap each word as you read it.'); };
 newRound();
@@ -1368,8 +1426,67 @@ window.READ_IT_SAY_IT = {
   LEVELS, START, record, P: () => P, gen: i => LEVELS[i].gen(), current: () => task, speech: RISpeech, playNow: sc => play(sc, round), hold: false, timeScale: 1, errors: [],
   state: () => ({ level: P.lv, stars: P.stars, streak: P.st.streak, miss: P.st.miss, phase, missed, got: got.slice(), chunk: ci, qi, qFirst, readMs, mode: engineMode(), listening, engine: RISpeech.engine, speech: RISpeech.status }),
   setLevel(i) { P.lv = i; P.st = { streak: 0, miss: 0 }; persist(); newRound(); }, newRound, tapWord, trustMe, hearIt, startListening, heard, setMode(m) { P.mode = m; persist(); controls(); newRound(); },
-  useTask(t) { newRound(); if (t.kind === 'passage') { task = buildPassage(t.src || t); } else { task = t; t.words = t.text.split(' '); } got = task.words.map(() => false); ci = 0; hw = isPassage() ? hearWords(task, task.chunks[0]) : null; $('app').classList.toggle('passage', isPassage()); setTitle(); renderWords(); controls(); status(readHint()); },
+  useTask(t) { newRound(); if (t.kind === 'passage') { task = buildPassage(t.src || t); } else { task = t; t.words = t.text.split(' '); } got = task.words.map(() => false); ci = 0; hw = isPassage() ? hearWords(task, task.chunks[0]) : null; $('app').classList.toggle('passage', isPassage()); $('app').classList.toggle('poem', isPassage() && task.poem); setTitle(); renderWords(); controls(); status(readHint()); },
   buildPassage, cue, chunk: () => ci, hearWords: () => hw, answer: right => { const bs = [...$('quiz').querySelectorAll('.opt')]; const b = bs.find(x => (x.dataset.right === '1') === right && !x.disabled); if (b) b.click(); return !!b; }, SENTENCE_LEVELS, last: null,
+};
+
+// Self-check hook for tools/ladder-check.mjs: build problems at one rung without touching the page, and throw if any
+// of them is malformed (a model or cue the stage does not know, a question without its answer, a stray NaN).
+const SKIES = new Set(['day', 'sunny', 'sunset', 'night', 'storm', 'snow']), WEATHERS = new Set(['rain', 'snow', 'wind', 'storm', 'night', 'clear', 'bubbles', 'hearts', 'confetti']);
+function checkText(s, where) {
+  if (typeof s !== 'string' || !s.trim()) throw new Error(where + ': empty text');
+  if (/\b(?:NaN|undefined|null)\b|\[object/.test(s)) throw new Error(where + ': bad text "' + s.slice(0, 40) + '"');
+  if (/\u2014/.test(s)) throw new Error(where + ': em-dash in "' + s.slice(0, 40) + '"');
+}
+function checkCue(str, where) {
+  for (const raw of String(str).split(';')) {
+    const step = raw.trim(); if (!step) continue;
+    const [a, b] = step.split(/\s+/);
+    if (a === 'sky') { if (!SKIES.has(b)) throw new Error(where + ': unknown sky ' + step); continue; }
+    if (a === 'wx') { if (!WEATHERS.has(b)) throw new Error(where + ': unknown weather ' + step); continue; }
+    if (a[0] === '+') { const m = /^\+([a-z]+)(?::(#[0-9a-fA-F]{3,6}))?(?:\*([\d.]+))?$/.exec(a); if (!m || !Kit.models[m[1]]) throw new Error(where + ': bad cue ' + step); continue; }
+    if (a[0] === '-') { if (!Kit.models[a.slice(1)]) throw new Error(where + ': bad cue ' + step); continue; }
+    if (!Kit.models[a] || !ACTS.has(b)) throw new Error(where + ': bad cue ' + step);
+  }
+}
+function checkTask(t, lv, i) {
+  const where = `level ${i + 1} (${lv.name})`;
+  if (!t || !Array.isArray(t.words) || t.words.length < 3) throw new Error(where + ': no words');
+  checkText(t.text, where);
+  if (t.kind !== 'passage') {
+    if (!t.scene || !t.scene.actors.length || !t.scene.steps.length) throw new Error(where + ': no scene for "' + t.text + '"');
+    for (const a of t.scene.actors) if (!Kit.models[a.model]) throw new Error(where + ': unknown model ' + a.model);
+    for (const s of t.scene.steps) { if (!VERB[s.verb]) throw new Error(where + ': unknown verb ' + s.verb); if (s.place && !PLACES[s.place]) throw new Error(where + ': unknown place ' + s.place); }
+    if (!/^[A-Z].*\.$/.test(t.text)) throw new Error(where + ': not a sentence "' + t.text + '"');
+    return;
+  }
+  const w = `${where} "${t.title}"`;
+  checkText(t.title, w);
+  if (lv.words && (t.words.length < lv.words[0] || t.words.length > lv.words[1])) throw new Error(w + `: ${t.words.length} words, wanted ${lv.words[0]} to ${lv.words[1]}`);
+  if (!t.chunks.length || t.chunks[0].a !== 0 || t.chunks[t.chunks.length - 1].b !== t.words.length) throw new Error(w + ': parts do not cover the passage');
+  t.chunks.forEach((c, k) => { if (c.b <= c.a || (k && c.a !== t.chunks[k - 1].b)) throw new Error(w + ': part ' + k + ' is out of order'); if (c.cue) checkCue(c.cue, w); });
+  if (t.poem && t.chunks.filter(c => c.brk).length < 3) throw new Error(w + ': a poem needs its lines');
+  if (t.expr && !(/\?/.test(t.text) && /!/.test(t.text))) throw new Error(w + ': needs a question and an exclamation to read with feeling');
+  if (!t.quiz.length) throw new Error(w + ': no questions');
+  for (const q of t.quiz) {
+    if (!Array.isArray(q) || q.length !== 4) throw new Error(w + ': a question needs one right and two wrong answers');
+    q.forEach(s => checkText(s, w));
+    if (q[1] === q[2] || q[1] === q[3] || q[2] === q[3]) throw new Error(w + ': repeated answer in "' + q[0] + '"');
+  }
+  const keys = new Set(t.words.map(glossKey));
+  for (const k of Object.keys(t.gloss)) if (!keys.has(k)) throw new Error(w + ': gloss word not in the passage: ' + k);
+}
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START,
+  label: () => LEVELS[P.lv].name,
+  exercise(i, n) {
+    const lv = LEVELS[i]; if (!lv) throw new Error('no level ' + i);
+    if (typeof lv.g !== 'number' || lv.g < -1 || lv.g > 8 || (i > 0 && LEVELS[i - 1].g > lv.g)) throw new Error(`level ${i + 1}: grade ${lv.g} is missing or out of order`);
+    const out = [];
+    for (let k = 0; k < n; k++) { const t = lv.gen(); checkTask(t, lv, i); out.push(t.kind === 'passage' ? `${t.title}: ${t.words.slice(0, 6).join(' ')}...` : t.text); }
+    return out;
+  },
 };
 </script>
 </body>
