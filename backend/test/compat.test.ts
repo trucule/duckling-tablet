@@ -10,8 +10,12 @@ import { freePort } from './pg.js';
 const COMPAT = readFileSync(join(import.meta.dirname, '..', '..', 'tools', 'duckling-compat.js'), 'utf8');
 const TONE = readFileSync(join(import.meta.dirname, 'fixtures', 'tone.mp3'));
 
-function page(appId: string, bridge: boolean) {
-  const b = bridge ? `window.DucklingApp = { appId: () => ${JSON.stringify(appId)}, deviceToken: () => 'dev-token-1', apiUrl: () => location.origin + '/api', childName: () => 'Ada', voice: () => 'en-US-AnaNeural', levels: () => JSON.stringify({ math: 5, reading: -1 }) };` : '';
+// webview: what Android's WebView offers, no speechSynthesis and no SpeechSynthesisUtterance, with the shell's own
+// voice on the bridge (speak/stopSpeaking) answering through window.__ducklingVoice like DeviceVoice.kt does.
+function page(appId: string, bridge: boolean, webview = false) {
+  const wv = webview ? `delete window.speechSynthesis; delete window.SpeechSynthesisUtterance; delete Window.prototype.speechSynthesis; window.deviceSaid = [];` : '';
+  const speak = webview ? `, speak: (id, text, rate) => { window.deviceSaid.push(text + '@' + rate); setTimeout(() => window.__ducklingVoice.start(id), 5); setTimeout(() => window.__ducklingVoice.end(id), 30); }, stopSpeaking: () => {}` : '';
+  const b = bridge ? `${wv}window.DucklingApp = { appId: () => ${JSON.stringify(appId)}, deviceToken: () => 'dev-token-1', apiUrl: () => location.origin + '/api', childName: () => 'Ada', voice: () => 'en-US-AnaNeural', levels: () => JSON.stringify({ math: 5, reading: -1 })${speak} };` : '';
   return `<!doctype html><html><head><script>${b}</script><script>${COMPAT}</script></head><body><div id="log"></div>
   <script>
     window.events = [];
@@ -60,8 +64,8 @@ describe('duckling-compat.js', () => {
         if (refuse) { res.writeHead(429); return res.end(); }
         res.writeHead(200, { 'content-type': 'audio/mpeg', 'access-control-allow-origin': '*' }); return res.end(TONE);
       }
-      const m = url.pathname.match(/^\/apps\/([a-z-]+)\/(index\.html|nobridge\.html)$/);
-      if (m) { res.writeHead(200, { 'content-type': 'text/html' }); return res.end(page(m[1], m[2] === 'index.html')); }
+      const m = url.pathname.match(/^\/apps\/([a-z-]+)\/(index\.html|nobridge\.html|webview\.html)$/);
+      if (m) { res.writeHead(200, { 'content-type': 'text/html' }); return res.end(page(m[1], m[2] !== 'nobridge.html', m[2] === 'webview.html')); }
       res.writeHead(404); res.end();
     }).listen(port, '127.0.0.1');
     const base = `http://127.0.0.1:${port}`;
@@ -155,6 +159,28 @@ describe('duckling-compat.js', () => {
       expect(await c.evaluate(() => (window as any).DWM_CONFIG)).toBeUndefined();
       expect(await c.evaluate(() => (window as any).KID_STARS)).toBeUndefined();
       expect(requests).toHaveLength(before);
+
+      // Android's WebView has no speech API at all. The narrator still speaks every line, the utterance's on*
+      // handlers fire, and when the API refuses, the shell's own voice says the line and the end still arrives.
+      refuse = false;
+      const w = await ctx.newPage(); await w.goto(`${base}/apps/word-wizard/webview.html`);
+      expect(await w.evaluate(() => typeof (window as any).speechSynthesis.speak)).toBe('function');
+      const narrated = await w.evaluate(() => new Promise<string[]>((resolve) => {
+        const seen: string[] = [];
+        const u = new SpeechSynthesisUtterance('Spell the word cat.');
+        u.onstart = () => seen.push('start'); u.onend = () => { seen.push('end'); resolve(seen); };
+        speechSynthesis.speak(u);
+      }));
+      expect(narrated).toEqual(['start', 'end']);
+      expect(tts().at(-1)).toMatch(/text=Spell%20the%20word%20cat\.&rate=0&voice=en-US-AnaNeural$/);
+      expect(await w.evaluate(() => (window as any).deviceSaid)).toEqual([]);
+      refuse = true;
+      const device = await w.evaluate(() => new Promise<string[]>((resolve) => {
+        const u = new SpeechSynthesisUtterance('Try again.'); u.rate = 0.9;
+        u.onend = () => resolve((window as any).deviceSaid);
+        speechSynthesis.speak(u);
+      }));
+      expect(device).toEqual(['Try again.@0.9']);
     } finally { await browser.close(); server.close(); }
   }, 60_000);
 });
