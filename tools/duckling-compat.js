@@ -176,7 +176,46 @@
   }
 
   // ---- 2. The narrator --------------------------------------------------------------------------------------------
-  if (!bridge || !TOKEN || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance === 'undefined') return;
+  if (!bridge || !TOKEN) return;
+  // Android's WebView has no speechSynthesis and no SpeechSynthesisUtterance. Without these an app's speech either
+  // throws or checks for them and stays silent, so the narrator below had nothing to take over. Both are provided
+  // here when missing; the "device voice" behind them is the shell's own text to speech (bridge.speak), and with no
+  // shell voice the utterance still starts and ends on a timer so apps that wait for the end keep going.
+  if (typeof window.SpeechSynthesisUtterance === 'undefined') {
+    window.SpeechSynthesisUtterance = function (text) {
+      var t = new EventTarget();
+      t.text = text == null ? '' : String(text); t.lang = ''; t.voice = null; t.volume = 1; t.rate = 1; t.pitch = 1;
+      t.onstart = t.onend = t.onerror = t.onboundary = t.onpause = t.onresume = t.onmark = null;
+      var send = t.dispatchEvent.bind(t);
+      t.dispatchEvent = function (ev) { var r = send(ev), h = t['on' + ev.type]; if (typeof h === 'function') { try { h.call(t, ev); } catch (e) { setTimeout(function () { throw e; }); } } return r; };
+      return t;
+    };
+  }
+  if (!window.speechSynthesis) window.speechSynthesis = deviceVoice();
+  function deviceVoice() {
+    var events = new EventTarget(), live = {}, next = 0, waiting = 0, paused = false;
+    var native = typeof bridge.speak === 'function';
+    var done = function (id, type) {
+      var u = live[id]; if (!u) return; delete live[id]; waiting = Math.max(0, waiting - 1);
+      fire(u, type || 'end', type === 'error' ? { error: 'interrupted' } : { charIndex: String(u.text).length });
+    };
+    window.__ducklingVoice = { start: function (id) { if (live[id]) fire(live[id], 'start'); }, end: function (id) { done(id); }, error: function (id) { done(id, 'error'); } };
+    return {
+      speak: function (u) {
+        var id = 'v' + (++next); live[id] = u; waiting++;
+        var rate = Math.max(0.5, Math.min(2, Number(u.rate) || 1));
+        if (native) { try { bridge.speak(id, clean(u.text), rate); return; } catch (e) {} }
+        fire(u, 'start');
+        setTimeout(function () { done(id); }, Math.min(15000, 300 + 60 * String(u.text || '').length / rate));
+      },
+      cancel: function () { if (native) { try { bridge.stopSpeaking(); } catch (e) {} } Object.keys(live).forEach(function (id) { done(id, 'error'); }); },
+      pause: function () { paused = true; }, resume: function () { paused = false; },
+      getVoices: function () { return []; },
+      get speaking() { return waiting > 0; }, get pending() { return waiting > 1; }, get paused() { return paused; },
+      onvoiceschanged: null,
+      addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events)
+    };
+  }
   var ss = window.speechSynthesis;
   var orig = { speak: ss.speak.bind(ss), cancel: ss.cancel.bind(ss), pause: ss.pause.bind(ss), resume: ss.resume.bind(ss) };
   var WAIT_MS = 6000;

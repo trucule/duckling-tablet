@@ -54,7 +54,8 @@ class AppActivity : AppCompatActivity() {
             userAgentString = "$userAgentString DucklingTablet/${BuildConfig.VERSION_NAME}"
         }
         // window.DucklingApp: what duckling-compat.js inside the package needs for the narrator.
-        web.addJavascriptInterface(AppBridge(appId, Prefs(this)), "DucklingApp")
+        voice = DeviceVoice(this, web)
+        web.addJavascriptInterface(AppBridge(appId, Prefs(this), voice!!), "DucklingApp")
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val host = request.url.host?.lowercase() ?: return blocked()
@@ -87,20 +88,25 @@ class AppActivity : AppCompatActivity() {
         })
     }
 
-    class AppBridge(private val id: String, private val prefs: Prefs) {
+    private var voice: DeviceVoice? = null
+
+    class AppBridge(private val id: String, private val prefs: Prefs, private val voice: DeviceVoice) {
         @JavascriptInterface fun appId(): String = id
         @JavascriptInterface fun deviceToken(): String = prefs.deviceToken
         @JavascriptInterface fun apiUrl(): String = "https://api.ducklingtablet.com"
         @JavascriptInterface fun childName(): String = prefs.childName
         @JavascriptInterface fun voice(): String = prefs.narratorVoice
         @JavascriptInterface fun levels(): String = prefs.childLevels
+        // The tablet's own voice, for lines the Duckling narrator cannot play (see DeviceVoice).
+        @JavascriptInterface fun speak(id: String, text: String, rate: Float) = voice.speak(id, text, rate)
+        @JavascriptInterface fun stopSpeaking() = voice.stopSpeaking()
     }
 
     private fun granted(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
     private fun blocked() = WebResourceResponse("text/plain", "utf-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
     override fun onResume() { super.onResume(); hideSystemBars() }
-    override fun onDestroy() { web.destroy(); super.onDestroy() }
+    override fun onDestroy() { voice?.shutdown(); web.destroy(); super.onDestroy() }
 
     private fun hideSystemBars() {
         @Suppress("DEPRECATION")
