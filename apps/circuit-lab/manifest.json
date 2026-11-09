@@ -1,20 +1,20 @@
 {
   "id": "circuit-lab",
   "name": "Circuit Lab",
-  "version": "1.0.2",
-  "description": "Wire batteries, bulbs, switches and buzzers to light a 3D house. Series bulbs glow dim, parallel bulbs glow bright.",
+  "version": "1.0.3",
+  "description": "Wire batteries, bulbs, switches, resistors and coils on a 3D board, from closing one gap to Ohm's law, logic gates and circuit diagrams.",
   "subjects": [
     "science"
   ],
-  "ageMin": 7,
-  "ageMax": 9,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/circuit-lab",
   "about": {
     "concept": "Systems thinking with electricity: a circuit works only when the loop is closed, and how parts are arranged changes what happens. Series and parallel are seen as dim and bright bulbs before the words are introduced.",
-    "progression": "The first boards ask for one bulb and one battery. Later boards add switches, buzzers, two bulbs in series or parallel, and faults to find, ending with wiring a whole house.",
+    "progression": "The ladder starts with dragging one wire into a gap and moves through switches, buzzers, series and parallel bulbs and puzzle houses by 4th grade. The upper rungs add the one-bulb-out test for parallel wiring, conductors and insulators, battery and resistor brightness, Ohm's law on a number pad, voltage and current in series and parallel, AND and OR switch gates, electromagnets, and matching standard circuit diagrams to built circuits by 8th grade.",
     "lifeSkills": [
       "Troubleshooting step by step",
       "Understanding how household things work",
