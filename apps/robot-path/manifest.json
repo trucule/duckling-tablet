@@ -1,20 +1,20 @@
 {
   "id": "robot-path",
   "name": "Robot Path",
-  "version": "1.0.2",
-  "description": "Program a toy robot with arrow cards to collect gems. Later levels add repeats, an if card and fewest-moves puzzles.",
+  "version": "1.0.3",
+  "description": "Program a toy robot with cards to collect gems. The ladder runs from arrow cards to repeats, ifs, whiles, a stamp, variables, debugging and one program for three mazes.",
   "subjects": [
     "logic"
   ],
-  "ageMin": 5,
-  "ageMax": 8,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/robot-path",
   "about": {
     "concept": "Sequencing and abstraction, the foundations of programming. Arrow cards move a robot; the child plans the whole path before running it, then shortens it with repeats and conditions.",
-    "progression": "Straight paths lead to turns, then obstacles, then a repeat card, an if card, and puzzles that must be solved in the fewest moves.",
+    "progression": "Arrow cards on small boards lead to rocky boards, a Repeat card with a card limit, an If pink card and fewest moves puzzles. Then forward and turn cards bring a Repeat inside a Repeat, a Stamp the child defines once and uses twice, a board number n, If wall with else, While gems left, fixing a program with one wrong card, fewest cards for extra stars, one program that solves three mazes by the right hand rule, and numbered gems collected in order.",
     "lifeSkills": [
       "Planning a sequence of actions",
       "Finding and fixing mistakes",
