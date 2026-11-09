@@ -1,13 +1,13 @@
 {
   "id": "voice-band",
   "name": "Voice Band",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Sing a melody and see its notes, play with ten voice effects, and layer a four-track looper band.",
   "subjects": [
     "music"
   ],
-  "ageMin": 5,
-  "ageMax": 10,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [
     "microphone"
@@ -16,7 +16,7 @@
   "source": "trucule/Surface-Pro-X-KidSetup apps/voice-band",
   "about": {
     "concept": "Pitch and structure made visible. Singing a melody shows its notes on screen, so the child connects what she hears and does with how music is written; the looper shows how layers combine into a piece.",
-    "progression": "Seeing a single sung note leads to melodies, then voice effects that change timbre, then a four-track looper where parts are recorded, timed and layered.",
+    "progression": "Free play opens on three rooms: sing a tune and see its notes, change your voice with ten effects, and layer parts in a four-track looper. The Challenges ladder runs from loud and soft, high and low, and a steady beat at pre-K through echoes, rhythms, instrument families, scales, intervals, time signatures, major and minor chords, key signatures and staff reading, up to chord progressions and composing a tune to a rule at 8th grade.",
     "lifeSkills": [
       "Using the voice with control",
       "Listening for pitch",
