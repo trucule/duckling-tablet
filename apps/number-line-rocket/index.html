@@ -1017,7 +1017,11 @@ window.DucklingLadder = {
     if (!LEVELS[i]) throw new Error(`no rung ${i}`);
     const out = [], seen = new Set();
     for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); checkTask(t); const d = describeTask(t); seen.add(d); out.push(d); }
-    if (n >= 20 && seen.size < Math.min(8, n / 4)) throw new Error(`rung ${i} repeats: only ${seen.size} different tasks in ${n}`);
+    // Variety: a rung needs at least min(8, n/4) different tasks. A small but fair bank (eight numbers on a K number
+    // line) can miss one of them in n random draws, so draw up to 4n before calling it a repeat.
+    const want = Math.min(8, n / 4);
+    for (let k = 0; n >= 20 && seen.size < want && k < 3 * n; k++) { const t = LEVELS[i].gen(); checkTask(t); seen.add(describeTask(t)); }
+    if (n >= 20 && seen.size < want) throw new Error(`rung ${i} repeats: only ${seen.size} different tasks in ${4 * n}`);
     return out;
   },
 };

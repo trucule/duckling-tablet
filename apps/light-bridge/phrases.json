@@ -1,0 +1,25 @@
+{
+ "source": "2aada28052eeca7eb7a852a3fac5b47887716bb6cd76b2b3667015a9927a4c71",
+ "lines": [
+  {
+   "text": "Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light.",
+   "rate": -10
+  },
+  {
+   "text": "Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light. Fill the board with the fewest bends you can. The board tells you the fewest bends that work. Straight is better than wiggly.",
+   "rate": -10
+  },
+  {
+   "text": "Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light. Fill the board with the fewest bends. The app has searched every answer, so the number on the board is the true fewest. Cross tiles and rocks are in play.",
+   "rate": -10
+  },
+  {
+   "text": "Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light. Rocks block the way. Plan a route around them, and light every other square.",
+   "rate": -10
+  },
+  {
+   "text": "Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light. Two portals with the same ring are twins. A bridge that enters one portal comes out of the other and keeps going.",
+   "rate": -10
+  }
+ ]
+}

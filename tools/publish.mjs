@@ -6,9 +6,16 @@
 //   node tools/publish.mjs pubkey                                  prints the public key of PACKAGE_SIGNING_KEY
 //   node tools/publish.mjs all [--starter]                         publish every app (or only the starter set)
 //   node tools/publish.mjs <id> [<id>...] [--request <reqId>]      publish named apps
+//   node tools/publish.mjs voice all|<id>...                       ask the voice cache to make every line in the apps'
+//                                                                 phrases.json now (publishing a version does this too)
 //
 // Needs ADMIN_TOKEN, PACKAGE_SIGNING_KEY (base64 PKCS8) and optionally API_URL in the environment or the env file
 // named by DOTENV_CONFIG_PATH. A version already in the catalog is skipped, so a rerun is harmless.
+//
+// A new version is published only when apps/<id>/phrases.json matches the app's files: tools/phrases.mjs writes it
+// after the app passes tools/ladder-check.mjs at every grade, so an app changed since its last check is refused (named
+// apps stop the run; "all" skips that app and says so). After a new version is stored, its phrases go to the voice
+// cache (POST /admin/voice/pregenerate) so the narrator lines are ready before the first tablet installs it.
 //
 // Package contents: manifest.json, index.html and the app's files, tile.png, and duckling-compat.js (per-app
 // localStorage, the Duckling narrator, window.KidTablet). The Surface apps' own KID-VOICE block and their
@@ -16,10 +23,11 @@
 // optional AI key) stays an empty stub until the AI proxy lands.
 import 'dotenv/config';
 import { createPrivateKey, createPublicKey, generateKeyPairSync, sign, createHash } from 'node:crypto';
-import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { zipSync } from 'fflate';
+import { listFiles, sourceHash } from './app-source.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const APPS = join(ROOT, 'apps');
@@ -53,23 +61,30 @@ if (args[0] === 'keygen') {
 }
 
 const KEY = process.env.PACKAGE_SIGNING_KEY;
-if (!KEY) die('PACKAGE_SIGNING_KEY is not set. Run: node tools/publish.mjs keygen --write /opt/duckling/.env');
+const voiceOnly = args[0] === 'voice';
+if (!KEY && !voiceOnly) die('PACKAGE_SIGNING_KEY is not set. Run: node tools/publish.mjs keygen --write /opt/duckling/.env');
 if (args[0] === 'pubkey') { console.log(publicKeyOf(KEY).raw); process.exit(0); }
 const ADMIN = process.env.ADMIN_TOKEN;
 if (!ADMIN) die('ADMIN_TOKEN is not set.');
-const privateKey = createPrivateKey({ key: Buffer.from(KEY, 'base64'), format: 'der', type: 'pkcs8' });
+const privateKey = voiceOnly ? null : createPrivateKey({ key: Buffer.from(KEY, 'base64'), format: 'der', type: 'pkcs8' });
 
-function listFiles(dir, base = dir) {
-  const out = [];
-  for (const name of readdirSync(dir).sort()) {
-    // demo.gif is for the portal's About page and goes to storage on its own; recorder scratch folders are skipped.
-    if (dir === base && name === 'demo.gif') continue;
-    if (name.startsWith('.demo-')) continue;
-    const p = join(dir, name);
-    if (statSync(p).isDirectory()) out.push(...listFiles(p, base));
-    else out.push(relative(base, p).replace(/\\/g, '/'));
+// phrases.json as written by tools/phrases.mjs, or why it cannot be used for this version.
+function phrasesOf(id) {
+  const file = join(APPS, id, 'phrases.json');
+  if (!existsSync(file)) return { problem: 'has no phrases.json' };
+  const p = JSON.parse(readFileSync(file, 'utf8'));
+  if (p.source !== sourceHash(join(APPS, id))) return { problem: 'changed since it was last checked' };
+  return { lines: p.lines ?? [] };
+}
+
+async function pregenerate(id, lines) {
+  let created = 0, cached = 0, failed = 0;
+  for (let i = 0; i < lines.length; i += 200) {
+    const r = await api('POST', '/admin/voice/pregenerate', JSON.stringify({ lines: lines.slice(i, i + 200) }), { 'content-type': 'application/json' });
+    if (r.status !== 200) { console.error(`${id}: voice pre-generation stopped: ${r.status} ${JSON.stringify(r.json)}`); return; }
+    created += r.json.created; cached += r.json.cached; failed += r.json.failed;
   }
-  return out;
+  console.log(`${id}: voice ${created} made, ${cached} already cached${failed ? `, ${failed} failed` : ''}`);
 }
 
 function validate(m, id) {
@@ -126,6 +141,13 @@ async function publish(id, requestId) {
   const { manifest: m, zip, sha256, signature } = pack(id);
   const catalog = (await (await fetch(`${API}/catalog`)).json()).apps;
   const existing = catalog.find((a) => a.id === id);
+  // A new version must have been checked; nothing is sent for one that was not.
+  const phrases = existing?.latest?.version === m.version ? { lines: [] } : phrasesOf(id);
+  if (phrases.problem) {
+    const msg = `${id} ${m.version}: not published, apps/${id} ${phrases.problem}. Run: node tools/phrases.mjs ${id}, then commit apps/${id}/phrases.json`;
+    if (all) { console.error(msg); skipped++; return; }
+    die(msg);
+  }
   const meta = { name: m.name, description: m.description ?? '', subjects: m.subjects ?? [], ageMin: m.ageMin ?? null, ageMax: m.ageMax ?? null, starter: !!m.starter, about: m.about ?? null };
   const put = await api('PUT', `/admin/apps/${id}`, JSON.stringify(meta), { 'content-type': 'application/json' });
   if (put.status !== 200) die(`PUT /admin/apps/${id}: ${put.status} ${JSON.stringify(put.json)}`);
@@ -141,9 +163,13 @@ async function publish(id, requestId) {
     }
   }
   if (existing?.latest?.version === m.version) {
-    console.log(`${id} ${m.version}: already published (${existing.latest.sha256 === sha256 ? 'same' : 'DIFFERENT'} bytes); metadata updated`);
+    // Tablets update an app only when its version changes, so new bytes under an old version (an edited app, or a
+    // change to duckling-compat.js) would never reach them. Say so plainly.
+    if (existing.latest.sha256 === sha256) console.log(`${id} ${m.version}: already published (same bytes); metadata updated`);
+    else console.error(`${id} ${m.version}: already published (DIFFERENT bytes); metadata updated. Tablets keep the old package until the version in apps/${id}/manifest.json goes up.`);
     return;
   }
+
   const qs = new URLSearchParams({ version: m.version, signature });
   if (m.minShell) qs.set('minShell', m.minShell);
   if (m.permissions?.length) qs.set('permissions', m.permissions.join(','));
@@ -151,12 +177,25 @@ async function publish(id, requestId) {
   const post = await api('POST', `/admin/apps/${id}/versions?${qs}`, zip, { 'content-type': 'application/zip' });
   if (post.status !== 200) die(`POST versions ${id}: ${post.status} ${JSON.stringify(post.json)}`);
   console.log(`${id} ${m.version}: published, ${(zip.length / 1024).toFixed(0)} KB, sha256 ${sha256.slice(0, 12)}..., ${post.json.url}`);
+  await pregenerate(id, phrases.lines);
 }
 
 let ids = args.filter((a) => !a.startsWith('--') && a !== flag('--request'));
-if (ids[0] === 'all') {
+if (voiceOnly) ids.shift();
+const all = ids[0] === 'all';
+let skipped = 0;
+if (all) {
   ids = readdirSync(APPS).filter((d) => existsSync(join(APPS, d, 'manifest.json')));
   if (has('--starter')) ids = ids.filter((d) => JSON.parse(readFileSync(join(APPS, d, 'manifest.json'), 'utf8')).starter);
 }
 if (!ids.length) die('Name apps to publish, or "all".');
-for (const id of ids) await publish(id, flag('--request'));
+if (voiceOnly) {
+  for (const id of ids) {
+    const p = phrasesOf(id);
+    if (p.problem) { console.error(`${id}: apps/${id} ${p.problem}; run node tools/phrases.mjs ${id}`); skipped++; continue; }
+    await pregenerate(id, p.lines);
+  }
+} else {
+  for (const id of ids) await publish(id, flag('--request'));
+}
+if (skipped) { console.error(`${skipped} app(s) skipped; see above.`); process.exitCode = 1; }

@@ -1,0 +1,53 @@
+{
+ "source": "cce9594c42d33811be2306456b33d79813d635fc171b33e80eff800b13fa9354",
+ "lines": [
+  {
+   "text": "Find the shortest way. Get all 3 gems in 13 moves or less.",
+   "rate": -10
+  },
+  {
+   "text": "Get all 3 gems using only 3 cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.",
+   "rate": -10
+  },
+  {
+   "text": "Get all 3 gems using only 5 cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.",
+   "rate": -10
+  },
+  {
+   "text": "Get all 3 gems with 9 cards or fewer. Fewer cards earn more stars. 5 cards earns three stars.",
+   "rate": -10
+  },
+  {
+   "text": "Here is one way. Press Go to watch it.",
+   "rate": -10
+  },
+  {
+   "text": "Put some moves in the Stamp box once. Then play the Stamp with a Stamp card, turn, and play it again. Only 8 cards.",
+   "rate": -10
+  },
+  {
+   "text": "Tap some cards first.",
+   "rate": -10
+  },
+  {
+   "text": "Tap the arrow cards to plan a path for the robot. Get all 2 gems, then press Go.",
+   "rate": -10
+  },
+  {
+   "text": "Tap the arrow cards to plan a path for the robot. Get all 3 gems, then press Go.",
+   "rate": -10
+  },
+  {
+   "text": "Tap the arrow cards to plan a path for the robot. Get the gem, then press Go.",
+   "rate": -10
+  },
+  {
+   "text": "The Stamp cannot use itself. Tap outside the Stamp box first.",
+   "rate": -10
+  },
+  {
+   "text": "This path is long. A While card keeps going while gems are left. Inside it, turn at a wall, else go forward. Only 4 cards.",
+   "rate": -10
+  }
+ ]
+}

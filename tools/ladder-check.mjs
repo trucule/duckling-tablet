@@ -9,6 +9,8 @@
 //   node tools/ladder-check.mjs --all                  every packaged app
 //   node tools/ladder-check.mjs word-wizard --shots out/   screenshots per grade
 //   node tools/ladder-check.mjs word-wizard --drive    also exercise every level's generator 40 times
+//   node tools/ladder-check.mjs word-wizard --phrases out.json   also record every narrator line the app asked for
+//                                                                 (text, rate, voice), keyed by app id
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,6 +30,7 @@ const NAME = { '-1': 'pre-K', 0: 'K', 1: '1st', 2: '2nd', 3: '3rd', 4: '4th', 5:
 const args = process.argv.slice(2);
 const flag = (f) => { const i = args.indexOf(f); if (i < 0) return undefined; const v = args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true; args.splice(i, v === true ? 1 : 2); return v; };
 const all = flag('--all'); const shots = flag('--shots'); const drive = flag('--drive'); const times = Number(flag('--times') || 40);
+const phrasesOut = flag('--phrases'); const heard = {};
 const ids = all ? fs.readdirSync(APPS).filter((d) => fs.existsSync(path.join(APPS, d, 'manifest.json'))) : args;
 if (!ids.length) { console.error('usage: node tools/ladder-check.mjs <app-id>|--all [--shots dir] [--drive] [--times n]'); process.exit(2); }
 if (shots) fs.mkdirSync(shots, { recursive: true });
@@ -58,7 +61,14 @@ for (const id of ids) {
     const errors = [];
     page.on('pageerror', (e) => { if (!/decode audio/i.test(e.message)) errors.push('pageerror: ' + e.message.slice(0, 160)); });
     page.on('console', (m) => { if (m.type() === 'error' && !/favicon|decode audio|net::ERR|Failed to load resource/i.test(m.text())) errors.push('console: ' + m.text().slice(0, 160)); });
-    await page.route('**/api/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{"design":null,"owned":[],"spent":0,"savedAt":0,"earned":0,"earnedByApp":{},"content":[{"type":"text","text":"{}"}]}' }));
+    await page.route('**/api/**', (route) => {
+      const u = new URL(route.request().url());
+      if (u.pathname.endsWith('/api/tts') && !u.searchParams.get('private')) {
+        const line = { text: u.searchParams.get('text') || '', rate: Number(u.searchParams.get('rate')) || 0, voice: u.searchParams.get('voice') || '' };
+        (heard[id] ??= new Map()).set(`${line.voice}|${line.rate}|${line.text}`, line);
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"design":null,"owned":[],"spent":0,"savedAt":0,"earned":0,"earnedByApp":{},"content":[{"type":"text","text":"{}"}]}' });
+    });
     try {
       await page.goto(`${base}?levels=${encodeURIComponent(JSON.stringify(levels))}`, { waitUntil: 'load', timeout: 30000 });
       await page.waitForTimeout(2000);
@@ -93,4 +103,5 @@ for (const id of ids) {
   srv.close();
 }
 await browser.close();
+if (phrasesOut) fs.writeFileSync(phrasesOut, JSON.stringify(Object.fromEntries(Object.entries(heard).map(([k, m]) => [k, [...m.values()]])), null, 1));
 process.exit(failed ? 1 : 0);
