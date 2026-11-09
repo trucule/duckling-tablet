@@ -1,20 +1,20 @@
 {
   "id": "ecosystem-aquarium",
   "name": "Ecosystem Aquarium",
-  "version": "1.0.2",
-  "description": "Set fish, snails, plants, light and food, then run the days and watch oxygen, algae and the food chain.",
+  "version": "1.0.3",
+  "description": "Set fish, snails, plants, light and food, then run the days and watch oxygen, algae and the food chain. Higher levels add food webs, population graphs, invaders, energy pyramids and fair tests.",
   "subjects": [
     "science"
   ],
-  "ageMin": 7,
-  "ageMax": 9,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/ecosystem-aquarium",
   "about": {
     "concept": "Feedback loops and balance. Fish, snails, plants, light and food all affect oxygen, algae and each other; the child changes one thing, runs the days, and reads what happened.",
-    "progression": "The first tanks balance with one or two changes. Later tanks have more species and tighter limits, and the child is asked to keep a tank healthy for longer runs and to explain a crash.",
+    "progression": "The first tanks need one change, such as turning on the light or feeding the fish, and the middle tanks balance air, algae, room, baby fish and a food chain. The upper levels ask the child to balance a food web for 30 days, read population graphs, find a limiting factor, keep oxygen above a line, predict and fix an invasive species, fill a tank to its carrying capacity, work the 10 percent rule on an energy pyramid, follow a toxin up a food chain, pick a fair test, and draw the conclusion a data table supports.",
     "lifeSkills": [
       "Caring for living things",
       "Thinking about consequences over time",
