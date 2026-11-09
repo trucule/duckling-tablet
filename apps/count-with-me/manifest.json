@@ -1,20 +1,20 @@
 {
   "id": "count-with-me",
   "name": "Count With Me",
-  "version": "1.0.2",
-  "description": "Four hands-on math games: counting and ten frames, sharing into groups, place value blocks, and word problems read aloud.",
+  "version": "1.0.3",
+  "description": "Four hands-on math games: counting and ten frames, making amounts with tokens, place value blocks, and word problems read aloud, from pre-K to 8th grade.",
   "subjects": [
     "math"
   ],
-  "ageMin": 5,
-  "ageMax": 8,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/count-with-me",
   "about": {
-    "concept": "Number sense: quantities as groups you can see and move, not only symbols. Ten frames, sharing into equal groups, place value blocks and spoken word problems each build the same idea from a different side.",
-    "progression": "Counting to ten and matching a numeral leads to making tens, then to tens and ones in two-digit numbers, then to word problems that need a choice of operation.",
+    "concept": "Number sense: quantities as groups you can see and move, not only symbols. Ten frames, tokens, place value blocks and spoken word problems each build the same idea from a different side, and the same pieces carry on into decimals, ratios, powers and probability.",
+    "progression": "Each game climbs its own ladder from pre-K to 8th grade. Counting to five grows into ten frames, arrays, area models, hundred grids, ratios and square roots; making five grows into tens and ones, decimal tokens, ratios, percents and negative chips; building ones grows into thousands, decimals, powers of ten and scientific notation; and spoken stories grow from adding to five into fractions, rates, percent change, equations in words and chance.",
     "lifeSkills": [
       "Counting and estimating amounts",
       "Fair sharing",

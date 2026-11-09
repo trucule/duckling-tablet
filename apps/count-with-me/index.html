@@ -215,15 +215,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Count With Me</title>
 <!--
-  Count With Me. Hands-on math from counting to times tables, one file, offline, no API.
-  Four games, each with its own ladder of levels:
-    How many?  tap to count (1-5, 1-10, 1-20), ten frames (tens and ones up to 120), arrays (rows of, times tables).
-    Give me    drag things into the basket, then equal groups, sharing on plates (division), sharing with leftovers.
-    Build it   place value blocks: build 2- and 3-digit numbers, number puzzles, add and subtract with trading.
-    Story      word problems read aloud: add and subtract to 100, times, sharing, two steps, coins.
+  Count With Me. Hands-on math from counting to powers of ten, one file, offline, no API.
+  Four games, each with its own ladder of levels from pre-K to 8th grade (the ladders are listed above LEVELS):
+    How many?  tap to count, ten frames, arrays, area models, groups, hundred grids, ratios, scale, squares and roots.
+    Give me    drag things into the basket or onto plates, then tokens: tens and ones, tenths and hundredths,
+               two colours for a ratio, percent of an amount, positive and negative chips, powers.
+    Build it   place value blocks: ones to thousands, trading, tenths and hundredths, powers of ten, scientific notation.
+    Story      word problems read aloud: add and subtract, times and sharing, several steps, fractions, decimals,
+               ratios and rates, percents, proportions, equations in words, chance.
   Four right first try in a row moves a game up a level; two missed questions in a row moves it down.
-  Progress is kept in localStorage (key count-v2). New players start at a 2nd grade level; the young levels stay at
-  the bottom of each ladder.
+  Progress is kept in localStorage (key count-v2). New players start at the child's grade in math (set by the
+  parent), 2nd grade when unknown; the young levels stay at the bottom of each ladder.
 -->
 <style>
   :root { --ink: #2B2140; --paper: #FFF9F0; --pink: #FF4F8B; --sun: #FFC93C; --sky: #58C7F0; --leaf: #5CD38B; --grape: #9B6BFF; }
@@ -234,70 +236,115 @@
   /* The right 210px of the header stays clear: the Home pill sits there. */
   header { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 210px 10px 14px; }
   header h1 { font-size: 26px; margin: 0; font-weight: 900; }
-  #badge { font-size: 17px; font-weight: 800; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 5px 12px; margin-right: auto; white-space: nowrap; }
-  .pill { border: 3px solid var(--ink); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 19px; font-weight: 800; cursor: pointer; }
+  /* On a 1024 wide screen the title would push the mode pills onto a second row and steal height from the game. */
+  @media (max-width: 1140px) { header h1 { display: none; } header { gap: 8px; } .pill { font-size: 17px; padding: 7px 12px; } #badge { font-size: 15px; } }
+  #badge { font-size: 17px; font-weight: 800; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 5px 12px; margin-right: auto; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .pill { border: 3px solid var(--ink); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 19px; font-weight: 800; cursor: pointer; flex: none; }
+  #stars { flex: none; }
   .pill.on { background: var(--sun); }
   #stars { font-size: 22px; font-weight: 900; }
   main { position: relative; min-height: 0; }
   #ask { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); font-size: 28px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 6px 22px; white-space: nowrap; z-index: 2; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
+  #ask.long { font-size: 22px; padding: 8px 20px; white-space: normal; line-height: 1.2; border-radius: 24px; text-align: center; }
+  main.pad #ask { max-width: calc(100% - 380px); left: calc(50% - 160px); }
   #field { position: absolute; inset: 70px 20px 20px; border: 4px dashed #d9cfe8; border-radius: 28px; overflow: hidden; }
   main.pad #field { right: 340px; }
-  main.low #field { bottom: 136px; }
+  main.low #field { bottom: 100px; }
   .thing { position: absolute; width: 96px; height: 96px; display: grid; place-items: center; font-size: 68px; cursor: pointer; transition: transform .15s; touch-action: none; }
   .thing.small { width: 70px; height: 70px; font-size: 50px; }
+  .thing.tiny { width: 58px; height: 58px; font-size: 42px; }
   .thing.counted { transform: scale(1.18); filter: drop-shadow(0 0 10px var(--sun)); }
   .thing .n { position: absolute; top: -4px; right: -4px; width: 34px; height: 34px; border-radius: 50%; background: var(--sun); border: 3px solid var(--ink); font-size: 18px; font-weight: 900; display: grid; place-items: center; }
   #basket { position: absolute; right: 24px; bottom: 24px; width: 300px; height: 190px; border: 4px solid var(--ink); border-radius: 24px 24px 40px 40px; background: #FFE4B5; display: none; z-index: 1; }
   #basket::before { content: "🧺"; position: absolute; left: 10px; top: -30px; font-size: 44px; }
   #basket.on { display: block; }
   .count { position: absolute; right: 12px; top: -22px; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 2px 14px; font-size: 24px; font-weight: 900; }
-  .plate { position: absolute; bottom: 14px; height: 160px; border: 4px solid var(--ink); border-radius: 50%; background: radial-gradient(circle, #fff 55%, #e9e2f5 56%); z-index: 0; }
+  .plate { position: absolute; bottom: 14px; height: 150px; border: 4px solid var(--ink); border-radius: 50%; background: radial-gradient(circle, #fff 55%, #e9e2f5 56%); z-index: 0; }
   .plate .count { right: 50%; transform: translateX(50%); top: -24px; }
   #answers { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; gap: 14px; z-index: 2; }
   #answers button, #check { border: 4px solid var(--ink); background: #fff; border-radius: 22px; width: 96px; height: 96px; font-size: 44px; font-weight: 900; cursor: pointer; }
-  #answers button:active, #check:active, #pad button:active, .ctl button:active, #trades button:active { transform: scale(.94); }
+  #answers button:active, #pad button:active, .ctl button:active, #trades button:active, .tok:active, .chip:active { transform: scale(.94); }
+  /* The check keeps its centring transform while pressed; without it the button jumps sideways under the finger and the tap is lost. */
+  #check:active { transform: translateX(-50%) scale(.94); }
   #answers button.no, #padShow.no { background: #ffd6d6; animation: shake .4s; }
   #check { display: none; position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--leaf); width: 150px; z-index: 2; }
   #check.on { display: block; }
+  main.low #check { height: 70px; bottom: 14px; font-size: 36px; }
+  /* Plates need the whole field height on a 640px screen, so their check sits in the field's top right corner. */
+  main.top #check { bottom: auto; top: 80px; left: auto; right: 34px; transform: none; width: 120px; height: 64px; font-size: 34px; }
+  main.top #check:active { transform: scale(.94); }
   @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
-  /* Number pad for answers bigger than a few choices. */
+  /* Number pad for answers bigger than a few choices. The wide layout adds a minus key and a decimal point. */
   #pad { position: absolute; right: 20px; top: 70px; bottom: 20px; width: 300px; display: none; flex-direction: column; gap: 10px; z-index: 2; }
   #pad.on { display: flex; }
   #padShow { height: 84px; flex: none; font-size: 54px; font-weight: 900; border: 4px solid var(--ink); border-radius: 20px; background: #fff; display: grid; place-items: center; }
   #padKeys { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 10px; min-height: 0; }
-  #padKeys button { border: 4px solid var(--ink); background: #fff; border-radius: 18px; font-size: 38px; font-weight: 900; cursor: pointer; }
+  #padKeys button { border: 4px solid var(--ink); background: #fff; border-radius: 18px; font-size: 38px; font-weight: 900; cursor: pointer; padding: 0; }
   #padKeys button.ok { background: var(--leaf); }
-  /* Ten frames and arrays. */
+  #padKeys.wide { gap: 7px; }
+  #padKeys.wide button { font-size: 30px; border-radius: 14px; }
+  #padKeys button.span2 { grid-column: span 2; }
+  #padKeys button.off { visibility: hidden; }
+  /* Ten frames, arrays, grids and groups. */
   .wrap { position: absolute; inset: 44px 10px 10px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-content: center; }
+  .wrap.tight { gap: 8px; inset: 36px 10px 10px; }
   .frame { display: grid; grid-template-columns: repeat(5, auto); gap: 3px; padding: 6px; border: 3px solid var(--ink); border-radius: 10px; background: #fff; cursor: pointer; }
   .frame.counted { background: #FFF1B8; box-shadow: 0 0 0 4px var(--sun); }
   .cell { display: grid; place-items: center; border: 2px solid #e3dbef; border-radius: 6px; }
   .cell.counted { background: #FFF1B8; }
+  .cell.a { background: #D6F1FF; } .cell.b { background: #DFF7E8; } .cell.shade { background: #FF8FB5; border-color: #e07aa0; }
   .array { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
   .arow { display: flex; gap: 4px; align-items: center; border-radius: 12px; padding: 2px 6px; cursor: pointer; }
   .arow.counted { background: #FFF1B8; }
   .arow .sum { font-size: 22px; font-weight: 900; margin-left: 10px; min-width: 40px; }
+  .grid { display: grid; gap: 3px; padding: 6px; border: 3px solid var(--ink); border-radius: 10px; background: #fff; }
+  .labels { display: flex; gap: 3px; padding: 0 9px; }
+  .labels div { text-align: center; font-size: 20px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 1px 0; }
+  .gbox { border: 3px solid var(--ink); border-radius: 14px; background: #fff; padding: 6px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .gbox .glabel { font-size: 20px; font-weight: 900; }
+  .gbox .mini { display: flex; flex-wrap: wrap; gap: 3px; align-items: flex-end; justify-content: center; max-width: 170px; }
+  .mrod { width: 12px; height: 56px; background-color: var(--sky); background-image: linear-gradient(#0004 1px, transparent 1px); background-size: 12px 5.6px; border: 2px solid var(--ink); }
+  .mcube { width: 15px; height: 15px; background: var(--leaf); border: 2px solid var(--ink); border-radius: 2px; }
+  .dots { display: grid; gap: 4px; }
+  .dot { width: 18px; height: 18px; border-radius: 50%; background: var(--grape); }
+  .dot.big { width: 36px; height: 36px; border: 3px solid var(--ink); } .dot.r { background: #FF6B6B; } .dot.b { background: var(--sky); }
+  .side { font-size: 24px; font-weight: 900; background: var(--sun); border: 3px solid var(--ink); border-radius: 999px; padding: 4px 16px; align-self: center; }
+  .stack { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
   #tally { position: absolute; left: 14px; top: 8px; font-size: 22px; font-weight: 900; background: var(--sun); border: 3px solid var(--ink); border-radius: 999px; padding: 2px 14px; display: none; }
   #tally.on { display: block; }
+  /* Tokens: tap one to put it in the bin, tap it in the bin to take it out. */
+  .tray { position: absolute; left: 14px; right: 14px; top: 12px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .tray .tip { font-size: 17px; font-weight: 700; margin-left: auto; max-width: 300px; text-align: right; line-height: 1.2; }
+  .tray .count { position: static; font-size: 26px; padding: 4px 18px; flex: none; }
+  .tok, .chip { border: 4px solid var(--ink); border-radius: 50%; display: grid; place-items: center; font-weight: 900; cursor: pointer; background: #fff; font-family: inherit; color: var(--ink); }
+  .tok { width: 68px; height: 68px; font-size: 20px; }
+  .chip { width: 46px; height: 46px; font-size: 15px; border-width: 3px; }
+  .t10, .d10, .blue { background: var(--sky); } .t1, .d01, .pos { background: var(--leaf); } .d1 { background: #FF8FB5; } .red { background: #FF6B6B; } .neg { background: #FFB3C7; }
+  .bin { position: absolute; left: 14px; right: 14px; top: 100px; bottom: 14px; border: 4px solid var(--ink); border-radius: 24px; background: #FFE4B5; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; padding: 16px; overflow: hidden; }
   /* Place value blocks. */
-  .cols { position: absolute; inset: 50px 10px 10px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .cols { position: absolute; inset: 12px 10px 10px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .cols.four { grid-template-columns: repeat(4, 1fr); }
   .col { display: flex; flex-direction: column; border: 3px solid var(--ink); border-radius: 18px; background: #fff; min-height: 0; }
-  .col h3 { margin: 0; text-align: center; font-size: 22px; padding: 6px; border-bottom: 3px solid var(--ink); }
-  .col.h h3 { background: #FFD3E2; } .col.t h3 { background: #D6F1FF; } .col.o h3 { background: #DFF7E8; }
-  .blocks { flex: 1; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 5px; padding: 8px; overflow: hidden; min-height: 0; }
-  .flat { width: 80px; height: 80px; background-color: #FF8FB5; background-image: linear-gradient(#0003 1px, transparent 1px), linear-gradient(90deg, #0003 1px, transparent 1px); background-size: 8px 8px; border: 2px solid var(--ink); }
-  .rod { width: 18px; height: 170px; background-color: #58C7F0; background-image: linear-gradient(#0004 1px, transparent 1px); background-size: 18px 17px; border: 2px solid var(--ink); }
-  .cube { width: 30px; height: 30px; background: var(--leaf); border: 2px solid var(--ink); border-radius: 4px; }
-  .ctl { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 8px; border-top: 3px solid var(--ink); }
-  .ctl button { width: 64px; height: 64px; border: 4px solid var(--ink); border-radius: 50%; background: #fff; font-size: 34px; font-weight: 900; cursor: pointer; }
-  .ctl .digit { font-size: 46px; font-weight: 900; min-width: 56px; text-align: center; }
-  #trades { position: absolute; left: 24px; bottom: 24px; display: flex; gap: 10px; z-index: 2; max-width: calc(50% - 110px); flex-wrap: wrap; }
-  #trades button { border: 4px solid var(--ink); background: #EDE4FF; border-radius: 18px; padding: 8px 14px; font-size: 19px; font-weight: 800; cursor: pointer; }
+  .col h3 { margin: 0; text-align: center; font-size: 19px; padding: 5px; border-bottom: 3px solid var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .col.k h3 { background: #EDE4FF; } .col.h h3 { background: #FFD3E2; } .col.t h3 { background: #D6F1FF; } .col.o h3 { background: #DFF7E8; }
+  .blocks { flex: 1; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: flex-start; gap: 5px; padding: 8px; overflow: hidden; min-height: 0; }
+  .flat { width: 50px; height: 50px; background-color: #FF8FB5; background-image: linear-gradient(#0003 1px, transparent 1px), linear-gradient(90deg, #0003 1px, transparent 1px); background-size: 5px 5px; border: 2px solid var(--ink); }
+  .rod { width: 14px; height: 140px; background-color: #58C7F0; background-image: linear-gradient(#0004 1px, transparent 1px); background-size: 14px 14px; border: 2px solid var(--ink); }
+  .cube { width: 24px; height: 24px; background: var(--leaf); border: 2px solid var(--ink); border-radius: 4px; }
+  .kilo { width: 44px; height: 44px; margin: 0 6px 6px 0; background-color: #C9B6FF; background-image: linear-gradient(#0003 1px, transparent 1px), linear-gradient(90deg, #0003 1px, transparent 1px); background-size: 4.4px 4.4px; border: 2px solid var(--ink); box-shadow: 5px 5px 0 #7B5BD6, 5px 5px 0 2px var(--ink); }
+  .ctl { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 5px; border-top: 3px solid var(--ink); }
+  .ctl button { width: 48px; height: 48px; border: 4px solid var(--ink); border-radius: 50%; background: #fff; font-size: 26px; font-weight: 900; cursor: pointer; padding: 0; }
+  .ctl .digit { font-size: 36px; font-weight: 900; min-width: 46px; text-align: center; }
+  #trades { position: absolute; left: 24px; bottom: 18px; display: flex; gap: 8px; z-index: 2; max-width: calc(50% - 100px); flex-wrap: wrap; }
+  #trades button { border: 4px solid var(--ink); background: #EDE4FF; border-radius: 18px; padding: 6px 12px; font-size: 17px; font-weight: 800; cursor: pointer; }
   /* Story problems. */
   .story { position: absolute; inset: 50px 30px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; }
   .story p { margin: 0; font-size: 34px; line-height: 1.4; font-weight: 700; background: #fff; border: 3px solid var(--ink); border-radius: 24px; padding: 18px 26px; max-width: 900px; }
+  .story p.long { font-size: 27px; } .story p.longer { font-size: 23px; line-height: 1.35; }
   .pic { font-size: 40px; line-height: 1.25; text-align: center; max-width: 900px; display: none; }
   .pic.on { display: block; }
+  .pic.small { font-size: 28px; }
   .coins { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
   .coin { border-radius: 50%; border: 3px solid var(--ink); display: grid; place-items: center; font-weight: 900; }
   .coin.q { width: 82px; height: 82px; background: #E3E3E3; font-size: 22px; } .coin.d { width: 58px; height: 58px; background: #EDEDED; font-size: 17px; }
@@ -374,15 +421,52 @@ function numWords(n) {
   if (n < 1000) return WORDS[Math.floor(n / 100)] + ' hundred' + (n % 100 ? ' ' + numWords(n % 100) : '');
   return numWords(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + numWords(n % 1000) : '');
 }
+// Numbers as text: 0.47 -> "0.47", -4 -> "-4", 3200 -> "3200". Never more than two decimals.
+const fmt = n => { const r = Math.round(n * 100) / 100; return String(Object.is(r, -0) ? 0 : r); };
+const money = c => (c / 100).toFixed(2);
+// Numbers as speech, for negatives and decimals too: -4 -> "negative four", 2.35 -> "two point three five".
+function numSay(n) {
+  n = Math.round(n * 100) / 100;
+  if (n < 0) return 'negative ' + numSay(-n);
+  if (Number.isInteger(n)) return n < 1000000 ? numWords(n) : String(n);
+  const [i, d] = fmt(n).split('.');
+  return numWords(+i) + ' point ' + d.split('').map(c => WORDS[+c]).join(' ');
+}
+const FRACS = { 2: ['half', 'halves'], 3: ['third', 'thirds'], 4: ['fourth', 'fourths'], 5: ['fifth', 'fifths'], 6: ['sixth', 'sixths'], 8: ['eighth', 'eighths'], 10: ['tenth', 'tenths'], 12: ['twelfth', 'twelfths'] };
+const fracSay = (a, d) => numWords(a) + ' ' + FRACS[d][a === 1 ? 0 : 1];
+const SUP = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '-': '⁻' };
+const sup = n => String(n).split('').map(c => SUP[c] || c).join('');
+const powSay = (b, e) => numSay(b) + (e === 2 ? ' squared' : e === 3 ? ' cubed' : ' to the ' + ['', '', '', '', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'][e] + ' power');
+const tenSay = e => e === 0 ? 'ten to the zero' : e === 1 ? 'ten' : e === 2 ? 'ten squared' : e === 3 ? 'ten cubed' : e === -1 ? 'ten to the negative one' : 'ten to the negative two';
+const gcd = (a, b) => b ? gcd(b, a % b) : a;
 const one = nm => nm === 'fish' ? 'fish' : nm.replace(/ies$/, 'y').replace(/s$/, '');
 const noun = (n, nm) => n === 1 ? one(nm) : nm;
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => a.slice().sort(() => Math.random() - .5);
 const $ = id => document.getElementById(id);
 
 // ---------------------------------------------------------------------------
 // Levels. Each level makes one task; render() shows it and the checks below grade it.
+// Four ladders, one per game. Rung index, name and grade band:
+//   How many?   0 Count to 5 (pre-K)  1 Count to 10 (K)  2 Count to 20 (K, 1st)  3 Tens and ones (2nd)
+//               4 Big numbers (2nd)  5 Rows of (2nd, 3rd)  6 Times tables (3rd)  7 Area model (3rd, 4th)
+//               8 Groups of (4th)  9 How many groups? (4th)  10 Hundredths (5th)  11 Percent (5th)
+//               12 Ratios (6th)  13 Scale up (7th)  14 Squares and cubes (8th)  15 Square roots (8th)
+//   Give me     0 Give me 5 (pre-K)  1 Give me 10 (K)  2 Give me 12 (1st)  3 Add to 20 (1st)  4 Add to 100 (2nd)
+//               5 Equal groups (2nd, 3rd)  6 Share it (3rd)  7 Leftovers (3rd, 4th)  8 Part of a set (4th)
+//               9 Decimal tokens (5th)  10 Make a ratio (6th)  11 Percent of (7th)  12 Percent off (7th)
+//               13 Negative chips (8th)  14 Powers (8th)
+//   Build it    0 Build to 10 (pre-K, K)  1 Build tens and ones (K, 1st)  2 Build hundreds (2nd)  3 Number puzzles (2nd)
+//               4 Add and trade (2nd)  5 Take away and trade (2nd, 3rd)  6 Big add and take away (3rd)
+//               7 Build thousands (4th)  8 Thousand puzzles (4th)  9 Build decimals (5th)
+//               10 Decimals and trade (5th)  11 Powers of ten (6th)  12 Scientific notation (7th)
+//               13 Small powers of ten (8th)
+//   Story       0 Stories to 5 (pre-K)  1 Stories to 10 (K)  2 Stories to 20 (1st)  3 Stories to 100 (2nd)
+//               4 Times stories (3rd)  5 Sharing stories (3rd)  6 Two steps (3rd, 4th)  7 Coins (3rd)
+//               8 Four operations (4th)  9 Fractions (5th)  10 Decimals (5th)  11 Ratios and rates (6th)
+//               12 Percents (6th)  13 Proportions (7th)  14 Equations in words (8th)  15 Chance (8th)
 // ---------------------------------------------------------------------------
 const LEVELS = {
   howmany: [
@@ -393,16 +477,35 @@ const LEVELS = {
     { name: 'Big numbers', gen: () => ({ kind: 'frames', answer: rnd(60, 120) }) },
     { name: 'Rows of', gen: () => arrayTask(2, 5, 2, 5, true) },
     { name: 'Times tables', gen: () => arrayTask(2, 9, 2, 10, false) },
+    { name: 'Area model', gen: areaTask },
+    { name: 'Groups of', gen: groupsOfTask },
+    { name: 'How many groups?', gen: quotientTask },
+    { name: 'Hundredths', gen: () => gridTask(false) },
+    { name: 'Percent', gen: () => gridTask(true) },
+    { name: 'Ratios', gen: ratioTask },
+    { name: 'Scale up', gen: scaleTask },
+    { name: 'Squares and cubes', gen: powerTask },
+    { name: 'Square roots', gen: rootTask },
   ],
   giveme: [
     { name: 'Give me 5', gen: () => basketTask(1, 5) },
     { name: 'Give me 10', gen: () => basketTask(1, 10) },
     { name: 'Give me 12', gen: () => basketTask(5, 12) },
+    { name: 'Add to 20', gen: sumBasketTask },
+    { name: 'Add to 100', gen: addTokensTask },
     { name: 'Equal groups', gen: () => { const R = rnd(2, 4), N = rnd(2, 5); return { kind: 'groups', R, N, total: R * N + rnd(1, 3), answer: R * N }; } },
     { name: 'Share it', gen: () => { const R = rnd(2, 5), each = rnd(2, 6); return { kind: 'share', R, total: R * each, each, left: 0, answer: each }; } },
     { name: 'Leftovers', gen: () => { const R = rnd(2, 5), each = rnd(2, 5), left = rnd(1, R - 1); return { kind: 'share', R, total: R * each + left, each, left, answer: each }; } },
+    { name: 'Part of a set', gen: fractionBasketTask },
+    { name: 'Decimal tokens', gen: decimalTokensTask },
+    { name: 'Make a ratio', gen: ratioTokensTask },
+    { name: 'Percent of', gen: percentTokensTask },
+    { name: 'Percent off', gen: percentChangeTokensTask },
+    { name: 'Negative chips', gen: chipsTask },
+    { name: 'Powers', gen: powerTokensTask },
   ],
   build: [
+    { name: 'Build to 10', gen: () => { const n = rnd(2, 9); return buildTask(n, [0, 0, 0], 'Build ' + n, 'Build ' + numWords(n) + '. Tap plus under the ones.'); } },
     { name: 'Build tens and ones', gen: () => { const n = rnd(11, 99); return buildTask(n, [0, 0, 0], 'Build ' + n, 'Build ' + numWords(n) + '.'); } },
     { name: 'Build hundreds', gen: () => { const n = rnd(101, 999); return buildTask(n, [0, 0, 0], 'Build ' + n, 'Build ' + numWords(n) + '.'); } },
     { name: 'Number puzzles', gen: puzzleTask },
@@ -410,8 +513,16 @@ const LEVELS = {
     { name: 'Take away and trade', gen: () => { let a, b; do { a = rnd(31, 95); b = rnd(12, a - 5); } while ((b % 10) <= (a % 10)); return subTask(a, b); } },
     { name: 'Big add and take away', gen: () => { if (Math.random() < .5) { let a, b; do { a = rnd(120, 680); b = rnd(110, 299); } while (a + b > 999 || ((a % 10) + (b % 10) < 10 && (Math.floor(a / 10) % 10) + (Math.floor(b / 10) % 10) < 10)); return addTask(a, b); }
                                                     let a, b; do { a = rnd(300, 950); b = rnd(110, a - 50); } while ((b % 10) <= (a % 10) && (Math.floor(b / 10) % 10) <= (Math.floor(a / 10) % 10)); return subTask(a, b); } },
+    { name: 'Build thousands', gen: () => { const n = rnd(1001, 9999); return buildTask(n, [0, 0, 0, 0], 'Build ' + n.toLocaleString('en-US'), 'Build ' + numWords(n) + '.', { cols: 'four' }); } },
+    { name: 'Thousand puzzles', gen: thousandPuzzleTask },
+    { name: 'Build decimals', gen: decimalBuildTask },
+    { name: 'Decimals and trade', gen: decimalTradeTask },
+    { name: 'Powers of ten', gen: powersOfTenTask },
+    { name: 'Scientific notation', gen: scientificTask },
+    { name: 'Small powers of ten', gen: smallPowersTask },
   ],
   story: [
+    { name: 'Stories to 5', gen: () => storyAddSub(5, false) },
     { name: 'Stories to 10', gen: () => storyAddSub(10, false) },
     { name: 'Stories to 20', gen: () => storyAddSub(20, true) },
     { name: 'Stories to 100', gen: () => storyAddSub(100, true) },
@@ -419,42 +530,245 @@ const LEVELS = {
     { name: 'Sharing stories', gen: storyShare },
     { name: 'Two steps', gen: storyTwoStep },
     { name: 'Coins', gen: storyCoins },
+    { name: 'Four operations', gen: storyFourOps },
+    { name: 'Fractions', gen: storyFractions },
+    { name: 'Decimals', gen: storyDecimals },
+    { name: 'Ratios and rates', gen: storyRatios },
+    { name: 'Percents', gen: storyPercents },
+    { name: 'Proportions', gen: storyProportions },
+    { name: 'Equations in words', gen: storyEquations },
+    { name: 'Chance', gen: storyChance },
   ],
 };
-// Where a new player starts: about 2nd grade.
+// The grade each rung is for (-1 pre-K, 0 K, 1 to 8), in ladder order. The child opens on the first rung at her grade.
+const RUNG_GRADES = {
+  howmany: [-1, 0, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 8, 8],
+  giveme: [-1, 0, 1, 1, 2, 2, 3, 3, 4, 5, 6, 7, 7, 8, 8],
+  build: [-1, 1, 2, 2, 2, 2, 3, 4, 4, 5, 5, 6, 7, 8],
+  story: [-1, 0, 1, 2, 3, 3, 3, 3, 4, 5, 5, 6, 6, 7, 8, 8],
+};
+for (const m in LEVELS) if (RUNG_GRADES[m].length !== LEVELS[m].length) throw new Error('RUNG_GRADES.' + m + ' does not match the ladder');
 // Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
+// Older shells have no rungFor; they get levelFor, whose second argument is the rung a 2nd grader opens on.
 const lf = (n, s) => (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', n, s) : s);
-const START = { howmany: lf(LEVELS.howmany.length, 3), giveme: lf(LEVELS.giveme.length, 3), build: lf(LEVELS.build.length, 0), story: lf(LEVELS.story.length, 2) };
+const rf = (m, s) => (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('math', RUNG_GRADES[m]) : lf(LEVELS[m].length, s));
+const START = { howmany: rf('howmany', 3), giveme: rf('giveme', 4), build: rf('build', 4), story: rf('story', 3) };
 
 function tapTask(lo, hi) {
   const n = rnd(lo, hi), opts = new Set([n]);
   while (opts.size < 3) opts.add(Math.max(1, Math.min(hi, n + rnd(-3, 3))));
-  return { kind: 'tap', answer: n, choices: [...opts].sort((a, b) => a - b), emoji: pick(THINGS) };
+  return { kind: 'tap', answer: n, lo, hi, choices: [...opts].sort((a, b) => a - b), emoji: pick(THINGS) };
 }
 function arrayTask(r1, r2, c1, c2, tapRows) { const r = rnd(r1, r2), c = rnd(c1, c2); return { kind: 'array', r, c, answer: r * c, tapRows }; }
 function basketTask(lo, hi) { const n = rnd(lo, hi); return { kind: 'basket', answer: n, total: Math.min(hi, 12) < n + 3 ? n + rnd(1, 2) : n + rnd(2, 4) }; }
-function buildTask(target, start, prompt, speak, extra) { return Object.assign({ kind: 'build', answer: target, start, prompt, speak, breakable: false }, extra || {}); }
+
+// --- How many? from 3rd grade up: typed answers with a picture to count from ---
+function areaTask() {
+  const r = rnd(3, 9), o = rnd(2, 9), c = 10 + o;
+  return { kind: 'area', r, c, split: 10, answer: r * c, ask: `${r} × ${c}. How many?`,
+    speak: `${numWords(r)} rows of ${numWords(c)}. The blue part is ${numWords(r)} times ten. The green part is ${numWords(r)} times ${numWords(o)}. How many in all?`,
+    eq: `${r} × 10 + ${r} × ${o} = ?`, hint: `${numWords(r)} times ten is ${numWords(r * 10)}. ${numWords(r)} times ${numWords(o)} is ${numWords(r * o)}. Add them.`,
+    done: `${numWords(r)} times ${numWords(c)} is ${numWords(r * c)}.` };
+}
+function groupsOfTask() {
+  const G = rnd(3, 6), N = rnd(12, 29), t = Math.floor(N / 10), o = N % 10;
+  return { kind: 'eqgroups', G, N, answer: G * N, ask: `${G} groups of ${N}. How many?`, speak: `${numWords(G)} groups of ${numWords(N)}. How many in all?`,
+    eq: `${G} × ${N} = ?`, hint: `Count the tens first. ${numWords(G)} groups of ${numWords(t * 10)} is ${numWords(G * t * 10)}. Then add ${numWords(G)} groups of ${numWords(o)}.`,
+    done: `${numWords(G)} times ${numWords(N)} is ${numWords(G * N)}.` };
+}
+function quotientTask() {
+  const N = rnd(6, 12), G = rnd(5, 12), T = N * G;
+  if (Math.random() < .5) return { kind: 'quotient', G, N, answer: G, ask: `${T} in groups of ${N}. How many groups?`, speak: `There are ${numWords(T)} in all, in groups of ${numWords(N)}. How many groups?`,
+    eq: `${T} ÷ ${N} = ?`, hint: `Count the groups. Or think: ${numWords(N)} times what is ${numWords(T)}?`, done: `${numWords(T)} divided by ${numWords(N)} is ${numWords(G)}.` };
+  return { kind: 'quotient', G, N, answer: N, ask: `${T} in ${G} equal groups. How many in each?`, speak: `There are ${numWords(T)} in all, in ${numWords(G)} equal groups. How many in each group?`,
+    eq: `${T} ÷ ${G} = ?`, hint: `Count one group. Or think: ${numWords(G)} times what is ${numWords(T)}?`, done: `${numWords(T)} divided by ${numWords(G)} is ${numWords(N)}.` };
+}
+function gridTask(percent) {
+  const k = Math.random() < .3 ? 10 * rnd(1, 9) : rnd(1, 99);
+  if (percent) return { kind: 'grid100', k, answer: k, ask: 'What percent is shaded?', speak: `The whole grid is one hundred percent. What percent is shaded?`,
+    eq: `${k} out of 100 = ? %`, hint: 'Each square is one percent. Count the full rows by tens, then the rest.', done: `${numWords(k)} percent is shaded.` };
+  return { kind: 'grid100', k, dot: true, answer: k / 100, ask: 'What decimal is shaded?', speak: `The whole grid is one. ${numWords(k)} of the one hundred squares are shaded. What decimal is that?`,
+    eq: `${k} ÷ 100 = ?`, hint: `Each square is one hundredth. ${numWords(k)} hundredths is ${numSay(k / 100)}. Type zero, point, then the digits.`, done: `${numSay(k / 100)} is shaded.` };
+}
+const RATIOS = [[1, 2], [1, 3], [1, 4], [1, 5], [2, 3], [2, 5], [3, 4], [3, 5], [4, 5], [2, 1], [3, 1], [4, 1], [5, 1], [3, 2], [5, 2], [4, 3], [5, 3], [5, 4]];
+function ratioTask() {
+  const [p, q] = pick(RATIOS), m = rnd(2, 4), r = p * m, b = q * m, k = rnd(0, 2);
+  const base = { kind: 'ratio', r, b, p, q }, lead = `${r} red and ${b} blue. `, said = `There are ${numWords(r)} red dots and ${numWords(b)} blue dots. `;
+  if (k === 0) return Object.assign(base, { answer: q, ask: lead + `For every ${p} red, how many blue?`, speak: said + `For every ${numWords(p)} red, how many blue?`, eq: `${r} : ${b} = ${p} : ?`,
+    hint: `Make groups of ${numWords(p)} red. There are ${numWords(m)} groups. Share the blue dots into ${numWords(m)} groups too.`, done: `For every ${numWords(p)} red there are ${numWords(q)} blue.` });
+  if (k === 1) return Object.assign(base, { answer: p, ask: lead + `For every ${q} blue, how many red?`, speak: said + `For every ${numWords(q)} blue, how many red?`, eq: `${r} : ${b} = ? : ${q}`,
+    hint: `Make groups of ${numWords(q)} blue. There are ${numWords(m)} groups. Share the red dots into ${numWords(m)} groups too.`, done: `For every ${numWords(q)} blue there are ${numWords(p)} red.` });
+  return Object.assign(base, { answer: p + q, ask: lead + `For every ${p} red, how many dots in all?`, speak: said + `For every ${numWords(p)} red dots, how many dots in all?`, eq: `${r} : ${r + b} = ${p} : ?`,
+    hint: `For every ${numWords(p)} red there are ${numWords(q)} blue. Add them.`, done: `For every ${numWords(p)} red there are ${numWords(p + q)} dots in all.` });
+}
+function scaleTask() {
+  const a = rnd(2, 4), c = rnd(3, 9); let n; do { n = rnd(5, 12); } while (n === a);
+  if (Math.random() < .5) return { kind: 'scale', a, c, answer: n * c, ask: `${a} rows are ${a * c}. How many in ${n} rows?`, speak: `${numWords(a)} rows make ${numWords(a * c)}. How many in ${numWords(n)} rows?`,
+    eq: `${a * c} ÷ ${a} = ${c} in a row. ${n} × ${c} = ?`, hint: `First find one row. ${numWords(a * c)} divided by ${numWords(a)} is ${numWords(c)}. Then ${numWords(n)} rows of ${numWords(c)}.`, done: `${numWords(n)} rows make ${numWords(n * c)}.` };
+  return { kind: 'scale', a, c, answer: n, ask: `${a} rows are ${a * c}. How many rows make ${n * c}?`, speak: `${numWords(a)} rows make ${numWords(a * c)}. How many rows make ${numWords(n * c)}?`,
+    eq: `${a * c} ÷ ${a} = ${c} in a row. ${n * c} ÷ ${c} = ?`, hint: `First find one row. ${numWords(a * c)} divided by ${numWords(a)} is ${numWords(c)}. How many rows of ${numWords(c)} make ${numWords(n * c)}?`, done: `${numWords(n)} rows make ${numWords(n * c)}.` };
+}
+function powerTask() {
+  if (Math.random() < .55) { const b = rnd(3, 12); return { kind: 'square', b, answer: b * b, ask: `${b}${sup(2)}. How many?`, speak: `${numWords(b)} squared. That is a square ${numWords(b)} by ${numWords(b)}. How many?`,
+    eq: `${b}${sup(2)} = ${b} × ${b} = ?`, hint: `Count one row. Then count the rows. ${numWords(b)} rows of ${numWords(b)}.`, done: `${numWords(b)} squared is ${numWords(b * b)}.` }; }
+  const b = rnd(2, 5);
+  return { kind: 'cube', b, answer: b ** 3, ask: `${b}${sup(3)}. How many?`, speak: `${numWords(b)} cubed. That is ${numWords(b)} groups of ${numWords(b)} by ${numWords(b)}. How many?`,
+    eq: `${b}${sup(3)} = ${b} × ${b} × ${b} = ?`, hint: `One square is ${numWords(b)} times ${numWords(b)}, which is ${numWords(b * b)}. There are ${numWords(b)} squares.`, done: `${numWords(b)} cubed is ${numWords(b ** 3)}.` };
+}
+function rootTask() {
+  if (Math.random() < .7) { const b = rnd(4, 12), k = rnd(0, 1); return { kind: 'square', b, total: true, answer: b, ask: k ? `√${b * b}. What is it?` : `${b * b} dots make a square. How long is a side?`,
+    speak: `The square root of ${numWords(b * b)}. This square has ${numWords(b * b)} dots. How many dots are on one side?`, eq: `? × ? = ${b * b}`, hint: 'Count the dots along the bottom row.', done: `The square root of ${numWords(b * b)} is ${numWords(b)}.` }; }
+  const b = rnd(2, 5);
+  return { kind: 'cube', b, total: true, answer: b, ask: `∛${b ** 3}. What is it?`, speak: `The cube root of ${numWords(b ** 3)}. ${numWords(b ** 3)} dots make ${numWords(b)} equal squares. How many on one side?`,
+    eq: `? × ? × ? = ${b ** 3}`, hint: 'Count the dots along one side of one square.', done: `The cube root of ${numWords(b ** 3)} is ${numWords(b)}.` };
+}
+
+// --- Give me: baskets with an expression, then tokens ---
+function sumBasketTask() {
+  const a = rnd(2, 12), b = rnd(1, Math.min(9, 20 - a)), n = a + b;
+  return { kind: 'basket', answer: n, total: n + rnd(1, 3), expr: `${a} + ${b}`, say: `${numWords(a)} plus ${numWords(b)}`, hint: `Count ${numWords(a)} into the basket. Then count ${numWords(b)} more.` };
+}
+function fractionBasketTask() {
+  const d = pick([2, 3, 4, 5, 6, 8, 10]); let num; do { num = rnd(1, d - 1); } while (gcd(num, d) !== 1);
+  const total = d * rnd(Math.max(1, Math.ceil(6 / d)), Math.floor(20 / d)), answer = total * num / d;
+  return { kind: 'basket', answer, total, exact: true, expr: `${num}/${d} of the ${total}`, say: `${fracSay(num, d)} of the ${numWords(total)}`,
+    hint: `Share the ${numWords(total)} into ${numWords(d)} equal groups. Each group is ${numWords(total / d)}. Put ${numWords(num)} ${num === 1 ? 'group' : 'groups'} in the basket.` };
+}
+const TOK = {
+  tens: [{ id: 't', label: '10', v: 10, cls: 't10', say: 'ten' }, { id: 'o', label: '1', v: 1, cls: 't1', say: 'one' }],
+  dec: [{ id: 'w', label: '1', v: 100, cls: 'd1', say: 'one' }, { id: 't', label: '0.1', v: 10, cls: 'd10', say: 'one tenth' }, { id: 'h', label: '0.01', v: 1, cls: 'd01', say: 'one hundredth' }],
+  ratio: [{ id: 'r', label: '', v: 0, cls: 'red', say: 'red' }, { id: 'b', label: '', v: 0, cls: 'blue', say: 'blue' }],
+  chips: [{ id: 'p', label: '+1', v: 1, cls: 'pos', say: 'positive one' }, { id: 'n', label: '−1', v: -1, cls: 'neg', say: 'negative one' }],
+};
+function tokensTask(set, answer, scale, ask, speak, eq, hint, done, extra) {
+  return Object.assign({ kind: 'tokens', toks: TOK[set], set, answer, scale, check: 'value', ask, speak, eq, hint, done }, extra || {});
+}
+function addTokensTask() {
+  let a, b; do { a = rnd(12, 58); b = rnd(11, 99 - a); } while ((a % 10) + (b % 10) < 10 && Math.random() < .7);
+  const s = a + b;
+  return tokensTask('tens', s, 1, `Make ${a} + ${b}`, `Make ${numWords(a)} plus ${numWords(b)} with tens and ones.`, `${a} + ${b} = ${s}`,
+    `Add the tens first, then the ones. ${numWords(s)} is ${numWords(Math.floor(s / 10))} tens and ${numWords(s % 10)} ones.`, `${numWords(a)} plus ${numWords(b)} is ${numWords(s)}.`);
+}
+function decimalTokensTask() {
+  let v; do { v = Math.random() < .3 ? 10 * rnd(1, 39) : rnd(5, 399); } while (v % 100 === 0);
+  const w = Math.floor(v / 100), t = Math.floor(v / 10) % 10, h = v % 10;
+  return tokensTask('dec', v / 100, 100, `Make ${fmt(v / 100)}`, `Make ${numSay(v / 100)}. The big token is one. The middle one is a tenth. The small one is a hundredth.`,
+    `${fmt(v / 100)} = ${w} + ${t}/10 + ${h}/100`, `${numWords(w)} ones, ${numWords(t)} tenths and ${numWords(h)} hundredths.`, `${numSay(v / 100)}. That is right.`);
+}
+function ratioTokensTask() {
+  let p, q, m; do { [p, q] = pick(RATIOS); m = rnd(2, 4); } while (m * (p + q) > 20);
+  const total = m * (p + q);
+  return tokensTask('ratio', p * m, 1, `Make ${p} red for every ${q} blue. Use ${total}.`, `Make ${numWords(p)} red for every ${numWords(q)} blue. Use ${numWords(total)} tokens in all.`,
+    `${p * m} red : ${q * m} blue`, `Put in ${numWords(p)} red and ${numWords(q)} blue. Do that again until you have ${numWords(total)}.`, `${numWords(p * m)} red and ${numWords(q * m)} blue. That is ${numWords(p)} to ${numWords(q)}.`,
+    { check: 'ratio', p, q, total, answerB: q * m });
+}
+function percentTokensTask() {
+  const pct = pick([10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90]), A = pct % 25 === 0 ? 4 * rnd(3, 25) : 10 * rnd(2, 10), res = pct * A / 100;
+  const hint = pct % 25 === 0 ? `${numWords(pct)} percent is ${pct === 25 ? 'one quarter' : pct === 50 ? 'one half' : 'three quarters'}. One quarter of ${numWords(A)} is ${numWords(A / 4)}.` : `Ten percent of ${numWords(A)} is ${numWords(A / 10)}. You need ${numWords(pct / 10)} of those.`;
+  return tokensTask('tens', res, 1, `Make ${pct}% of ${A}`, `Make ${numWords(pct)} percent of ${numWords(A)}.`, `${pct}% of ${A} = ${res}`, hint, `${numWords(pct)} percent of ${numWords(A)} is ${numWords(res)}.`);
+}
+function percentChangeTokensTask() {
+  const pct = pick([10, 20, 25, 50]);
+  if (Math.random() < .5) { const P = pct === 25 ? 4 * rnd(3, 24) : 10 * rnd(2, 9), part = pct * P / 100, ans = P - part;
+    return tokensTask('tens', ans, 1, `${pct}% off ${P}. Make the new price.`, `A toy costs ${numWords(P)}. It is ${numWords(pct)} percent off. Make the new price.`, `${P} - ${part} = ${ans}`,
+      `${numWords(pct)} percent of ${numWords(P)} is ${numWords(part)}. Take that off ${numWords(P)}.`, `${numWords(P)} take away ${numWords(part)} is ${numWords(ans)}.`); }
+  const P = pct === 25 ? 4 * rnd(3, 18) : 10 * rnd(2, 6), part = pct * P / 100, ans = P + part;
+  return tokensTask('tens', ans, 1, `${P} plus a ${pct}% tip. Make the total.`, `A meal costs ${numWords(P)}. Add a ${numWords(pct)} percent tip. Make the total.`, `${P} + ${part} = ${ans}`,
+    `${numWords(pct)} percent of ${numWords(P)} is ${numWords(part)}. Add that to ${numWords(P)}.`, `${numWords(P)} plus ${numWords(part)} is ${numWords(ans)}.`);
+}
+const neg = n => n < 0 ? '−' + (-n) : String(n);
+function chipsTask() {
+  const k = rnd(0, 4); let a, b, ans, expr, said;
+  if (k === 0) { a = rnd(1, 9); b = rnd(a + 1, 12); ans = a - b; expr = `${a} − ${b}`; said = `${numWords(a)} minus ${numWords(b)}`; }
+  else if (k === 1) { do { a = rnd(1, 9); b = rnd(1, 12); } while (a === b); ans = b - a; expr = `−${a} + ${b}`; said = `negative ${numWords(a)} plus ${numWords(b)}`; }
+  else if (k === 2) { a = rnd(1, 6); b = rnd(1, 6); ans = -a - b; expr = `−${a} − ${b}`; said = `negative ${numWords(a)} minus ${numWords(b)}`; }
+  else if (k === 3) { do { a = rnd(1, 9); b = rnd(1, 12); } while (a === b); ans = a - b; expr = `${a} + (−${b})`; said = `${numWords(a)} plus negative ${numWords(b)}`; }
+  else { a = rnd(1, 6); b = rnd(1, 6); ans = a + b; expr = `${a} − (−${b})`; said = `${numWords(a)} minus negative ${numWords(b)}`; }
+  return tokensTask('chips', ans, 1, `Make ${expr}`, `Make ${said}. A positive chip and a negative chip cancel out.`, `${expr} = ${neg(ans)}`,
+    `Start with the first number in chips. Then add or take away. A positive and a negative together make zero, so you can add a pair any time.`, `${said} is ${numSay(ans)}.`);
+}
+function powerTokensTask() {
+  const k = rnd(0, 5); let expr, said, ans, how;
+  if (k === 0) { const b = rnd(2, 9), c = rnd(1, 9); ans = b * b + c; expr = `${b}${sup(2)} + ${c}`; said = `${numWords(b)} squared plus ${numWords(c)}`; how = `${numWords(b)} squared is ${numWords(b * b)}.`; }
+  else if (k === 1) { const b = rnd(3, 9), c = rnd(1, Math.min(9, b * b - 1)); ans = b * b - c; expr = `${b}${sup(2)} − ${c}`; said = `${numWords(b)} squared minus ${numWords(c)}`; how = `${numWords(b)} squared is ${numWords(b * b)}.`; }
+  else if (k === 2) { const b = rnd(2, 4), c = rnd(1, 9); ans = b ** 3 + c; expr = `${b}${sup(3)} + ${c}`; said = `${numWords(b)} cubed plus ${numWords(c)}`; how = `${numWords(b)} cubed is ${numWords(b ** 3)}.`; }
+  else if (k === 3) { const e = rnd(3, 6), c = rnd(1, 9); ans = 2 ** e + c; expr = `2${sup(e)} + ${c}`; said = `${powSay(2, e)} plus ${numWords(c)}`; how = `${powSay(2, e)} is ${numWords(2 ** e)}.`; }
+  else if (k === 4) { const b = rnd(3, 9), d = rnd(1, b - 1); ans = b * b - d * d; expr = `${b}${sup(2)} − ${d}${sup(2)}`; said = `${numWords(b)} squared minus ${numWords(d)} squared`; how = `${numWords(b)} squared is ${numWords(b * b)}. ${numWords(d)} squared is ${numWords(d * d)}.`; }
+  else { const [d, b] = pick([[1, 2], [1, 3], [2, 3], [2, 4], [3, 4], [1, 4]]); ans = d * d - b * b; expr = `${d}${sup(2)} − ${b}${sup(2)}`; said = `${numWords(d)} squared minus ${numWords(b)} squared`; how = `${numWords(d)} squared is ${numWords(d * d)}. ${numWords(b)} squared is ${numWords(b * b)}. The answer is negative.`; }
+  return tokensTask(ans < 0 ? 'chips' : 'tens', ans, 1, `Make ${expr}`, `Make ${said}.`, `${expr} = ${neg(ans)}`, how + ' Then make the answer.', `${said} is ${numSay(ans)}.`);
+}
+
+// --- Build it: place value in three or four columns, whole or decimal ---
+const COLSETS = {
+  three: { places: [100, 10, 1], cols: [['h', 'Hundreds', 'flat'], ['t', 'Tens', 'rod'], ['o', 'Ones', 'cube']], scale: 1, names: ['hundred', 'ten', 'one'] },
+  four: { places: [1000, 100, 10, 1], cols: [['k', 'Thousands', 'kilo'], ['h', 'Hundreds', 'flat'], ['t', 'Tens', 'rod'], ['o', 'Ones', 'cube']], scale: 1, names: ['thousand', 'hundred', 'ten', 'one'] },
+  dec: { places: [100, 10, 1], cols: [['h', 'Ones', 'flat'], ['t', 'Tenths', 'rod'], ['o', 'Hundredths', 'cube']], scale: 100, names: ['one', 'tenth', 'hundredth'] },
+};
+function buildTask(target, start, prompt, speak, extra) { return Object.assign({ kind: 'build', answer: target, start, prompt, speak, breakable: false, cols: 'three' }, extra || {}); }
 const digits = n => [Math.floor(n / 100), Math.floor(n / 10) % 10, n % 10];
+const digits4 = n => [Math.floor(n / 1000), Math.floor(n / 100) % 10, Math.floor(n / 10) % 10, n % 10];
 function puzzleTask() {
   const n = rnd(102, 989), [h, t, o] = digits(n), k = rnd(0, 4);
   if (k === 0) { const parts = [h * 100, t * 10, o].filter(x => x); return buildTask(n, [0, 0, 0], 'Build ' + parts.join(' + '), 'Build ' + parts.map(numWords).join(' plus ') + '.'); }
   if (k === 1) return buildTask(n, [0, 0, 0], 'Build ' + numWords(n), 'Build ' + numWords(n) + '.');
   if (k === 2) { const m = rnd(11, 89); const up = Math.random() < .5 || m < 20; return up ? buildTask(m + 10, [0, 0, 0], 'Build 10 more than ' + m, 'Build ten more than ' + numWords(m) + '.') : buildTask(m - 10, [0, 0, 0], 'Build 10 less than ' + m, 'Build ten less than ' + numWords(m) + '.'); }
   if (k === 3) { const m = rnd(150, 899), up = Math.random() < .5; const v = up ? m + 100 : m - 100; return buildTask(v, [0, 0, 0], (up ? 'Build 100 more than ' : 'Build 100 less than ') + m, 'Build one hundred ' + (up ? 'more' : 'less') + ' than ' + numWords(m) + '.'); }
-  const order = [['ones', o], ['hundreds', h], ['tens', t]].sort(() => Math.random() - .5);
+  const order = shuffle([['ones', o], ['hundreds', h], ['tens', t]]);
   const text = order.map(([w, d]) => d + ' ' + w).join(', ');
   return buildTask(n, [0, 0, 0], 'Build ' + text, 'Build a number with ' + order.map(([w, d]) => numWords(d) + ' ' + w).join(', ') + '.');
 }
 function addTask(a, b) { return buildTask(a + b, digits(a), a + ' + ' + b + ' = ?', 'You have ' + numWords(a) + '. Add ' + numWords(b) + '. Trade ten ones for a ten when you can.', { eq: a + ' + ' + b, breakable: false }); }
 function subTask(a, b) { return buildTask(a - b, digits(a), a + ' - ' + b + ' = ?', 'You have ' + numWords(a) + '. Take away ' + numWords(b) + '. Break a ten into ones if you need more.', { eq: a + ' - ' + b, breakable: true }); }
+const comma = n => n.toLocaleString('en-US');
+function thousandPuzzleTask() {
+  const k = rnd(0, 4), four = { cols: 'four' };
+  if (k === 0) { const n = rnd(1001, 9999), [th, h, t, o] = digits4(n), parts = [th * 1000, h * 100, t * 10, o].filter(x => x); return buildTask(n, [0, 0, 0, 0], 'Build ' + parts.join(' + '), 'Build ' + parts.map(numWords).join(' plus ') + '.', four); }
+  if (k === 1) { const m = rnd(101, 999); return buildTask(m * 10, [0, 0, 0, 0], `Build 10 × ${m}`, 'Build ten times ' + numWords(m) + '. Every digit moves up one place.', four); }
+  if (k === 2) { const m = rnd(1200, 8800), up = Math.random() < .5, v = up ? m + 1000 : m - 1000; return buildTask(v, [0, 0, 0, 0], (up ? 'Build 1,000 more than ' : 'Build 1,000 less than ') + comma(m), 'Build one thousand ' + (up ? 'more' : 'less') + ' than ' + numWords(m) + '.', four); }
+  if (k === 3) { const m = rnd(1050, 9449), toH = Math.random() < .5, v = toH ? Math.round(m / 100) * 100 : Math.round(m / 1000) * 1000; return buildTask(v, [0, 0, 0, 0], `Build ${comma(m)} rounded to the nearest ${toH ? 'hundred' : 'thousand'}`, `Build ${numWords(m)} rounded to the nearest ${toH ? 'hundred' : 'thousand'}.`, four); }
+  const n = rnd(1001, 9999), [th, h, t, o] = digits4(n), order = shuffle([['thousands', th], ['hundreds', h], ['tens', t], ['ones', o]]);
+  return buildTask(n, [0, 0, 0, 0], 'Build ' + order.map(([w, d]) => d + ' ' + w).join(', '), 'Build a number with ' + order.map(([w, d]) => numWords(d) + ' ' + w).join(', ') + '.', four);
+}
+const DEC_SPEAK = ' The flat is one whole. The rod is one tenth. The small cube is one hundredth.';
+function decimalBuildTask() {
+  let v; do { v = Math.random() < .3 ? 10 * rnd(1, 39) : rnd(1, 399); } while (v % 100 === 0);
+  return buildTask(v, [0, 0, 0], 'Build ' + fmt(v / 100), 'Build ' + numSay(v / 100) + '.' + DEC_SPEAK, { cols: 'dec' });
+}
+function decimalTradeTask() {
+  if (Math.random() < .5) { let a, b; do { a = rnd(15, 250); b = rnd(11, 149); } while (a + b > 399 || ((a % 10) + (b % 10) < 10 && Math.random() < .7));
+    return buildTask(a + b, digits(a), `${fmt(a / 100)} + ${fmt(b / 100)} = ?`, `You have ${numSay(a / 100)}. Add ${numSay(b / 100)}. Trade ten hundredths for a tenth when you can.`, { cols: 'dec', eq: `${fmt(a / 100)} + ${fmt(b / 100)}` }); }
+  let a, b; do { a = rnd(120, 399); b = rnd(11, a - 10); } while ((b % 10) <= (a % 10) && Math.random() < .7);
+  return buildTask(a - b, digits(a), `${fmt(a / 100)} - ${fmt(b / 100)} = ?`, `You have ${numSay(a / 100)}. Take away ${numSay(b / 100)}. Break a tenth into hundredths if you need more.`, { cols: 'dec', eq: `${fmt(a / 100)} - ${fmt(b / 100)}`, breakable: true });
+}
+function powersOfTenTask() {
+  const k = rnd(0, 2), four = { cols: 'four' };
+  if (k === 0) { const n = rnd(1001, 9999), d = digits4(n), parts = d.map((x, i) => [x, 3 - i]).filter(([x]) => x);
+    return buildTask(n, [0, 0, 0, 0], 'Build ' + parts.map(([x, e]) => `${x} × 10${sup(e)}`).join(' + '), 'Build ' + parts.map(([x, e]) => `${numWords(x)} times ${tenSay(e)}`).join(', plus ') + '.', four); }
+  if (k === 1) { const m = rnd(11, 99), e = rnd(1, 2); return buildTask(m * 10 ** e, [0, 0, 0, 0], `Build ${m} × 10${sup(e)}`, `Build ${numWords(m)} times ${tenSay(e)}.`, four); }
+  const d = rnd(1, 9), e = rnd(1, 3); return buildTask(d * 10 ** e, [0, 0, 0, 0], `Build ${d} × 10${sup(e)}`, `Build ${numWords(d)} times ${tenSay(e)}.`, four);
+}
+function scientificTask() {
+  const e = rnd(1, 3), m = Math.random() < .3 ? rnd(1, 9) * 10 : rnd(11, 99), v = m * 10 ** e / 10, ms = fmt(m / 10);
+  return buildTask(v, [0, 0, 0, 0], `Build ${ms} × 10${sup(e)}`, `Build ${numSay(m / 10)} times ${tenSay(e)}. ${tenSay(e)} is ${numWords(10 ** e)}.`, { cols: 'four', eq: `${ms} × 10${sup(e)}` });
+}
+function smallPowersTask() {
+  const k = rnd(0, 3); let v, text, said;
+  if (k === 0) { const d = rnd(1, 9); v = d * 10; text = `${d} × 10${sup(-1)}`; said = `${numWords(d)} times ten to the negative one. That is ${numWords(d)} tenths.`; }
+  else if (k === 1) { const d = rnd(1, 9); v = d; text = `${d} × 10${sup(-2)}`; said = `${numWords(d)} times ten to the negative two. That is ${numWords(d)} hundredths.`; }
+  else if (k === 2) { const m = rnd(11, 99); v = m; text = `${fmt(m / 10)} × 10${sup(-1)}`; said = `${numSay(m / 10)} times ten to the negative one. Move the decimal point one place to the left.`; }
+  else { const m = rnd(11, 39); v = m * 10; text = `${fmt(m / 10)} × 10${sup(0)}`; said = `${numSay(m / 10)} times ten to the zero. Ten to the zero is one.`; }
+  return buildTask(v, [0, 0, 0], 'Build ' + text, 'Build ' + said, { cols: 'dec', eq: text });
+}
 
 // Story problems. Each returns the text, the answer, an equation for the hint, and pictures when the numbers are small.
 const KIDS = ['Mia', 'Leo', 'Ava', 'Sam', 'Zoe', 'Max', 'Ivy', 'Ben', 'Nora', 'Eli', 'Ruby', 'Omar'];
 const STUFF = [['🍎', 'apples'], ['🎈', 'balloons'], ['🐚', 'shells'], ['⭐', 'stickers'], ['🍪', 'cookies'], ['🪨', 'rocks'], ['🌼', 'flowers'], ['🖍️', 'crayons'], ['🔵', 'beads'], ['🃏', 'cards']];
 const she = name => ['Mia', 'Ava', 'Zoe', 'Ivy', 'Nora', 'Ruby'].includes(name) ? 'She' : 'He';
 const pics = (emoji, ...groups) => groups.map(g => emoji.repeat(g)).join('   ');
+const story = (text, answer, eq, extra) => Object.assign({ kind: 'story', text, answer, eq, pic: '' }, extra || {});
+const twoKids = () => { const a = pick(KIDS); return [a, pick(KIDS.filter(k => k !== a))]; };
 function storyAddSub(max, compare) {
-  const name = pick(KIDS), other = pick(KIDS.filter(k => k !== name)), [e, thing] = pick(STUFF), k = rnd(0, compare ? 3 : 1);
+  const [name, other] = twoKids(), [e, thing] = pick(STUFF), k = rnd(0, compare ? 3 : 1);
   const regroup = max > 20;
   let a, b;
   if (k === 0) { do { a = rnd(regroup ? 12 : 1, max - (regroup ? 12 : 1)); b = rnd(regroup ? 11 : 1, max - a); } while (regroup && (a % 10) + (b % 10) < 10 && Math.random() < .7);
@@ -498,6 +812,99 @@ function storyCoins() {
   const q = rnd(2, 4), price = rnd(Math.max(10, q * 25 - 60), q * 25 - 5);
   return { kind: 'story', text: `A toy costs ${price} cents. ${name} pays with ${q} quarters. How many cents of change does ${name} get back?`, answer: q * 25 - price, eq: `${q * 25} - ${price} = ?`, coins: { q, d: 0, n: 0, p: 0 }, pic: '' };
 }
+// 4th grade: several steps with all four operations.
+function storyFourOps() {
+  const [name, other] = twoKids(), [, thing] = pick(STUFF), k = rnd(0, 6);
+  if (k === 0) { const g = rnd(2, 6), p = rnd(2, 6); let n; do { n = rnd(4, 12); } while ((p * n) % g); return story(`${name} buys ${p} packs of ${n} ${thing}. ${she(name)} shares them equally among ${g} kids. How many does each kid get?`, p * n / g, `${p} × ${n} ÷ ${g} = ?`); }
+  if (k === 1) { const s = rnd(30, 60), b = rnd(2, 4), empty = rnd(5, 40); return story(`A bus holds ${s} kids. ${b} buses take ${s * b - empty} kids on a trip. How many empty seats are there?`, empty, `${s} × ${b} - ${s * b - empty} = ?`); }
+  if (k === 2) { const w = rnd(3, 12), n = rnd(4, 10), c = rnd(5, w * n - 5); return story(`${name} saves ${w} dollars each week for ${n} weeks. Then ${she(name).toLowerCase()} spends ${c} dollars. How many dollars are left?`, w * n - c, `${w} × ${n} - ${c} = ?`); }
+  if (k === 3) { const r = rnd(6, 12), c = rnd(6, 12), b = rnd(3, 20); return story(`There are ${r} rows of ${c} chairs. ${b} chairs are broken. How many good chairs are there?`, r * c - b, `${r} × ${c} - ${b} = ?`); }
+  if (k === 4) { const a = rnd(5, 20), m = rnd(2, 5); return story(`${name} has ${a} ${thing}. ${other} has ${m} times as many. How many do they have together?`, a + a * m, `${a} + ${m} × ${a} = ?`); }
+  if (k === 5) { const n = rnd(4, 12), b = rnd(10, 30), sold = rnd(2, b - 2); return story(`${n * b} ${thing} are packed ${n} to a box. ${sold} boxes are sold. How many boxes are left?`, b - sold, `${n * b} ÷ ${n} - ${sold} = ?`); }
+  const a = rnd(10, 30), d = rnd(3, 6), left = rnd(10, 80); return story(`${name} reads ${a} pages a day for ${d} days. The book has ${a * d + left} pages. How many pages are left to read?`, left, `${a * d + left} - ${a} × ${d} = ?`);
+}
+// 5th grade: fractions of amounts, answers are whole numbers.
+function storyFractions() {
+  const [name, other] = twoKids(), [, thing] = pick(STUFF), k = rnd(0, 5);
+  const d = pick([2, 3, 4, 5, 6, 8, 10]); let num; do { num = rnd(1, d - 1); } while (gcd(num, d) !== 1);
+  if (k === 0) { const pages = d * rnd(5, 20); return story(`${name} read ${num}/${d} of a ${pages} page book. How many pages did ${she(name).toLowerCase()} read?`, pages * num / d, `${pages} ÷ ${d} × ${num} = ?`, { say: `${name} read ${fracSay(num, d)} of a ${numWords(pages)} page book. How many pages did ${she(name).toLowerCase()} read?` }); }
+  if (k === 1) { const s = pick([6, 8, 10, 12]), a = rnd(1, s - 3), b = rnd(1, s - a - 1); return story(`A pizza is cut into ${s} equal slices. ${name} eats ${a}/${s} of it and ${other} eats ${b}/${s}. How many slices are left?`, s - a - b, `${s} - ${a} - ${b} = ?`, { say: `A pizza is cut into ${numWords(s)} equal slices. ${name} eats ${numWords(a)} ${s === 6 ? 'sixths' : s === 8 ? 'eighths' : s === 10 ? 'tenths' : 'twelfths'} of it and ${other} eats ${numWords(b)} ${s === 6 ? 'sixths' : s === 8 ? 'eighths' : s === 10 ? 'tenths' : 'twelfths'}. How many slices are left?` }); }
+  if (k === 2) { const n = d * rnd(1, 3); return story(`A recipe needs ${num}/${d} cup of sugar for one batch. ${name} makes ${n} batches. How many cups of sugar?`, n * num / d, `${n} × ${num}/${d} = ?`, { say: `A recipe needs ${fracSay(num, d)} of a cup of sugar for one batch. ${name} makes ${numWords(n)} batches. How many cups of sugar?` }); }
+  if (k === 3) { const total = d * rnd(2, 6); return story(`${name} has ${total} ${thing}. ${she(name)} gives ${num}/${d} of them to ${other}. How many does ${name} keep?`, total - total * num / d, `${total} - ${total} × ${num}/${d} = ?`, { say: `${name} has ${numWords(total)} ${thing}. ${she(name)} gives ${fracSay(num, d)} of them to ${other}. How many does ${name} keep?` }); }
+  if (k === 4) { const total = d * rnd(2, 5); return story(`${num}/${d} of the ${total} kids in a class walk to school. The rest ride the bus. How many ride the bus?`, total - total * num / d, `${total} - ${total} × ${num}/${d} = ?`, { say: `${cap(fracSay(num, d))} of the ${numWords(total)} kids in a class walk to school. The rest ride the bus. How many ride the bus?` }); }
+  const cap_ = d * rnd(3, 12); return story(`A tank holds ${cap_} gallons. It is ${num}/${d} full. How many gallons are in it?`, cap_ * num / d, `${cap_} × ${num}/${d} = ?`, { say: `A tank holds ${numWords(cap_)} gallons. It is ${fracSay(num, d)} full. How many gallons are in it?` });
+}
+// 5th grade: decimals in context, mostly money. Answers may have decimals, so the pad shows a point.
+const ITEMS = ['pen', 'notebook', 'snack', 'juice', 'sticker pack', 'comic', 'ball', 'hat', 'puzzle', 'book'];
+const cents = () => Math.random() < .2 ? 100 * rnd(1, 19) : rnd(105, 1995);
+function storyDecimals() {
+  const name = pick(KIDS), k = rnd(0, 5), dot = { dot: true };
+  if (k === 0) { const a = cents(), b = cents(), [i1, i2] = shuffle(ITEMS); return story(`${name} buys a ${i1} for $${money(a)} and a ${i2} for $${money(b)}. How much does ${she(name).toLowerCase()} spend in all?`, (a + b) / 100, `${money(a)} + ${money(b)} = ?`, Object.assign({ say: `${name} buys a ${i1} for ${numSay(a / 100)} dollars and a ${i2} for ${numSay(b / 100)} dollars. How much does ${she(name).toLowerCase()} spend in all?` }, dot)); }
+  if (k === 1) { const a = 100 * rnd(5, 20), b = rnd(105, a - 50); return story(`${name} has $${money(a)}. ${she(name)} spends $${money(b)}. How much is left?`, (a - b) / 100, `${money(a)} - ${money(b)} = ?`, Object.assign({ say: `${name} has ${numSay(a / 100)} dollars. ${she(name)} spends ${numSay(b / 100)} dollars. How much is left?` }, dot)); }
+  if (k === 2) { const a = rnd(105, 995), n = rnd(2, 5), item = pick(ITEMS); return story(`One ${item} costs $${money(a)}. How much do ${n} of them cost?`, a * n / 100, `${money(a)} × ${n} = ?`, Object.assign({ say: `One ${item} costs ${numSay(a / 100)} dollars. How much do ${numWords(n)} of them cost?` }, dot)); }
+  if (k === 3) { const a = rnd(11, 99), b = rnd(11, 99); return story(`${name} ran ${fmt(a / 10)} km on Monday and ${fmt(b / 10)} km on Tuesday. How far did ${she(name).toLowerCase()} run in all?`, (a + b) / 10, `${fmt(a / 10)} + ${fmt(b / 10)} = ?`, Object.assign({ say: `${name} ran ${numSay(a / 10)} kilometers on Monday and ${numSay(b / 10)} kilometers on Tuesday. How far did ${she(name).toLowerCase()} run in all?` }, dot)); }
+  if (k === 4) { const a = rnd(40, 120), b = rnd(5, a - 10); return story(`A rope is ${fmt(a / 10)} meters long. ${name} cuts off ${fmt(b / 10)} meters. How long is the rope now?`, (a - b) / 10, `${fmt(a / 10)} - ${fmt(b / 10)} = ?`, Object.assign({ say: `A rope is ${numSay(a / 10)} meters long. ${name} cuts off ${numSay(b / 10)} meters. How long is the rope now?` }, dot)); }
+  const n = rnd(2, 5), each = rnd(205, 1295); return story(`${n} friends share a bill of $${money(n * each)} equally. How much does each friend pay?`, each / 100, `${money(n * each)} ÷ ${n} = ?`, Object.assign({ say: `${numWords(n)} friends share a bill of ${numSay(n * each / 100)} dollars equally. How much does each friend pay?` }, dot));
+}
+// 6th grade: ratios and rates.
+function storyRatios() {
+  const name = pick(KIDS), [, thing] = pick(STUFF), k = rnd(0, 5), [p, q] = pick(RATIOS), m = rnd(2, 6);
+  if (k === 0) return story(`A recipe uses ${p} cups of flour for every ${q} cups of milk. ${name} uses ${p * m} cups of flour. How many cups of milk?`, q * m, `${p * m} ÷ ${p} × ${q} = ?`);
+  if (k === 1) { const rate = rnd(40, 70), h = rnd(2, 4); let h2; do { h2 = rnd(1, 6); } while (h2 === h); return story(`A car goes ${rate * h} miles in ${h} hours. How far does it go in ${h2} hours at the same speed?`, rate * h2, `${rate * h} ÷ ${h} × ${h2} = ?`); }
+  if (k === 2) { const unit = rnd(1, 5), n = rnd(2, 6), n2 = rnd(5, 20); return story(`${n} ${thing} cost ${unit * n} dollars. How much do ${n2} ${thing} cost?`, unit * n2, `${unit * n} ÷ ${n} × ${n2} = ?`); }
+  if (k === 3) return story(`In a club there are ${p} boys for every ${q} girls. There are ${q * m} girls. How many boys?`, p * m, `${q * m} ÷ ${q} × ${p} = ?`);
+  if (k === 4) { const rate = rnd(20, 60), t = rnd(2, 5), t2 = rnd(1, 10); return story(`${name} types ${rate * t} words in ${t} minutes. At that rate, how many words in ${t2} minutes?`, rate * t2, `${rate * t} ÷ ${t} × ${t2} = ?`); }
+  const [c1, c2] = shuffle(['red', 'blue', 'yellow', 'white', 'green']); return story(`A paint mix uses ${p} parts ${c1} to ${q} parts ${c2}. ${name} uses ${p * m} cups of ${c1}. How many cups of ${c2}?`, q * m, `${p * m} ÷ ${p} × ${q} = ?`);
+}
+// 6th grade: percents of amounts and amounts as percents.
+const PCTS = [10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90];
+const pctBase = pct => pct % 25 === 0 ? 4 * rnd(3, 25) : 10 * rnd(2, 10);
+function storyPercents() {
+  const name = pick(KIDS), [, thing] = pick(STUFF), k = rnd(0, 4), pct = pick(PCTS);
+  if (k === 0) { const total = pctBase(pct); return story(`${pct}% of the ${total} kids in a class wear glasses. How many wear glasses?`, pct * total / 100, `${pct}% of ${total} = ?`); }
+  if (k === 1) { const total = pick([10, 20, 25, 50]), got = rnd(1, total - 1); return story(`${name} got ${got} out of ${total} on a quiz. What percent is that?`, got * 100 / total, `${got} out of ${total} = ? %`); }
+  if (k === 2) { const P = pctBase(pct); return story(`A shirt costs ${P} dollars. It is ${pct}% off. How many dollars off is that?`, pct * P / 100, `${pct}% of ${P} = ?`); }
+  if (k === 3) { const P = pick([20, 40, 60, 80]), tip = pick([10, 15, 20]); return story(`A meal costs ${P} dollars. ${name} leaves a ${tip}% tip. How many dollars is the tip?`, tip * P / 100, `${tip}% of ${P} = ?`); }
+  const total = pick([10, 20, 25, 50]), red = rnd(1, total - 1); return story(`${red} of the ${total} ${thing} are red. What percent are red?`, red * 100 / total, `${red} out of ${total} = ? %`);
+}
+// 7th grade: proportions, scale and percent change.
+function storyProportions() {
+  const name = pick(KIDS), k = rnd(0, 7);
+  if (k === 0) { const w = rnd(2, 6), h = rnd(w + 1, 9), s = rnd(2, 5); return story(`A photo is ${w} by ${h} inches. It is enlarged so the short side is ${w * s} inches. How long is the long side?`, h * s, `${w * s} ÷ ${w} × ${h} = ?`); }
+  if (k === 1) { const pct = pick([10, 20, 25, 50, 100]), a = pct === 25 ? pick([20, 40, 80, 100]) : pick([20, 40, 60, 80, 100]); return story(`A price goes from ${a} dollars to ${a + a * pct / 100} dollars. What is the percent increase?`, pct, `${a * pct / 100} ÷ ${a} × 100 = ? %`); }
+  if (k === 2) { const pct = pick([5, 8, 10]), P = pct === 5 ? 20 * rnd(1, 5) : pct === 8 ? 25 * rnd(1, 4) : 10 * rnd(2, 9); return story(`A game costs ${P} dollars. Sales tax is ${pct}%. What is the total cost in dollars?`, P + P * pct / 100, `${P} + ${pct}% of ${P} = ?`); }
+  if (k === 3) { const s = pick([5, 10, 20, 25, 50]), d = rnd(2, 9); return story(`On a map, 1 inch stands for ${s} miles. Two towns are ${d} inches apart on the map. How many miles apart are they?`, s * d, `${d} × ${s} = ?`); }
+  if (k === 4) { const a = 100 * rnd(1, 9), pct = rnd(1, 5); return story(`${name} puts ${a} dollars in a bank. It earns ${pct}% interest in a year. How many dollars are in the account after one year?`, a + a * pct / 100, `${a} + ${pct}% of ${a} = ?`); }
+  if (k === 5) { const sh = rnd(2, 5), r = rnd(2, 5), sh2 = rnd(1, 8); return story(`A ${sh * r} foot tree casts a ${sh} foot shadow. At the same time a pole casts a ${sh2} foot shadow. How tall is the pole in feet?`, r * sh2, `${sh * r} ÷ ${sh} × ${sh2} = ?`); }
+  if (k === 6) { const pct = pick([10, 20, 25, 50]), a = pct === 25 ? pick([20, 40, 80, 100]) : pick([20, 40, 60, 80, 100]); return story(`The number of club members went from ${a} to ${a - a * pct / 100}. What is the percent decrease?`, pct, `${a * pct / 100} ÷ ${a} × 100 = ? %`); }
+  const [p, q] = pick(RATIOS), m = rnd(2, 5); return story(`${name} mixes ${p} parts juice with ${q} parts water. ${she(name)} wants ${m * (p + q)} cups of drink. How many cups of juice?`, p * m, `${m * (p + q)} ÷ ${p + q} × ${p} = ?`);
+}
+// 8th grade: linear equations told as stories.
+function storyEquations() {
+  const [name, other] = twoKids(), [, thing] = pick(STUFF), k = rnd(0, 9);
+  if (k === 0) { const f = rnd(10, 40), r = rnd(2, 12), n = rnd(3, 12); return story(`A phone plan costs ${f} dollars to start plus ${r} dollars a month. After how many months is the total ${f + r * n} dollars?`, n, `${f} + ${r} × ? = ${f + r * n}`); }
+  if (k === 1) { const f = rnd(2, 6), r = rnd(2, 4), n = rnd(3, 15); return story(`A taxi charges ${f} dollars plus ${r} dollars a mile. A ride costs ${f + r * n} dollars. How many miles was the ride?`, n, `${f} + ${r} × ? = ${f + r * n}`); }
+  if (k === 2) { const a = rnd(5, 30), r = rnd(2, 6), n = rnd(3, 10); return story(`${name} has ${a} ${thing} and gets ${r} more each week. ${other} has ${a + r * n} and gets no more. After how many weeks do they have the same number?`, n, `${a} + ${r} × ? = ${a + r * n}`); }
+  if (k === 3) { const x = rnd(3, 30), d = rnd(2, 20); return story(`Two numbers add up to ${2 * x + d}. The bigger one is ${d} more than the smaller one. What is the bigger number?`, x + d, `? + (? - ${d}) = ${2 * x + d}`); }
+  if (k === 4) { const x = rnd(2, 40), c = rnd(1, 15); return story(`${name} is thinking of a number. ${she(name)} doubles it and adds ${c}. The result is ${2 * x + c}. What is the number?`, x, `2 × ? + ${c} = ${2 * x + c}`); }
+  if (k === 5) { const w = rnd(3, 12), l = rnd(w + 1, 30); return story(`A rectangle has a perimeter of ${2 * (l + w)} cm. Its width is ${w} cm. What is its length in cm?`, l, `2 × (? + ${w}) = ${2 * (l + w)}`); }
+  if (k === 6) { const x = rnd(5, 40), d = rnd(2, 20); return story(`${name} and ${other} have ${2 * x + d} dollars together. ${name} has ${d} dollars more than ${other}. How many dollars does ${other} have?`, x, `? + (? + ${d}) = ${2 * x + d}`); }
+  if (k === 7) { const n = rnd(5, 40); return story(`The sum of three numbers in a row, like 4, 5 and 6, is ${3 * n + 3}. What is the smallest of the three?`, n, `? + (? + 1) + (? + 2) = ${3 * n + 3}`); }
+  if (k === 8) { const h = rnd(5, 30), r = rnd(2, 6), n = rnd(3, 12); return story(`A plant is ${h} cm tall and grows ${r} cm a week. After how many weeks is it ${h + r * n} cm tall?`, n, `${h} + ${r} × ? = ${h + r * n}`); }
+  const t = rnd(2, 12), drop = rnd(t + 1, t + 15); return story(`At noon it was ${t} degrees. By night the temperature dropped ${drop} degrees. What is the temperature now? Use the minus key if you need it.`, t - drop, `${t} - ${drop} = ?`, { neg: true });
+}
+// 8th grade: simple probability, answered as a percent or a count.
+function storyChance() {
+  const name = pick(KIDS), k = rnd(0, 7), total = pick([4, 5, 10, 20, 25, 50]);
+  if (k === 0) { const r = rnd(1, total - 1); return story(`A bag has ${r} red and ${total - r} blue marbles. You pick one without looking. What is the chance it is red, as a percent?`, r * 100 / total, `${r} out of ${total} = ? %`); }
+  if (k === 1) { const n = pick([4, 5, 10, 20]), g = rnd(1, n - 1); return story(`A spinner has ${n} equal parts. ${g} of them are green. What is the percent chance of landing on green?`, g * 100 / n, `${g} out of ${n} = ? %`); }
+  if (k === 2) { const n = pick([30, 60, 120, 300]), face = rnd(1, 6); return story(`You roll a fair die ${n} times. About how many times should you expect to roll a ${face}?`, n / 6, `${n} ÷ 6 = ?`); }
+  if (k === 3) { const n = rnd(2, 6); return story(`You flip a coin ${n} times. How many different outcomes are possible?`, 2 ** n, `2${sup(n)} = ?`); }
+  if (k === 4) { const a = rnd(3, 8), b = rnd(2, 6); return story(`A lunch menu has ${a} sandwiches and ${b} drinks. How many different sandwich and drink pairs can you order?`, a * b, `${a} × ${b} = ?`); }
+  if (k === 5) { const t = pick([20, 25, 50]), p = rnd(1, t - 1); return story(`In a class of ${t} students, ${p} have a pet. One student is picked at random. What is the chance that student has a pet, as a percent?`, p * 100 / t, `${p} out of ${t} = ? %`); }
+  if (k === 6) { const t = pick([10, 20, 25, 50]), r = rnd(1, t - 2), b = rnd(1, t - r - 1); return story(`A bag has ${r} red, ${b} blue and ${t - r - b} green marbles. What is the percent chance of picking a marble that is not red?`, (t - r) * 100 / t, `${t - r} out of ${t} = ? %`); }
+  const n = rnd(4, 10), m = rnd(5, 20); return story(`${name} spins a spinner with ${n} equal parts numbered 1 to ${n}. ${she(name)} spins ${n * m} times. About how many times should it land on 1?`, m, `${n * m} ÷ ${n} = ?`);
+}
 
 // ---------------------------------------------------------------------------
 // Progress
@@ -519,30 +926,33 @@ function record(m, right) {
   persist(); return change;
 }
 
-function say(t) { try { speechSynthesis.cancel(); } catch (e) {} VOICE.stop(); if (VOICE.play(t)) return; try { const u = new SpeechSynthesisUtterance(String(t).replace(/×/g, ' times ').replace(/÷/g, ' divided by ').replace(/ - /g, ' minus ')); u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); } catch (e) {} VOICE.stop(); if (VOICE.play(t)) return; try { const u = new SpeechSynthesisUtterance(String(t).replace(/×/g, ' times ').replace(/÷/g, ' divided by ').replace(/ [-−] /g, ' minus ').replace(/−/g, 'negative ').replace(/√/g, 'the square root of ').replace(/∛/g, 'the cube root of ').replace(/%/g, ' percent').replace(/\$/g, '')); u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
 
 // ---------------------------------------------------------------------------
 // Round state and rendering
 // ---------------------------------------------------------------------------
-let mode = 'howmany', task = null, busy = false, missed = false, pending = null, counted = 0, typed = '', blocks = [0, 0, 0], hinted = false;
+let mode = 'howmany', task = null, busy = false, missed = false, pending = null, counted = 0, typed = '', blocks = [0, 0, 0], hinted = false, placed = [];
 const emojiOf = () => task.emoji || '🍎';
+const TYPED = ['frames', 'array', 'story', 'area', 'eqgroups', 'quotient', 'grid100', 'ratio', 'scale', 'square', 'cube'];
 
 function newRound(speak = true) {
   clearTimeout(pending); pending = null;
-  busy = false; missed = false; counted = 0; typed = ''; hinted = false;
+  busy = false; missed = false; counted = 0; typed = ''; hinted = false; placed = [];
   task = LEVELS[mode][P.lv[mode]].gen();
   if (!task.emoji) task.emoji = pick(THINGS);
   render(speak);
 }
+function setAsk(text) { $('ask').textContent = text; $('ask').classList.toggle('long', text.length > 30); }
 function render(speak) {
   const main = document.querySelector('main'), field = $('field');
   field.innerHTML = ''; $('answers').innerHTML = ''; $('trades').innerHTML = ''; $('win').classList.remove('on');
-  const usesPad = ['frames', 'array', 'story'].includes(task.kind);
+  const usesPad = TYPED.includes(task.kind);
   main.classList.toggle('pad', usesPad);
-  main.classList.toggle('low', ['build', 'groups', 'share'].includes(task.kind));
-  $('pad').classList.toggle('on', usesPad); showTyped();
+  main.classList.toggle('low', ['build', 'tokens'].includes(task.kind));
+  main.classList.toggle('top', ['groups', 'share'].includes(task.kind));
+  $('pad').classList.toggle('on', usesPad); if (usesPad) buildPad(!!task.dot || !!task.neg); showTyped();
   $('basket').classList.toggle('on', task.kind === 'basket'); $('basket').querySelector('.count').textContent = '0';
-  $('check').classList.toggle('on', ['basket', 'groups', 'share', 'build'].includes(task.kind));
+  $('check').classList.toggle('on', ['basket', 'groups', 'share', 'build', 'tokens'].includes(task.kind));
   const lvl = LEVELS[mode][P.lv[mode]];
   $('badge').textContent = 'Level ' + (P.lv[mode] + 1) + ': ' + lvl.name;
   const e = emojiOf(), nm = NAMES[e];
@@ -550,43 +960,50 @@ function render(speak) {
   switch (task.kind) {
     case 'tap':
       scatter(task.answer, false);
-      $('ask').textContent = 'How many ' + nm + '?';
+      setAsk('How many ' + nm + '?');
       for (const n of task.choices) { const b = document.createElement('button'); b.textContent = n; b.onclick = () => choose(n, b); $('answers').appendChild(b); }
       talk('How many ' + nm + '? Tap each one to count.');
       break;
-    case 'frames': renderFrames(); $('ask').textContent = 'How many ' + nm + '?'; talk('How many ' + nm + '? Tap a full ten frame to count ten.'); break;
-    case 'array': renderArray(); $('ask').textContent = task.r + ' rows of ' + task.c + '. How many?'; talk(numWords(task.r) + ' rows of ' + numWords(task.c) + '. How many ' + nm + '?' + (task.tapRows ? ' Tap each row to count.' : '')); break;
+    case 'frames': renderFrames(); setAsk('How many ' + nm + '?'); talk('How many ' + nm + '? Tap a full ten frame to count ten.'); break;
+    case 'array': renderArray(); setAsk(task.r + ' rows of ' + task.c + '. How many?'); talk(numWords(task.r) + ' rows of ' + numWords(task.c) + '. How many ' + nm + '?' + (task.tapRows ? ' Tap each row to count.' : '')); break;
     case 'basket':
       scatter(task.total, true);
-      $('ask').textContent = 'Put ' + task.answer + ' ' + noun(task.answer, nm) + ' in the basket';
-      talk('Put ' + WORDS[task.answer] + ' ' + noun(task.answer, nm) + ' in the basket. Then tap the check.');
+      setAsk('Put ' + (task.expr || task.answer) + ' ' + noun(task.expr ? 2 : task.answer, nm) + ' in the basket');
+      talk('Put ' + (task.say || numWords(task.answer)) + ' ' + noun(task.expr ? 2 : task.answer, nm) + ' in the basket. Then tap the check.');
       break;
-    case 'groups': renderPlates(task.R); scatter(task.total, true, true); $('ask').textContent = 'Make ' + task.R + ' groups of ' + task.N; talk('Make ' + numWords(task.R) + ' groups of ' + numWords(task.N) + '. Put ' + numWords(task.N) + ' ' + nm + ' on each plate.'); break;
+    case 'groups': renderPlates(task.R); scatter(task.total, true, true); setAsk('Make ' + task.R + ' groups of ' + task.N); talk('Make ' + numWords(task.R) + ' groups of ' + numWords(task.N) + '. Put ' + numWords(task.N) + ' ' + nm + ' on each plate.'); break;
     case 'share':
       renderPlates(task.R); scatter(task.total, true, true);
-      $('ask').textContent = 'Share ' + task.total + ' ' + nm + ' on ' + task.R + ' plates';
+      setAsk('Share ' + task.total + ' ' + nm + ' on ' + task.R + ' plates');
       talk('Share ' + numWords(task.total) + ' ' + nm + ' on ' + numWords(task.R) + ' plates. Every plate gets the same.' + (task.left ? ' Some may be left over.' : ''));
       break;
     case 'build':
       blocks = task.start.slice(); renderBuild();
-      $('ask').textContent = task.prompt;
+      setAsk(task.prompt);
       talk(task.speak);
       break;
-    case 'story': renderStory(); $('ask').textContent = 'Story ' + (P.lv[mode] + 1); talk(task.text); break;
+    case 'tokens': renderTokens(); setAsk(task.ask); talk(task.speak); break;
+    case 'story': renderStory(); setAsk('Story ' + (P.lv[mode] + 1)); talk(task.say || task.text); break;
+    default: renderPicture(); setAsk(task.ask); talk(task.speak); break;
   }
 }
 
 // Place things so they do not overlap much, away from the basket, plates and the answer buttons.
 function scatter(n, draggable, plates) {
   const field = $('field'), W = field.clientWidth, H = field.clientHeight, pts = [];
-  const small = n > 14, size = small ? 70 : 96;
-  const avoid = (x, y) => (draggable && !plates && x > W - 340 && y > H - 240) || (plates && y > H - 190 - size) || (!draggable && y > H - 130 && x > W / 2 - 220 && x < W / 2 + 220);
+  const small = n > 14, tiny = n > 20, size = tiny ? 58 : small ? 70 : 96;
+  const avoid = (x, y) => (draggable && !plates && x > W - 340 - size && y > H - 240 - size) || (plates && (y > H - 190 - size || (x > W - 170 - size && y < 90))) || (!plates && y > H - 130 - size && x > W / 2 - 220 - size && x < W / 2 + 220);
   for (let i = 0; i < n; i++) {
     let x, y, tries = 0;
-    do { x = rnd(10, Math.max(20, W - size - 14)); y = rnd(10, Math.max(20, H - size - 14)); tries++; }
-    while (tries < 300 && (avoid(x, y) || pts.some(p => Math.hypot(p[0] - x, p[1] - y) < size + 2)));
+    const taken = (x, y) => avoid(x, y) || pts.some(p => Math.hypot(p[0] - x, p[1] - y) < size + 2);
+    if (!small) { do { x = rnd(10, Math.max(20, W - size - 14)); y = rnd(10, Math.max(20, H - size - 14)); tries++; } while (tries < 300 && taken(x, y)); }
+    if (small || tries >= 300) {
+      // A crowded field: the next free spot on a loose grid, so nothing lands on a plate or in the basket.
+      if (small) { x = rnd(10, Math.max(20, W - size - 14)); y = rnd(10, Math.max(20, H - size - 14)); }
+      scan: for (let gy = 10; gy <= H - size - 10; gy += size + 4) for (let gx = 10 + rnd(0, 6); gx <= W - size - 10; gx += size + 4) { if (!taken(gx, gy)) { x = gx; y = gy + rnd(-1, 1); break scan; } }
+    }
     pts.push([x, y]);
-    const t = document.createElement('div'); t.className = 'thing' + (small ? ' small' : ''); t.textContent = emojiOf(); t.style.left = x + 'px'; t.style.top = y + 'px';
+    const t = document.createElement('div'); t.className = 'thing' + (tiny ? ' tiny' : small ? ' small' : ''); t.textContent = emojiOf(); t.style.left = x + 'px'; t.style.top = y + 'px';
     if (draggable) makeDraggable(t); else t.addEventListener('pointerdown', () => countTap(t));
     field.appendChild(t);
   }
@@ -635,47 +1052,107 @@ function renderArray() {
     arr.appendChild(row);
   }
 }
+// A grid of r rows and c cells; cls(i, j) names extra classes for a cell; cells are plain squares (no emoji) when small.
+function gridOf(r, c, s, cls, emoji) {
+  const g = document.createElement('div'); g.className = 'grid'; g.style.gridTemplateColumns = `repeat(${c}, ${s}px)`;
+  for (let i = 0; i < r; i++) for (let j = 0; j < c; j++) { const cell = document.createElement('div'); cell.className = 'cell' + (cls ? ' ' + cls(i, j) : ''); cell.style.width = cell.style.height = s + 'px'; if (emoji && s >= 22) { cell.style.fontSize = Math.round(s * .7) + 'px'; cell.textContent = emoji; } g.appendChild(cell); }
+  return g;
+}
+function dotsOf(n, cols) { const d = document.createElement('div'); d.className = 'dots'; d.style.gridTemplateColumns = `repeat(${cols}, 18px)`; for (let i = 0; i < n; i++) { const x = document.createElement('div'); x.className = 'dot'; d.appendChild(x); } return d; }
+const el = (cls, text) => { const d = document.createElement('div'); d.className = cls; if (text != null) d.textContent = text; return d; };
+// Pictures for the typed How many? levels from 3rd grade up.
+function renderPicture() {
+  const field = $('field'), W = field.clientWidth - 30, H = field.clientHeight - 56;
+  const wrap = el('wrap tight'); field.appendChild(wrap);
+  const t = task;
+  if (t.kind === 'area') {
+    const s = Math.floor(Math.max(16, Math.min(44, W / t.c - 4, (H - 40) / t.r - 4)));
+    const stack = el('stack'); const labels = el('labels');
+    const l1 = el('', String(t.split)); l1.style.width = (t.split * (s + 3) - 9) + 'px'; const l2 = el('', String(t.c - t.split)); l2.style.width = ((t.c - t.split) * (s + 3) - 9) + 'px';
+    labels.append(l1, l2); stack.append(labels, gridOf(t.r, t.c, s, (i, j) => j < t.split ? 'a' : 'b', emojiOf())); wrap.appendChild(stack);
+  } else if (t.kind === 'eqgroups') {
+    for (let g = 0; g < t.G; g++) { const box = el('gbox'); box.appendChild(el('glabel', String(t.N))); const mini = el('mini'); for (let k = 0; k < Math.floor(t.N / 10); k++) mini.appendChild(el('mrod')); for (let k = 0; k < t.N % 10; k++) mini.appendChild(el('mcube')); box.appendChild(mini); wrap.appendChild(box); }
+  } else if (t.kind === 'quotient') {
+    for (let g = 0; g < t.G; g++) { const box = el('gbox'); box.appendChild(dotsOf(t.N, t.N > 9 ? 4 : 3)); wrap.appendChild(box); }
+  } else if (t.kind === 'grid100') {
+    const s = Math.floor(Math.max(14, Math.min(32, (H - 30) / 10 - 3, (W - 30) / 10 - 3)));
+    wrap.appendChild(gridOf(10, 10, s, (i, j) => (i * 10 + j < t.k ? 'shade' : '')));
+  } else if (t.kind === 'ratio') {
+    const row = el('row'); const reds = el('row'), blues = el('row'); reds.style.maxWidth = blues.style.maxWidth = '300px';
+    for (let i = 0; i < t.r; i++) reds.appendChild(el('dot big r')); for (let i = 0; i < t.b; i++) blues.appendChild(el('dot big b'));
+    row.append(reds, blues); wrap.appendChild(row);
+  } else if (t.kind === 'scale') {
+    const s = Math.floor(Math.max(20, Math.min(44, (W - 140) / t.c - 4, (H - 20) / t.a - 4)));
+    const row = el('row'); row.append(gridOf(t.a, t.c, s, null, emojiOf()), el('side', `${t.a} rows = ${t.a * t.c}`)); wrap.appendChild(row);
+  } else if (t.kind === 'square') {
+    const s = Math.floor(Math.max(14, Math.min(60, (W - 140) / t.b - 4, (H - 20) / t.b - 4)));
+    const row = el('row'); row.appendChild(gridOf(t.b, t.b, s, null, emojiOf())); if (t.total) row.appendChild(el('side', `${t.b * t.b} in all`)); wrap.appendChild(row);
+  } else if (t.kind === 'cube') {
+    const s = Math.floor(Math.max(12, Math.min(40, (W - 40) / (t.b * (t.b + 1)) - 4, (H - 60) / t.b - 4)));
+    const stack = el('stack'); const row = el('row'); for (let g = 0; g < t.b; g++) row.appendChild(gridOf(t.b, t.b, s, null, emojiOf())); stack.appendChild(row); if (t.total) stack.appendChild(el('side', `${t.b ** 3} in all`)); wrap.appendChild(stack);
+  }
+}
 function renderPlates(R) {
   const field = $('field'), W = field.clientWidth, gap = 16, w = Math.min(230, Math.floor((W - 30 - gap * (R - 1)) / R));
   const left0 = Math.floor((W - (w * R + gap * (R - 1))) / 2);
   for (let i = 0; i < R; i++) { const p = document.createElement('div'); p.className = 'plate'; p.dataset.zone = 'p' + i; p.style.width = w + 'px'; p.style.left = (left0 + i * (w + gap)) + 'px'; p.innerHTML = '<span class="count">0</span>'; field.appendChild(p); }
 }
+// Tokens: a tray of token types at the top, a bin below. Tap a token to add one; tap a chip in the bin to take it out.
+const tokById = id => task.toks.find(t => t.id === id);
+function renderTokens() {
+  const field = $('field'); const tray = el('tray');
+  for (const tk of task.toks) { const b = document.createElement('button'); b.className = 'tok ' + tk.cls; b.textContent = tk.label; b.onclick = () => { if (busy) return; if (placed.length >= 40) { say('That is a lot of tokens. Try a bigger one.'); return; } placed.push(tk.id); drawTokens(); say(tk.say); }; tray.appendChild(b); }
+  tray.appendChild(el('tip', 'Tap a token to put it in. Tap a chip in the bin to take it out.'));
+  const count = el('count', '0'); count.id = 'tokCount'; tray.appendChild(count);
+  const bin = el('bin'); bin.id = 'bin';
+  field.append(tray, bin); drawTokens();
+}
+function tokenTotals() { const counts = {}; let total = 0; for (const id of placed) { counts[id] = (counts[id] || 0) + 1; total += tokById(id).v; } return { counts, total }; }
+function drawTokens() {
+  const bin = $('bin'); if (!bin) return; bin.querySelectorAll('.chip').forEach(c => c.remove());
+  placed.forEach((id, i) => { const tk = tokById(id); const c = document.createElement('button'); c.className = 'chip ' + tk.cls; c.textContent = tk.label; c.onclick = () => { if (busy) return; placed.splice(i, 1); drawTokens(); say('Out'); }; bin.appendChild(c); });
+  const { counts, total } = tokenTotals();
+  $('tokCount').textContent = task.check === 'ratio' ? `${counts.r || 0} red, ${counts.b || 0} blue` : fmt(total / task.scale).replace('-', '−');
+}
 function renderBuild() {
-  const field = $('field');
-  const cols = document.createElement('div'); cols.className = 'cols'; field.appendChild(cols);
-  const info = [['h', 'Hundreds', 9], ['t', 'Tens', 19], ['o', 'Ones', 19]];
-  info.forEach(([k, label, max], i) => {
+  const field = $('field'), set = COLSETS[task.cols];
+  const cols = document.createElement('div'); cols.className = 'cols' + (set.cols.length === 4 ? ' four' : ''); field.appendChild(cols);
+  set.cols.forEach(([k, label], i) => {
+    const max = i === 0 ? 9 : 19;
     const col = document.createElement('div'); col.className = 'col ' + k;
     col.innerHTML = `<h3>${label}</h3><div class="blocks"></div><div class="ctl"><button data-d="-1">−</button><span class="digit">0</span><button data-d="1">+</button></div>`;
-    col.querySelectorAll('.ctl button').forEach(b => b.onclick = () => { if (busy) return; const d = +b.dataset.d; const v = blocks[i] + d; if (v < 0 || v > max) { say(v < 0 ? 'There are none to take away.' : 'That is a lot! Try trading.'); return; } blocks[i] = v; drawBlocks(); say(numWords(v) + ' ' + (v === 1 ? label.toLowerCase().slice(0, -1) : label.toLowerCase())); });
+    col.querySelectorAll('.ctl button').forEach(b => b.onclick = () => { if (busy) return; const d = +b.dataset.d; const v = blocks[i] + d; if (v < 0 || v > max) { say(v < 0 ? 'There are none to take away.' : 'That is a lot. Try trading.'); return; } blocks[i] = v; drawBlocks(); say(numWords(v) + ' ' + set.names[i] + (v === 1 ? '' : 's')); });
     cols.appendChild(col);
   });
   drawBlocks();
 }
-const valueOf = b => b[0] * 100 + b[1] * 10 + b[2];
+const valueOf = b => { const set = COLSETS[task && task.kind === 'build' ? task.cols : 'three']; return b.reduce((s, x, i) => s + x * set.places[i], 0); };
+const buildFmt = v => { const set = COLSETS[task.cols]; return set.scale === 1 ? String(v) : fmt(v / set.scale); };
+const buildSay = v => { const set = COLSETS[task.cols]; return set.scale === 1 ? numWords(v) : numSay(v / set.scale); };
 function drawBlocks() {
-  const cls = ['flat', 'rod', 'cube'];
+  const set = COLSETS[task.cols];
   document.querySelectorAll('.col').forEach((col, i) => {
     const area = col.querySelector('.blocks'); area.innerHTML = '';
-    for (let k = 0; k < blocks[i]; k++) { const d = document.createElement('div'); d.className = cls[i]; area.appendChild(d); }
+    for (let k = 0; k < blocks[i]; k++) { const d = document.createElement('div'); d.className = set.cols[i][2]; area.appendChild(d); }
     col.querySelector('.digit').textContent = blocks[i];
   });
   const tr = $('trades'); tr.innerHTML = '';
   const add = (text, fn) => { const b = document.createElement('button'); b.textContent = text; b.onclick = () => { if (!busy) fn(); }; tr.appendChild(b); };
-  if (blocks[2] >= 10) add('10 ones → 1 ten', () => { blocks[2] -= 10; blocks[1]++; drawBlocks(); say('Ten ones make one ten.'); });
-  if (blocks[1] >= 10) add('10 tens → 1 hundred', () => { blocks[1] -= 10; blocks[0]++; drawBlocks(); say('Ten tens make one hundred.'); });
-  if (task.breakable && blocks[1] > 0 && blocks[2] <= 9) add('1 ten → 10 ones', () => { blocks[1]--; blocks[2] += 10; drawBlocks(); say('One ten is ten ones.'); });
-  if (task.breakable && blocks[0] > 0 && blocks[1] <= 9) add('1 hundred → 10 tens', () => { blocks[0]--; blocks[1] += 10; drawBlocks(); say('One hundred is ten tens.'); });
+  for (let i = set.cols.length - 1; i >= 1; i--) {
+    const lo = set.names[i], hi = set.names[i - 1];
+    if (blocks[i] >= 10) add(`10 ${lo}s → 1 ${hi}`, () => { blocks[i] -= 10; blocks[i - 1]++; drawBlocks(); say(`Ten ${lo}s make one ${hi}.`); });
+    if (task.breakable && blocks[i - 1] > 0 && blocks[i] <= 9) add(`1 ${hi} → 10 ${lo}s`, () => { blocks[i - 1]--; blocks[i] += 10; drawBlocks(); say(`One ${hi} is ten ${lo}s.`); });
+  }
 }
 function renderStory() {
   const wrap = document.createElement('div'); wrap.className = 'story';
-  const p = document.createElement('p'); p.textContent = task.text; p.onclick = () => say(task.text); wrap.appendChild(p);
+  const p = document.createElement('p'); p.textContent = task.text; p.className = task.text.length > 170 ? 'longer' : task.text.length > 110 ? 'long' : ''; p.onclick = () => say(task.say || task.text); wrap.appendChild(p);
   if (task.coins) {
     const row = document.createElement('div'); row.className = 'coins';
     for (const c of ['q', 'd', 'n', 'p']) for (let i = 0; i < task.coins[c]; i++) { const d = document.createElement('div'); d.className = 'coin ' + c; d.textContent = COINS[c] + '¢'; row.appendChild(d); }
     wrap.appendChild(row);
   }
-  const pic = document.createElement('div'); pic.className = 'pic'; pic.id = 'pic'; pic.style.whiteSpace = 'pre-line'; wrap.appendChild(pic);
+  const pic = document.createElement('div'); pic.className = 'pic' + (task.text.length > 110 ? ' small' : ''); pic.id = 'pic'; pic.style.whiteSpace = 'pre-line'; wrap.appendChild(pic);
   $('field').appendChild(wrap);
 }
 
@@ -700,28 +1177,44 @@ function choose(n, btn) {
   if (n === task.answer) win(cap(numWords(n)) + ' ' + noun(n, NAMES[emojiOf()]) + '!');
   else { btn.classList.add('no'); setTimeout(() => btn.classList.remove('no'), 500); miss('Not ' + numWords(n) + '. Count them again!'); }
 }
+const same = (a, b) => Math.abs(a - b) < 1e-6;
 function submitTyped() {
-  if (busy || typed === '') return;
-  const n = +typed, a = task.answer, nm = NAMES[emojiOf()];
-  if (n === a) {
+  if (busy || typed === '' || typed === '-') return;
+  const n = Number(typed), a = task.answer, nm = NAMES[emojiOf()];
+  if (!isFinite(n)) return;
+  if (same(n, a)) {
     if (task.kind === 'array') win(`${task.r} × ${task.c} = ${a}`, `${numWords(task.r)} rows of ${numWords(task.c)} is ${numWords(a)}.`);
     else if (task.kind === 'frames') { const t = Math.floor(a / 10), o = a % 10; win(`${t} tens and ${o} ones = ${a}`, `${numWords(t)} tens and ${numWords(o)} ones is ${numWords(a)} ${nm}.`); }
-    else win(task.eq.replace('?', a), cap(numWords(a)) + '. That is right!');
+    else if (task.kind === 'story') win(task.eq.split('?').join(fmt(a)), cap(numSay(a)) + '. That is right!');
+    else win(task.eq.split('?').join(fmt(a)), task.done || cap(numSay(a)) + '. That is right!');
     return;
   }
   $('padShow').classList.add('no'); setTimeout(() => $('padShow').classList.remove('no'), 500);
   typed = ''; showTyped();
   const wasMissed = missed;
-  miss('Not ' + numWords(n) + '. Try again!');
+  miss('Not ' + numSay(n) + '. Try again!');
   if (wasMissed) showHint();
 }
-function showTyped() { $('padShow').textContent = typed || ' '; }
-function buildPad() {
-  const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '⌫', '0', '✔'];
+function showTyped() { $('padShow').textContent = typed.replace('-', '−') || ' '; }
+// The pad: digits, delete and check. The wide layout (decimals or negatives at this level) adds a minus and a point.
+let padWide = null;
+function buildPad(wide) {
+  if (padWide === wide) { $('padKeys').querySelectorAll('button').forEach(b => { if (b.textContent === '−') b.classList.toggle('off', !task.neg); if (b.textContent === '.') b.classList.toggle('off', !task.dot); }); return; }
+  padWide = wide; const keys = wide ? ['7', '8', '9', '4', '5', '6', '1', '2', '3', '−', '0', '.', '⌫', '✔'] : ['7', '8', '9', '4', '5', '6', '1', '2', '3', '⌫', '0', '✔'];
+  const pk = $('padKeys'); pk.innerHTML = ''; pk.classList.toggle('wide', wide);
   for (const k of keys) {
-    const b = document.createElement('button'); b.textContent = k; if (k === '✔') b.className = 'ok';
-    b.onclick = () => { if (busy) return; if (k === '⌫') typed = typed.slice(0, -1); else if (k === '✔') return submitTyped(); else if (typed.length < 4) { typed = (typed + k).replace(/^0+(?=\d)/, ''); say(k); } showTyped(); };
-    $('padKeys').appendChild(b);
+    const b = document.createElement('button'); b.textContent = k; if (k === '✔') b.className = 'ok' + (wide ? ' span2' : '');
+    if (k === '−') b.classList.toggle('off', !task.neg); if (k === '.') b.classList.toggle('off', !task.dot);
+    b.onclick = () => {
+      if (busy) return;
+      if (k === '⌫') typed = typed.slice(0, -1);
+      else if (k === '✔') return submitTyped();
+      else if (k === '−') { typed = typed.startsWith('-') ? typed.slice(1) : '-' + typed; say(typed.startsWith('-') ? 'negative' : 'positive'); }
+      else if (k === '.') { if (!typed.includes('.')) { typed += (typed === '' || typed === '-') ? '0.' : '.'; say('point'); } }
+      else if (typed.replace(/[-.]/g, '').length < 6) { typed = (typed + k).replace(/^(-?)0+(?=\d)/, '$1'); say(k); }
+      showTyped();
+    };
+    pk.appendChild(b);
   }
 }
 
@@ -750,7 +1243,7 @@ function checkPlaced() {
   const nm = NAMES[emojiOf()];
   if (task.kind === 'basket') {
     const n = zoneCount($('basket')), want = task.answer;
-    if (n === want) win(cap(numWords(want)) + ' ' + noun(want, nm) + '. Perfect!');
+    if (n === want) win(task.expr ? `${task.expr} = ${want}` : cap(numWords(want)) + ' ' + noun(want, nm) + '. Perfect!', task.expr ? `${task.say} is ${numWords(want)}.` : '');
     else miss(n < want ? 'Only ' + numWords(n) + '. We need ' + numWords(want) + '. Add some more!' : 'That is ' + numWords(n) + '. Too many! Take some out.');
     return;
   }
@@ -770,14 +1263,28 @@ function checkPlaced() {
   if (task.left) win(`${task.total} ÷ ${task.R} = ${each}, ${task.left} left over`, `${numWords(task.total)} shared by ${numWords(task.R)} is ${numWords(each)} each, with ${numWords(task.left)} left over.`);
   else win(`${task.total} ÷ ${task.R} = ${each}`, `${numWords(task.total)} shared by ${numWords(task.R)} is ${numWords(each)} each.`);
 }
+function checkTokens() {
+  if (busy) return;
+  const { counts, total } = tokenTotals();
+  if (task.check === 'ratio') {
+    const r = counts.r || 0, b = counts.b || 0, n = r + b;
+    if (n !== task.total) return miss(`That is ${numWords(n)} in all. We need ${numWords(task.total)}.` + (n < task.total ? ' Add some more.' : ' Take some out.'));
+    if (r * task.q !== b * task.p) return miss(`For every ${numWords(task.p)} red there should be ${numWords(task.q)} blue. Try again.`);
+    return win(task.eq, task.done);
+  }
+  if (!placed.length) return miss('The bin is empty. Tap a token to put it in.');
+  if (Math.round(total) === Math.round(task.answer * task.scale)) return win(task.eq, task.done);
+  miss('That is ' + numSay(total / task.scale) + '. ' + (total < task.answer * task.scale ? 'We need more.' : 'That is too many.'));
+}
 function checkBuild() {
   if (busy) return;
-  const v = valueOf(blocks), a = task.answer;
-  if (v === a && blocks[1] <= 9 && blocks[2] <= 9) return win(task.eq ? task.eq + ' = ' + a : String(a), cap(numWords(a)) + '!');
-  if (v === a) return miss(blocks[2] > 9 ? 'That is ' + numWords(a) + ', but you have ' + numWords(blocks[2]) + ' ones. Trade ten ones for a ten.' : 'That is ' + numWords(a) + '. Trade ten tens for a hundred.');
-  miss('That is ' + numWords(v) + '. ' + (v < a ? 'We need more.' : 'That is too many.'));
+  const v = valueOf(blocks), a = task.answer, set = COLSETS[task.cols];
+  const over = blocks.findIndex((x, i) => i > 0 && x > 9);
+  if (v === a && over < 0) return win(task.eq ? task.eq + ' = ' + buildFmt(a) : buildFmt(a), cap(buildSay(a)) + '!');
+  if (v === a) return miss('That is ' + buildSay(a) + ', but you have ' + numWords(blocks[over]) + ' ' + set.names[over] + 's. Trade ten ' + set.names[over] + 's for a ' + set.names[over - 1] + '.');
+  miss('That is ' + buildSay(v) + '. ' + (v < a ? 'We need more.' : 'That is too many.'));
 }
-$('check').onclick = () => (task.kind === 'build' ? checkBuild() : checkPlaced());
+$('check').onclick = () => (task.kind === 'build' ? checkBuild() : task.kind === 'tokens' ? checkTokens() : checkPlaced());
 
 function showHint() {
   hinted = true;
@@ -785,27 +1292,82 @@ function showHint() {
     case 'tap': say('Tap each ' + one(NAMES[emojiOf()]) + ' once. Say the numbers with me.'); break;
     case 'frames': say('A full ten frame is ten. Count the tens: ten, twenty, thirty. Then count the ones.'); break;
     case 'array': say(task.tapRows ? 'Tap each row. Count by ' + numWords(task.c) + 's.' : 'Now you can tap the rows. Count by ' + numWords(task.c) + 's.'); break;
-    case 'basket': say('Drag them in one at a time and count.'); break;
+    case 'basket': say(task.hint || 'Drag them in one at a time and count.'); break;
     case 'groups': say('Put ' + numWords(task.N) + ' on the first plate. Then do the next plate.'); break;
     case 'share': say('Give one to each plate, then go around again. Keep going until you cannot give every plate one more.'); break;
-    case 'build': say(task.eq ? (task.breakable ? 'Take away the ones first. If there are not enough, break a ten.' : 'Add the ones, then the tens. Trade ten ones for a ten.') : 'Look at each digit. Hundreds first, then tens, then ones.'); break;
+    case 'build': say(task.eq ? (task.breakable ? 'Take away the small ones first. If there are not enough, break a bigger block.' : 'Add the small ones first, then the bigger ones. Trade ten for one when you can.') : 'Look at each digit. Start with the biggest place and work to the right.'); break;
     case 'story': { const pic = $('pic'); if (pic) { pic.textContent = (task.pic ? task.pic + '\n' : '') + task.eq; pic.classList.add('on'); } say('Here is a hint. ' + task.eq.replace('?', 'what')); break; }
+    default: say(task.hint || task.speak); break;
   }
 }
 
 document.querySelectorAll('.pill[data-mode]').forEach(b => b.onclick = () => { document.querySelectorAll('.pill[data-mode]').forEach(x => x.classList.toggle('on', x === b)); mode = b.dataset.mode; newRound(); });
 $('again').onclick = () => newRound();
 $('hint').onclick = () => { if (!busy) showHint(); };
-$('hear').onclick = () => say(task.kind === 'story' ? task.text : task.speak || $('ask').textContent);
+$('hear').onclick = () => say(task.kind === 'story' ? (task.say || task.text) : task.speak || $('ask').textContent);
 $('stars').textContent = '⭐ ' + P.stars;
-buildPad();
+buildPad(false);
 let resizeTimer = null;
 addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (!busy) { counted = 0; render(false); } }, 200); });
 newRound(false);
-addEventListener('pointerdown', () => say('Count With Me! ' + (task.kind === 'story' ? task.text : task.speak || $('ask').textContent)), { once: true });
+addEventListener('pointerdown', () => say('Count With Me! ' + (task.kind === 'story' ? (task.say || task.text) : task.speak || $('ask').textContent)), { once: true });
+
+// ---------------------------------------------------------------------------
+// Self-check hook for tools/ladder-check.mjs. The four ladders are flattened in order: How many?, Give me,
+// Build it, Story. exercise(i, n) generates n tasks at that rung without touching the screen and throws when a
+// task is malformed: a bad number, a missing answer, text with NaN or undefined in it, or a puzzle that cannot be
+// solved with the pieces the screen will offer.
+// ---------------------------------------------------------------------------
+const ORDER = ['howmany', 'giveme', 'build', 'story'];
+const FLAT = ORDER.flatMap(m => LEVELS[m].map((l, i) => ({ m, i })));
+function checkTask(m, r, t) {
+  const fail = why => { throw new Error(`${m} ${r} ${LEVELS[m][r].name}: ${why} in ${JSON.stringify(t).slice(0, 160)}`); };
+  const texts = ['ask', 'prompt', 'speak', 'text', 'eq', 'hint', 'done', 'expr', 'say'].map(k => t[k]).filter(x => x !== undefined);
+  for (const s of texts) { if (typeof s !== 'string' || !s.trim()) fail('empty text'); if (/NaN|undefined|null|\[object/.test(s)) fail('bad text ' + s); }
+  if (typeof t.answer !== 'number' || !isFinite(t.answer)) fail('bad answer');
+  const int = n => Number.isInteger(n);
+  switch (t.kind) {
+    case 'tap': if (!int(t.answer) || t.answer < t.lo || t.answer > t.hi || !t.choices.includes(t.answer) || new Set(t.choices).size !== 3) fail('tap'); break;
+    case 'frames': if (!int(t.answer) || t.answer < 1 || t.answer > 120) fail('frames'); break;
+    case 'array': if (t.r * t.c !== t.answer || t.r < 2 || t.c < 2 || t.c > 10) fail('array'); break;
+    case 'area': if (t.r * t.c !== t.answer || t.c > 19 || t.r > 9) fail('area'); break;
+    case 'eqgroups': if (t.G * t.N !== t.answer || t.G > 6 || t.N > 29) fail('groups'); break;
+    case 'quotient': if (![t.G, t.N].includes(t.answer) || t.G > 12 || t.N > 12) fail('quotient'); break;
+    case 'grid100': if (t.k < 1 || t.k > 99 || !(same(t.answer, t.k) || same(t.answer, t.k / 100))) fail('grid'); break;
+    case 'ratio': if (t.r * t.q !== t.b * t.p || t.r + t.b > 40 || ![t.p, t.q, t.p + t.q].includes(t.answer)) fail('ratio'); break;
+    case 'scale': if (!int(t.answer) || t.answer < 1 || t.answer > 108) fail('scale'); break;
+    case 'square': if (![t.b, t.b * t.b].includes(t.answer) || t.b > 12) fail('square'); break;
+    case 'cube': if (![t.b, t.b ** 3].includes(t.answer) || t.b > 5) fail('cube'); break;
+    case 'basket': if (!int(t.answer) || t.answer < 1 || t.total < t.answer || t.total > 24) fail('basket'); break;
+    case 'groups': if (t.total < t.R * t.N || t.R > 4 || t.N > 5) fail('plates'); break;
+    case 'share': if (t.total !== t.R * t.each + t.left || t.left >= t.R || t.total > 30) fail('share'); break;
+    case 'tokens': {
+      if (!t.toks || !t.toks.length) fail('no tokens');
+      if (t.check === 'ratio') { if (t.answer * t.q !== t.answerB * t.p || t.answer + t.answerB !== t.total || t.total > 20) fail('ratio tokens'); break; }
+      const units = Math.round(t.answer * t.scale), vals = t.toks.map(x => x.v);
+      if (!int(units) || (units > 0 && !vals.some(v => v > 0)) || (units < 0 && !vals.some(v => v < 0)) || units === 0 || Math.abs(units) > 399) fail('tokens value');
+      break;
+    }
+    case 'build': {
+      const set = COLSETS[t.cols]; if (!set || t.start.length !== set.cols.length) fail('cols');
+      const cap_ = set.places[0] * 10 - 1; if (!int(t.answer) || t.answer < 0 || t.answer > cap_) fail('build range');
+      if (t.start.some(x => x < 0 || x > 9)) fail('start'); break;
+    }
+    case 'story': if (!t.eq.includes('?') || t.text.length > 230 || (t.answer < 0 && !t.neg) || (!t.dot && !int(t.answer)) || t.answer > 9999) fail('story'); break;
+    default: fail('unknown kind ' + t.kind);
+  }
+}
+const describe = t => (t.ask || t.prompt || t.text || (t.kind + ' ' + (t.total || t.r || ''))) + ' -> ' + fmt(t.answer) + (t.answerB != null ? ' red, ' + t.answerB + ' blue' : '');
+window.DucklingLadder = {
+  levels: () => FLAT.length,
+  start: () => START[mode],
+  label: () => LEVELS[mode][P.lv[mode]].name,
+  rung: i => FLAT[i].m + ' ' + FLAT[i].i + ' ' + LEVELS[FLAT[i].m][FLAT[i].i].name,
+  exercise: (i, n) => { const { m, i: r } = FLAT[i]; const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[m][r].gen(); checkTask(m, r, t); out.push(describe(t)); } return out; },
+};
 
 // Test hook.
-window.CWM = { LEVELS, START, numWords, record, P: () => P, current: () => task, mode: () => mode, setMode: m => document.querySelector(`.pill[data-mode="${m}"]`).click(), blocks: () => blocks, valueOf };
+window.CWM = { LEVELS, START, numWords, record, P: () => P, current: () => task, mode: () => mode, setMode: m => document.querySelector(`.pill[data-mode="${m}"]`).click(), blocks: () => blocks, valueOf, placed: () => placed, setTyped: s => { typed = s; showTyped(); }, submit: submitTyped };
 </script>
 </body>
 </html>
