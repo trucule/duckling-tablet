@@ -258,6 +258,16 @@
   @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
   @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
   .choice { font-size: 36px; min-width: 110px; }
+  /* Number pad for typed answers (area, scale and Pythagoras rungs). Two rows, 568px wide, inside the dock. */
+  .pad { display: grid; grid-template-columns: repeat(8, 64px); grid-auto-rows: 60px; gap: 8px; }
+  .pad .show { grid-column: span 2; background: #fff; border: 4px solid var(--ink); border-radius: 18px; font: 900 30px "Segoe UI", system-ui, sans-serif; display: grid; place-items: center; box-shadow: 0 5px 0 var(--ink); min-width: 0; overflow: hidden; white-space: nowrap; }
+  .pad .show.wrong { background: #FF8A8A; animation: shake 0.4s; }
+  .pad .show.right { background: #3DF59A; }
+  .key { border-radius: 18px; border: 4px solid var(--ink); background: #fff; font: 900 28px "Segoe UI", system-ui, sans-serif; color: var(--ink); box-shadow: 0 5px 0 var(--ink); cursor: pointer; padding: 0; touch-action: manipulation; transition: transform 0.08s; }
+  .key:active { transform: scale(0.93); }
+  .key.ok { grid-column: span 2; background: #3DF59A; }
+  .key.del { background: #FFB43D; }
+  .key.dot { background: #FFE14D; }
 </style>
 </head>
 <body>
@@ -503,8 +513,10 @@ function kitStart() {
 // diagonals into four quarter triangles, and every piece covers whole quarter triangles. A target is the set of
 // quarter triangles of a known solution, so every target can be filled, and any filling that covers it exactly wins.
 // ---------------------------------------------------------------------------
-// Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
-const APP = { key: 'tangram-city-v1', get start() { return (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', LEVELS.length, 1) : 1); } };
+// Where a new player starts: the first rung marked (g) for the child's grade in this subject (set by the parent). On a
+// tablet without rungFor the linear map is used, with 2nd grade at rung 1. Without the tablet (the demo recording) the
+// app opens on rung 1.
+const APP = { key: 'tangram-city-v1', get start() { return (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('math', LEVELS.map(l => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('math', LEVELS.length, 1) : 1)); } };
 const BASE = { LT: [[0, 0], [2, 0], [0, 2]], MT: [[0, 0], [2, 0], [1, 1]], ST: [[0, 0], [1, 0], [0, 1]], SQ: [[0, 0], [1, 0], [1, 1], [0, 1]], PA: [[0, 0], [1, 0], [2, 1], [1, 1]] };
 const SET = ['LT', 'LT', 'MT', 'ST', 'ST', 'SQ', 'PA'];
 const PIECE_COLOR = [0xFF2E88, 0x00B4FF, 0xFF8A00, 0xFFE100, 0x6BFF3A, 0xB04DFF, 0x00F0D0];
@@ -546,7 +558,8 @@ const ORIENTS = {};
 for (const t of Object.keys(BASE)) { const seen = new Map(); for (let r = 0; r < 4; r++) for (let f = 0; f < 2; f++) { const k = cellsOfPoly(orient(t, r, f)).sort().join(' '); if (!seen.has(k)) seen.set(k, [r, f]); } ORIENTS[t] = [...seen.values()]; }
 const shapeKey = p => { const o = orient(p.t, p.rot, p.flip); return cellsOfPoly(o).sort().join(' '); };
 
-// Random connected builds: each new piece must share at least two quarter edges with the build so far.
+// Random connected builds: each new piece must share a whole edge with the build so far (one quarter edge is a unit
+// side, two are a diagonal or a side of length two), and joins that share more are preferred.
 const NB = (i, j, q) => [[i, j, (q + 1) % 4], [i, j, (q + 3) % 4], q === 0 ? [i, j - 1, 2] : q === 1 ? [i + 1, j, 3] : q === 2 ? [i, j + 1, 0] : [i - 1, j, 1]].map(a => a.join(','));
 function randomBuild(types, maxW = 6, maxH = 5) {
   for (let attempt = 0; attempt < 60; attempt++) {
@@ -561,7 +574,7 @@ function randomBuild(types, maxW = 6, maxH = 5) {
         const poly = polyOf(p), nx0 = Math.min(x0, ...poly.map(q => q[0])), nx1 = Math.max(x1, ...poly.map(q => q[0])), ny0 = Math.min(y0, ...poly.map(q => q[1])), ny1 = Math.max(y1, ...poly.map(q => q[1]));
         if (nx1 - nx0 > maxW || ny1 - ny0 > maxH) continue;
         let touch = 0; for (const c of cs) for (const n of NB(...c.split(',').map(Number))) if (used.has(n)) touch++;
-        if (touch >= 2) opts.push([p, touch]);
+        if (touch >= 1) opts.push([p, touch]);
       }
       if (!opts.length) { ok = false; break; }
       opts.sort((a, b) => b[1] - a[1]); const p = pick(opts.slice(0, Math.max(3, Math.ceil(opts.length / 3))))[0];
@@ -598,22 +611,406 @@ function polyomino(n, W = 6, H = 4) {
 function perimeterOf(sq) { const s = new Set(sq.map(p => p.join(','))); let n = 0; for (const [x, y] of sq) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!s.has(`${x + dx},${y + dy}`)) n++; return n; }
 function numChoices(ans, extra) { const s = new Set([ans]); for (const e of shuffle(extra)) { if (s.size >= 4) break; if (e > 0 && e !== ans) s.add(e); } let k = 1; while (s.size < 4) { if (ans + k > 0) s.add(ans + k); if (s.size < 4 && ans - k > 0) s.add(ans - k); k++; } return shuffle([...s]).sort((a, b) => a - b); }
 
+// ---------------------------------------------------------------------------
+// Banks for the upper rungs. A pose is [type, rot, flip, x, y]. Every entry was found by an exact-cover search and
+// the self-check hook (window.DucklingLadder) re-checks each one it draws.
+// MORE_FIGURES: twelve more seven-piece city figures for the turned silhouettes rung (with FIGURES, 22 in all).
+// DOUBLE: a small figure and a tiling of the same figure at twice the side length with the seven pieces.
+// COMPOSE: [squares, perimeter, tiling] for straight-sided shapes the child rebuilds from a stated area and perimeter.
+// ---------------------------------------------------------------------------
+const MORE_FIGURES = {
+  'a crane': [['PA',0,1,2,2],['LT',0,0,1,2],['MT',1,0,0,2],['ST',0,0,0,2],['ST',1,1,1,3],['SQ',0,0,2,3],['LT',1,1,1,0]],
+  'a fountain': [['LT',0,1,2,2],['ST',2,1,3,3],['LT',2,1,1,1],['PA',1,1,1,0],['SQ',0,0,2,3],['MT',1,0,0,0],['ST',0,1,1,3]],
+  'a tram': [['MT',2,0,1,0],['LT',0,0,0,0],['ST',0,1,2,0],['LT',0,0,1,1],['PA',0,1,2,1],['ST',1,1,1,2],['SQ',0,0,3,0]],
+  'a windmill': [['ST',0,0,0,0],['PA',0,1,0,0],['MT',1,0,1,0],['ST',2,1,1,1],['LT',0,0,2,0],['SQ',0,0,0,1],['LT',0,1,0,2]],
+  'a kite': [['LT',0,1,1,2],['PA',0,0,0,2],['ST',2,1,2,3],['LT',1,1,0,0],['MT',0,0,0,0],['ST',0,1,1,3],['SQ',0,0,2,1]],
+  'a ferry': [['LT',1,1,0,1],['ST',0,0,0,2],['LT',0,0,1,0],['MT',0,0,0,3],['PA',0,1,1,3],['SQ',0,0,2,2],['ST',1,1,2,0]],
+  'a stadium': [['MT',0,0,1,2],['LT',1,1,1,0],['PA',0,1,0,1],['ST',1,1,2,2],['ST',2,1,1,2],['LT',0,0,0,0],['SQ',0,0,0,2]],
+  'a mailbox': [['ST',1,1,2,1],['PA',1,0,2,0],['LT',0,0,1,0],['LT',1,1,0,1],['SQ',0,0,2,2],['ST',0,0,0,2],['MT',0,0,0,3]],
+  'a hotel': [['ST',1,1,2,0],['MT',0,0,1,0],['PA',0,0,0,0],['LT',0,1,1,1],['LT',2,1,1,1],['ST',2,1,0,0],['SQ',0,0,0,1]],
+  'a fire truck': [['ST',2,1,0,1],['LT',0,1,0,1],['PA',1,1,1,2],['ST',0,1,0,2],['LT',0,0,2,2],['SQ',0,0,2,1],['MT',2,0,0,0]],
+  'a tent': [['ST',2,1,2,2],['LT',0,1,1,1],['LT',2,1,0,0],['MT',0,0,0,2],['ST',0,1,0,0],['PA',1,1,0,2],['SQ',0,0,1,0]],
+  'a tunnel': [['LT',1,1,2,0],['MT',0,0,2,2],['ST',0,0,3,0],['PA',0,1,1,1],['SQ',0,0,2,0],['ST',2,1,2,2],['LT',0,0,0,1]],
+};
+const DOUBLE = [
+  [[['ST',0,0,0,0]], [['LT',0,0,0,0]]],
+  [[['MT',0,0,0,0]], [['LT',0,1,0,0],['LT',0,0,2,0]]],
+  [[['SQ',0,0,0,0]], [['LT',0,0,0,0],['LT',1,1,0,0]]],
+  [[['PA',0,0,0,0]], [['LT',0,1,0,0],['LT',2,1,2,0]]],
+  [[['LT',0,0,0,0]], [['LT',0,1,0,0],['ST',2,1,0,0],['LT',0,0,2,0],['SQ',0,0,0,1],['MT',3,0,1,1],['ST',0,0,0,2],['PA',1,0,0,2]]],
+  [[['ST',2,1,0,0],['MT',0,0,0,0]], [['LT',0,0,0,0],['LT',1,1,0,0],['MT',0,0,2,0],['ST',2,1,2,0],['ST',0,0,2,1]]],
+  [[['ST',0,0,0,0],['MT',1,0,0,0]], [['LT',0,0,0,0],['LT',1,1,0,0],['MT',0,0,0,2],['ST',1,1,1,2],['ST',0,1,1,3]]],
+  [[['ST',0,1,0,0],['MT',3,0,0,0]], [['LT',0,0,0,0],['LT',1,1,0,0],['MT',0,0,0,2],['ST',2,1,0,2],['ST',0,0,0,3]]],
+  [[['PA',0,1,0,0],['ST',1,1,1,0]], [['LT',1,1,0,0],['LT',0,0,2,0],['MT',1,0,3,0],['ST',1,1,2,1],['ST',2,1,3,1]]],
+  [[['PA',0,0,0,0],['ST',2,1,0,0]], [['LT',0,0,0,0],['LT',1,1,0,0],['MT',3,0,2,0],['ST',1,1,2,1],['ST',2,1,3,1]]],
+  [[['ST',2,1,0,1],['PA',1,1,0,0]], [['LT',2,1,0,0],['LT',0,0,0,2],['MT',1,0,1,2],['ST',1,1,0,3],['ST',2,1,1,3]]],
+  [[['MT',2,0,1,0],['PA',0,1,0,0]], [['LT',1,1,0,0],['LT',0,0,2,0],['MT',2,0,3,0],['ST',1,1,2,1],['SQ',0,0,3,1],['PA',0,0,4,1],['ST',2,1,4,1]]],
+  [[['MT',1,0,1,0],['PA',0,1,0,0]], [['LT',1,1,0,0],['LT',0,0,2,0],['ST',1,1,3,0],['MT',1,0,2,1],['SQ',0,0,3,1],['ST',0,1,3,2],['PA',1,1,3,2]]],
+  [[['MT',0,0,0,0],['PA',0,1,1,0]], [['LT',0,1,0,0],['MT',0,0,2,0],['ST',2,1,2,0],['PA',1,0,3,0],['LT',0,0,4,0],['SQ',0,0,2,1],['ST',1,1,3,1]]],
+  [[['MT',1,0,0,0],['ST',2,1,0,1],['ST',0,0,0,0]], [['LT',0,0,0,0],['LT',1,1,0,0],['MT',0,0,0,2],['ST',2,1,0,2],['PA',1,0,1,2],['SQ',0,0,0,3],['ST',1,1,1,3]]],
+  [[['ST',1,1,1,0],['MT',0,0,0,0],['ST',2,1,0,0]], [['LT',0,0,0,0],['LT',1,1,0,0],['MT',0,0,2,0],['ST',2,1,2,0],['PA',1,0,3,0],['SQ',0,0,2,1],['ST',1,1,3,1]]],
+];
+const COMPOSE = [
+  [2, 6, [['MT',0,0,0,0],['ST',2,1,0,0],['ST',1,1,1,0]]],
+  [2, 6, [['ST',0,0,0,0],['MT',1,0,0,0],['ST',2,1,0,1]]],
+  [3, 8, [['LT',0,1,0,0],['ST',2,1,0,0],['ST',2,1,1,1]]],
+  [3, 8, [['MT',0,0,0,0],['ST',2,1,0,0],['ST',1,1,1,0],['SQ',0,0,2,0]]],
+  [4, 10, [['MT',0,0,0,0],['ST',2,1,0,0],['PA',0,1,1,0],['ST',1,1,2,0],['SQ',0,0,2,1]]],
+  [4, 10, [['LT',0,0,0,0],['MT',2,0,1,0],['ST',0,1,2,0],['ST',1,1,0,1]]],
+  [4, 8, [['LT',0,0,0,0],['LT',1,1,0,0]]],
+  [5, 10, [['ST',0,0,0,0],['MT',1,0,0,0],['LT',2,1,0,1],['ST',0,1,1,1],['PA',1,1,1,1]]],
+  [5, 10, [['ST',0,0,1,0],['MT',1,0,1,0],['ST',0,1,0,1],['LT',2,1,0,1],['PA',1,1,1,1]]],
+  [5, 12, [['SQ',0,0,1,0],['LT',0,1,0,1],['ST',2,1,0,1],['MT',3,0,1,2],['ST',1,1,1,3]]],
+  [5, 12, [['ST',0,0,1,0],['MT',1,0,1,0],['LT',2,1,1,1],['SQ',0,0,0,2],['ST',0,1,2,2]]],
+  [6, 10, [['LT',0,0,0,0],['LT',1,1,0,0],['MT',0,0,0,2],['ST',2,1,0,2],['ST',1,1,1,2]]],
+  [6, 10, [['LT',0,0,0,0],['LT',1,1,0,0],['ST',0,0,2,0],['MT',1,0,2,0],['ST',2,1,2,1]]],
+  [6, 12, [['LT',0,0,1,0],['LT',1,1,1,0],['ST',0,0,0,1],['ST',1,1,0,1],['SQ',0,0,1,2]]],
+  [6, 12, [['LT',0,0,1,0],['LT',1,1,1,0],['MT',0,0,0,2],['ST',2,1,0,2],['ST',1,1,1,2]]],
+  [6, 14, [['ST',0,0,0,0],['MT',2,0,0,0],['PA',0,0,1,0],['LT',0,1,2,0],['SQ',0,0,4,0],['ST',2,1,3,1]]],
+  [6, 14, [['LT',0,1,0,0],['ST',2,1,0,0],['PA',1,1,1,1],['SQ',0,0,2,1],['ST',0,0,0,2],['MT',2,0,0,2]]],
+  [7, 12, [['LT',0,0,0,0],['LT',1,1,0,0],['ST',0,0,2,0],['MT',1,0,2,0],['ST',2,1,2,1],['SQ',0,0,3,1]]],
+  [7, 12, [['LT',0,0,0,0],['LT',1,1,0,0],['ST',0,0,2,0],['MT',1,0,2,0],['ST',2,1,2,1],['SQ',0,0,1,2]]],
+  [7, 14, [['ST',0,0,0,0],['MT',1,0,0,0],['ST',2,1,0,1],['LT',0,0,1,1],['LT',1,1,1,1],['SQ',0,0,1,3]]],
+  [7, 14, [['LT',0,0,1,0],['ST',1,1,2,0],['ST',0,0,0,1],['PA',1,0,0,1],['LT',1,1,0,1],['SQ',0,0,0,3]]],
+  [7, 16, [['LT',0,0,1,0],['MT',2,0,2,0],['LT',0,1,3,0],['SQ',0,0,0,1],['ST',1,1,1,1],['ST',2,1,4,1]]],
+  [7, 16, [['LT',0,1,0,0],['ST',2,1,0,0],['LT',2,1,1,1],['SQ',0,0,0,2],['MT',0,0,2,2],['ST',1,1,3,2]]],
+  [8, 12, [['LT',0,0,0,0],['LT',1,1,0,0],['ST',0,0,2,1],['MT',1,0,2,1],['SQ',0,0,0,2],['PA',0,0,1,2],['ST',2,1,1,2]]],
+  [8, 12, [['LT',0,0,1,0],['LT',1,1,1,0],['ST',0,0,0,1],['PA',1,0,0,1],['MT',2,0,0,2],['ST',0,1,1,2],['SQ',0,0,2,2]]],
+  [8, 14, [['LT',0,0,1,0],['LT',1,1,1,0],['SQ',0,0,3,0],['MT',0,0,0,2],['ST',2,1,0,2],['PA',0,1,1,2],['ST',1,1,2,2]]],
+  [8, 14, [['LT',0,0,0,0],['LT',1,1,0,0],['ST',0,0,2,1],['MT',1,0,2,1],['PA',0,0,1,2],['ST',2,1,1,2],['SQ',0,0,1,3]]],
+  [8, 16, [['ST',0,1,1,0],['MT',3,0,1,0],['PA',0,1,1,1],['LT',1,1,1,1],['LT',0,0,0,2],['ST',1,1,0,3],['SQ',0,0,2,3]]],
+  [8, 16, [['LT',0,0,0,0],['PA',0,1,1,0],['MT',1,0,2,0],['ST',1,1,0,1],['LT',2,1,2,1],['SQ',0,0,3,1],['ST',0,1,3,2]]],
+  [8, 18, [['ST',0,0,0,0],['MT',1,0,0,0],['LT',2,1,0,1],['PA',0,0,1,2],['LT',0,1,2,2],['SQ',0,0,0,3],['ST',2,1,3,3]]],
+  [8, 18, [['LT',0,1,0,0],['ST',2,1,0,0],['PA',1,1,1,1],['SQ',0,0,2,1],['LT',2,1,1,2],['MT',0,0,2,3],['ST',1,1,3,3]]],
+];
+const unpack = list => list.map(([t, rot, flip, x, y]) => ({ t, rot, flip, x, y }));
+const AREA = { LT: 4, MT: 2, ST: 1, SQ: 2, PA: 2 }; // in small triangles
+const PIECE_NAME = { LT: 'large triangle', MT: 'middle triangle', ST: 'small triangle', SQ: 'square', PA: 'parallelogram' };
+const RIGHT_ANGLE = { LT: 0, ST: 0, MT: 2 }; // which BASE corner holds the right angle
+// The working grid for open tasks and coordinate tasks: 6 across, 4 up, origin at the lower left.
+const REGION = { x0: 0, y0: 0, x1: 6, y1: 4 };
+const inRegion = (c, r) => { const [i, j] = c.split(',').map(Number); return i >= r.x0 && i < r.x1 && j >= r.y0 && j < r.y1; };
+const poseKey = p => cellsOf(p).sort().join(' ');
+const unionOf = sol => [...new Set(sol.flatMap(cellsOf))];
+const extent = sol => { const xs = sol.flatMap(p => polyOf(p).map(q => q[0])), ys = sol.flatMap(p => polyOf(p).map(q => q[1])); return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; };
+const shift = (sol, dx, dy) => sol.map(p => Object.assign({}, p, { x: p.x + dx, y: p.y + dy }));
+// randomBuild falls back to a slice of the tower when a set will not join (a lone square next to small triangles
+// shares too little edge). The upper rungs need exactly the pieces they asked for, so they use this and retry.
+function buildOf(types, w, h) {
+  const sol = randomBuild(types, w, h), e = extent(sol);
+  return sol.map(p => p.t).sort().join() === types.slice().sort().join() && e.x1 - e.x0 <= w && e.y1 - e.y0 <= h ? sol : null;
+}
+// Move a piece through a point map (turn, flip, slide) and find the pose of the same piece that covers the result.
+function transformPiece(p, fn) {
+  const poly = polyOf(p).map(fn), want = cellsOfPoly(poly).sort().join(' ');
+  const mx = Math.min(...poly.map(q => q[0])), my = Math.min(...poly.map(q => q[1]));
+  for (const [rot, flip] of ORIENTS[p.t]) { const q = { t: p.t, rot, flip, x: mx, y: my }; if (poseKey(q) === want) return q; }
+  return null;
+}
+function transformSol(sol, fn) { const out = sol.map(p => transformPiece(p, fn)); return out.some(p => !p) ? null : out; }
+function randomPoseIn(t, r) { const [rot, flip] = pick(ORIENTS[t]), o = orient(t, rot, flip), w = Math.max(...o.map(p => p[0])), h = Math.max(...o.map(p => p[1])); return { t, rot, flip, x: rand(r.x0, r.x1 - w), y: rand(r.y0, r.y1 - h) }; }
+function rightCorner(p) { const o = orient(p.t, p.rot, p.flip)[RIGHT_ANGLE[p.t]]; return [o[0] + p.x, o[1] + p.y]; }
+// One shape: every quarter triangle reaches every other one across shared edges.
+function connected(cells) {
+  if (!cells.length) return false; const set = new Set(cells), seen = new Set([cells[0]]), q = [cells[0]];
+  while (q.length) { const c = q.pop(); for (const n of NB(...c.split(',').map(Number))) if (set.has(n) && !seen.has(n)) { seen.add(n); q.push(n); } }
+  return seen.size === set.size;
+}
+// Outside edges of a shape: straight ones run along grid lines (one unit each), slanted ones along a diagonal.
+function edgeStats(cells) { const set = new Set(cells); let straight = 0, slant = 0; for (const c of cells) { const nb = NB(...c.split(',').map(Number)); if (!set.has(nb[2])) straight++; if (!set.has(nb[0])) slant++; if (!set.has(nb[1])) slant++; } return { straight, slant }; }
+// The eight 45 degree wedges around a grid point, going counterclockwise from east, as quarter-triangle keys.
+const WEDGES = (x, y) => [[x, y, 0], [x, y, 3], [x - 1, y, 1], [x - 1, y, 0], [x - 1, y - 1, 2], [x - 1, y - 1, 1], [x, y - 1, 3], [x, y - 1, 2]].map(a => a.join(','));
+// The angle inside the shape at a grid point: 45 degrees per wedge when the wedges form one fan. 'split' when two
+// separate corners only touch there, null when the point is not on the shape or is inside it.
+function angleAt(cells, x, y) {
+  const set = new Set(cells), w = WEDGES(x, y).map(k => set.has(k)), n = w.filter(Boolean).length;
+  if (n === 0 || n === 8) return null;
+  let runs = 0; for (let i = 0; i < 8; i++) if (w[i] && !w[(i + 7) % 8]) runs++;
+  return runs === 1 ? n * 45 : 'split';
+}
+// Corners of a shape: grid points where the inside angle is not a straight line, plus 270 degree notches at square
+// centres where three quarters meet.
+function cornersOf(cells) {
+  const pts = new Map(), out = [], sq = new Map();
+  for (const c of cells) {
+    const [i, j, q] = c.split(',').map(Number);
+    for (const [x, y] of [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]]) pts.set(x + ',' + y, [x, y]);
+    const k = i + ',' + j; sq.set(k, (sq.get(k) || 0) + 1);
+  }
+  for (const [x, y] of pts.values()) { const a = angleAt(cells, x, y); if (typeof a === 'number' && a !== 180) out.push({ x, y, deg: a }); }
+  for (const [k, n] of sq) if (n === 3) { const [i, j] = k.split(',').map(Number); out.push({ x: i + 0.5, y: j + 0.5, deg: 270 }); }
+  return out;
+}
+const DRAG_HELP = ' Drag pieces. Tap a piece to turn it. Tap Flip to flip it.';
+
+// Rung 11: a named figure turned or flipped, silhouette only.
+function turnedSilhouette() {
+  const fromMore = Math.random() < 0.55, title = fromMore ? pick(Object.keys(MORE_FIGURES)) : pick(Object.keys(FIGURES));
+  const base = fromMore ? unpack(MORE_FIGURES[title]) : figure(title), e = extent(base);
+  // Wide figures only turn a half turn, so the turned shadow still fits beside the tray.
+  const k = e.x1 - e.x0 > 4 ? pick([0, 2]) : rand(0, 3), fl = Math.random() < 0.5;
+  const sol = transformSol(base, ([x, y]) => { let p = fl ? [-x, y] : [x, y]; for (let i = 0; i < k; i++) p = [-p[1], p[0]]; return p; });
+  return puzzle(normalize(sol || base), { lines: false, title, prompt: `Build ${title}!`, say: `This shadow is ${title}, turned around. Fill it with all seven pieces.` + DRAG_HELP });
+}
+// Rung 12: finish the other half across a mirror that runs up and down or side to side.
+function mirrorBoth() {
+  for (let a = 0; a < 40; a++) {
+    const axis = pick(['x', 'y']), types = shuffle(SET).slice(0, rand(3, 4));
+    let half = axis === 'x' ? buildOf(types, 3, 4) : buildOf(types, 6, 2); if (!half) continue;
+    const e = extent(half); half = shift(half, axis === 'x' ? -e.x1 : 0, axis === 'y' ? -e.y1 : 0);
+    const sol = transformSol(half, axis === 'x' ? ([x, y]) => [-x, y] : ([x, y]) => [x, -y]); if (!sol) continue;
+    return puzzle(sol, { lines: false, shadow: false, mirror: true, axis, given: half, title: 'a mirror design', prompt: 'Mirror it! Build the other half',
+      say: `Make the other half match, like a mirror. The pink line is the mirror. It runs ${axis === 'x' ? 'up and down' : 'side to side'}.` + DRAG_HELP });
+  }
+  return mirrorPuzzle(false);
+}
+// Rung 13: build a shape after a quarter turn, a half turn or a flip.
+const TURNS = [
+  { text: 'turned a quarter turn right', say: 'turned a quarter turn to the right', fn: ([x, y]) => [y, -x] },
+  { text: 'turned a quarter turn left', say: 'turned a quarter turn to the left', fn: ([x, y]) => [-y, x] },
+  { text: 'turned a half turn', say: 'turned a half turn, so it is upside down', fn: ([x, y]) => [-x, -y] },
+  { text: 'flipped sideways', say: 'flipped over sideways, like a mirror', fn: ([x, y]) => [-x, y] },
+  { text: 'flipped top to bottom', say: 'flipped over top to bottom, like a mirror', fn: ([x, y]) => [x, -y] },
+];
+function turnFlipTask() {
+  let best = null;
+  for (let a = 0; a < 40; a++) {
+    const src = buildOf(shuffle(SET).slice(0, rand(2, 3)), 3, 3), rule = pick(TURNS); if (!src) continue;
+    let img = transformSol(src, rule.fn); if (!img) continue; img = normalize(img);
+    const e = extent(src), sol = shift(img, e.x1 + 1, 0);
+    best = puzzle(sol, { lines: false, box: true, given: src, muted: true, title: 'the shape', prompt: `Build it ${rule.text}`,
+      say: `Look at the grey shape. Build the same shape ${rule.say}, inside the yellow box.` + DRAG_HELP });
+    // A picture that looks the same after the move teaches nothing, so try for a different one.
+    if (unionOf(img).sort().join(' ') !== unionOf(src).sort().join(' ')) return best;
+  }
+  return best || turnedSilhouette();
+}
+// Rung 14: area in small triangles, built or typed.
+function areaBuild() {
+  for (let a = 0; a < 40; a++) {
+    const types = shuffle(SET).slice(0, rand(4, 5)), subs = [];
+    for (let m = 1; m < (1 << types.length); m++) { const sub = types.filter((_, i) => m & (1 << i)); const n = sub.reduce((z, t) => z + AREA[t], 0); if (sub.length >= 2 && n >= 3 && n <= 10) subs.push(sub); }
+    if (!subs.length) continue;
+    const sub = pick(subs), n = sub.reduce((z, t) => z + AREA[t], 0), sol = buildOf(sub, 5, 4); if (!sol) continue;
+    return { kind: 'build', open: true, region: REGION, pieces: types, sol, target: [], title: 'a shape', area: n,
+      prompt: `Build a shape with area ${n}`, say: `The small triangle has area 1. Put pieces on the blue grid to build one shape with area ${n}. Then tap Check.`, praise: `Area ${n}!`,
+      check: placed => {
+        const cells = unionOf(placed); if (!cells.length) return { ok: false, msg: 'Put pieces on the blue grid first.' };
+        if (!connected(cells)) return { ok: false, msg: 'The pieces need to touch and make one shape.' };
+        const have = cells.length / 2; if (have !== n) return { ok: false, msg: `That shape has area ${have}. You need ${n}.` };
+        return { ok: true };
+      } };
+  }
+  return areaType();
+}
+function areaType() {
+  let fig = null; while (!fig) fig = buildOf(shuffle(SET).slice(0, rand(2, 4)), 5, 4);
+  const n = unionOf(fig).length / 2;
+  return { kind: 'type', given: fig, answer: n, prompt: 'What is the area? Small triangle = 1', say: 'Find the area of this shape. The small triangle counts as 1. Type the number and tap OK.',
+    why: 'The small triangle is 1. The square, the middle triangle and the parallelogram are 2 each. The large triangle is 4. Add them up.', praise: `Area ${n}!` };
+}
+// Rung 15: angles at the corners.
+const ANGLE_ASKS = [
+  { text: 'a right angle (90°)', say: 'a right angle. That is 90 degrees', ok: d => d === 90 },
+  { text: 'a 45° angle', say: 'a 45 degree angle', ok: d => d === 45 },
+  { text: 'a 135° angle', say: 'a 135 degree angle', ok: d => d === 135 },
+  { text: 'an acute angle', say: 'an acute angle. That is less than 90 degrees', ok: d => d < 90 },
+  { text: 'an obtuse angle', say: 'an obtuse angle. That is between 90 and 180 degrees', ok: d => d > 90 && d < 180 },
+];
+function angleTap() {
+  for (let a = 0; a < 80; a++) {
+    const n = rand(1, 3), types = shuffle(SET).slice(0, n);
+    const fig = n === 1 ? [randomPoseIn(types[0], { x0: 0, y0: 0, x1: 2, y1: 2 })] : buildOf(types, 5, 4); if (!fig) continue;
+    const verts = cornersOf(unionOf(fig)), asks = ANGLE_ASKS.filter(k => verts.some(v => k.ok(v.deg)) && !verts.every(v => k.ok(v.deg)));
+    if (!asks.length) continue;
+    const ask = pick(asks);
+    return { kind: 'tap', given: fig, verts, want: v => ask.ok(v.deg), prompt: `Tap a corner with ${ask.text}`, say: `Tap a corner of the shape with ${ask.say}. The white dots mark the corners.` };
+  }
+  return areaType();
+}
+function angleSolution(types, want, [sx, sy]) {
+  // Poses that put a corner of a piece on the dot and keep the piece on the grid; one piece, else two that join.
+  const cands = [];
+  types.forEach((t, i) => { for (const [rot, flip] of ORIENTS[t]) for (const [vx, vy] of orient(t, rot, flip)) { const p = { t, rot, flip, x: sx - vx, y: sy - vy }, cells = cellsOf(p); if (cells.every(c => inRegion(c, REGION))) cands.push({ i, p, cells }); } });
+  const cs = shuffle(cands), one = cs.find(c => angleAt(c.cells, sx, sy) === want); if (one) return [one.p];
+  for (const A of cs) for (const B of cs) { if (A.i === B.i || B.cells.some(c => A.cells.includes(c))) continue; if (angleAt(A.cells.concat(B.cells), sx, sy) === want) return [A.p, B.p]; }
+  return null;
+}
+function angleBuild() {
+  const star = [3, 2]; // the yellow dot
+  for (let a = 0; a < 40; a++) {
+    const types = shuffle(SET).slice(0, 3); if (!types.some(t => t === 'ST' || t === 'MT' || t === 'LT')) types[0] = 'ST';
+    const want = pick([45, 90, 135, 135]), sol = angleSolution(types, want, star); if (!sol) continue;
+    return { kind: 'build', open: true, region: REGION, marker: star, pieces: types, sol, target: [], title: 'a corner', want,
+      prompt: `Make a ${want}° corner at the yellow dot`, say: `Build a shape so its corner at the yellow dot is ${want} degrees. You can use more than one piece. Then tap Check.`, praise: `${want} degrees!`,
+      check: placed => {
+        const d = angleAt(unionOf(placed), star[0], star[1]);
+        if (d === null) return { ok: false, msg: 'Put a corner of a piece right on the yellow dot.' };
+        if (d === 'split') return { ok: false, msg: 'Two corners meet at the dot but do not join. Make one corner there.' };
+        if (d === 180) return { ok: false, msg: `That is a straight edge at the dot, 180 degrees. You need ${want}.` };
+        if (d !== want) return { ok: false, msg: `That corner is ${d} degrees. You need ${want}.` };
+        return { ok: true };
+      } };
+  }
+  return angleTap();
+}
+// Rung 16: the same figure at twice the side length, and what scale does to area and perimeter.
+function doubleBuild() {
+  const [small, big] = pick(DOUBLE).map(unpack), es = extent(small), eb = extent(big);
+  // Side by side when that fits beside the tray, else the small figure sits above the box.
+  const sol = es.x1 + 1 + eb.x1 <= 7 ? shift(big, es.x1 + 1, 0) : big, given = es.x1 + 1 + eb.x1 <= 7 ? small : shift(small, 0, eb.y1 + 1);
+  return puzzle(sol, { lines: false, box: true, given, title: 'the big shape', prompt: 'Build it with sides twice as long',
+    say: 'See the small shape. Build the same shape with every side twice as long, inside the yellow box.' + DRAG_HELP, praise: 'Twice the sides, four times the area!' });
+}
+function scaleType() {
+  const w = rand(2, 5), h = rand(1, 3), k = pick([2, 2, 3]), sq = []; for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) sq.push([x, y]);
+  const A = w * h, P = 2 * (w + h), base = `This block is ${w} by ${h}. Make every side ${k} times as long.`;
+  const Q = {
+    area: [`${w} by ${h}. Sides times ${k}. New area?`, `${base} What is the new area in squares?`, A * k * k, 'Multiply the length by the scale and the width by the scale. Then multiply those two together.'],
+    perim: [`${w} by ${h}. Sides times ${k}. New perimeter?`, `${base} What is the new perimeter?`, P * k, `The perimeter now is ${P}. Every side gets ${k} times as long, so the perimeter does too.`],
+    times: [`${w} by ${h}. Sides times ${k}. Area grows how many times?`, `${base} How many times bigger does the area get?`, k * k, 'Length times the scale, width times the scale. The area grows by the scale squared.'],
+    ptimes: [`${w} by ${h}. Sides times ${k}. Perimeter grows how many times?`, `${base} How many times longer does the perimeter get?`, k, 'Every side grows by the scale, so the perimeter grows by the scale too.'],
+  }[pick(['area', 'area', 'perim', 'times', 'ptimes'])];
+  return { kind: 'type', squares: sq, dims: [w, h], answer: Q[2], prompt: Q[0], say: Q[1] + ' Type it and tap OK.', why: Q[3], praise: `${Q[2]}!` };
+}
+// Rung 17: place a piece by coordinates on a labelled grid.
+function coordTask() {
+  const t = pick(['SQ', 'ST', 'MT', 'LT', 'PA', 'SQ', 'ST']), pose = randomPoseIn(t, REGION), name = PIECE_NAME[t], Name = name[0].toUpperCase() + name.slice(1);
+  const pieces = shuffle([t, pick(SET.filter(x => x !== t))]), fmt = ([x, y]) => `(${x},${y})`;
+  let prompt, say, ok, why = 'Count across first, then up. Check each corner.';
+  if (t === 'PA' || Math.random() < 0.5) {
+    const pts = polyOf(pose).map(fmt), wantKey = pts.slice().sort().join(' ');
+    prompt = `${Name} corners: ${pts.join(' ')}`; say = `Put the ${name} so its corners sit on ${pts.join(', ')}. Count across first, then up. Then tap Check.`;
+    ok = p => polyOf(p).map(fmt).sort().join(' ') === wantKey;
+  } else if (t === 'SQ') {
+    const c = pick([['lower left', 0, 0], ['upper right', 1, 1], ['lower right', 1, 0], ['upper left', 0, 1]]), pt = [pose.x + c[1], pose.y + c[2]];
+    prompt = `Square: ${c[0]} corner at ${fmt(pt)}`; say = `Put the square so its ${c[0]} corner is at ${fmt(pt)}. Count across first, then up. Then tap Check.`;
+    ok = p => p.x + c[1] === pt[0] && p.y + c[2] === pt[1]; why = `The ${c[0]} corner of the square goes on ${fmt(pt)}. Count across first, then up.`;
+  } else {
+    const pt = rightCorner(pose);
+    prompt = `${Name}: right angle corner at ${fmt(pt)}`; say = `Put the ${name} so its square corner, the right angle, is at ${fmt(pt)}. Count across first, then up. Then tap Check.`;
+    ok = p => { const c = rightCorner(p); return c[0] === pt[0] && c[1] === pt[1]; }; why = `The right angle corner goes on ${fmt(pt)}. Count across first, then up.`;
+  }
+  return { kind: 'build', open: true, region: REGION, grid: true, pieces, sol: [pose], target: [], title: name, prompt, say, praise: 'Right on the spot!',
+    check: placed => { const mine = placed.filter(p => p.t === t); if (!mine.length) return { ok: false, msg: `Put the ${name} on the grid.` }; return mine.some(ok) ? { ok: true } : { ok: false, msg: why }; } };
+}
+// Rung 18: translate, rotate about a point, or reflect across a line, on the labelled grid.
+function ruleTask() {
+  for (let a = 0; a < 200; a++) {
+    const two = Math.random() < 0.5, types = two ? shuffle(['ST', 'ST', 'SQ', 'PA', 'MT']).slice(0, 2) : [pick(['ST', 'MT', 'SQ', 'PA', 'LT'])];
+    let src = two ? buildOf(types, 2, 2) : [randomPoseIn(types[0], REGION)]; if (!src) continue;
+    if (two) { const e0 = extent(src); src = shift(src, rand(0, REGION.x1 - e0.x1), rand(0, REGION.y1 - e0.y1)); }
+    const e = extent(src), kind = pick(['slide', 'slide', 'turn', 'turn', 'flip', 'flip']);
+    let fn, prompt, say, marker = null, line = null;
+    if (kind === 'slide') {
+      const dx = rand(-3, 3), dy = rand(-2, 2); if (Math.abs(dx) + Math.abs(dy) < 2) continue;
+      fn = ([x, y]) => [x + dx, y + dy]; prompt = `Translate it by (${dx > 0 ? '+' : ''}${dx}, ${dy > 0 ? '+' : ''}${dy})`;
+      say = `Slide the grey shape ${Math.abs(dx)} ${dx < 0 ? 'left' : 'right'} and ${Math.abs(dy)} ${dy < 0 ? 'down' : 'up'}. Build the shape where it lands.`;
+    } else if (kind === 'turn') {
+      const px = pick([e.x0, e.x1, e.x0 - 1, e.x1 + 1].filter(v => v >= 0 && v <= REGION.x1)), py = pick([e.y0, e.y1, e.y0 - 1, e.y1 + 1].filter(v => v >= 0 && v <= REGION.y1)), way = pick(['clockwise', 'counterclockwise', 'half']);
+      fn = way === 'clockwise' ? ([x, y]) => [px + (y - py), py - (x - px)] : way === 'counterclockwise' ? ([x, y]) => [px - (y - py), py + (x - px)] : ([x, y]) => [2 * px - x, 2 * py - y];
+      marker = [px, py]; prompt = way === 'half' ? `Rotate it 180° about (${px},${py})` : `Rotate it 90° ${way} about (${px},${py})`;
+      say = `Turn the grey shape ${way === 'half' ? 'a half turn' : 'a quarter turn ' + way} around the yellow dot at ${px}, ${py}. Build the shape where it lands.`;
+    } else {
+      const vert = Math.random() < 0.5, k = vert ? pick([e.x1, e.x1 + 1, e.x0, e.x0 - 1].filter(v => v >= 1 && v <= REGION.x1 - 1)) : pick([e.y1, e.y1 + 1, e.y0, e.y0 - 1].filter(v => v >= 1 && v <= REGION.y1 - 1));
+      if (k === undefined) continue;
+      fn = vert ? ([x, y]) => [2 * k - x, y] : ([x, y]) => [x, 2 * k - y]; line = { axis: vert ? 'x' : 'y', k };
+      prompt = `Reflect it across the line ${vert ? 'x' : 'y'} = ${k}`; say = `Flip the grey shape over the pink line, ${vert ? 'x' : 'y'} equals ${k}, like a mirror. Build the mirror image.`;
+    }
+    const img = transformSol(src, fn); if (!img) continue;
+    const cells = unionOf(img), srcCells = new Set(unionOf(src));
+    if (!cells.every(c => inRegion(c, REGION)) || cells.some(c => srcCells.has(c))) continue;
+    return puzzle(img, { lines: false, region: REGION, grid: true, given: src, muted: true, marker, line, title: 'the image', prompt, say: say + DRAG_HELP });
+  }
+  return coordTask();
+}
+// Rung 19: the long side of a right triangle, and shapes built to a stated area and perimeter.
+const PYTH = [
+  ...[1, 2, 3, 4, 5, 6].map(a => ({ a, b: a, ask: 'hyp' })),
+  ...[[4, 3], [8, 6], [12, 5], [15, 8], [3, 2], [2, 1], [5, 3], [6, 4], [5, 2], [7, 4], [3, 1], [6, 5], [12, 9], [6, 2]].map(([a, b]) => ({ a, b, ask: 'hyp' })),
+  ...[[4, 3], [8, 6], [12, 5], [15, 8], [12, 9]].map(([a, b]) => ({ a, b, ask: 'leg' })),
+  ...[[1, 1], [2, 2], [3, 3], [3, 2], [4, 3], [2, 1]].map(([a, b]) => ({ a, b, ask: 'sq' })),
+];
+function pythTask() {
+  const q = pick(PYTH), a = q.a, b = q.b, c = Math.hypot(a, b), r1 = v => Math.round(v * 10) / 10, exact = Number.isInteger(c);
+  const k = Math.min(5.5 / a, 3.2 / b, 1.6), tri = { w: a * k, h: b * k };
+  let answer, prompt, say, why, labels;
+  if (q.ask === 'hyp') {
+    answer = r1(c); labels = [String(a), String(b), '?'];
+    prompt = `Legs ${a} and ${b}. Long side?${exact ? '' : ' (to tenths)'}`; say = `This right triangle has legs ${a} and ${b}. How long is the long side, the hypotenuse?${exact ? '' : ' Round to tenths.'} Type it and tap OK.`;
+    why = 'Square each leg. Add the two squares. The long side is the square root of that sum.';
+  } else if (q.ask === 'leg') {
+    answer = b; labels = [String(a), '?', String(c)];
+    prompt = `Long side ${c}, one leg ${a}. Other leg?`; say = `The long side of this right triangle is ${c}. One leg is ${a}. How long is the other leg? Type it and tap OK.`;
+    why = 'Square the long side. Take away the square of the leg you know. The other leg is the square root of what is left.';
+  } else {
+    answer = a * a + b * b; labels = [String(a), String(b), '?'];
+    prompt = `Legs ${a} and ${b}. Long side squared?`; say = `This right triangle has legs ${a} and ${b}. What is the long side squared? Type it and tap OK.`;
+    why = 'Square each leg and add them. That sum is the long side squared.';
+  }
+  return { kind: 'type', tri, labels, answer, tol: Number.isInteger(answer) ? 0 : 0.06, prompt, say, why, praise: `${answer}!` };
+}
+function composeTask() {
+  const [sq, per, poses] = pick(COMPOSE), sol = unpack(poses), n = sq * 2;
+  return { kind: 'build', open: true, region: REGION, pieces: SET.slice(), sol, target: [], title: 'a shape',
+    prompt: `Straight sides. Area ${n}, perimeter ${per}`, say: `Build one shape with straight sides along the grid lines. The small triangle is 1, so the area must be ${n}. The perimeter must be ${per} units. Then tap Check.`, praise: `Area ${n} and perimeter ${per}!`,
+    check: placed => {
+      const cells = unionOf(placed); if (!cells.length) return { ok: false, msg: 'Put pieces on the blue grid first.' };
+      if (!connected(cells)) return { ok: false, msg: 'The pieces need to touch and make one shape.' };
+      const { straight, slant } = edgeStats(cells); if (slant) return { ok: false, msg: 'Every outside edge must run along a grid line. Cover the slanted edges.' };
+      const have = cells.length / 2; if (have !== n) return { ok: false, msg: `That shape has area ${have}. You need ${n}.` };
+      if (straight !== per) return { ok: false, msg: `The perimeter is ${straight}. You need ${per}.` };
+      return { ok: true };
+    } };
+}
+
+// The ladder, with the grade band each rung is meant for. Each rung's g is the grade it is for (-1 pre-K, 0 K, 1 to 8),
+// and rungFor opens the child on the first rung at her grade:
+//  0 Two piece shapes      pre-K      place two outlined pieces
+//  1 Small builds          K          three or four outlined pieces
+//  2 City builds           1st        seven outlined pieces, named city figures
+//  3 Shadow shapes         1st        three to five pieces, silhouette only
+//  4 City shadows          2nd        seven piece silhouettes
+//  5 Mirror with a shadow  2nd        finish the mirror half with a shadow to fill
+//  6 Mirror on your own    2nd        finish the mirror half with no shadow
+//  7 Count the squares     3rd        area of a city block in squares
+//  8 Walk the fence        3rd        perimeter of a block in sides
+//  9 Halves count too      3rd        area with half squares
+// 10 Squares or fence      3rd        area or perimeter of a rectangle
+// 11 Turned silhouettes    4th        a named figure, turned or flipped, silhouette only
+// 12 Mirror both ways      4th        finish the other half across an up-and-down or side-to-side mirror
+// 13 Turn and flip         5th        build a shape after a quarter turn, half turn or flip
+// 14 Triangle area         5th        build a shape of a given area, or type the area, small triangle = 1
+// 15 Angles                6th        tap the corner with a given angle, or build a given angle at a marked point
+// 16 Double it             6th        build a figure at twice the side length; scale questions on area and perimeter
+// 17 Coordinates           7th        place a piece by its corner coordinates on a grid
+// 18 Transform by rule     7th        translate, rotate about a point, or reflect across a line
+// 19 Pythagoras and more   8th        long side of a right triangle; build a shape with a given area and perimeter
 const LEVELS = [
-  { name: 'Two piece shapes', gen() { return puzzle(randomBuild(shuffle(SET).slice(0, 2), 4, 3), { lines: true, title: 'a ' + pick(BUILD_NAMES) }); } },
-  { name: 'Small builds', gen() { return puzzle(randomBuild(shuffle(SET).slice(0, rand(3, 4)), 5, 4), { lines: true, title: 'a ' + pick(BUILD_NAMES) }); } },
-  { name: 'City builds', gen() { const n = pick(Object.keys(FIGURES)); return puzzle(figure(n), { lines: true, title: n }); } },
-  { name: 'Shadow shapes', gen() { return puzzle(randomBuild(shuffle(SET).slice(0, rand(3, 5)), 5, 4), { lines: false, title: 'a ' + pick(BUILD_NAMES) }); } },
-  { name: 'City shadows', gen() { if (Math.random() < 0.6) { const n = pick(Object.keys(FIGURES)); return puzzle(figure(n), { lines: false, title: n }); } return puzzle(randomBuild(SET, 6, 5), { lines: false, title: 'a ' + pick(BUILD_NAMES) }); } },
-  { name: 'Mirror with a shadow', gen() { return mirrorPuzzle(true); } },
-  { name: 'Mirror on your own', gen() { return mirrorPuzzle(false); } },
-  { name: 'Count the squares', gen() { const sq = polyomino(rand(4, 11)); const a = sq.length; return { kind: 'count', ask: 'area', sq, halves: [], answer: a, choices: numChoices(a, [a + 1, a - 1, perimeterOf(sq), a + 2]) }; } },
-  { name: 'Walk the fence', gen() { const sq = polyomino(rand(3, 9), 5, 4); const p = perimeterOf(sq); return { kind: 'count', ask: 'perimeter', sq, halves: [], answer: p, choices: numChoices(p, [sq.length, p + 2, p - 2, p + 1]) }; } },
-  { name: 'Halves count too', gen() { return halvesTask(); } },
-  { name: 'Squares or fence', gen() {
+  { name: 'Two piece shapes', g: -1, gen() { return puzzle(randomBuild(shuffle(SET).slice(0, 2), 4, 3), { lines: true, title: 'a ' + pick(BUILD_NAMES) }); } },
+  { name: 'Small builds', g: 0, gen() { return puzzle(randomBuild(shuffle(SET).slice(0, rand(3, 4)), 5, 4), { lines: true, title: 'a ' + pick(BUILD_NAMES) }); } },
+  { name: 'City builds', g: 1, gen() { const n = pick(Object.keys(FIGURES)); return puzzle(figure(n), { lines: true, title: n }); } },
+  { name: 'Shadow shapes', g: 1, gen() { return puzzle(randomBuild(shuffle(SET).slice(0, rand(3, 5)), 5, 4), { lines: false, title: 'a ' + pick(BUILD_NAMES) }); } },
+  { name: 'City shadows', g: 2, gen() { if (Math.random() < 0.6) { const n = pick(Object.keys(FIGURES)); return puzzle(figure(n), { lines: false, title: n }); } return puzzle(randomBuild(SET, 6, 5), { lines: false, title: 'a ' + pick(BUILD_NAMES) }); } },
+  { name: 'Mirror with a shadow', g: 2, gen() { return mirrorPuzzle(true); } },
+  { name: 'Mirror on your own', g: 2, gen() { return mirrorPuzzle(false); } },
+  { name: 'Count the squares', g: 3, gen() { const sq = polyomino(rand(4, 11)); const a = sq.length; return { kind: 'count', ask: 'area', sq, halves: [], answer: a, choices: numChoices(a, [a + 1, a - 1, perimeterOf(sq), a + 2]) }; } },
+  { name: 'Walk the fence', g: 3, gen() { const sq = polyomino(rand(3, 9), 5, 4); const p = perimeterOf(sq); return { kind: 'count', ask: 'perimeter', sq, halves: [], answer: p, choices: numChoices(p, [sq.length, p + 2, p - 2, p + 1]) }; } },
+  { name: 'Halves count too', g: 3, gen() { return halvesTask(); } },
+  { name: 'Squares or fence', g: 3, gen() {
       const w = rand(2, 6), h = rand(2, 4), sq = []; for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) sq.push([x, y]);
       const ask = pick(['area', 'perimeter']), a = w * h, p = 2 * (w + h), ans = ask === 'area' ? a : p;
       return { kind: 'count', ask, sq, halves: [], rect: [w, h], answer: ans, choices: numChoices(ans, [ask === 'area' ? p : a, ans + 2, ans - 2, w + h]) };
     } },
+  { name: 'Turned silhouettes', g: 4, gen() { return turnedSilhouette(); } },
+  { name: 'Mirror both ways', g: 4, gen() { return mirrorBoth(); } },
+  { name: 'Turn and flip', g: 5, gen() { return turnFlipTask(); } },
+  { name: 'Triangle area', g: 5, gen() { return Math.random() < 0.5 ? areaBuild() : areaType(); } },
+  { name: 'Angles', g: 6, gen() { return Math.random() < 0.5 ? angleTap() : angleBuild(); } },
+  { name: 'Double it', g: 6, gen() { return Math.random() < 0.5 ? doubleBuild() : scaleType(); } },
+  { name: 'Coordinates', g: 7, gen() { return coordTask(); } },
+  { name: 'Transform by rule', g: 7, gen() { return ruleTask(); } },
+  { name: 'Pythagoras and more', g: 8, gen() { return Math.random() < 0.5 ? pythTask() : composeTask(); } },
 ];
 function mirrorPuzzle(shadow) {
   for (;;) {
@@ -716,13 +1113,38 @@ function cityDressing(w, h) {
 let targetSet = new Set(), countGroup = null; const CARS = [];
 function show(t) {
   clearGroup(board); CARS.length = 0; pieces = []; drag = null; lastTouched = null; countGroup = null; cityDressing();
+  ZOOM = 1; APP.onResize(innerWidth, innerHeight);
   if (t.kind === 'build') return showBuild(t);
-  return showCount(t);
+  if (t.kind === 'count') return showCount(t);
+  return showFigure(t);
+}
+const MUTED = 0x8C96B8; // the given picture in turn, flip and transform tasks
+const givenColor = (p, k) => PIECE_COLOR[SET.indexOf(p.t) + (k % 2 && p.t === 'LT' ? 1 : 0)];
+function rectOutline(x0, y0, x1, y1, color, wdt, h) {
+  const g = new THREE.Group();
+  for (const [a, b] of [[[x0, y0], [x1, y0]], [[x1, y0], [x1, y1]], [[x1, y1], [x0, y1]], [[x0, y1], [x0, y0]]]) g.add(ribbon(a, b, wdt, color, h));
+  return g;
+}
+function markerDot(x, y) {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.03, 20), mat(0x2B2140)); ring.position.copy(W(x, y, 0.06)); g.add(ring);
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), mat(0xFFE100, { emissive: 0xFFE100, emissiveIntensity: 0.6 })); dot.position.copy(W(x, y, 0.16)); g.add(dot);
+  return g;
+}
+// Axis numbers along the bottom and left of the working grid, for the coordinate rungs.
+function gridAxes(r) {
+  const g = new THREE.Group();
+  g.add(ribbon([r.x0, r.y0], [r.x1, r.y0], 0.06, 0xFFFFFF, 0.05)); g.add(ribbon([r.x0, r.y0], [r.x0, r.y1], 0.06, 0xFFFFFF, 0.05));
+  for (let x = r.x0; x <= r.x1; x++) { const lb = label(String(x), { height: 0.42, color: '#fff', outline: '#2B2140' }); lb.position.copy(W(x, r.y0 - 0.5, 0.3)); g.add(lb); }
+  for (let y = r.y0 + 1; y <= r.y1; y++) { const lb = label(String(y), { height: 0.42, color: '#fff', outline: '#2B2140' }); lb.position.copy(W(r.x0 - 0.5, y, 0.3)); g.add(lb); }
+  return g;
 }
 function bbox(keys) { const pts = keys.map(k => k.split(',').map(Number)); return { x0: Math.min(...pts.map(p => p[0])), x1: Math.max(...pts.map(p => p[0])) + 1, y0: Math.min(...pts.map(p => p[1])), y1: Math.max(...pts.map(p => p[1])) + 1 }; }
 function showBuild(t) {
   targetSet = new Set(t.target);
-  const all = t.mirror ? t.target.concat(t.given.flatMap(cellsOf)) : t.target, b = bbox(all);
+  const given = t.given || [];
+  // The working grid (open tasks, coordinates) sets the pad; otherwise the pad hugs the target and the given picture.
+  const r = t.region, b = r ? { x0: r.x0 - (t.grid ? 1 : 0), x1: r.x1, y0: r.y0 - (t.grid ? 1 : 0), y1: r.y1 } : bbox(t.target.concat(given.flatMap(cellsOf)));
   // Target on the left half of the screen, the piece tray on the right.
   const midX = -3.9, midZ = 0.1;
   origin = { x: midX - ((b.x0 + b.x1) / 2) * S, y: midZ + ((b.y0 + b.y1) / 2) * S };
@@ -731,13 +1153,24 @@ function showBuild(t) {
   // Grid dots help line pieces up.
   const dot = new THREE.CylinderGeometry(0.04, 0.04, 0.02, 8), dm = mat(0xC9D4FF);
   for (let x = b.x0; x <= b.x1; x++) for (let y = b.y0; y <= b.y1; y++) { const d = new THREE.Mesh(dot, dm); d.position.copy(W(x, y, 0.04)); board.add(d); }
-  if (!t.mirror || t.shadow) { board.add(fillMesh(t.target, 0x120A30, 0.045)); board.add(outline(t.target, 0xFFE100, 0.07, 0.06)); }
+  if (r) board.add(rectOutline(r.x0, r.y0, r.x1, r.y1, 0xC9D4FF, 0.04, 0.045));
+  if (t.grid) board.add(gridAxes(r));
+  const shadow = t.target.length && !t.box && (!t.mirror || t.shadow) && !t.grid;
+  if (shadow) { board.add(fillMesh(t.target, 0x120A30, 0.045)); board.add(outline(t.target, 0xFFE100, 0.07, 0.06)); }
+  if (t.box) { const bb = bbox(t.target); board.add(fillMesh(allCells(bb), 0x3A52D8, 0.04)); board.add(rectOutline(bb.x0, bb.y0, bb.x1, bb.y1, 0xFFE100, 0.08, 0.06)); }
   if (t.lines) for (const p of t.sol) board.add(outline(cellsOf(p), 0xFFFFFF, 0.035, 0.055));
+  for (const [k, p] of given.entries()) addPiece(p.t, p, t.muted ? MUTED : givenColor(p, k), true);
   if (t.mirror) {
-    for (const [k, p] of t.given.entries()) addPiece(p.t, p, PIECE_COLOR[SET.indexOf(p.t) + (k % 2 && p.t === 'LT' ? 1 : 0)], true);
-    const line = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, (b.y1 - b.y0 + 1.6) * S), mat(0xFF2E88, { emissive: 0xFF2E88, emissiveIntensity: 0.6 }));
-    line.position.copy(W(0, (b.y0 + b.y1) / 2, 0.05)); board.add(line);
+    const vertical = t.axis !== 'y', len = ((vertical ? b.y1 - b.y0 : b.x1 - b.x0) + 1.6) * S;
+    const line = new THREE.Mesh(new THREE.BoxGeometry(vertical ? 0.09 : len, 0.08, vertical ? len : 0.09), mat(0xFF2E88, { emissive: 0xFF2E88, emissiveIntensity: 0.6 }));
+    line.position.copy(vertical ? W(0, (b.y0 + b.y1) / 2, 0.05) : W((b.x0 + b.x1) / 2, 0, 0.05)); board.add(line);
   }
+  if (t.line) { // the mirror line of a reflection rule, x = k or y = k on the working grid
+    const vertical = t.line.axis === 'x', len = ((vertical ? r.y1 - r.y0 : r.x1 - r.x0) + 0.6) * S;
+    const line = new THREE.Mesh(new THREE.BoxGeometry(vertical ? 0.09 : len, 0.08, vertical ? len : 0.09), mat(0xFF2E88, { emissive: 0xFF2E88, emissiveIntensity: 0.6 }));
+    line.position.copy(vertical ? W(t.line.k, (r.y0 + r.y1) / 2, 0.05) : W((r.x0 + r.x1) / 2, t.line.k, 0.05)); board.add(line);
+  }
+  if (t.marker) board.add(markerDot(t.marker[0], t.marker[1]));
   // Tray: a 3 by 3 set of slots to the right. Each piece starts turned a random way.
   const used = {}, slots = shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8]);
   const trayX = 0.3, trayZ = -3.0;
@@ -751,11 +1184,24 @@ function showBuild(t) {
     addPiece(type, { rot, flip, x: Math.round(gx - cx), y: Math.round(gy - cy) }, color, false);
   });
   const what = t.mirror ? (t.shadow ? 'Finish the mirror picture. Fill the shadow on the other side of the pink line.' : 'Make the other half match, like a mirror. The pink line is the mirror.') : `Fill the shadow to build ${t.title}.`;
-  setPrompt(t.mirror ? (t.shadow ? 'Mirror it! Fill the shadow' : 'Mirror it! Build the other half') : `Build ${t.title}!`, what + ' Drag pieces. Tap a piece to turn it.');
-  dock([
+  setPrompt(t.prompt || (t.mirror ? (t.shadow ? 'Mirror it! Fill the shadow' : 'Mirror it! Build the other half') : `Build ${t.title}!`), t.say || (what + ' Drag pieces. Tap a piece to turn it.'));
+  const buttons = [
     { html: '↔️ Flip', id: 'flipBtn', cls: 'big alt', on: () => { if (lastTouched && !T.done) flipPiece(lastTouched); } },
     { html: '💡 Hint', id: 'hintBtn', cls: 'big alt2', on: () => hint() },
-  ]);
+  ];
+  if (t.open) buttons.push({ html: '✅ Check', id: 'checkBtn', cls: 'big', on: () => checkOpen() });
+  dock(buttons);
+}
+function allCells(bb) { const out = []; for (let x = bb.x0; x < bb.x1; x++) for (let y = bb.y0; y < bb.y1; y++) for (let q = 0; q < 4; q++) out.push(`${x},${y},${q}`); return out; }
+// Open tasks (area, angle, coordinates, area and perimeter) are judged when the child taps Check.
+function checkOpen() {
+  const t = T; if (!t || t.done || !t.open) return;
+  const placed = pieces.filter(pc => poseCells(pc).every(c => inRegion(c, t.region))).map(pc => pc.pose);
+  const res = t.check(placed);
+  if (res.ok) {
+    const c = new THREE.Vector3(); pieces.forEach(p => c.add(p.grp.position)); c.multiplyScalar(1 / pieces.length); c.y = 0.8; burst(c, 70, 1.6);
+    answer(true, t.praise || 'That works!');
+  } else { say(res.msg); answer(false); }
 }
 function poseCells(pc) { return cellsOf(pc.pose); }
 function overlapsOthers(pc) { const mine = new Set(poseCells(pc)); return pieces.concat(lockedPieces()).some(o => o !== pc && poseCells(o).some(c => mine.has(c))); }
@@ -770,7 +1216,7 @@ function makeRoom(pc) {
   pc.pose.x = x0; pc.pose.y = y0; return false;
 }
 function solved() {
-  if (!T || T.kind !== 'build') return false;
+  if (!T || T.kind !== 'build' || T.open) return false;
   const seen = new Set();
   for (const pc of pieces) for (const c of poseCells(pc)) { if (!targetSet.has(c) || seen.has(c)) return false; seen.add(c); }
   return seen.size === targetSet.size;
@@ -802,11 +1248,21 @@ function win() {
   burst(c, 70, 1.6);
   pieces.concat(lockedPieces()).forEach((p, i) => { const y = p.grp.position.y; tween(700, (e, k) => { p.grp.position.y = y + Math.abs(Math.sin(k * Math.PI * 2)) * 0.6 * (1 - k); }, null, x => x); });
   // After a hint the miss is already counted, so this win does not count as first try.
-  answer(true, t.mirror ? 'A perfect mirror!' : `You built ${t.title}!`);
+  answer(true, t.praise || (t.mirror ? 'A perfect mirror!' : `You built ${t.title}!`));
 }
 function hint() {
   const t = T; if (!t || t.done || t.kind !== 'build') return;
   if (!t.usedHint) { t.usedHint = true; answer(false); if (T !== t) return; }
+  if (t.open) {
+    // Open tasks have many right answers; the hint builds the one stored with the task, one piece at a time.
+    const have = new Set(pieces.map(pc => poseKey(pc.pose))), solKeys = new Set(t.sol.map(poseKey));
+    for (const s of t.sol) {
+      if (have.has(poseKey(s))) continue;
+      const pc = pieces.find(p => p.t === s.t && !solKeys.has(poseKey(p.pose))); if (!pc) continue;
+      pc.pose = Object.assign({ t: s.t }, s); placePiece(pc, true); say('Here is one.'); later(() => afterMove(pc), 200); return;
+    }
+    say('That is one answer. Tap Check.'); return;
+  }
   // Move one piece that is not in a right spot into its solution spot.
   const filled = new Set(pieces.filter(pc => poseCells(pc).every(c => targetSet.has(c))).flatMap(poseCells));
   for (const s of t.sol) {
@@ -875,19 +1331,96 @@ function countUp(t) {
   }
 }
 
+// A picture to study, centred on the lot: a locked figure, a block of squares, or a right triangle with its sides
+// labelled. Typed answers get the number pad; angle questions get a dot on every corner to tap.
+function showFigure(t) {
+  const given = t.given || [];
+  let b;
+  if (t.tri) b = { x0: 0, x1: Math.ceil(t.tri.w), y0: 0, y1: Math.ceil(t.tri.h) };
+  else if (t.squares) { const xs = t.squares.map(p => p[0]), ys = t.squares.map(p => p[1]); b = { x0: Math.min(...xs), x1: Math.max(...xs) + 1, y0: Math.min(...ys), y1: Math.max(...ys) + 1 }; }
+  else b = bbox(given.flatMap(cellsOf));
+  const midX = 0, midZ = t.kind === 'type' ? -0.9 : -0.3;
+  origin = { x: midX - ((b.x0 + b.x1) / 2) * S, y: midZ + ((b.y0 + b.y1) / 2) * S };
+  if (given.length) { ZOOM = Math.min(1, Math.max(0.62, (b.x1 - b.x0 + 2) / 8, (b.y1 - b.y0 + 2) / 5.2)); APP.onResize(innerWidth, innerHeight); }
+  const padW = (b.x1 - b.x0 + (t.tri || t.squares ? 2.6 : 1.4)) * S, padH = (b.y1 - b.y0 + (t.tri || t.squares ? 2.6 : 1.4)) * S;
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(padW, 0.06, padH), mat(0x4F6BFF, { roughness: 0.9 }));
+  pad.position.set(midX + (t.tri || t.squares ? -0.3 * S : 0), 0.0, midZ + (t.tri || t.squares ? 0.3 * S : 0)); pad.receiveShadow = true; board.add(pad);
+  const dot = new THREE.CylinderGeometry(0.04, 0.04, 0.02, 8), dm = mat(0xC9D4FF);
+  for (let x = b.x0; x <= b.x1; x++) for (let y = b.y0; y <= b.y1; y++) { const d = new THREE.Mesh(dot, dm); d.position.copy(W(x, y, 0.04)); board.add(d); }
+  for (const [k, p] of given.entries()) addPiece(p.t, p, givenColor(p, k), true);
+  if (t.squares) {
+    for (const [x, y] of t.squares) { const m = new THREE.Mesh(new THREE.BoxGeometry(S * 0.94, 0.22, S * 0.94), mat(TILE[(x + 2 * y) % TILE.length], { roughness: 0.4 })); m.position.copy(W(x + 0.5, y + 0.5, 0.14)); shadowy(m); board.add(m); }
+    const [w, h] = t.dims;
+    const lw = label(String(w), { height: 0.5, color: '#fff', outline: '#2B2140' }); lw.position.copy(W(b.x0 + w / 2, b.y0 - 0.6, 0.3)); board.add(lw);
+    const lh = label(String(h), { height: 0.5, color: '#fff', outline: '#2B2140' }); lh.position.copy(W(b.x0 - 0.6, b.y0 + h / 2, 0.3)); board.add(lh);
+  }
+  if (t.tri) {
+    const { w, h } = t.tri, pts = [[0, 0], [w, 0], [0, h]], pos = [];
+    for (const p of [pts[0], pts[2], pts[1]]) { const v = W(p[0], p[1], 0.05); pos.push(v.x, v.y, v.z); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+    board.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xFF2E88, roughness: 0.6, side: THREE.DoubleSide })));
+    board.add(ribbon(pts[0], pts[1], 0.08, 0xFFE100, 0.07)); board.add(ribbon(pts[0], pts[2], 0.08, 0xFFE100, 0.07)); board.add(ribbon(pts[1], pts[2], 0.08, 0xFFFFFF, 0.07));
+    // The little square marks the right angle.
+    const sq = Math.min(0.35, w / 3, h / 3); board.add(ribbon([sq, 0], [sq, sq], 0.04, 0xFFFFFF, 0.08)); board.add(ribbon([0, sq], [sq, sq], 0.04, 0xFFFFFF, 0.08));
+    const put = (text, x, y) => { const lb = label(text, { height: 0.5, color: '#fff', outline: '#2B2140' }); lb.position.copy(W(x, y, 0.3)); board.add(lb); };
+    put(t.labels[0], w / 2, -0.55); put(t.labels[1], -0.6, h / 2); put(t.labels[2], w / 2 + 0.5, h / 2 + 0.45);
+  }
+  if (t.verts) {
+    t.dotMeshes = [];
+    for (const v of t.verts) {
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.04, 20), mat(0x2B2140)); base.position.copy(W(v.x, v.y, 0.42));
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), mat(0xFFFFFF, { emissive: 0xFFFFFF, emissiveIntensity: 0.25 })); ball.position.copy(W(v.x, v.y, 0.52));
+      base.userData.v = ball.userData.v = v; ball.userData.ball = base.userData.ball = ball; board.add(base); board.add(ball); t.dotMeshes.push(base, ball);
+    }
+  }
+  setPrompt(t.prompt, t.say);
+  if (t.kind === 'type') numpad(t); else dock([]);
+}
+function tapVertex(ev) {
+  const t = T, h = hits(ev, t.dotMeshes || [])[0]; if (!h) return;
+  const v = h.object.userData.v, ball = h.object.userData.ball;
+  if (t.want(v)) { ball.material.color.set(0x3DF59A); ball.material.emissive.set(0x3DF59A); burst(ball.position.clone(), 40, 1.2); answer(true, `Yes. That corner is ${v.deg} degrees!`); }
+  else { ball.material.color.set(0xFF8A8A); ball.material.emissive.set(0xFF8A8A); setTimeout(() => { ball.material.color.set(0xFFFFFF); ball.material.emissive.set(0xFFFFFF); }, 700); say(`That corner is ${v.deg} degrees. Try another corner.`); answer(false); }
+}
+// The number pad: digits, a point, delete and OK. Only OK counts as an answer.
+function numpad(t) {
+  const el = $('dock'); el.innerHTML = '';
+  const pad = document.createElement('div'); pad.className = 'pad'; el.appendChild(pad);
+  const show = document.createElement('div'); show.className = 'show'; show.id = 'typed'; pad.appendChild(show);
+  let val = '';
+  const press = k => {
+    SFX.ctx(); if (T !== t || t.done) return;
+    if (k === 'del') { val = val.slice(0, -1); SFX.click(); }
+    else if (k === 'ok') {
+      if (!val || val === '.') return;
+      const v = Number(val);
+      if (Math.abs(v - t.answer) <= (t.tol || 0) + 1e-9) { show.classList.add('right'); answer(true, t.praise || `${t.answer}!`); }
+      else { show.classList.remove('wrong'); void show.offsetWidth; show.classList.add('wrong'); say(t.why || 'Try again.'); answer(false); val = ''; }
+    } else { if (k === '.' && val.includes('.')) return; if (val.length >= 6) return; val += k; SFX.tick(); }
+    show.textContent = val;
+  };
+  const key = (text, k, cls) => { const b = document.createElement('button'); b.className = 'key' + (cls ? ' ' + cls : ''); b.textContent = text; b.dataset.k = k; b.addEventListener('click', () => press(k)); pad.appendChild(b); return b; };
+  ['1', '2', '3', '4', '5'].forEach(d => key(d, d)); key('⌫', 'del', 'del');
+  key('OK', 'ok', 'ok'); ['6', '7', '8', '9', '0'].forEach(d => key(d, d)); key('.', '.', 'dot');
+}
+
 // ---------------------------------------------------------------------------
 // Touch: drag a piece to move it, tap it to turn it. Pieces snap to the grid when let go.
 // ---------------------------------------------------------------------------
 function pieceAt(ev) { const h = hits(ev, pieces.map(p => p.grp))[0]; if (!h) return null; let o = h.object; while (o && !o.userData.pc) o = o.parent; return o ? o.userData.pc : null; }
 makeStage([0, 11.2, 6.9], [0, 0, 0.4], 46);
 APP.show = show;
-APP.onResize = (w, h) => { const a = w / h; camera.position.set(0, a < 1.25 ? 19 : 11.2, a < 1.25 ? 10 : 6.9); camera.lookAt(camera.userData.look); };
+// ZOOM below 1 brings the camera in on a small picture (angle and area questions) so it fills the lot.
+let ZOOM = 1;
+APP.onResize = (w, h) => { const a = w / h, look = camera.userData.look; camera.position.set(0, a < 1.25 ? 19 : 11.2, a < 1.25 ? 10 : 6.9).sub(look).multiplyScalar(ZOOM).add(look); camera.lookAt(look); };
 APP.onResize(innerWidth, innerHeight);
 board = new THREE.Group(); scene.add(board);
 ONFRAME.push(() => { for (const c of CARS) { c.position.x += c.userData.speed; if (c.position.x > 14) c.position.x = -14; if (c.position.x < -14) c.position.x = 14; } });
 const cv = renderer.domElement;
 cv.addEventListener('pointerdown', ev => {
-  SFX.ctx(); if (!T || T.done || T.kind !== 'build') return;
+  SFX.ctx(); if (!T || T.done) return;
+  if (T.kind === 'tap') { tapVertex(ev); return; }
+  if (T.kind !== 'build') return;
   const pc = pieceAt(ev); if (!pc) return;
   const p = onPlane(ev, 0); if (!p) return;
   lastTouched = pc; drag = { pc, id: ev.pointerId, start: [ev.clientX, ev.clientY], off: pc.grp.position.clone().sub(p), moved: false, before: Object.assign({}, pc.pose), from: pc.grp.position.clone() };
@@ -922,6 +1455,56 @@ window.TANGRAM_CITY = {
   idle: () => !drag && !pending && TWEENS.length === 0,
   // Screen point of the center of a solution spot, so a test can drag a piece there.
   spot(s) { const o = orient(s.t, s.rot, s.flip), [cx, cy] = centroid(o); return screenOf(W(s.x + cx, s.y + cy, 0.3)); },
+  // Screen points of the corner dots of an angle question, with their angles.
+  dots: () => (T && T.verts ? T.verts.map(v => ({ deg: v.deg, right: T.want(v), screen: screenOf(W(v.x, v.y, 0.52)) })) : []),
+};
+
+// Self-check hook for tools/ladder-check.mjs: build problems at any rung without touching the screen, and throw when
+// one is malformed (a build with no solution, a solution that misses its target, an answer missing from the choices).
+function checkTask(t) {
+  const bad = m => { throw new Error(m); };
+  const text = [t.title, t.prompt, t.say, t.why, t.praise].filter(x => x != null).join(' ');
+  if (/undefined|NaN|\bnull\b|\[object/.test(text)) bad('bad text: ' + text);
+  if (t.kind === 'build') {
+    if (!Array.isArray(t.sol) || !t.sol.length || !Array.isArray(t.pieces) || !t.pieces.length) bad('no solution or no pieces');
+    const cells = t.sol.flatMap(cellsOf); if (new Set(cells).size !== cells.length) bad('solution pieces overlap');
+    const bag = t.pieces.slice(); for (const s of t.sol) { const i = bag.indexOf(s.t); if (i < 0) bad('solution needs a piece the tray lacks: ' + s.t); bag.splice(i, 1); }
+    const given = t.given || [], gcells = given.flatMap(cellsOf), tset = new Set(t.target);
+    if (new Set(gcells).size !== gcells.length) bad('given pieces overlap');
+    if (gcells.some(c => tset.has(c) || cells.includes(c))) bad('given picture overlaps the target');
+    if (t.open) {
+      if (typeof t.check !== 'function' || !t.region) bad('open task without check or region');
+      if (!cells.every(c => inRegion(c, t.region))) bad('solution leaves the grid');
+      const r = t.check(t.sol); if (!r || !r.ok) bad('stored solution fails its own check: ' + (r && r.msg));
+    } else {
+      if (t.pieces.length !== t.sol.length) bad('tray and solution differ in size');
+      if ([...new Set(cells)].sort().join(' ') !== [...tset].sort().join(' ')) bad('solution does not fill the target');
+      if (t.region && ![...tset, ...gcells].every(c => inRegion(c, t.region))) bad('target leaves the grid');
+    }
+    const e = extent(t.sol.concat(given)); if (e.x1 - e.x0 > 7 || e.y1 - e.y0 > 6) bad(`figure too big for the lot: ${e.x1 - e.x0} by ${e.y1 - e.y0}`);
+  } else if (t.kind === 'count') {
+    if (!Number.isInteger(t.answer) || t.answer <= 0) bad('bad count answer');
+    if (!Array.isArray(t.choices) || t.choices.length !== 4 || new Set(t.choices).size !== 4 || !t.choices.includes(t.answer)) bad('answer not among four choices');
+  } else if (t.kind === 'type') {
+    if (!Number.isFinite(t.answer) || t.answer < 0) bad('bad typed answer');
+    if (!t.prompt || !t.say) bad('type task without a prompt');
+    if (!t.given && !t.tri && !t.squares) bad('type task with nothing to show');
+  } else if (t.kind === 'tap') {
+    if (!Array.isArray(t.verts) || t.verts.length < 3) bad('too few corners');
+    if (!t.verts.some(t.want) || t.verts.every(t.want)) bad('angle question with no right or no wrong corner');
+  } else bad('unknown kind ' + t.kind);
+}
+function describeTask(t) {
+  if (t.kind === 'build') return `${t.prompt || 'Build ' + t.title}: ${t.pieces.join(' ')}`;
+  if (t.kind === 'count') return `${t.ask} ${t.answer} of ${t.choices.join('/')}`;
+  if (t.kind === 'type') return `${t.prompt} = ${t.answer}`;
+  return `${t.prompt} [${t.verts.map(v => v.deg).join(' ')}]`;
+}
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => APP.start,
+  label: () => LEVELS[P.lv].name,
+  exercise: (i, n) => { const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); checkTask(t); out.push(describeTask(t)); } return out; },
 };
 
 </script>

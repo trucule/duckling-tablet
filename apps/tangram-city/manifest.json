@@ -1,21 +1,21 @@
 {
   "id": "tangram-city",
   "name": "Tangram City",
-  "version": "1.0.2",
-  "description": "Drag, turn and flip the seven tangram pieces to fill city shapes, then count area and perimeter.",
+  "version": "1.0.3",
+  "description": "Drag, turn and flip the seven tangram pieces to fill city shapes, then measure, transform and reason about what you built.",
   "subjects": [
     "math",
     "logic"
   ],
-  "ageMin": 5,
-  "ageMax": 8,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/tangram-city",
   "about": {
     "concept": "Geometry by hand. Seven pieces fill a shape only when turned and flipped the right way; the child learns rotation, reflection, how shapes compose, and then counts area and perimeter on what was built.",
-    "progression": "Outlined pieces show where each one goes. Later shapes show only the silhouette, then rotated silhouettes, then measurement questions about the finished figure.",
+    "progression": "The ladder starts in pre-K with two outlined pieces and grows through seven-piece silhouettes, mirror designs, counting area and perimeter in squares, turned silhouettes, quarter turns and flips, area in small triangles, angles at the corners, figures at twice the size, coordinates, translations, rotations and reflections by rule, and in 8th grade the long side of a right triangle and shapes built to a stated area and perimeter. A number pad takes typed answers and a Check button judges open builds.",
     "lifeSkills": [
       "Spatial reasoning",
       "Fitting things together (packing, building)",
