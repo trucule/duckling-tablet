@@ -1,20 +1,20 @@
 {
   "id": "light-bridge",
   "name": "Light Bridge",
-  "version": "1.0.2",
-  "description": "Connect matching orbs with bridges that never cross. Boards grow from 4 by 4 to 9 by 9.",
+  "version": "1.0.3",
+  "description": "Connect matching orbs with bridges that never cross. Boards grow from 4 by 4 to 9 by 9, then add rocks, gems, length clues, bend counts, cross tiles and portals.",
   "subjects": [
     "logic"
   ],
-  "ageMin": 5,
-  "ageMax": 8,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/light-bridge",
   "about": {
     "concept": "Spatial planning under constraints. Matching orbs must be joined by bridges that never cross, so the child plans routes, looks ahead, and revises when two paths collide.",
-    "progression": "Boards grow from 4 by 4 with two pairs to 9 by 9 with many, and later boards need a route to be found that leaves room for every other route.",
+    "progression": "Boards grow from 4 by 4 with two pairs in pre-K to 9 by 9 with many pairs by 4th grade. From 5th to 8th grade the rules grow instead: rocks block squares, a gem must be passed by its color, lights carry length clues, cross tiles let one bridge pass over another, portals jump a bridge across the board, and the top rungs ask for the fewest bends, which the app proves by search.",
     "lifeSkills": [
       "Planning before acting",
       "Holding several goals in mind",
