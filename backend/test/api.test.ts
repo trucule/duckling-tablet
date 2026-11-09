@@ -334,6 +334,30 @@ describe('one-device signup', () => {
     const other = await signIn('portal-trial@example.com');
     expect((await app.inject({ method: 'GET', url: '/family', headers: other.auth })).json().subscription.status).toBe('trial');
   });
+
+  it('signs the store review family in with the fixed code from the environment, sends it no mail, and is off when unset', async () => {
+    // Off by default: the review address is an ordinary address.
+    await app.inject({ method: 'POST', url: '/auth/code', payload: { email: 'review@example.com' } });
+    expect(mails.filter((m) => m.to === 'review@example.com')).toHaveLength(1);
+    const tablet = { platform: 'android', name: 'Review tablet' };
+    expect((await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'review@example.com', code: '246810', ...tablet } })).statusCode).toBe(401);
+    // On: with both values set, the address gets no mail, the fixed code signs it in, any other code does not, and
+    // a different address still needs a real code.
+    const cfg2 = loadConfig({ NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files2'), STORAGE: 'local', ADMIN_TOKEN: ADMIN, PUBLIC_URL: 'https://api.test',
+      REVIEW_EMAIL: 'Review@Example.com', REVIEW_CODE: '246810' });
+    const { app: app2 } = await buildServer(cfg2, { db, logger: false, mailer: { async send(to, subject, text) { mails.push({ to, subject, text }); } } });
+    try {
+      expect((await app2.inject({ method: 'POST', url: '/auth/code', payload: { email: 'review@example.com' } })).json().sent).toBe(true);
+      expect(mails.filter((m) => m.to === 'review@example.com')).toHaveLength(1);
+      expect((await app2.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'review@example.com', code: '000000', ...tablet } })).statusCode).toBe(401);
+      const r = await app2.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'review@example.com', code: '246810', childFirstName: 'Sam', childAge: 7, ...tablet } });
+      expect(r.statusCode).toBe(200);
+      expect(r.json().config.child.firstName).toBe('Sam');
+      // The fixed code keeps working for that address (a reviewer may pair more than once).
+      expect((await app2.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'review@example.com', code: '246810', ...tablet, name: 'Second' } })).statusCode).toBe(200);
+      expect((await app2.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'someone@example.com', code: '246810', ...tablet } })).statusCode).toBe(401);
+    } finally { await app2.close(); }
+  });
 });
 
 describe('parent PIN and second parent', () => {

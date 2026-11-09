@@ -30,9 +30,15 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
     return { sent: true };
   });
 
+  // The store review family (REVIEW_EMAIL and REVIEW_CODE in the environment): that one address gets no code by
+  // mail and is signed in by the fixed code. Off unless both values are set.
+  const isReviewer = (email: string) => !!ctx.cfg.REVIEW_EMAIL && !!ctx.cfg.REVIEW_CODE
+    && email.trim().toLowerCase() === ctx.cfg.REVIEW_EMAIL.toLowerCase();
+
   // ---- One-device signup from a tablet: a six-digit code by email, then the tablet is paired in the same step.
   app.post('/auth/code', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
     const { email } = z.object({ email: z.string().email().max(254) }).parse(req.body);
+    if (isReviewer(email)) return { sent: true };
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     await ctx.db.query('SELECT create_login_code($1, $2, $3, $4)', [newId('lc'), email.trim(), h(code), inMinutes(10)]);
     try {
@@ -55,7 +61,8 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
     }).parse(req.body);
     const devId = newId('dev'), devToken = newToken();
     // The code check commits on its own, so a miss is counted and a match is used up whatever happens next.
-    const [{ ok }] = await ctx.db.query('SELECT redeem_login_code($1, $2) AS ok', [b.email.trim(), h(b.code)]) as { ok: boolean }[];
+    const [{ ok }] = isReviewer(b.email) ? [{ ok: b.code === ctx.cfg.REVIEW_CODE }]
+      : await ctx.db.query('SELECT redeem_login_code($1, $2) AS ok', [b.email.trim(), h(b.code)]) as { ok: boolean }[];
     if (!ok) throw new HttpError(401, 'That code is not right or has expired. Check the email, or ask for a new code.');
     return ctx.db.app(async (q) => {
       const parent = (await q.one<{ parent_id: string; family_id: string; created: boolean }>(

@@ -41,6 +41,13 @@ const schema = z.object({
   // The free trial a new family gets, in days, with no card. Subscriptions (A3) take over at its end.
   TRIAL_DAYS: z.coerce.number().int().min(1).max(3650).default(7),
 
+  // The store review family. App Store and Play reviewers cannot read our email, so when both values are set the
+  // tablet signup accepts this fixed six-digit code for this one address and sends it no mail. The parent website
+  // is unaffected. Unset in every environment but production, where the operator sets both at deploy; the code is
+  // the reviewer's password in the store consoles. Change both when a review is over.
+  REVIEW_EMAIL: z.string().email().optional(),
+  REVIEW_CODE: z.string().regex(/^\d{6}$/).optional(),
+
   // The AI proxy (POST /ai/messages) for Draw With Me lessons and Story Maker scenes. With no key, apps get a 503
   // and fall back to their built-in content. Models outside AI_MODELS are served with AI_DEFAULT_MODEL.
   ANTHROPIC_API_KEY: z.string().default(''),
