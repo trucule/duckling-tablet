@@ -67,7 +67,8 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
     return ctx.db.app(async (q) => {
       const parent = (await q.one<{ parent_id: string; family_id: string; created: boolean }>(
         'SELECT parent_id, family_id, created FROM find_or_create_parent($1, $2, $3)', [b.email.trim(), newId('fam'), newId('par')]))!;
-      if (parent.created) await q.run('SELECT start_trial($1, $2)', [parent.family_id, ctx.cfg.TRIAL_DAYS]);
+      // The review family keeps full access for as long as reviews happen (ten years); every other family gets the trial.
+      if (parent.created) await q.run('SELECT start_trial($1, $2)', [parent.family_id, isReviewer(b.email) ? 3650 : ctx.cfg.TRIAL_DAYS]);
       await q.setFamily(parent.family_id);
       let childId: string | null = null;
       if (b.childFirstName) {

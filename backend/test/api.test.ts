@@ -377,6 +377,7 @@ describe('one-device signup', () => {
       const r = await app2.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'review@example.com', code: '246810', childFirstName: 'Sam', childAge: 7, ...tablet } });
       expect(r.statusCode).toBe(200);
       expect(r.json().config.child.firstName).toBe('Sam');
+      expect(r.json().config.entitlement.daysLeft).toBeGreaterThan(3000);
       // The fixed code keeps working for that address (a reviewer may pair more than once).
       expect((await app2.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'review@example.com', code: '246810', ...tablet, name: 'Second' } })).statusCode).toBe(200);
       expect((await app2.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'someone@example.com', code: '246810', ...tablet } })).statusCode).toBe(401);
