@@ -11,6 +11,7 @@ import { requestRow } from './requests.js';
 import type { makeVoiceCache } from './tts.js';
 import { badRequest, notFound, sha256 } from '../util.js';
 import { normalizeLine } from './tts.js';
+import { entitlementOf } from '../entitlement.js';
 
 const appId = z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}$/);
 const version = z.string().regex(/^\d+\.\d+\.\d+$/);
@@ -148,6 +149,22 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
   app.get('/admin/requests', async () => ctx.db.system(async (q) => ({
     requests: (await q.all('SELECT * FROM app_request ORDER BY created_at DESC LIMIT 200')).map((r) => ({ ...requestRow(r), familyId: r.family_id, ticket: r.etducky_ticket_id })),
   })));
+
+  // Move a family's free trial, found by a parent's email: days from now until it ends. 0 ends it now (to see the
+  // locked tablet), 7 gives a fresh week. Purchases are untouched; a family that subscribed is not affected.
+  app.put('/admin/families/trial', async (req) => {
+    const b = z.object({ email: z.string().email(), days: z.number().int().min(-30).max(3650) }).parse(req.body);
+    const familyId = await ctx.db.system(async (q) => {
+      const row = await q.one<{ family_id: string }>('SELECT family_id FROM parent WHERE lower(email) = lower($1)', [b.email]);
+      if (!row) throw notFound('No family has a parent with that email');
+      const n = await q.run(`UPDATE entitlement SET current_period_end = now() + ($2 || ' days')::interval, updated_at = now() WHERE family_id = $1 AND status = 'trial'`, [row.family_id, String(b.days)]);
+      if (!n) throw notFound('That family is not on a trial');
+      await audit(q, row.family_id, 'admin', 'trial.moved', { days: b.days });
+      return row.family_id;
+    });
+    void notifyDevices(ctx, familyId);
+    return { familyId, entitlement: await ctx.db.family(familyId, (q) => entitlementOf(q, familyId)) };
+  });
 
   app.get('/admin/stats', async () => ctx.db.system(async (q) => ({
     families: (await q.one('SELECT COUNT(*)::int AS n FROM family'))!.n,

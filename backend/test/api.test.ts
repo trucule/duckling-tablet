@@ -389,6 +389,26 @@ describe('one-device signup', () => {
     expect((await ai()).statusCode).toBe(200);
   });
 
+  it('lets the admin move a trial by a parent email: 0 days locks the tablet, 7 days gives it back, a subscriber is left alone', async () => {
+    await publish('word-wizard', '1.0.0', { starter: true });
+    const p = await signIn('trial@example.com');
+    const child = (await app.inject({ method: 'POST', url: '/family/children', headers: p.auth, payload: { firstName: 'Ada', age: 6 } })).json();
+    const t = await pair(p.auth, child.id);
+    const admin = { authorization: `Bearer ${ADMIN}` };
+    const move = (email: string, days: number) => app.inject({ method: 'PUT', url: '/admin/families/trial', headers: admin, payload: { email, days } });
+    expect((await move('nobody@example.com', 0)).statusCode).toBe(404);
+    const ended = await move('Trial@Example.com', 0);
+    expect(ended.statusCode).toBe(200);
+    expect(ended.json().entitlement.status).toBe('ended');
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: t.dev })).json().locked).toBe(true);
+    const back = await move('trial@example.com', 7);
+    expect(back.json().entitlement).toMatchObject({ status: 'trial', daysLeft: 7 });
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: t.dev })).json().locked).toBe(false);
+    await db.system((q) => q.run("UPDATE entitlement SET status = 'active', source = 'google', current_period_end = now() + interval '30 days' WHERE family_id = $1", [p.familyId]));
+    expect((await move('trial@example.com', 0)).statusCode).toBe(404);
+    expect((await app.inject({ method: 'PUT', url: '/admin/families/trial', payload: { email: 'trial@example.com', days: 0 } })).statusCode).toBe(401);
+  });
+
   it('signs the store review family in with the fixed code from the environment, sends it no mail, and is off when unset', async () => {
     // Off by default: the review address is an ordinary address.
     await app.inject({ method: 'POST', url: '/auth/code', payload: { email: 'review@example.com' } });
