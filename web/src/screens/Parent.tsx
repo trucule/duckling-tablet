@@ -55,6 +55,19 @@ export function Parent() {
         </div>
       )}
 
+      <div class="card manage">
+        <img class="qr" src="/parents-qr.svg" alt="QR code for parents.ducklingtablet.com" width="132" height="132" />
+        <div>
+          <h2>Manage this tablet from your phone</h2>
+          <p>Apps, websites, other apps and their daily minutes, the child's level{shell.storeBilling ? ' and a second parent' : ', a second parent and the subscription'} are chosen in the parent portal. Scan the code with your phone's camera, or open <strong>parents.ducklingtablet.com</strong> and sign in with your email. The portal offers to add itself to your phone's home screen.</p>
+          <p>Changes made there reach this tablet {instantUpdates() ? 'within seconds while it is on and online' : 'when it is opened, and every three hours'}; the button fetches them now.</p>
+          <div class="row">
+            <button class="pill" disabled={busy} onClick={async () => { setBusy(true); await checkin(); setBusy(false); refresh(); }}>Sync with the website</button>
+          </div>
+          {lastError.value && <div class="error">{lastError.value}</div>}
+        </div>
+      </div>
+
       <div class="card">
         <h2>Included with Duckling</h2>
         <p>{ent?.status === 'trial' && ent.daysLeft !== null ? `Free trial: ${ent.daysLeft} day${ent.daysLeft === 1 ? '' : 's'} left, then ${price || '$5'} a month for every tablet in the family.` : ent?.status === 'active' ? `Subscribed: ${price || '$5'} a month covers every tablet in the family.` : ent?.status === 'grace' ? 'The last payment did not go through. Everything keeps running while the store tries again.' : ent?.status === 'ended' ? (shell.storeBilling ? 'The free trial has ended. Subscribe below to keep everything running.' : 'The free trial has ended. Subscribe in the parent portal to keep everything running.') : 'Free for 7 days, then $5 a month for every tablet in the family.'}</p>
@@ -139,11 +152,6 @@ export function Parent() {
       <div class="card">
         <h2>This device</h2>
         <p>{c?.child ? `${c.child.firstName}'s` : 'Unassigned'} {shell.platform === 'web' ? 'browser' : 'tablet'} · id {c?.deviceId ?? '?'} · shell {shell.shellVersion()}</p>
-        <p>Apps, the website list, the child's profile{shell.storeBilling ? ' and time limits' : ', time limits and the subscription'} are chosen in the parent portal at parents.ducklingtablet.com. Changes made there reach this tablet {instantUpdates() ? 'within seconds while it is on and online' : 'when it is opened, and every three hours'}; the button below fetches them now.</p>
-        <div class="row">
-          <button class="pill" disabled={busy} onClick={async () => { setBusy(true); await checkin(); setBusy(false); refresh(); }}>Sync with the website</button>
-        </div>
-        {lastError.value && <div class="error">{lastError.value}</div>}
       </div>
 
       <div class="card">

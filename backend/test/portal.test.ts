@@ -1,5 +1,5 @@
 // The parent portal (portal/dist) in a real browser against a real API: sign in through the emailed link, add a
-// child, make a pairing code, see the paired device, hide an app and allow a website on it, release it.
+// child, make a pairing code, see the paired device, remove and install an app and allow a website on it, remove it.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -37,7 +37,7 @@ beforeAll(async () => {
   const cfg = loadConfig({ NODE_ENV: 'test', STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), ADMIN_TOKEN: ADMIN, PUBLIC_URL: api, PORTAL_URL: portal });
   ({ app } = await buildServer(cfg, { db, logger: false, mailer: { async send(_to, _s, text) { mails.push(text); } }, synth: async () => null, createTicket: async () => null }));
   await app.listen({ port: apiPort, host: '127.0.0.1' });
-  const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png' };
+  const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
   server = createServer((req, res) => {
     let p = join(DIST, decodeURIComponent((req.url ?? '/').split('?')[0]));
     if (!existsSync(p) || statSync(p).isDirectory()) p = join(DIST, 'index.html');
@@ -50,7 +50,7 @@ beforeAll(async () => {
 }, 180_000);
 afterAll(async () => {
   server?.close(); await app?.close(); await db?.close(); await cluster?.stop();
-  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['portal-family.png', 'portal-device.png', 'portal-device-ask.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
+  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['portal-family.png', 'portal-apps.png', 'portal-apps-ask.png', 'portal-other-apps.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
   if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -93,7 +93,7 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByRole('button', { name: 'Done' }).click();
     await p.locator('.list li', { hasText: 'Ada' }).waitFor();
 
-    await p.locator('select').nth(2).selectOption({ label: 'Ada' });
+    await p.locator('#devices select').first().selectOption({ label: 'Ada' });
     await p.getByRole('button', { name: 'Make a pairing code' }).click();
     const code = (await p.locator('.code').textContent())!.trim();
     expect(code).toMatch(/^\d{6}$/);
@@ -107,37 +107,50 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByText('Kitchen tablet').waitFor();
     await p.screenshot({ path: join(dir, 'portal-family.png'), fullPage: true });
 
-    // The device page: hide an app, allow a website, release.
-    await p.getByRole('button', { name: 'Open' }).click();
-    await p.getByRole('heading', { name: 'Kitchen tablet' }).waitFor();
-    // The request card sits between the device's own details and its apps; a search with no results offers it,
-    // with the search words as the name.
-    const headings = await p.locator('h1, h2').allTextContents();
-    expect(headings.findIndex((h) => h.startsWith('Ask for an app'))).toBe(headings.indexOf('Kitchen tablet') + 1);
-    expect(headings.indexOf('Apps')).toBe(headings.indexOf('Kitchen tablet') + 2);
+    // Section buttons jump down the page; Back to top appears once scrolled.
+    await p.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: 'Websites' }).click();
+    await expect.poll(() => p.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+    await p.getByRole('button', { name: 'Back to top' }).click();
+    await expect.poll(() => p.evaluate(() => window.scrollY)).toBe(0);
+
+    // Apps across the family: a search with no results offers an app request, with the search words as the name.
     await p.getByPlaceholder('Search apps', { exact: false }).fill('volcano eruptions');
     await p.getByText('No app matches "volcano eruptions".', { exact: false }).waitFor();
     await p.getByRole('button', { name: 'Ask for this app' }).click();
     await expect.poll(() => p.getByPlaceholder('A short name, like Dinosaur dig').inputValue()).toBe('Volcano eruptions');
     await expect.poll(() => p.evaluate(() => document.activeElement?.tagName)).toBe('TEXTAREA');
-    await p.screenshot({ path: join(dir, 'portal-device-ask.png'), fullPage: false });
+    await p.screenshot({ path: join(dir, 'portal-apps-ask.png'), fullPage: false });
     await p.getByPlaceholder('Search apps', { exact: false }).fill('');
-    await p.locator('.t', { hasText: 'Music Box' }).getByRole('button', { name: 'Hide' }).click();
-    await p.locator('.t', { hasText: 'Music Box' }).getByRole('button', { name: 'Unhide' }).waitFor();
+    // One tablet: Remove takes a starter off it (and out of its Library) with no picker; then Remove is greyed and
+    // Install brings it back.
+    const music = p.locator('.list.apps li', { hasText: 'Music Box' });
+    await music.getByText('On Kitchen tablet').waitFor();
+    await expect.poll(() => music.getByRole('button', { name: 'Install' }).isDisabled()).toBe(true);
+    await music.getByRole('button', { name: 'Remove' }).click();
+    await music.getByText('Removed from Kitchen tablet').waitFor();
+    await expect.poll(() => music.getByRole('button', { name: 'Remove' }).isDisabled()).toBe(true);
+    let cfg = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
+    expect(cfg.hidden).toEqual(['music-box']);
+    expect(cfg.apps.map((a: { id: string }) => a.id)).not.toContain('music-box');
+    await music.getByRole('button', { name: 'Install' }).click();
+    await music.getByText('On Kitchen tablet').waitFor();
+    cfg = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
+    expect(cfg.hidden).toEqual([]);
+    expect(cfg.apps.map((a: { id: string }) => a.id)).toContain('music-box');
+
+    // Websites: allowed for the family's tablets, listed once each.
     await p.getByPlaceholder('pbskids.org').fill('pbskids.org');
     await p.getByPlaceholder('Name on the tile').fill('PBS Kids');
     await p.getByRole('button', { name: 'Allow site' }).click();
     await p.getByText('pbskids.org', { exact: true }).waitFor();
-    await p.screenshot({ path: join(dir, 'portal-device.png'), fullPage: true });
-    const cfg = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
-    expect(cfg.hidden).toEqual(['music-box']);
-    expect(cfg.apps.map((a: { id: string }) => a.id)).not.toContain('music-box');
+    await p.screenshot({ path: join(dir, 'portal-apps.png'), fullPage: true });
+    cfg = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
     expect(cfg.allowlist[0]).toMatchObject({ host: 'pbskids.org', tile: { name: 'PBS Kids', url: 'https://pbskids.org' } });
 
     // Every site for a custom time: 90 minutes.
     await p.getByPlaceholder('3').fill('90');
-    await p.locator('select').last().selectOption('minutes');
-    await p.getByRole('button', { name: 'Allow', exact: true }).click();
+    await p.locator('#websites select').selectOption('minutes');
+    await p.locator('#websites').getByRole('button', { name: 'Allow', exact: true }).click();
     await p.getByText('On until', { exact: false }).waitFor();
     const travel = (await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json()).travel;
     expect(new Date(travel.until).getTime() - Date.now()).toBeGreaterThan(85 * 60_000);
@@ -148,8 +161,8 @@ describe.skipIf(!ready)('parent portal', () => {
     await fetch(`${api}/device/apps-installed`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Device ${paired.deviceToken}` },
       body: JSON.stringify({ apps: [{ package: 'com.google.android.apps.youtube.kids', label: 'YouTube Kids' }, { package: 'com.example.puzzles', label: 'Puzzle Pals' }] }) });
     await p.reload();
-    await p.getByRole('heading', { name: 'Other apps on this tablet' }).waitFor();
-    const row = p.locator('li', { hasText: 'YouTube Kids' });
+    await p.getByRole('heading', { name: 'Other apps' }).waitFor();
+    const row = p.locator('#other-apps li', { hasText: 'YouTube Kids' });
     await row.getByRole('button', { name: 'Allow' }).click();
     await row.getByText('0 of 30 min used today').waitFor();
     await row.locator('select').selectOption('60');
@@ -161,11 +174,12 @@ describe.skipIf(!ready)('parent portal', () => {
     await row.getByRole('button', { name: 'Save sites' }).click();
     await expect.poll(async () => (await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json()).otherApps).toEqual([
       { package: 'com.google.android.apps.youtube.kids', label: 'YouTube Kids', icon: null, allowed: true, dailyMinutes: 60, window: { start: '15:00', end: '18:00' }, hosts: ['youtubekids.com', 'ytimg.com'], usedSecondsToday: 0 }]);
-    await p.screenshot({ path: join(dir, 'portal-device-other.png'), fullPage: true });
+    await p.screenshot({ path: join(dir, 'portal-other-apps.png'), fullPage: true });
 
+    // Removing the tablet from the Devices section: its next contact answers 410.
     p.once('dialog', (d) => d.accept());
-    await p.getByRole('button', { name: 'Remove this tablet' }).click();
-    await p.getByRole('heading', { name: 'Devices' }).waitFor();
+    await p.locator('#devices li', { hasText: 'Kitchen tablet' }).getByRole('button', { name: 'Remove' }).click();
+    await p.getByText('No devices yet.').waitFor();
     await p.getByText('Keep this page on your phone').waitFor();
     const after = await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } });
     expect(after.status).toBe(410);
@@ -185,7 +199,7 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByPlaceholder('A short name, like Dinosaur dig').fill('');
     await p.getByPlaceholder('Search apps', { exact: false }).first().fill('');
 
-    // The About page for an app: the recording, the three sections, and Install for a paired tablet.
+    // The About page for an app: the recording and the three sections.
     await p.goto(`${portal}/#/app/robot-path`);
     await p.getByRole('heading', { name: 'Robot Path' }).waitFor();
     await p.getByRole('heading', { name: 'What it trains' }).waitFor();
@@ -206,6 +220,29 @@ describe.skipIf(!ready)('parent portal', () => {
     const code2 = (await p.locator('.code').textContent())!.trim();
     const paired2 = await (await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: code2, platform: 'android', name: 'Second tablet' }) })).json();
     expect(paired2.config.pinHash).toMatch(/^[0-9a-f]{64}$/);
+
+    // Two tablets: Remove and Install ask which tablet; the website list says which tablets allow a site.
+    await p.getByRole('button', { name: 'Make a pairing code' }).click();
+    let code3 = '';
+    await expect.poll(async () => (code3 = (await p.locator('.code').textContent())!.trim())).not.toBe(code2);
+    await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: code3, platform: 'ios', name: 'Third tablet' }) });
+    await p.getByRole('button', { name: 'Refresh' }).click();
+    await p.locator('#devices li', { hasText: 'Third tablet' }).waitFor();
+    const music2 = p.locator('.list.apps li', { hasText: 'Music Box' });
+    await music2.getByText('On every tablet').waitFor();
+    await music2.getByRole('button', { name: 'Remove' }).click();
+    await music2.getByText('Remove from').waitFor();
+    await music2.getByRole('button', { name: 'Third tablet' }).click();
+    await music2.getByText('On Second tablet').waitFor();
+    await music2.getByRole('button', { name: 'Install' }).click();
+    await music2.getByText('On every tablet').waitFor();
+    await p.locator('#websites').getByRole('button', { name: 'Second tablet' }).click();
+    await p.getByPlaceholder('pbskids.org').fill('starfall.com');
+    await p.getByRole('button', { name: 'Allow site' }).click();
+    await p.locator('#websites li', { hasText: 'starfall.com' }).waitFor();
+    await p.locator('#websites').getByRole('button', { name: 'Every tablet' }).click();
+    await p.locator('#websites li', { hasText: 'starfall.com · Second tablet' }).waitFor();
+    await p.getByRole('button', { name: 'Back to top' }).click();
 
     // A second parent gets an invite link.
     await p.getByPlaceholder("Another parent's email").fill('dad@example.com');

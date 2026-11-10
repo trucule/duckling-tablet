@@ -28,7 +28,7 @@ let cluster: Cluster, app: FastifyInstance, db: Db, dir: string, api: string, we
 const mails: string[] = [];
 
 function serveDist(port: number): Server {
-  const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png' };
+  const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
   return createServer((req, res) => {
     let p = join(DIST, decodeURIComponent((req.url ?? '/').split('?')[0]));
     if (!existsSync(p) || statSync(p).isDirectory()) p = join(DIST, 'index.html');
@@ -194,6 +194,11 @@ describe.skipIf(!ready)('child web app', () => {
     await p.getByText('That is not the PIN.').waitFor();
     for (const d of '2468') await p.getByRole('button', { name: d, exact: true }).click();
     await p.getByRole('heading', { name: 'Parent area' }).waitFor();
+    // The first card points a phone at the parent portal: a QR code that is served, and the Sync button beside it.
+    const headings = await p.locator('h2').allTextContents();
+    expect(headings[0]).toBe('Manage this tablet from your phone');
+    const qr = p.getByRole('img', { name: 'QR code for parents.ducklingtablet.com' });
+    await expect.poll(() => qr.evaluate((i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 0)).toBe(true);
     await p.getByRole('button', { name: 'Sync with the website' }).waitFor();
     await p.screenshot({ path: join(dir, 'parent.png') });
     // The PIN typed on the tablet became the family PIN; a change on the website reaches the tablet at its next check-in.

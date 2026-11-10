@@ -4,7 +4,7 @@ import { api, type CatalogApp, type Family as FamilyT } from '../api';
 const SUBJECT: Record<string, string> = { reading: 'Reading', math: 'Math', science: 'Science', art: 'Art', music: 'Music', logic: 'Logic' };
 
 // One app: a short recording of it in action, what it trains, how it grows with the child, the life skills it
-// serves, and Install buttons for each tablet in the family.
+// serves, and Install or Remove for each tablet in the family.
 export function AppAbout({ id, onBack }: { id: string; onBack: () => void }) {
   const [app, setApp] = useState<CatalogApp | null | undefined>(undefined);
   const [fam, setFam] = useState<FamilyT | null>(null);
@@ -48,9 +48,9 @@ export function AppAbout({ id, onBack }: { id: string; onBack: () => void }) {
         <ul class="list">
           {fam?.devices.filter((d) => d.state === 'active').map((d) => (
             <li key={d.id}>
-              <span class="grow"><strong>{d.name}</strong> <span class="muted">{installed[d.id] ? 'installed' : 'not installed'}</span></span>
+              <span class="grow"><strong>{d.name}</strong> <span class="muted">{installed[d.id] ? 'on this tablet' : 'not on this tablet'}</span></span>
               {installed[d.id]
-                ? <button class="btn quiet" onClick={async () => { try { await api.hideApp(d.id, id, true); setMsg(`Hidden on ${d.name}.`); await load(); } catch (e) { setMsg((e as Error).message); } }}>Hide</button>
+                ? <button class="btn quiet" onClick={async () => { try { await api.hideApp(d.id, id, true); setMsg(`Removed from ${d.name}.`); await load(); } catch (e) { setMsg((e as Error).message); } }}>Remove</button>
                 : <button class="btn primary" onClick={async () => { try { await api.installApp(d.id, id); setMsg(`Installing on ${d.name}.`); await load(); } catch (e) { setMsg((e as Error).message); } }}>Install</button>}
             </li>
           ))}

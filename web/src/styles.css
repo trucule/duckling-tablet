@@ -50,6 +50,11 @@ button { font: inherit; color: inherit; }
 .card h2 { margin: 0 0 10px; font-size: 22px; }
 .card p { margin: 0 0 10px; line-height: 1.45; color: var(--ink-soft); }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+/* The parent area's first card: the QR code to the parent portal beside the explanation */
+.card.manage { display: flex; gap: 18px; align-items: flex-start; }
+.card.manage .qr { width: 132px; height: 132px; flex: none; border: 1px solid var(--line); border-radius: 12px; background: white; }
+.card.manage > div { flex: 1; min-width: 0; }
+@media (max-width: 520px) { .card.manage { flex-direction: column; align-items: center; text-align: center; } .card.manage .row { justify-content: center; } }
 .field { display: block; margin: 14px 0; }
 .field span { display: block; font-weight: 700; margin-bottom: 6px; }
 .field input { font: inherit; font-size: 24px; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); width: 100%; background: white; letter-spacing: 0.1em; }
