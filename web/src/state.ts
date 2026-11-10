@@ -49,6 +49,7 @@ function applyConfig(c: DeviceConfig) {
   shell.setChildInfo(c.child?.firstName ?? '', c.narratorVoice ?? '');
   shell.setChildLevels(c.child?.levels ?? {});
   shell.setChildId(c.child?.id ?? '');
+  if (c.appAccountToken) shell.setAppAccountToken(c.appAccountToken);
   if (c.pinHash) shell.setPinHash(c.pinHash);
 }
 

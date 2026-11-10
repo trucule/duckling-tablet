@@ -78,6 +78,7 @@
     openOverlaySettings: function () {},
     // The subscription, through the App Store. Results arrive at DucklingWeb.onBilling(status, message).
     subscribe: function () { post('subscribe'); },
+    subscriptionPrice: function () { return S.price || ''; },
     manageSubscription: function () { post('manageSubscription'); },
     restorePurchases: function () { post('restorePurchases'); },
     reload: function () { post('reload'); },

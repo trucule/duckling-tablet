@@ -32,6 +32,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         web.load(URLRequest(url: Self.webApp))
 
         NetworkStatus.shared.onChange = { [weak self] in self?.pushState() }
+        Billing.shared.onChange = { [weak self] in self?.pushState() }
         NotificationCenter.default.addObserver(self, selector: #selector(resumed), name: UIApplication.didBecomeActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(stateChanged), name: UIAccessibility.guidedAccessStatusDidChangeNotification, object: nil)
     }
@@ -46,6 +47,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
             "installed": prefs.installed.filter { Packages.shared.exists($0.key) },
             "lockdown": Lockdown.shared.status(lockdownOn: prefs.lockdownOn),
             "network": NetworkStatus.shared.current,
+            "price": Billing.shared.displayPrice,
         ]
         if let h = prefs.pinHash { s["pinHash"] = h }
         return s

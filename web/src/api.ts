@@ -15,7 +15,7 @@ export interface DeviceConfig {
   entitlement?: Entitlement;
   otherApps?: OtherApp[];
   deviceId: string; state: 'active' | 'release' | 'released'; child: Child | null; apps: InstalledApp[]; hidden: string[];
-  allowlist: AllowEntry[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string;
+  allowlist: AllowEntry[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string; appAccountToken?: string | null;
 }
 export interface CatalogApp {
   id: string; name: string; description: string; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; tileUrl: string | null;

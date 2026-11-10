@@ -52,16 +52,17 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         web.backgroundColor = .black
         view = web
         speech.delegate = self
-        try? AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+        try? AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
         try? AVAudioSession.sharedInstance().setActive(true)
 
-        let home = UIButton(type: .system)
-        home.setTitle("⌂ Home", for: .normal)
-        home.titleLabel?.font = .systemFont(ofSize: 18, weight: .bold)
-        home.setTitleColor(.white, for: .normal)
-        home.backgroundColor = UIColor(white: 0.1, alpha: 0.55)
-        home.layer.cornerRadius = 22
-        home.contentEdgeInsets = UIEdgeInsets(top: 10, left: 18, bottom: 10, right: 18)
+        var look = UIButton.Configuration.filled()
+        look.title = "⌂ Home"
+        look.baseBackgroundColor = UIColor(white: 0.1, alpha: 0.55)
+        look.baseForegroundColor = .white
+        look.cornerStyle = .capsule
+        look.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 18, bottom: 10, trailing: 18)
+        look.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { a in var b = a; b.font = .systemFont(ofSize: 18, weight: .bold); return b }
+        let home = UIButton(configuration: look)
         home.translatesAutoresizingMaskIntoConstraints = false
         home.addTarget(self, action: #selector(goHome), for: .touchUpInside)
         view.addSubview(home)

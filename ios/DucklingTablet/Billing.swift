@@ -9,10 +9,17 @@ final class Billing {
     static let shared = Billing()
     static let productId = "duckling_monthly"
     private var updates: Task<Void, Never>?
+    /// The App Store's price for the subscription in the parent's own currency, shown on the subscribe button.
+    private(set) var displayPrice = ""
+    var onChange: (() -> Void)?
 
     func listen() {
         updates = Task.detached(priority: .background) {
             for await result in Transaction.updates { await Billing.shared.handle(result) }
+        }
+        Task {
+            let products = (try? await Product.products(for: [Self.productId])) ?? []
+            if let p = products.first { await MainActor.run { self.displayPrice = p.displayPrice; self.onChange?() } }
         }
     }
 

@@ -36,7 +36,16 @@ export interface Shell {
   launchPackage(pkg: string, seconds: number): void;
   canDrawOverlays(): boolean;
   openOverlaySettings(): void;
+  // The subscription through the device's own store (the iPad's App Store). False where the store is not built in.
+  readonly storeBilling: boolean;
+  subscriptionPrice(): string; // the store's price text, '' until the store answers
+  subscribe(): Promise<BillingResult>;
+  restorePurchases(): Promise<BillingResult>;
+  manageSubscription(): void;
+  setAppAccountToken(token: string): void;
 }
+
+export interface BillingResult { status: 'purchased' | 'pending' | 'cancelled' | 'unavailable' | 'failed' | 'none' | string; message: string }
 
 // The Android side exposes synchronous string-returning methods; async work calls back into window.DucklingWeb.
 interface NativeShell {
@@ -68,10 +77,15 @@ interface NativeShell {
   launchPackage?(pkg: string, seconds: number): void;
   canDrawOverlays?(): boolean;
   openOverlaySettings?(): void;
+  subscribe?(): void;
+  restorePurchases?(): void;
+  manageSubscription?(): void;
+  subscriptionPrice?(): string;
+  setAppAccountToken?(token: string): void;
 }
 
 declare global {
-  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void } }
+  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void; onBilling(status: string, message: string): void } }
 }
 
 const pending = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
@@ -87,7 +101,11 @@ window.DucklingWeb = {
   onPush() { window.dispatchEvent(new Event('duckling:push')); },
   // Another app's turn ended (the child came back, or the time ran out): how long it was open.
   onOtherApp(pkg, seconds, reason) { window.dispatchEvent(new CustomEvent('duckling:otherapp', { detail: { pkg, seconds, reason } })); },
+  // A store purchase, restore or its failure: one at a time, so the waiting promise is the only one.
+  onBilling(status, message) { const w = billingWait; billingWait = null; w?.({ status, message }); },
 };
+let billingWait: ((r: BillingResult) => void) | null = null;
+const billingCall = (start: () => void) => new Promise<BillingResult>((resolve) => { billingWait = resolve; start(); });
 
 function native(n: NativeShell): Shell {
   return {
@@ -122,6 +140,12 @@ function native(n: NativeShell): Shell {
     launchPackage: (pkg, seconds) => n.launchPackage?.(pkg, seconds),
     canDrawOverlays: () => { try { return !!n.canDrawOverlays?.(); } catch { return false; } },
     openOverlaySettings: () => n.openOverlaySettings?.(),
+    storeBilling: typeof n.subscribe === 'function',
+    subscriptionPrice: () => { try { return n.subscriptionPrice?.() || ''; } catch { return ''; } },
+    subscribe: () => billingCall(() => n.subscribe?.()),
+    restorePurchases: () => billingCall(() => n.restorePurchases?.()),
+    manageSubscription: () => n.manageSubscription?.(),
+    setAppAccountToken: (t) => { try { n.setAppAccountToken?.(t); } catch { /* older shell */ } },
   };
 }
 
@@ -159,6 +183,12 @@ function browser(): Shell {
     launchPackage() { alert('On the tablet this opens the app.'); },
     canDrawOverlays: () => false,
     openOverlaySettings() { alert('On the tablet this opens the overlay permission.'); },
+    storeBilling: false,
+    subscriptionPrice: () => '',
+    subscribe: async () => ({ status: 'unavailable', message: '' }),
+    restorePurchases: async () => ({ status: 'unavailable', message: '' }),
+    manageSubscription() {},
+    setAppAccountToken() {},
   };
 }
 
