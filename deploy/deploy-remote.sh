@@ -42,6 +42,12 @@ for f in /opt/duckling/.env /opt/duckling/ca-certificate.crt /opt/duckling/fcm-s
   [ -f "$f" ] && chown root:duckling "$f" && chmod 640 "$f"
 done
 
+# Apple's root certificates, which verify every App Store purchase and server notification (APPLE_ROOT_CERTS).
+mkdir -p /opt/duckling/apple-root-certs
+for c in AppleRootCA-G3.cer AppleRootCA-G2.cer AppleIncRootCertificate.cer; do
+  [ -s "/opt/duckling/apple-root-certs/$c" ] || curl -fsSL "https://www.apple.com/certificateauthority/$c" -o "/opt/duckling/apple-root-certs/$c" || echo "could not fetch $c"
+done
+
 cd "$SRC/backend"
 # The droplet has 1 GB shared with Pitch Jam: keep npm and tsc small.
 export NODE_OPTIONS=--max-old-space-size=384

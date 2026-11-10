@@ -53,12 +53,14 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
   const hidden = new Set((await q.all('SELECT app_id FROM device_hidden_app WHERE device_id = $1', [deviceId])).map((r) => r.app_id as string));
   const catalog = (await listCatalog(ctx, q)).filter((a) => !hidden.has(a.id));
   const travelUntil = await getSetting<string | null>(q, deviceId, 'travel_until', null);
-  const fam = await q.one<{ pin_sync: string | null }>('SELECT pin_sync FROM family WHERE id = $1', [d.family_id]);
+  const fam = await q.one<{ pin_sync: string | null; app_account_token: string }>('SELECT pin_sync, app_account_token::text AS app_account_token FROM family WHERE id = $1', [d.family_id]);
   return {
     deviceId, state: d.state, child,
     // SHA-256 of "duckling:<pin>", the form the shells keep; null until a parent sets a PIN.
     pinHash: fam?.pin_sync ?? null,
     entitlement: await entitlementOf(q, d.family_id),
+    // The iPad app passes this with every StoreKit purchase so Apple's notifications name the family.
+    appAccountToken: fam?.app_account_token ?? null,
     apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, tileUrl: a.tileUrl, permissions: a.latest!.permissions, ...a.latest })),
     hidden: [...hidden],
     allowlist: await getSetting(q, deviceId, 'allowlist', [] as unknown[]),

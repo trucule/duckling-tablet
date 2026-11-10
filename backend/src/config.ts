@@ -48,6 +48,15 @@ const schema = z.object({
   REVIEW_EMAIL: z.string().email().optional(),
   REVIEW_CODE: z.string().regex(/^\d{6}$/).optional(),
 
+  // Apple subscriptions (S3). APPLE_ROOT_CERTS holds Apple's root certificates (AppleRootCA-G3.cer and friends,
+  // fetched by deploy-remote.sh). Production verification also needs APPLE_APP_APPLE_ID, the numeric Apple ID on
+  // App Store Connect > App Information; until it is set only sandbox (TestFlight) purchases verify.
+  APPLE_BUNDLE_ID: z.string().default('com.ducklingtablet.app'),
+  APPLE_APP_APPLE_ID: z.coerce.number().int().positive().optional(),
+  APPLE_ROOT_CERTS: z.string().default('/opt/duckling/apple-root-certs'),
+  APPLE_ENVIRONMENTS: z.string().default('Production,Sandbox'),
+  APPLE_PRODUCT_IDS: z.string().default('duckling_monthly'),
+
   // The AI proxy (POST /ai/messages) for Draw With Me lessons and Story Maker scenes. With no key, apps get a 503
   // and fall back to their built-in content. Models outside AI_MODELS are served with AI_DEFAULT_MODEL.
   ANTHROPIC_API_KEY: z.string().default(''),
