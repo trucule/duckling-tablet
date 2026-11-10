@@ -1,0 +1,65 @@
+# XcodeGen spec for the iPad shell. The Xcode project is generated in CI (`xcodegen generate`) and not committed.
+name: DucklingTablet
+options:
+  bundleIdPrefix: com.ducklingtablet
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+packages:
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    from: 0.9.19
+targets:
+  DucklingTablet:
+    type: application
+    platform: iOS
+    sources:
+      - path: DucklingTablet
+        excludes:
+          - "Shell/shell.js"
+      - path: DucklingTablet/Shell/shell.js
+        buildPhase: resources
+    dependencies:
+      - package: ZIPFoundation
+      - sdk: FamilyControls.framework
+      - sdk: ManagedSettings.framework
+      - sdk: StoreKit.framework
+    entitlements:
+      path: DucklingTablet/DucklingTablet.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+    info:
+      path: DucklingTablet/Info.plist
+      properties:
+        CFBundleDisplayName: Duckling Tablet
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.education
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: ""
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: false
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSMicrophoneUsageDescription: Some learning apps listen while the child reads aloud or sings. Sound stays on this iPad.
+        NSCameraUsageDescription: Camera Fun takes pictures for the child to play with. Pictures stay on this iPad.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_NAME: DucklingTablet
+        PRODUCT_BUNDLE_IDENTIFIER: com.ducklingtablet.app
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "2"
+        DEVELOPMENT_TEAM: TYLH4H8TS8
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: NO
