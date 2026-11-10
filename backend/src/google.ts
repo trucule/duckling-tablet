@@ -28,6 +28,12 @@ export interface GooglePlay {
 
 export class GoogleUnavailable extends Error {}
 
+// Google's own words for a refusal (permissionDenied, projectNotLinked, an invalid credential), so the log says what
+// to fix rather than just the status. The purchase token is never part of the body.
+async function reason(r: Response): Promise<string> {
+  try { const j = await r.json() as { error?: { status?: string; message?: string; errors?: { reason?: string }[] } }; return [j.error?.errors?.[0]?.reason, j.error?.status, j.error?.message].filter(Boolean).join(' ').slice(0, 200); } catch { return ''; }
+}
+
 export function makeGooglePlay(cfg: Config, log: (msg: string) => void): GooglePlay | null {
   const sa = readServiceAccount(cfg.GOOGLE_PLAY_SERVICE_ACCOUNT_FILE || cfg.FCM_SERVICE_ACCOUNT_FILE, 'Google Play', log);
   if (!sa) return null;
@@ -44,12 +50,12 @@ export function makeGooglePlay(cfg: Config, log: (msg: string) => void): GoogleP
     async subscription(purchaseToken) {
       const r = await call('GET', `${base}/subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`);
       if (r.status === 404 || r.status === 410 || r.status === 400) return null;
-      if (!r.ok) { log(`Play subscriptionsv2.get failed: ${r.status}`); throw new GoogleUnavailable(String(r.status)); }
+      if (!r.ok) { log(`Play subscriptionsv2.get failed: ${r.status} ${await reason(r)}`); throw new GoogleUnavailable(String(r.status)); }
       return (await r.json()) as GoogleSubscription;
     },
     async acknowledge(productId, purchaseToken) {
       const r = await call('POST', `${base}/subscriptions/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}:acknowledge`);
-      if (!r.ok) log(`Play acknowledge failed: ${r.status}`);
+      if (!r.ok) log(`Play acknowledge failed: ${r.status} ${await reason(r)}`);
     },
   };
 }
