@@ -236,7 +236,7 @@
   body { touch-action: none; user-select: none; -webkit-user-select: none; }
   button { font-family: inherit; color: inherit; }
   #app { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr auto; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-  header { display: flex; align-items: center; gap: 8px; padding: 8px 14px; flex-wrap: wrap; }
+  header { display: flex; align-items: center; gap: 8px; padding: 8px 210px 8px 14px; flex-wrap: wrap; }   /* top-right 210px stays clear for the Home pill */
   header h1 { font-size: 24px; margin: 0 12px 0 0; font-weight: 900; }
   .pill { border: 3px solid var(--ink); background: #fff; border-radius: 999px; padding: 7px 14px; font-size: 19px; font-weight: 800; cursor: pointer; }
   .pill.on { background: var(--sun); }
@@ -292,8 +292,43 @@
   #slots { display: flex; gap: 6px; margin-left: 10px; }
   #slots button { width: 58px; height: 58px; font-size: 24px; }
   #slots button.on { background: var(--grape); color: #fff; }
-  #toast { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); background: var(--ink); color: #fff; font-weight: 800; font-size: 20px; padding: 10px 20px; border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #toast { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); background: var(--ink); color: #fff; font-weight: 800; font-size: 20px; padding: 10px 20px; border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 86vw; text-align: center; }
   #toast.on { opacity: 1; }
+
+  /* Challenges: a panel above the grid and a row of challenge buttons in the footer. Free play never shows them. */
+  #page-song.on { display: flex; flex-direction: column; gap: 6px; }
+  #page-song > #grid { height: auto; flex: 1 1 0; min-height: 0; }
+  #chal { display: none; align-items: center; gap: 14px; background: #fff; border: 3px solid var(--ink); border-radius: 16px; padding: 5px 14px; width: 100%; max-width: 1280px; margin: 0 auto; box-sizing: border-box; min-height: 62px; flex: none; }
+  body.chal #chal { display: flex; }
+  #cText { flex: 1 1 280px; font-size: 20px; font-weight: 800; line-height: 1.22; cursor: pointer; }
+  #cShow { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; flex: 0 1 auto; max-width: 56%; }
+  #cShow:empty { display: none; }
+  #cShow svg { display: block; height: 62px; width: auto; max-width: 100%; }
+  #cShow svg.staff { height: 80px; }
+  .crow { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+  .chip { border: 2px solid var(--ink); border-radius: 10px; padding: 1px 8px; font-size: 20px; font-weight: 900; background: var(--cc, #fff); display: inline-flex; flex-direction: column; align-items: center; line-height: 1.1; min-width: 24px; }
+  .chip small { font-size: 12px; font-weight: 800; }
+  .chip.dark { color: #fff; }
+  .clab { font-weight: 900; font-size: 15px; margin-right: 2px; }
+  .sig { display: grid; font: 900 27px/0.92 Georgia, "Times New Roman", serif; text-align: center; padding: 0 4px; border-left: 3px solid var(--ink); }
+  .rules { list-style: none; margin: 0; padding: 0; font-size: 15px; font-weight: 800; line-height: 1.25; }
+  .rules li::before { content: '○ '; }
+  .rules li.ok { color: #23804f; } .rules li.ok::before { content: '✓ '; }
+  .lbl.nm { font-size: 18px; font-weight: 900; border-radius: 8px; }
+  .lbl.blk { background: var(--ink); color: #fff; margin: 1px 4px; }
+  .cell.alt:not(.on) { background: #f3ecfd; }
+  .cell.bl { border-left: 6px solid var(--grape); }
+  footer .cbtn { display: none; }
+  body.chal footer .cbtn { display: inline-flex; }
+  footer button.cbtn { width: auto; height: 58px; border-radius: 999px; padding: 0 16px; font-size: 20px; font-weight: 800; align-items: center; gap: 6px; }
+  footer button#cCheck { background: var(--leaf); }
+  #cInfo { flex-direction: column; align-items: flex-start; font-weight: 800; font-size: 15px; line-height: 1.25; margin-left: 4px; }
+  #cInfo .dots { letter-spacing: 2px; }
+  body.chal #random, body.chal #scale, body.chal #swing, body.chal #tempo, body.chal #slots { display: none; }
+  body.chal footer { padding: 6px 14px 10px; gap: 10px; }
+  body.chal footer button.big { width: 70px; height: 70px; font-size: 32px; }
+  body.chal footer button#clear { width: 58px; height: 58px; font-size: 26px; }
+  body.chal.noinst #insts { display: none; }
 </style>
 </head>
 <body>
@@ -302,6 +337,7 @@
     <h1>Music Box</h1>
     <button class="pill tab on" data-page="song">🎼 Song</button>
     <button class="pill tab" data-page="lab">🎤 Voice Lab</button>
+    <button class="pill tab" data-page="chal" id="chalTab">🏆 Challenges</button>
     <div id="insts">
       <button class="pill" data-inst="bell">🔔 Bell</button>
       <button class="pill" data-inst="flute">🎵 Flute</button>
@@ -312,7 +348,7 @@
     </div>
   </header>
   <main>
-    <div class="page on" id="page-song"><div id="grid"></div></div>
+    <div class="page on" id="page-song"><div id="chal"><div id="cText" title="Hear it again"></div><div id="cShow"></div></div><div id="grid"></div></div>
     <div class="page" id="page-lab">
       <div id="lab">
         <div id="pads"></div>
@@ -338,6 +374,11 @@
     <button id="swing" title="Swing">🪩</button>
     <div id="tempo"><button id="slower">🐢</button><button id="faster">🐇</button></div>
     <div id="slots"><button data-slot="0">1</button><button data-slot="1">2</button><button data-slot="2">3</button></div>
+    <button id="cListen" class="cbtn">🔊 Listen</button>
+    <button id="cHint" class="cbtn">💡 Hint</button>
+    <button id="cCheck" class="cbtn">✅ Check</button>
+    <button id="cSkip" class="cbtn">⏭️ Skip</button>
+    <div id="cInfo" class="cbtn"></div>
   </footer>
 </div>
 <div id="toast"></div>
@@ -508,13 +549,20 @@ function say(key) {
   }
   systemSay(text);
 }
-function systemSay(text) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+function systemSay(text, done) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; u.pitch = 1.1; if (done) { u.onend = done; u.onerror = done; } speechSynthesis.speak(u); } catch (e) { if (done) done(); } }
 function toast(t, ms) { const el = document.getElementById('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), ms || 1600); }
 
 // --- Song grid -----------------------------------------------------------------
-const el = document.getElementById('grid'); let rowsDef = [], cells = [], lbls = [], paintMode = true;
+const el = document.getElementById('grid'); let rowsDef = [], cells = [], lbls = [], paintMode = true, painting = false;
+['pointerup', 'pointercancel'].forEach(t => window.addEventListener(t, () => { painting = false; }));
+function nSteps() { return song.steps || STEPS; }
 function rowList() {
   const r = [];
+  if (song.chal) {   // Challenges: the rows this challenge asks for (its own notes, and the percussion when it needs it)
+    (song.rows || []).forEach((n, i) => r.push({ kind: 'notes', i, icon: n.name, color: n.color, freq: n.freq, cls: n.cls }));
+    if (song.showPerc) for (let i = 0; i < PERC; i++) r.push({ kind: 'perc', i, icon: PERC_DEF[i].icon, color: PERC_DEF[i].color });
+    return r;
+  }
   for (let i = 0; i < ROWS; i++) r.push({ kind: 'notes', i, icon: LABELS[i], color: COLORS[i] });
   for (let i = 0; i < PERC; i++) r.push({ kind: 'perc', i, icon: PERC_DEF[i].icon, color: PERC_DEF[i].color });
   samples.forEach((s, i) => { if (s && s.inSong) r.push({ kind: 'samp', i, icon: s.emoji, color: '#FF8C42' }); });
@@ -523,21 +571,25 @@ function rowList() {
 function build() {
   rowsDef = rowList(); el.innerHTML = ''; cells = []; lbls = [];
   el.style.gridTemplateRows = `repeat(${rowsDef.length}, 1fr)`;
+  const n = nSteps(), beat = song.beat || 4;
+  el.style.gridTemplateColumns = `54px repeat(${n}, 1fr)`;
   rowsDef.forEach((row, r) => {
-    const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.textContent = row.icon; el.appendChild(lbl); lbls[r] = lbl;
+    const lbl = document.createElement('div'); lbl.className = 'lbl' + (row.cls ? ' ' + row.cls : ''); lbl.textContent = row.icon; el.appendChild(lbl); lbls[r] = lbl;
     cells[r] = [];
-    for (let c = 0; c < STEPS; c++) {
-      const d = document.createElement('div'); d.className = 'cell' + (row.kind !== 'notes' ? ' perc' : '') + (c % 4 === 0 ? ' bar' : '') + (song.grid[row.kind][row.i][c] ? ' on' : '');
+    for (let c = 0; c < n; c++) {
+      const d = document.createElement('div'); d.className = 'cell' + (row.kind !== 'notes' ? ' perc' : '') + (c % beat === 0 ? ' bar' : '') + (song.chal && Math.floor(c / beat) % 2 ? ' alt' : '') + (song.barCells && c && c % song.barCells === 0 ? ' bl' : '') + (song.grid[row.kind][row.i][c] ? ' on' : '');
       d.style.setProperty('--note', row.color);
-      d.addEventListener('pointerdown', e => { e.preventDefault(); paintMode = !song.grid[row.kind][row.i][c]; toggle(r, c, paintMode); });
-      d.addEventListener('pointerenter', e => { if (e.buttons || e.pressure > 0) toggle(r, c, paintMode); });
+      // A finger reports buttons=1 on pointerenter before its pointerdown, so painting only follows a pointerdown here.
+      // Touch pointers are captured by the first cell; releasing that lets a finger drag paint across cells like a mouse.
+      d.addEventListener('pointerdown', e => { e.preventDefault(); try { if (d.hasPointerCapture(e.pointerId)) d.releasePointerCapture(e.pointerId); } catch (err) {} painting = true; paintMode = !song.grid[row.kind][row.i][c]; toggle(r, c, paintMode); });
+      d.addEventListener('pointerenter', e => { if (painting && (e.buttons || e.pressure > 0)) toggle(r, c, paintMode); });
       el.appendChild(d); cells[r][c] = d;
     }
   });
 }
 function trigger(r, when) {
   const row = rowsDef[r];
-  if (row.kind === 'notes') note(SCALES[song.scale].notes[row.i], when);
+  if (row.kind === 'notes') note(row.freq || SCALES[song.scale].notes[row.i], when);
   else if (row.kind === 'perc') perc(row.i, when);
   else playSample(samples[row.i], when);
 }
@@ -545,18 +597,21 @@ function toggle(r, c, on) {
   const row = rowsDef[r]; if (song.grid[row.kind][row.i][c] === on) return;
   song.grid[row.kind][row.i][c] = on; cells[r][c].classList.toggle('on', on); save();
   if (on && !playing) { trigger(r); flash(r, c); }
+  if (song.chal && window.CHAL) CHAL.changed();
 }
 function flash(r, c) {
-  cells[r][c].classList.add('hit'); setTimeout(() => cells[r][c].classList.remove('hit'), 120);
-  lbls[r].classList.remove('bounce'); void lbls[r].offsetWidth; lbls[r].classList.add('bounce');
+  const d = cells[r] && cells[r][c], l = lbls[r]; if (!d || !l) return;   // keep the elements: the grid may be rebuilt before the timer fires
+  d.classList.add('hit'); setTimeout(() => d.classList.remove('hit'), 120);
+  l.classList.remove('bounce'); void l.offsetWidth; l.classList.add('bounce');
 }
 
 // --- Transport -----------------------------------------------------------------
 function stepMs() { const base = 60000 / song.bpm / 2; return song.swing ? base * (step % 2 ? 0.68 : 1.32) : base; }
 function tick() {
-  for (let r = 0; r < rowsDef.length; r++) { cells[r][(step + STEPS - 1) % STEPS].classList.remove('head'); cells[r][step].classList.add('head'); }
+  const n = nSteps(); if (step >= n) step = 0;
+  for (let r = 0; r < rowsDef.length; r++) { cells[r][(step + n - 1) % n].classList.remove('head'); cells[r][step].classList.add('head'); }
   for (let r = 0; r < rowsDef.length; r++) { const row = rowsDef[r]; if (song.grid[row.kind][row.i][step]) { trigger(r); flash(r, step); } }
-  const ms = stepMs(); step = (step + 1) % STEPS;
+  const ms = stepMs(); step = (step + 1) % n;
   timer = setTimeout(tick, ms);
 }
 function setPlaying(on) {
@@ -566,7 +621,7 @@ function setPlaying(on) {
   else cells.forEach(row => row.forEach(d => d.classList.remove('head')));
 }
 document.getElementById('play').onclick = () => setPlaying(!playing);
-document.getElementById('clear').onclick = () => { song.grid = emptyGrid(); build(); save(); };
+document.getElementById('clear').onclick = () => { if (song.chal && window.CHAL) { CHAL.reset(); return; } song.grid = emptyGrid(); build(); save(); };
 document.getElementById('random').onclick = () => {
   const g = emptyGrid();
   // A short motif repeated with small changes sounds like a tune rather than noise.
@@ -585,7 +640,7 @@ document.getElementById('scale').onclick = () => {
 };
 document.getElementById('swing').onclick = () => { song.swing = !song.swing; save(); refreshButtons(); };
 document.querySelectorAll('#slots button').forEach(b => b.onclick = () => { if (playing) setPlaying(false); slot = +b.dataset.slot; song = songs[slot]; save(); build(); refreshButtons(); toast('Song ' + (slot + 1), 700); });
-document.querySelectorAll('.pill[data-inst]').forEach(b => b.onclick = () => { song.inst = b.dataset.inst; save(); refreshButtons(); note(BASE); });
+document.querySelectorAll('.pill[data-inst]').forEach(b => b.onclick = () => { song.inst = b.dataset.inst; save(); refreshButtons(); note(BASE); if (song.chal && window.CHAL) CHAL.changed(); });
 function refreshButtons() {
   document.querySelectorAll('.pill[data-inst]').forEach(x => x.classList.toggle('on', x.dataset.inst === song.inst));
   document.getElementById('voiceInst').hidden = !starSample();
@@ -699,16 +754,761 @@ LABELS.slice().reverse().forEach((icon, k) => {
 });
 
 // Pages
+// Challenges is a third tab: the same song page, with a challenge panel above the grid. Song goes back to free play.
 document.querySelectorAll('.pill.tab').forEach(b => b.onclick = () => {
+  const page = b.dataset.page === 'chal' ? 'song' : b.dataset.page;
   document.querySelectorAll('.pill.tab').forEach(x => x.classList.toggle('on', x === b));
-  document.querySelectorAll('.page').forEach(pg => pg.classList.toggle('on', pg.id === 'page-' + b.dataset.page));
-  document.getElementById('insts').style.visibility = b.dataset.page === 'song' ? 'visible' : 'hidden';
+  document.querySelectorAll('.page').forEach(pg => pg.classList.toggle('on', pg.id === 'page-' + page));
+  document.getElementById('insts').style.visibility = page === 'song' ? 'visible' : 'hidden';
+  if (window.CHAL) { if (b.dataset.page === 'chal') CHAL.enter(); else if (CHAL.on()) CHAL.exit(); }
   if (b.dataset.page === 'lab') drawPads();
 });
 
 buildPads(); build(); refreshButtons();
 DB.loadAll().then(() => { drawPads(); refreshButtons(); build(); });
-window.MB = { samples, song: () => song, build, playSample, trim, record, note, perc, setPlaying, DB };
+window.MB = { samples, song: () => song, build, playSample, trim, record, note, perc, setPlaying, DB, refreshButtons };
+</script>
+<script>
+/* Challenges: a ladder of music goals from pre-K to 8th grade, played on the same tone matrix as free play.
+   Each challenge sets up its own grid (which rows, how many squares, how they group into beats), asks for something
+   short, and checks the cells the child turns on (and the instrument she picks). Most checks run every time a cell
+   changes, so a right answer is cheered at once; composing waits for the Check button.
+   Adaptive: four challenges right in a row moves up a rung, two missed in a row moves down one. A challenge is right
+   when it is finished with no miss. A miss is a wrong Check or a Skip (giving up), counted once per challenge.
+   Progress (rung, streaks, stars) is kept in localStorage 'musicbox-challenges'; one star per finished challenge.
+   Free play and its three song slots are never touched: the challenge grid is a separate song object.
+   Self-check hook: window.DucklingLadder (tools/ladder-check.mjs). */
+const CH_PN = ['drum', 'clap', 'shaker'];
+const CH_ANIMALS = ['bird', 'cat', 'frog', 'dog', 'cow', 'lion', 'bear', 'elephant'];
+const CH_ANIMAL_MIDI = [84, 81, 79, 76, 72, 69, 67, 64];   // the happy scale, top row first
+const CH_SHARPS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const CH_FLATS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const CH_BLACK = [1, 3, 6, 8, 10];
+const CH_MAJ = [0, 2, 4, 5, 7, 9, 11, 12], CH_MIN = [0, 2, 3, 5, 7, 8, 10, 12];
+const CH_INSTS = ['bell', 'flute', 'pluck', 'marimba', 'organ'];
+// Major keys: tonic (MIDI), scale letters, sharps (+) or flats (-) in the key signature.
+const CH_KEYS = {
+  C: { t: 60, s: ['C', 'D', 'E', 'F', 'G', 'A', 'B'], acc: 0 },
+  G: { t: 55, s: ['G', 'A', 'B', 'C', 'D', 'E', 'F#'], acc: 1 },
+  D: { t: 62, s: ['D', 'E', 'F#', 'G', 'A', 'B', 'C#'], acc: 2 },
+  A: { t: 57, s: ['A', 'B', 'C#', 'D', 'E', 'F#', 'G#'], acc: 3 },
+  E: { t: 64, s: ['E', 'F#', 'G#', 'A', 'B', 'C#', 'D#'], acc: 4 },
+  B: { t: 59, s: ['B', 'C#', 'D#', 'E', 'F#', 'G#', 'A#'], acc: 5 },
+  Db: { t: 61, s: ['Db', 'Eb', 'F', 'Gb', 'Ab', 'Bb', 'C'], acc: -5 },
+  F: { t: 65, s: ['F', 'G', 'A', 'Bb', 'C', 'D', 'E'], acc: -1 },
+  Bb: { t: 58, s: ['Bb', 'C', 'D', 'Eb', 'F', 'G', 'A'], acc: -2 },
+  Eb: { t: 63, s: ['Eb', 'F', 'G', 'Ab', 'Bb', 'C', 'D'], acc: -3 },
+  Ab: { t: 56, s: ['Ab', 'Bb', 'C', 'Db', 'Eb', 'F', 'G'], acc: -4 },
+};
+const CH_ORD = ['unison', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'octave'];
+const CH_ROMAN = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii'], CH_ROMAN_SAY = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
+const CH_QUAL = ['major', 'minor', 'minor', 'major', 'major', 'minor', 'diminished'];
+
+const chRnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const chPick = a => a[Math.floor(Math.random() * a.length)];
+const chShuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const chRange = (n, from) => Array.from({ length: n }, (_, i) => i + (from || 0));
+const chCap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const chAnd = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+const chFreq = m => 440 * Math.pow(2, (m - 69) / 12);
+const chPretty = s => String(s).replace(/([A-G])#/g, '$1♯').replace(/([A-G])b(?![a-z])/g, '$1♭');
+const chSpoken = s => String(s).replace(/([A-G])#/g, '$1 sharp').replace(/([A-G])b(?![a-z])/g, '$1 flat').replace(/(\d)\/(\d)/g, '$1 $2');
+const chArt = w => /^[aeiou]|^F\b|^F[#b]|^A\b|^A[#b]|^E\b|^E[#b]|^octave/i.test(w) ? 'an' : 'a';
+
+// --- Rows ------------------------------------------------------------------------------------------------------
+function chAnimalRows() { return LABELS.map((icon, i) => ({ name: icon, midi: CH_ANIMAL_MIDI[i], freq: SCALES.happy.notes[i], color: COLORS[i] })); }
+// One octave of a major key, tonic to tonic, high note at the top. Row r holds scale degree 7 - r.
+function chKeyRows(k, tonic) {
+  const K = CH_KEYS[k], t = tonic || K.t, out = [];
+  for (let d = 7; d >= 0; d--) out.push({ name: K.s[d % 7], midi: t + CH_MAJ[d], freq: chFreq(t + CH_MAJ[d]), color: COLORS[7 - d], cls: 'nm', deg: d });
+  return out;
+}
+// Thirteen half steps from a tonic up an octave, like a piano keyboard on its side. Row r is 12 - r half steps up.
+function chChromaRows(t, flats) {
+  const out = [];
+  for (let s = 12; s >= 0; s--) {
+    const m = t + s, pc = m % 12, blk = CH_BLACK.includes(pc);
+    out.push({ name: (flats ? CH_FLATS : CH_SHARPS)[pc], midi: m, freq: chFreq(m), color: blk ? '#4A3F5C' : COLORS[(12 - s) % 8], cls: 'nm' + (blk ? ' blk' : ''), semi: s });
+  }
+  return out;
+}
+
+// --- State and checks --------------------------------------------------------------------------------------------
+function chBlank(t) {
+  return { notes: Array.from({ length: t.rows ? t.rows.length : 0 }, () => Array(t.steps).fill(false)),
+           perc: Array.from({ length: PERC }, () => Array(t.steps).fill(false)), inst: t.inst || 'bell' };
+}
+function chState(t, spec) {
+  const st = chBlank(t); spec = spec || {};
+  (spec.notes || []).forEach(([r, c]) => { st.notes[r][c] = true; });
+  (spec.perc || []).forEach(([r, c]) => { st.perc[r][c] = true; });
+  if (spec.inst) st.inst = spec.inst;
+  return st;
+}
+// The melody: one note per column, left to right. null when a column holds two notes.
+function chSeq(st) {
+  const out = [], n = st.notes.length; if (!n) return out;
+  for (let c = 0; c < st.notes[0].length; c++) {
+    const on = []; for (let r = 0; r < n; r++) if (st.notes[r][c]) on.push(r);
+    if (on.length > 1) return null;
+    if (on.length) out.push({ c, r: on[0] });
+  }
+  return out;
+}
+const chCount = rows => rows.reduce((s, row) => s + row.filter(Boolean).length, 0);
+const chSame = (arr, on) => arr.every((v, c) => v === on.includes(c));
+function chColsUsed(st) { const out = []; if (!st.notes.length) return out; for (let c = 0; c < st.notes[0].length; c++) if (st.notes.some(row => row[c])) out.push(c); return out; }
+function chColRows(st, c) { const out = []; st.notes.forEach((row, r) => { if (row[c]) out.push(r); }); return out; }
+function chMelodyIs(target) {
+  return st => {
+    const s = chSeq(st);
+    if (!s) return 'One note at a time. Each column gets just one note.';
+    if (!s.length) return 'Tap a square to start.';
+    const k = s.findIndex((x, i) => i < target.length && x.r !== target[i]);
+    if (k >= 0) return 'Note ' + (k + 1) + ' is not right yet.';
+    if (s.length < target.length) return 'Good start. Keep going.';
+    if (s.length > target.length) return 'Too many notes. Take the extra ones away.';
+    return null;
+  };
+}
+function chPercIs(spec, quiet) {
+  return st => {
+    for (const k in spec) if (!chSame(st.perc[k], spec[k])) return 'Look at the ' + CH_PN[k] + ' row again.';
+    for (const k of quiet || []) if (st.perc[k].some(Boolean)) return 'The ' + CH_PN[k] + ' stays quiet this time.';
+    return null;
+  };
+}
+// Rhythm words, one beat each, two squares per beat.
+const CH_TOK = { ta: [1, 0], titi: [1, 1], rest: [0, 0] }, CH_WORD = { ta: 'ta', titi: 'ti-ti', rest: 'rest' };
+function chTokPos(toks, map) { const bits = [].concat(...toks.map(t => (map || CH_TOK)[t])); return bits.map((b, i) => b ? i : -1).filter(i => i >= 0); }
+function chTokChips(toks, r) { const ic = PERC_DEF[r].icon; return toks.map(t => ({ t: t === 'ta' ? ic : t === 'titi' ? ic + ic : '🤫', s: CH_WORD[t] })); }
+function chRandToks(n) { let toks; do { toks = chRange(n).map(() => chPick(['ta', 'ta', 'titi', 'titi', 'rest'])); } while (toks.filter(t => t !== 'rest').length < 2 || toks.every(t => t === toks[0])); return toks; }
+// A random tune: n row indexes between lo and hi, moving by at most `jump` and never repeating a note.
+function chWalk(n, lo, hi, jump) {
+  const out = [chRnd(lo, hi)];
+  while (out.length < n) { const p = out[out.length - 1]; const opts = chRange(hi - lo + 1, lo).filter(r => r !== p && Math.abs(r - p) <= jump); out.push(chPick(opts)); }
+  return out;
+}
+
+// A challenge: what to show and say, the grid it needs, a solution the checker accepts, and the check itself.
+function chTask(o) {
+  const t = Object.assign({ steps: 8, beat: 1, rows: null, perc: false, inst: null, insts: false, pre: {}, show: {}, listen: false, manual: false, cellMs: 0, barCells: 0 }, o);
+  if (!t.cellMs) t.cellMs = t.beat === 1 ? 420 : t.beat === 2 ? 250 : t.beat === 3 ? 200 : 150;
+  return t;
+}
+
+// --- Pictures: rhythm notation and the treble staff ------------------------------------------------------------
+const CH_INK = '#2B2140';
+function chRhythmSvg(toks) {
+  let x = 16, s = '';
+  const head = (cx, fill) => `<ellipse cx="${cx}" cy="44" rx="7" ry="5" transform="rotate(-20 ${cx} 44)" fill="${fill ? CH_INK : '#fff'}" stroke="${CH_INK}" stroke-width="2.2"/>`;
+  const stem = cx => `<line x1="${cx + 6}" y1="42" x2="${cx + 6}" y2="12" stroke="${CH_INK}" stroke-width="2.4"/>`;
+  toks.forEach((t, i) => {
+    if (t === 'q') { s += head(x, 1) + stem(x); x += 40; }
+    else if (t === 'h') { s += head(x, 0) + stem(x); x += 80; }
+    else if (t === 'e') { s += head(x, 1) + stem(x) + head(x + 20, 1) + stem(x + 20) + `<rect x="${x + 5}" y="11" width="23" height="5" fill="${CH_INK}"/>`; x += 40; }
+    else { s += `<path d="M${x - 2} 16 l7 9 l-6 7 l7 9 q-9 -4 -6 6" fill="none" stroke="${CH_INK}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>`; x += 40; }
+  });
+  return `<svg viewBox="0 0 ${x} 56" width="${x}" height="56"><line x1="2" y1="52" x2="${x - 4}" y2="52" stroke="#cfc3e3" stroke-width="2"/>${s}</svg>`;
+}
+// Treble staff. pos 0 is the bottom line (E4), each step up is one letter. acc: +sharps or -flats.
+function chStaffSvg(acc, notes) {
+  const y = p => 60 - p * 5; let s = '', x = 44;
+  const n = Math.abs(acc || 0), sharp = acc > 0;
+  for (let i = 0; i < n; i++) {
+    const p = (sharp ? [8, 5, 9, 6, 3, 7, 4] : [4, 7, 3, 6, 2, 5, 1])[i];
+    s += `<text x="${x}" y="${y(p) + (sharp ? 6 : 4)}" font-size="${sharp ? 19 : 21}" font-weight="700" fill="${CH_INK}" font-family="Segoe UI Symbol, DejaVu Sans, FreeSerif, serif">${sharp ? '♯' : '♭'}</text>`;
+    x += 10;
+  }
+  x += 18;
+  (notes || []).forEach(nt => {
+    if (nt.dur === 'r') { s += `<path d="M${x - 3} 34 l7 9 l-6 7 l7 9 q-9 -4 -6 6" fill="none" stroke="${CH_INK}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`; x += 32; return; }
+    const cy = y(nt.pos), up = nt.pos < 4;
+    for (let p = -2; p >= nt.pos; p -= 2) s += `<line x1="${x - 11}" y1="${y(p)}" x2="${x + 11}" y2="${y(p)}" stroke="${CH_INK}" stroke-width="1.6"/>`;
+    for (let p = 10; p <= nt.pos; p += 2) s += `<line x1="${x - 11}" y1="${y(p)}" x2="${x + 11}" y2="${y(p)}" stroke="${CH_INK}" stroke-width="1.6"/>`;
+    s += `<ellipse cx="${x}" cy="${cy}" rx="6.6" ry="4.8" transform="rotate(-20 ${x} ${cy})" fill="${nt.dur === 'h' ? '#fff' : CH_INK}" stroke="${CH_INK}" stroke-width="2"/>`;
+    const sx = up ? x + 6 : x - 6, ey = up ? cy - 30 : cy + 30;
+    s += `<line x1="${sx}" y1="${cy}" x2="${sx}" y2="${ey}" stroke="${CH_INK}" stroke-width="2"/>`;
+    if (nt.dur === 'e') s += up ? `<path d="M${sx} ${ey} q11 7 8 19" fill="none" stroke="${CH_INK}" stroke-width="2.6"/>` : `<path d="M${sx} ${ey} q11 -7 8 -19" fill="none" stroke="${CH_INK}" stroke-width="2.6"/>`;
+    x += nt.dur === 'h' ? 48 : nt.dur === 'e' ? 26 : 34;
+  });
+  x += 6;
+  let lines = ''; for (let p = 0; p <= 8; p += 2) lines += `<line x1="2" y1="${y(p)}" x2="${x}" y2="${y(p)}" stroke="${CH_INK}" stroke-width="1.4"/>`;
+  lines += `<line x1="${x}" y1="${y(0)}" x2="${x}" y2="${y(8)}" stroke="${CH_INK}" stroke-width="2"/>`;
+  const clef = `<text x="3" y="${y(0) + 13}" font-size="58" fill="${CH_INK}" font-family="Segoe UI Symbol, FreeSerif, Noto Music, serif">𝄞</text>`;
+  return `<svg class="staff" viewBox="0 4 ${x + 4} 80" width="${x + 4}" height="80">${lines}${clef}${s}</svg>`;
+}
+
+// --- Content banks ---------------------------------------------------------------------------------------------
+const CH_FAM = [
+  { set: ['pluck'], say: ['a string instrument', 'an instrument with strings, like a guitar'], hint: 'A guitar has strings you pluck. Tap 🎸 Pluck at the top.' },
+  { set: ['flute'], say: ['a woodwind instrument', 'an instrument you blow into'], hint: 'A flute is a woodwind. You blow into it. Tap 🎵 Flute at the top.' },
+  { set: ['bell', 'marimba'], say: ['an instrument you hit with a mallet', 'a pitched percussion instrument'], hint: 'Bells and a marimba are hit with mallets. Tap 🔔 Bell or 🪵 Marimba at the top.' },
+  { set: ['organ'], say: ['a keyboard instrument', 'an instrument with keys, like a piano'], hint: 'An organ has keys like a piano. Tap 🎹 Organ at the top.' },
+];
+// Tune openings as scale degrees (0 is the home note).
+const CH_TUNES = [
+  ['Mary Had a Little Lamb', [2, 1, 0, 1, 2, 2, 2]], ['Hot Cross Buns', [2, 1, 0, 2, 1, 0]], ['Twinkle, Twinkle, Little Star', [0, 0, 4, 4, 5, 5, 4]],
+  ['Ode to Joy', [2, 2, 3, 4, 4, 3, 2, 1]], ['Brother John', [0, 1, 2, 0, 0, 1, 2, 0]], ['Lightly Row', [4, 2, 2, 3, 1, 1]],
+  ['London Bridge', [4, 5, 4, 3, 2, 3, 4]], ['Row, Row, Row Your Boat', [0, 0, 0, 1, 2, 2, 1, 2]], ['Jingle Bells', [2, 2, 2, 2, 2, 2, 2, 4]],
+  ['Old MacDonald', [4, 4, 4, 1, 2, 2, 1]], ['Au Clair de la Lune', [0, 0, 0, 1, 2, 1]], ['Yankee Doodle', [0, 0, 1, 2, 0, 2, 1]],
+];
+const CH_PROGS = [[0, 3, 4, 0], [0, 4, 5, 3], [1, 4, 0, 0], [0, 5, 3, 4], [0, 3, 0, 4], [5, 3, 0, 4], [0, 1, 4, 0], [0, 3, 4, 4], [3, 4, 0, 0], [0, 5, 1, 4]];
+// Time signatures: squares per beat, beats per bar, bars on the grid, and patterns (role, counts in the bar).
+const CH_METERS = [
+  { sig: '4/4', beat: 2, bpb: 4, bars: 2, intro: 'This song is in 4/4: 4 beats in every bar. Each box is one beat.', pats: [
+    [['A', [1]]], [['A', [1, 3]], ['B', [2, 4]]], [['A', [1]], ['C', 'all']], [['A', [1, 3]], ['C', [2, 4]]] ] },
+  { sig: '3/4', beat: 2, bpb: 3, bars: 2, intro: 'This song is in 3/4: 3 beats in every bar. Each box is one beat.', pats: [
+    [['A', [1]]], [['A', [1]], ['B', [2, 3]]], [['A', [1]], ['C', [3]]] ] },
+  { sig: '2/4', beat: 2, bpb: 2, bars: 4, intro: 'This song is in 2/4: 2 beats in every bar. Each box is one beat.', pats: [
+    [['A', [1]]], [['A', [1]], ['B', [2]]] ] },
+  { sig: '6/8', beat: 3, bpb: 2, bars: 2, intro: 'This song is in 6/8: 6 eighth notes in every bar, felt as two big beats. Each square is one eighth note.', pats: [
+    [['A', [1, 4]]], [['A', [1]], ['C', 'all']], [['A', [1, 4]], ['B', [3, 6]]] ] },
+];
+
+// Composing rules for the top rung. m is the melody [{ c, d }] (d is the scale degree), st the whole grid.
+function chRules(k) {
+  const L = CH_KEYS[k].s, T = L[0], D = L[4], last = m => m[m.length - 1];
+  return {
+    startEnd: { t: `Start and end on ${T}.`, ok: m => m.length > 1 && m[0].d % 7 === 0 && last(m).d % 7 === 0 },
+    count: n => ({ t: `Use at least ${n} notes, one at a time.`, ok: m => m.length >= n }),
+    noleap: { t: 'Move by step or skip. No jump bigger than a third.', ok: m => m.length > 1 && m.every((x, i) => !i || Math.abs(x.d - m[i - 1].d) <= 2) },
+    peak: { t: 'Your highest note comes only once.', ok: m => { if (!m.length) return false; const hi = Math.max(...m.map(x => x.d)); return m.filter(x => x.d === hi).length === 1; } },
+    leapback: { t: 'Use a leap of a fourth or more, then step back the other way.', ok: m => {
+      let leaps = 0;
+      for (let i = 1; i < m.length; i++) {
+        const a = m[i].d - m[i - 1].d; if (Math.abs(a) < 3) continue; leaps++;
+        if (!m[i + 1]) return false; const b = m[i + 1].d - m[i].d;
+        if (Math.abs(b) !== 1 || Math.sign(b) !== -Math.sign(a)) return false;
+      }
+      return leaps > 0; } },
+    chord: { t: `Use only the notes of the ${T} major chord: ${L[0]}, ${L[2]} and ${L[4]}.`, ok: m => m.length > 0 && m.every(x => [0, 2, 4].includes(x.d % 7)) },
+    drum: { t: 'Put a drum on beat 1 of both bars.', ok: (m, st) => st.perc[0][0] && st.perc[0][8] },
+    answer: { t: `End bar 1 on ${D} and bar 2 on ${T}.`, ok: m => { const a = m.filter(x => x.c < 8), b = m.filter(x => x.c >= 8); return a.length > 0 && b.length > 0 && last(a).d % 7 === 4 && last(b).d % 7 === 0; } },
+    range: { t: 'Stay within a fifth: highest and lowest notes no more than five letters apart.', ok: m => m.length > 0 && Math.max(...m.map(x => x.d)) - Math.min(...m.map(x => x.d)) <= 4 },
+  };
+}
+const CH_CLASH = [['chord', 'leapback'], ['noleap', 'leapback']];
+
+// --- The ladder ------------------------------------------------------------------------------------------------
+// Grade band of each rung:
+//   0 Steady beat, 1 High and low ............................ pre-K
+//   2 Loud and soft, 3 Echo 3 notes ........................... K
+//   4 Rhythm patterns, 5 Echo 5 notes ......................... 1st
+//   6 Instrument families, 7 Repeat the rhythm ................ 2nd
+//   8 Read the rhythm, 9 Scales ............................... 3rd
+//  10 Melody echo, 11 Whole and half steps .................... 4th
+//  12 Intervals, 13 Major and minor ........................... 5th
+//  14 Chords, 15 Time signatures .............................. 6th
+//  16 Key signatures, 17 Chord progressions ................... 7th
+//  18 Reading a staff, 19 Composing to a rule ................. 8th
+const LEVELS = [
+  { name: 'Steady beat', g: -1, gen() {
+    const r = chPick([0, 0, 1, 2]), ic = PERC_DEF[r].icon, mode = chPick(['fill', 'fill', 'fill', 'two', 'box']);
+    if (mode === 'box') {
+      const pos = chRange(8).map(i => i * 2);
+      return chTask({ steps: 16, beat: 2, perc: true, listen: true,
+        text: chPick([`Each box has two squares. Put a ${CH_PN[r]} at the start of every box.`, `Play the ${CH_PN[r]} once in every box, on the first square.`, `Walk with the ${CH_PN[r]}: one sound at the start of each box.`]),
+        hint: `Tap the first square of each box in the ${ic} row. Skip the second square.`, sol: { perc: pos.map(c => [r, c]) }, check: chPercIs({ [r]: pos }) });
+    }
+    const steps = chPick([8, 8, 12, 16]), all = chRange(steps);
+    if (mode === 'two') {
+      const r2 = chPick([0, 1, 2].filter(x => x !== r));
+      return chTask({ steps, perc: true, listen: true,
+        text: chPick([`Keep a steady beat with the ${CH_PN[r]} and the ${CH_PN[r2]} together. Fill both rows.`, `Two friends keep the beat. Fill the ${CH_PN[r]} row and the ${CH_PN[r2]} row.`]),
+        hint: `Tap every square in the ${ic} row, then every square in the ${PERC_DEF[r2].icon} row.`,
+        sol: { perc: [...all.map(c => [r, c]), ...all.map(c => [r2, c])] }, check: chPercIs({ [r]: all, [r2]: all }) });
+    }
+    return chTask({ steps, perc: true, listen: true,
+      text: chPick([`Keep a steady beat. Turn on every ${CH_PN[r]} square.`, `Fill the ${CH_PN[r]} row, all the way across. Tap, tap, tap.`, `A steady beat keeps going. Put a ${CH_PN[r]} in every square.`, `Play the ${CH_PN[r]} on every beat, from start to end.`]),
+      hint: `Find the ${ic} row. Tap every square in it, or slide your finger along it.`, sol: { perc: all.map(c => [r, c]) }, check: chPercIs({ [r]: all }) });
+  } },
+  { name: 'High and low', g: -1, gen() {
+    const rows = chAnimalRows(), mode = chPick(['count', 'count', 'pat', 'pat', 'stairs']);
+    if (mode === 'count') {
+      const hi = Math.random() < 0.5, r = hi ? 0 : 7, n = chRnd(2, 4), cols = chShuffle(chRange(8)).slice(0, n).sort((a, b) => a - b);
+      return chTask({ rows, listen: true,
+        text: hi ? chPick([`The bird sings high. Put ${n} notes in the top row.`, `High up in the sky! Play ${n} high notes in the bird row.`]) : chPick([`The elephant sings low. Put ${n} notes in the bottom row.`, `Down low, like an elephant. Play ${n} low notes in the bottom row.`]),
+        hint: hi ? `The bird is at the top. Tap ${n} squares in its row.` : `The elephant is at the bottom. Tap ${n} squares in its row.`,
+        show: { chips: chRange(n).map(() => ({ t: LABELS[r], c: COLORS[r] })) }, sol: { notes: cols.map(c => [r, c]) },
+        check: st => {
+          if (st.notes.some((row, i) => i !== r && row.some(Boolean))) return hi ? 'Use only the top row.' : 'Use only the bottom row.';
+          const k = chCount(st.notes); return k < n ? `Add more notes. We need ${n}.` : k > n ? `Too many. We need ${n}.` : null;
+        } });
+    }
+    if (mode === 'pat') {
+      let seq; do { seq = chRange(chRnd(2, 4)).map(() => Math.random() < 0.5 ? 0 : 7); } while (!seq.includes(0) || !seq.includes(7));
+      const words = seq.map(r => r ? 'low' : 'high');
+      return chTask({ rows, listen: true,
+        text: chPick([`Play ${words.join(', ')}. The bird is high and the elephant is low.`, `Make this song: ${words.join(', ')}. Bird for high, elephant for low.`]),
+        hint: 'High is the bird at the top. Low is the elephant at the bottom. Put one note in each square, left to right.',
+        show: { chips: seq.map((r, i) => ({ t: LABELS[r], s: words[i], c: COLORS[r] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+    }
+    const up = Math.random() < 0.5, seq = up ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
+    return chTask({ rows, listen: true,
+      text: up ? 'Climb the stairs from low to high. Start with the elephant and go up one row in each square.' : 'Walk down the stairs from high to low. Start with the bird and go down one row in each square.',
+      hint: up ? 'First square: the elephant row at the bottom. Next square: one row higher. Keep climbing to the bird.' : 'First square: the bird row at the top. Next square: one row lower. Keep going down to the elephant.',
+      show: { chips: [{ t: LABELS[seq[0]] }, { t: up ? '⬆️' : '⬇️' }, { t: LABELS[seq[7]] }] }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+  } },
+  { name: 'Loud and soft', g: 0, gen() {
+    const mode = chPick(['loud', 'soft', 'ls', 'sl', 'cresc', 'dim', 'pat', 'pat', 'pat', 'pat']);
+    const loudChip = { t: '🥁', s: 'loud' }, softChip = { t: '🪇', s: 'soft' };
+    if (mode === 'pat') {
+      let seq; do { seq = chRange(chRnd(4, 6)).map(() => Math.random() < 0.5 ? 'loud' : 'soft'); } while (!seq.includes('loud') || !seq.includes('soft'));
+      const spec = { 0: [], 2: [] }; seq.forEach((w, c) => spec[w === 'loud' ? 0 : 2].push(c));
+      return chTask({ steps: 8, perc: true, listen: true, show: { chips: seq.map(w => w === 'loud' ? loudChip : softChip) },
+        text: chPick([`Play ${seq.join(', ')}. The drum is loud and the shaker is soft.`, `Loud and soft song: ${seq.join(', ')}. Drum for loud, shaker for soft.`]),
+        hint: 'One square for each word, left to right. Loud goes in the drum row 🥁. Soft goes in the shaker row 🪇.',
+        sol: { perc: spec[0].map(c => [0, c]).concat(spec[2].map(c => [2, c])) }, check: chPercIs(spec, [1]) });
+    }
+    if (mode === 'loud' || mode === 'soft') {
+      const steps = chPick([8, 12]), all = chRange(steps), loud = mode === 'loud';
+      return chTask({ steps, perc: true, listen: true, show: { chips: [loud ? loudChip : softChip] },
+        text: loud ? chPick(['The drum is loud. Make a big loud beat: fill the drum row, with no shaker.', 'Loud like thunder! Put a drum in every square.']) : chPick(['The shaker is soft. Make a quiet beat: fill the shaker row, with no drum.', 'Soft like a mouse. Put a shaker in every square and keep the drum off.']),
+        hint: loud ? 'Loud is the drum 🥁. Fill its row and leave the shaker off.' : 'Soft is the shaker 🪇. Fill its row and leave the drum and clap off.',
+        sol: { perc: all.map(c => [loud ? 0 : 2, c]) }, check: loud ? chPercIs({ 0: all }, [2]) : chPercIs({ 2: all }, [0, 1]) });
+    }
+    if (mode === 'ls' || mode === 'sl') {
+      const steps = chPick([8, 12, 16]), h = steps / 2, a = chRange(h), b = chRange(h, h), ls = mode === 'ls';
+      const spec = ls ? { 0: a, 2: b } : { 2: a, 0: b };
+      return chTask({ steps, perc: true, listen: true, barCells: h, show: { chips: ls ? [loudChip, softChip] : [softChip, loudChip] },
+        text: ls ? chPick(['Start loud, then go soft. Drums in the first half, shakers in the second half.', 'Loud, then soft! Drum first, then shaker.']) : chPick(['Start soft, then get loud. Shakers in the first half, drums in the second half.', 'Soft, then loud! Shaker first, then drum.']),
+        hint: `The purple line is the middle. ${ls ? 'Fill the drum row before it and the shaker row after it.' : 'Fill the shaker row before it and the drum row after it.'}`,
+        sol: { perc: [...(ls ? a : b).map(c => [0, c]), ...(ls ? b : a).map(c => [2, c])] }, check: chPercIs(spec) });
+    }
+    const up = mode === 'cresc', order = up ? [2, 1, 0] : [0, 1, 2], spec = {}; const sol = [];
+    order.forEach((r, i) => { spec[r] = chRange(4, i * 4); spec[r].forEach(c => sol.push([r, c])); });
+    return chTask({ steps: 12, beat: 4, perc: true, listen: true, show: { chips: order.map(r => ({ t: PERC_DEF[r].icon })).concat([{ t: up ? '📈' : '📉' }]) },
+      text: up ? 'Get louder and louder. Four shakers, then four claps, then four drums.' : 'Get softer and softer. Four drums, then four claps, then four shakers.',
+      hint: up ? 'Box 1: shaker row. Box 2: clap row. Box 3: drum row. Fill each box.' : 'Box 1: drum row. Box 2: clap row. Box 3: shaker row. Fill each box.',
+      sol: { perc: sol }, check: chPercIs(spec) });
+  } },
+  { name: 'Echo 3 notes', g: 0, gen() {
+    const rows = chAnimalRows(), seq = chWalk(chPick([2, 3, 3, 3]), 0, 7, 4), names = seq.map(r => CH_ANIMALS[r]).join(', ');
+    return chTask({ rows, listen: true,
+      text: chPick([`Listen. Then play it back: ${names}.`, `Echo me! Play ${names}.`, `Copy my song: ${names}.`]),
+      hint: 'Find each animal on the left. Put one note in its row, one square after another.',
+      show: { chips: seq.map(r => ({ t: LABELS[r], c: COLORS[r] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+  } },
+  { name: 'Rhythm patterns', g: 1, gen() {
+    const r = chPick([0, 1, 1, 2]), toks = chRandToks(4), pos = chTokPos(toks), words = toks.map(t => CH_WORD[t]).join(', ');
+    return chTask({ steps: 8, beat: 2, perc: true, listen: true,
+      text: chPick([`Play this rhythm on the ${CH_PN[r]} row: ${words}.`, `Say it, then build it with the ${CH_PN[r]}: ${words}.`, `Here is a rhythm: ${words}. Make it with the ${CH_PN[r]}.`]),
+      hint: 'Each box is one beat. Ta is one sound at the start of the box. Ti-ti fills both squares. A rest stays empty.',
+      show: { chips: chTokChips(toks, r) }, sol: { perc: pos.map(c => [r, c]) }, check: chPercIs({ [r]: pos }) });
+  } },
+  { name: 'Echo 5 notes', g: 1, gen() {
+    const rows = chAnimalRows(); let seq;
+    if (Math.random() < 0.25) { const a = chRnd(0, 7), b = chPick(chRange(8).filter(x => x !== a)); seq = chRnd(0, 1) ? [a, b, a, b, a] : [a, a, b, b, a]; }
+    else seq = chWalk(chRnd(4, 5), 0, 7, 2);
+    const names = seq.map(r => CH_ANIMALS[r]).join(', ');
+    return chTask({ rows, listen: true,
+      text: chPick([`Listen. Then play it back: ${names}.`, `Echo this longer song: ${names}.`, `Copy all ${seq.length} notes: ${names}.`]),
+      hint: 'Find each animal on the left. One note in its row, then the next square for the next animal.',
+      show: { chips: seq.map(r => ({ t: LABELS[r], c: COLORS[r] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+  } },
+  { name: 'Instrument families', g: 2, gen() {
+    const rows = chAnimalRows();
+    if (Math.random() < 0.18) {
+      const n = chRnd(4, 6), cells = chShuffle([].concat(...[0, 1, 2].map(r => chRange(8).map(c => [r, c])))).slice(0, n);
+      return chTask({ rows, perc: true, insts: true, inst: chPick(CH_INSTS),
+        text: `The drum, clap and shaker are untuned percussion. Play a beat with ${n} of their squares, and no tune notes.`,
+        hint: 'Use only the bottom three rows: 🥁 👏 🪇. Leave the animal rows empty.', sol: { perc: cells },
+        check: st => { if (chCount(st.notes)) return 'No tune notes this time. Only the drum, clap and shaker.'; const k = chCount(st.perc); return k < n ? `Use ${n} squares. You have ${k}.` : k > n ? `Too many. Use ${n} squares.` : null; } });
+    }
+    const f = chPick(CH_FAM), n = chRnd(3, 6), drum = Math.random() < 0.35;
+    const cells = chShuffle([].concat(...chRange(8).map(r => chRange(8).map(c => [r, c])))).slice(0, n);
+    return chTask({ rows, perc: true, insts: true, inst: chPick(CH_INSTS.filter(x => !f.set.includes(x))),
+      text: `At the top, pick ${chPick(f.say)}. Then play ${n} notes on it.` + (drum ? ' Add a drum on the first square too.' : ''),
+      hint: f.hint, sol: { inst: f.set[0], notes: cells, perc: drum ? [[0, 0]] : [] },
+      check: st => {
+        if (!f.set.includes(st.inst)) return 'Pick a different instrument at the top.';
+        const k = chCount(st.notes); if (k !== n) return k < n ? `Play ${n} notes. You have ${k}.` : `Too many notes. We need ${n}.`;
+        return drum && !st.perc[0][0] ? 'Put a drum on the first square.' : null;
+      } });
+  } },
+  { name: 'Repeat the rhythm', g: 2, gen() {
+    if (Math.random() < 0.55) {
+      const used = chShuffle([0, 1, 2]).slice(0, chRnd(1, 2)), pre = [];
+      used.forEach(r => chTokPos(chRandToks(4)).forEach(c => pre.push([r, c])));
+      return chTask({ steps: 16, beat: 2, perc: true, listen: true, barCells: 8, pre: { perc: pre }, sol: { perc: pre.concat(pre.map(([r, c]) => [r, c + 8])) },
+        text: chPick(['Here is a rhythm. Copy it into the second half so it plays two times.', 'Repeat after me. Make the second half match the first half.', 'Rhythms love to repeat. Copy the first four boxes into the last four boxes.']),
+        hint: 'Look at each row. Turn on the same squares after the purple line as before it.',
+        check: st => {
+          if (!st.perc.some(row => row.slice(0, 8).some(Boolean))) return 'Put a rhythm in the first half again.';
+          for (let r = 0; r < PERC; r++) for (let c = 0; c < 8; c++) if (st.perc[r][c] !== st.perc[r][c + 8]) return `The second half of the ${CH_PN[r]} row does not match yet.`;
+          return null;
+        } });
+    }
+    const [a, b] = chShuffle([0, 1, 2]), ta = chRandToks(4), tb = chRandToks(4), pa = chTokPos(ta), pb = chTokPos(tb);
+    const wa = ta.map(t => CH_WORD[t]).join(', '), wb = tb.map(t => CH_WORD[t]).join(', ');
+    return chTask({ steps: 8, beat: 2, perc: true, listen: true,
+      text: `Play two rhythms at once. ${chCap(CH_PN[a])}: ${wa}. ${chCap(CH_PN[b])}: ${wb}.`,
+      hint: 'Do one row at a time. Ta is the first square of a box, ti-ti is both squares, rest is empty.',
+      show: { lines: [{ label: PERC_DEF[a].icon, chips: chTokChips(ta, a) }, { label: PERC_DEF[b].icon, chips: chTokChips(tb, b) }] },
+      sol: { perc: pa.map(c => [a, c]).concat(pb.map(c => [b, c])) }, check: chPercIs({ [a]: pa, [b]: pb }) });
+  } },
+  { name: 'Read the rhythm', g: 3, gen() {
+    const r = chPick([0, 0, 1]), beats = chPick([4, 4, 8]); let toks;
+    do {
+      toks = []; let left = beats;
+      while (left > 0) { const t = left >= 2 && Math.random() < 0.2 ? 'h' : chPick(['q', 'q', 'e', 'e', 'r']); toks.push(t); left -= t === 'h' ? 2 : 1; }
+    } while (toks.filter(t => t !== 'r').length < 2 || toks.every(t => t === toks[0]));
+    const map = { q: [1, 0], e: [1, 1], r: [0, 0], h: [1, 0, 0, 0] }, pos = chTokPos(toks, map);
+    return chTask({ steps: beats * 2, beat: 2, perc: true, listen: true, show: { svg: chRhythmSvg(toks) },
+      text: chPick([`Read the rhythm. Play it on the ${CH_PN[r]} row. Each box is one beat.`, `Here are notes and rests. Turn them into ${CH_PN[r]} sounds, one box for each beat.`]),
+      hint: 'A black note is one beat: tap the first square of its box. Two notes joined by a beam fill both squares. The open note lasts two boxes. The squiggle is a rest.',
+      sol: { perc: pos.map(c => [r, c]) }, check: chPercIs({ [r]: pos }) });
+  } },
+  { name: 'Scales', g: 3, gen() {
+    const k = chPick(['C', 'C', 'G', 'F', 'D']), rows = chKeyRows(k), L = CH_KEYS[k].s, nm = d => L[d % 7], mode = chPick(['up', 'down', 'updown', 'missing', 'missing', 'penta', 'part', 'part', 'part']);
+    const R = d => 7 - d, up = chRange(8), down = up.slice().reverse();
+    if (mode === 'part') {
+      const len = chRnd(4, 6), rise = Math.random() < 0.5, d0 = rise ? chRnd(0, 8 - len) : chRnd(len - 1, 7), degs = chRange(len).map(i => rise ? d0 + i : d0 - i), seq = degs.map(R);
+      return chTask({ rows, listen: true, text: `Play ${len} notes of the ${k} major scale going ${rise ? 'up' : 'down'}, starting on ${nm(d0)}.`,
+        hint: `Start on the ${nm(d0)} row. Each square moves one row ${rise ? 'up' : 'down'}.`, show: { chips: [{ t: nm(d0) }, { t: rise ? '⬆️' : '⬇️', s: len + ' notes' }] },
+        sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+    }
+    if (mode === 'penta') {
+      const degs = [0, 1, 2, 4, 5, 7], seq = degs.map(R);
+      return chTask({ rows, listen: true, text: `Play the ${k} pentatonic scale going up: ${degs.map(nm).join(', ')}. It skips two notes of the major scale.`,
+        hint: `Skip ${nm(3)} and ${nm(6)}. One note in each square.`, show: { chips: degs.map(d => ({ t: nm(d), c: COLORS[R(d)] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+    }
+    if (mode === 'missing') {
+      const gone = chShuffle(chRange(6, 1)).slice(0, chRnd(2, 3)), seq = up.map(R);
+      return chTask({ rows, listen: true, pre: { notes: up.filter(d => !gone.includes(d)).map(d => [R(d), d]) }, sol: { notes: up.map(d => [R(d), d]) },
+        text: `Some notes fell out of the ${k} major scale. Put them back so it climbs from low ${k} to high ${k}.`,
+        hint: `The scale goes up one row in every square. The missing ones are ${chAnd(gone.slice().sort().map(nm))}.`, check: chMelodyIs(seq) });
+    }
+    const degs = mode === 'up' ? up : mode === 'down' ? down : up.concat(down.slice(1)), seq = degs.map(R);
+    return chTask({ rows, listen: true, steps: degs.length > 8 ? 16 : 8,
+      text: mode === 'up' ? `Climb the ${k} major scale, from low ${k} to high ${k}. One note in each square.` : mode === 'down' ? `Walk down the ${k} major scale, from high ${k} to low ${k}. One note in each square.` : `Play the ${k} major scale up and back down, one note in each square.`,
+      hint: mode === 'down' ? 'Start on the top row. Each square goes down one row.' : 'Start on the bottom row. Each square goes up one row.',
+      show: { chips: [{ t: nm(degs[0]) }, { t: mode === 'up' ? '⬆️' : mode === 'down' ? '⬇️' : '⬆️⬇️' }, { t: nm(degs[degs.length - 1]) }] },
+      sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+  } },
+  { name: 'Melody echo', g: 4, gen() {
+    const k = chPick(['C', 'C', 'G', 'F']), rows = chKeyRows(k), L = CH_KEYS[k].s; let degs, title = '';
+    if (Math.random() < 0.55) { const tn = chPick(CH_TUNES); title = tn[0]; degs = tn[1]; }
+    else degs = chWalk(chRnd(6, 8), 0, 7, 2);
+    const seq = degs.map(d => 7 - d), names = degs.map(d => L[d % 7]);
+    return chTask({ rows, listen: true,
+      text: (title ? `This is the start of ${title}. ` : '') + chPick([`Listen, then write it on the grid: ${names.join(', ')}.`, `Echo the tune: ${names.join(', ')}.`]),
+      hint: 'Find each letter on the left. One note in its row, then move one square right for the next note.',
+      show: { chips: names.map((n, i) => ({ t: n, c: COLORS[seq[i]] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+  } },
+  { name: 'Whole and half steps', g: 4, gen() {
+    const m = chRnd(1, 3), dir = Math.random() < 0.5 ? 1 : -1, rows = chChromaRows(60, dir < 0), sizes = chRange(m).map(() => chPick([1, 2]));
+    const span = sizes.reduce((a, b) => a + b, 0);
+    const starts = chRange(13).filter(s => !CH_BLACK.includes(s % 12) && s + dir * span >= 0 && s + dir * span <= 12);
+    const s0 = chPick(starts), semis = [s0]; sizes.forEach(z => semis.push(semis[semis.length - 1] + dir * z));
+    const word = z => z === 1 ? 'half' : 'whole', way = dir > 0 ? 'up' : 'down', seq = semis.map(s => 12 - s);
+    const text = `Start on ${CH_SHARPS[s0 % 12]}. ${m === 1 ? 'Then go' : 'Go'} ${way} ` + sizes.map(z => 'a ' + word(z) + ' step').join(', then ') + '.';
+    return chTask({ rows, listen: true, text,
+      hint: 'A half step is the very next row, black rows too. A whole step skips one row.',
+      show: { chips: [{ t: CH_SHARPS[s0 % 12] }].concat(sizes.map(z => ({ t: dir > 0 ? '⬆️' : '⬇️', s: word(z) }))) },
+      sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+  } },
+  { name: 'Intervals', g: 5, gen() {
+    const k = chPick(['C', 'C', 'G', 'F']), rows = chKeyRows(k), L = CH_KEYS[k].s, nm = d => L[d % 7];
+    const n = chRnd(2, 8), d = chRnd(0, 8 - n), u = d + n - 1, ord = CH_ORD[n - 1], mode = chPick(['up', 'up', 'down', 'stack', 'stack']);
+    if (mode === 'stack') {
+      const c = chRnd(0, 7);
+      return chTask({ rows, listen: true, text: `Stack two notes ${chArt(ord)} ${ord} apart in one column. The bottom note is ${nm(d)}.`,
+        hint: `Count letters up from ${nm(d)}, and count ${nm(d)} as 1. Note ${n} is ${nm(u)}.`, sol: { notes: [[7 - d, c], [7 - u, c]] },
+        check: st => {
+          const used = chColsUsed(st); if (!used.length) return 'Put two notes in one column.';
+          if (used.length > 1) return 'Keep both notes in the same column.';
+          const rs = chColRows(st, used[0]); if (rs.length !== 2) return 'Use exactly two notes.';
+          return rs.includes(7 - d) ? (rs.includes(7 - u) ? null : 'The top note is not right yet. Count again.') : `The bottom note should be ${nm(d)}.`;
+        } });
+    }
+    const seq = mode === 'up' ? [7 - d, 7 - u] : [7 - u, 7 - d];
+    return chTask({ rows, listen: true,
+      text: mode === 'up' ? `Play ${nm(d)}, then the note ${chArt(ord)} ${ord} higher.` : `Play ${nm(u)}, then the note ${chArt(ord)} ${ord} lower.`,
+      hint: mode === 'up' ? `Count letters up from ${nm(d)}, and count ${nm(d)} as 1. Note ${n} is ${nm(u)}.` : `Count letters down from ${nm(u)}, and count ${nm(u)} as 1. Note ${n} is ${nm(d)}.`,
+      show: { chips: [{ t: nm(mode === 'up' ? d : u) }, { t: mode === 'up' ? '⬆️' : '⬇️', s: ord }] }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+  } },
+  { name: 'Major and minor', g: 5, gen() {
+    const root = chPick([0, 2, 4, 5]), flats = root === 0 || root === 5, rows = chChromaRows(60, flats), N = s => (flats ? CH_FLATS : CH_SHARPS)[s % 12], R = CH_SHARPS[root];
+    const mode = chPick(['build', 'build', 'change', 'change', 'scale']);
+    if (mode === 'scale') {
+      const minor = Math.random() < 0.6, semis = minor ? CH_MIN : CH_MAJ, rows2 = chChromaRows(60, minor), seq = semis.map(s => 12 - s);
+      return chTask({ rows: rows2, listen: true, text: `Play the C ${minor ? 'natural minor' : 'major'} scale going up, one note in each square.`,
+        hint: minor ? 'Minor steps: whole, half, whole, whole, half, whole, whole. That is C D E♭ F G A♭ B♭ C.' : 'Major steps: whole, whole, half, whole, whole, whole, half. Only the white rows.',
+        show: { chips: [{ t: 'C' }, { t: '⬆️', s: minor ? 'minor' : 'major' }, { t: 'C' }] }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+    }
+    const q = Math.random() < 0.5 ? 'major' : 'minor', third = q === 'major' ? 4 : 3, want = [root, root + third, root + 7].map(s => 12 - s), c = chRnd(0, 7);
+    const check = st => {
+      const used = chColsUsed(st); if (!used.length) return 'Stack your notes in one column.';
+      if (used.length > 1) return 'Keep all three notes in one column.';
+      const rs = chColRows(st, used[0]); if (rs.length !== 3) return 'A chord here has three notes.';
+      if (Math.max(...rs) !== want[0]) return `Put ${R} at the bottom.`;
+      return want.every(r => rs.includes(r)) ? null : 'Count the half steps again.';
+    };
+    if (mode === 'change') {
+      const other = 7 - third, from = [root, root + other, root + 7].map(s => 12 - s);
+      return chTask({ rows, listen: false, pre: { notes: from.map(r => [r, c]) }, sol: { notes: want.map(r => [r, c]) }, check,
+        text: q === 'minor' ? `This ${R} major chord sounds bright. Make it minor: move the middle note down one half step.` : `This ${R} minor chord sounds dark. Make it major: move the middle note up one half step.`,
+        hint: `Turn off the middle note and turn on the row just ${q === 'minor' ? 'below' : 'above'} it. That is ${N(root + third)}.`,
+        show: { chips: [{ t: q === 'minor' ? '☀️' : '🌧️' }, { t: '➡️' }, { t: q === 'minor' ? '🌧️' : '☀️', s: q }] } });
+    }
+    return chTask({ rows, listen: true, sol: { notes: want.map(r => [r, c]) }, check,
+      text: `Build ${chArt(R)} ${R} ${q} chord. Stack three notes in one column, with ${R} at the bottom.`,
+      hint: q === 'major' ? `Major: from ${R} go up 4 half steps, then 3 more. That is ${R}, ${N(root + 4)} and ${N(root + 7)}.` : `Minor: from ${R} go up 3 half steps, then 4 more. That is ${R}, ${N(root + 3)} and ${N(root + 7)}.`,
+      show: { chips: [{ t: R, s: q }] } });
+  } },
+  { name: 'Chords', g: 6, gen() {
+    const k = chPick(['C', 'G', 'F', 'D']), rows = chKeyRows(k), L = CH_KEYS[k].s, d = chRnd(0, 5), degs = [d, d + 2, d + 4].map(x => x % 7);
+    const letters = degs.map(x => L[x]), name = `${L[d]} ${CH_QUAL[d]}`, c = chRnd(0, 7), mode = chPick(['roman', 'name', 'degree']);
+    const text = mode === 'roman' ? `In ${k} major, build the ${CH_ROMAN[d]} chord in one column.` : mode === 'name' ? `Build ${chArt(L[d])} ${name} chord in one column.` : `Build a triad on note ${d + 1} of the ${k} major scale: skip a note, skip a note.`;
+    return chTask({ rows, listen: true, text, speak: chSpoken(text).replace(/\b(I|ii|iii|IV|V|vi) chord/, (m, r) => CH_ROMAN_SAY[CH_ROMAN.indexOf(r)] + ' chord'),
+      hint: `The ${name} chord is ${chAnd(letters)}. Any order works.`, show: { chips: [{ t: mode === 'roman' ? CH_ROMAN[d] : mode === 'name' ? L[d] : String(d + 1), s: mode === 'name' ? CH_QUAL[d] : k + ' major' }] },
+      sol: { notes: degs.map(x => [7 - x, c]) },
+      check: st => {
+        const used = chColsUsed(st); if (!used.length) return 'Stack your notes in one column.';
+        if (used.length > 1) return 'Keep the whole chord in one column.';
+        const got = new Set(chColRows(st, used[0]).map(r => (7 - r) % 7));
+        return got.size === 3 && degs.every(x => got.has(x)) ? null : 'Not those notes yet. Skip a letter between each one.';
+      } });
+  } },
+  { name: 'Time signatures', g: 6, gen() {
+    const M = chPick(CH_METERS), pat = chPick(M.pats), roles = chShuffle([0, 1, 2]), role = { A: roles[0], B: roles[1], C: roles[2] };
+    const bars = M.sig === '2/4' ? chPick([3, 4]) : M.bars, bar = M.beat * M.bpb, steps = bar * bars, eighth = M.sig === '6/8';
+    const spec = {}, sol = [], parts = [];
+    pat.forEach(([ro, counts]) => {
+      const r = role[ro], inBar = counts === 'all' ? chRange(bar) : counts.map(n => (n - 1) * (eighth ? 1 : M.beat));
+      spec[r] = []; for (let b = 0; b < bars; b++) inBar.forEach(c => spec[r].push(b * bar + c));
+      spec[r].forEach(c => sol.push([r, c]));
+      const word = eighth ? 'count' : 'beat';
+      parts.push(`${CH_PN[r]} on ${counts === 'all' ? (eighth ? 'all six counts' : 'every half beat') : word + (counts.length > 1 ? 's ' : ' ') + chAnd(counts.map(String))}`);
+    });
+    const quiet = [0, 1, 2].filter(r => !(r in spec));
+    return chTask({ steps, beat: M.beat, perc: true, listen: true, show: { sig: M.sig },
+      text: `${M.intro} Play ${chAnd(parts)} in every bar.`,
+      hint: eighth ? 'Count the squares 1 to 6, then a new bar starts at 1 again.' : `Count the boxes 1 to ${M.bpb}, then a new bar starts at 1 again.`,
+      sol: { perc: sol }, check: chPercIs(spec, quiet) });
+  } },
+  { name: 'Key signatures', g: 7, gen() {
+    const k = chPick(['G', 'D', 'A', 'E', 'B', 'F', 'Bb', 'Eb', 'Ab', 'Db']), K = CH_KEYS[k], n = Math.abs(K.acc), sharp = K.acc > 0, mode = chPick(['up', 'down', 'minor', 'minordown', 'missing', 'missing']);
+    const kind = sharp ? (n > 1 ? 'sharps' : 'sharp') : (n > 1 ? 'flats' : 'flat');
+    const accs = (sharp ? ['F#', 'C#', 'G#', 'D#', 'A#', 'E#', 'B#'] : ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Fb']).slice(0, n);
+    const minor = mode === 'minor' || mode === 'minordown', tonicName = minor ? K.s[5] : k; let t = minor ? K.t + 9 : K.t; while (t > 67) t -= 12; while (t < 55) t += 12;
+    const semis = minor ? CH_MIN : CH_MAJ, seq0 = semis.map(s => 12 - s), seq = mode === 'down' || mode === 'minordown' ? seq0.slice().reverse() : seq0;
+    if (mode === 'missing') {   // the plain letters are placed; the child adds the notes the key signature changes
+      const altered = K.s.map((nm, i) => nm.length > 1 ? i : -1).filter(i => i >= 0);
+      return chTask({ rows: chChromaRows(t, !sharp), listen: false, show: { svg: chStaffSvg(K.acc, []) },
+        pre: { notes: CH_MAJ.map((s, i) => [12 - s, i]).filter(([, i]) => !altered.includes(i % 7)) }, sol: { notes: seq0.map((r, c) => [r, c]) },
+        text: `This key signature has ${n} ${kind}. The ${k} major scale is missing those notes. Add them so the scale climbs from the bottom row.`,
+        hint: `The ${kind} in this key: ${chAnd(accs)}. Put each one in its empty square.`, check: chMelodyIs(seq0) });
+    }
+    return chTask({ rows: chChromaRows(t, !sharp), listen: false, show: { svg: chStaffSvg(K.acc, []) },
+      text: minor ? `This key signature has ${n} ${kind}. Its minor key starts on ${tonicName}. Build the ${tonicName} natural minor scale going ${mode === 'minordown' ? 'down from the top row' : 'up from the bottom row'}.`
+        : `This key signature has ${n} ${kind}. Its major key is ${k}. Build the ${k} major scale going ${mode === 'down' ? 'down from the top row' : 'up from the bottom row'}.`,
+      hint: `The ${kind} in this key: ${chAnd(accs)}. Every other note is a plain letter. One note in each square.`,
+      sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+  } },
+  { name: 'Chord progressions', g: 7, gen() {
+    const k = chPick(['C', 'G', 'F', 'D', 'A', 'Bb']), rows = chKeyRows(k), L = CH_KEYS[k].s, prog = chPick(CH_PROGS), chordOf = d => [d, d + 2, d + 4].map(x => x % 7);
+    const romans = prog.map(d => CH_ROMAN[d]), uniq = [...new Set(prog)];
+    const sol = []; prog.forEach((d, b) => chordOf(d).forEach(x => sol.push([7 - x, b * 4])));
+    const text = `In ${k} major, play ${romans.join(', ')}. One chord in each box.`;
+    return chTask({ rows, steps: 16, beat: 4, listen: true, text, speak: chSpoken(`In ${k} major, play `) + prog.map(d => CH_ROMAN_SAY[d]).join(', ') + '. One chord in each box.',
+      hint: uniq.map(d => `${CH_ROMAN[d]} is ${chordOf(d).map(x => L[x]).join(' ')}.`).join(' '),
+      show: { chips: romans.map((r, i) => ({ t: r, s: 'box ' + (i + 1) })) }, sol: { notes: sol },
+      check: st => {
+        for (let b = 0; b < 4; b++) {
+          const got = new Set(); for (let c = b * 4; c < b * 4 + 4; c++) chColRows(st, c).forEach(r => got.add((7 - r) % 7));
+          if (!got.size) return `Box ${b + 1} needs a chord.`;
+          const want = chordOf(prog[b]); if (got.size !== 3 || !want.every(x => got.has(x))) return `Check the chord in box ${b + 1}.`;
+        }
+        return null;
+      } });
+  } },
+  { name: 'Reading a staff', g: 8, gen() {
+    const k = chPick(['C', 'C', 'G']), t = k === 'C' ? 60 : 67, rows = chKeyRows(k, t), base = k === 'C' ? -2 : 2, beats = chPick([4, 8]);
+    let toks;
+    do {
+      toks = []; let left = beats;
+      while (left > 0) { const tk = left >= 2 && Math.random() < 0.18 ? 'h' : chPick(['q', 'q', 'q', 'e', 'e', 'r']); toks.push(tk); left -= tk === 'h' ? 2 : 1; }
+    } while (toks.filter(x => x !== 'r').length < 2);
+    let d = chRnd(0, 7); const next = () => { const st = chPick([-2, -1, -1, 1, 1, 2, 3, -3, 0]); d = d + st < 0 || d + st > 7 ? d - st : d + st; return d; };
+    const notes = [], sol = []; let cell = 0;
+    toks.forEach(tk => {
+      if (tk === 'r') { notes.push({ dur: 'r' }); cell += 2; return; }
+      const n1 = next(); notes.push({ pos: base + n1, dur: tk === 'e' ? 'e' : tk }); sol.push([7 - n1, cell]);
+      if (tk === 'e') { const n2 = next(); notes.push({ pos: base + n2, dur: 'e' }); sol.push([7 - n2, cell + 1]); }
+      cell += tk === 'h' ? 4 : 2;
+    });
+    const want = chState({ rows, steps: beats * 2 }, { notes: sol });
+    return chTask({ rows, steps: beats * 2, beat: 2, listen: false, show: { svg: chStaffSvg(CH_KEYS[k].acc, notes) },
+      text: chPick(['Read the music on the staff. Play it on the grid. Each box is one beat.', 'Here is a melody on the treble staff. Put each note in its row and its box.']) + (k === 'G' ? ' The sharp in the key signature makes every F an F sharp.' : ''),
+      hint: 'Lines from the bottom are E, G, B, D, F. Spaces are F, A, C, E. A black note is one beat, an open note is two, and a flag splits a beat in half.',
+      sol: { notes: sol },
+      check: st => { for (let c = 0; c < beats * 2; c++) for (let r = 0; r < rows.length; r++) if (st.notes[r][c] !== want.notes[r][c]) return `Check box ${Math.floor(c / 2) + 1}.`; return null; } });
+  } },
+  { name: 'Composing to a rule', g: 8, gen() {
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const k = chPick(['C', 'G', 'F']), rows = chKeyRows(k), RU = chRules(k), n = chRnd(6, 10);
+      let extra; do { extra = chShuffle(['noleap', 'peak', 'leapback', 'chord', 'drum', 'answer', 'range']).slice(0, 2); } while (CH_CLASH.some(([a, b]) => extra.includes(a) && extra.includes(b)));
+      const rules = [RU.startEnd, RU.count(n)].concat(extra.map(x => RU[x]));
+      const melOf = st => (chSeq(st) || []).map(x => ({ c: x.c, d: 7 - x.r }));
+      const check = st => { if (!chSeq(st)) return 'One note at a time. Each column gets just one note.'; const m = melOf(st); const bad = rules.find(R => !R.ok(m, st)); return bad ? 'Not yet: ' + bad.t : null; };
+      const t = chTask({ rows, perc: true, steps: 16, beat: 2, barCells: 8, manual: true,
+        text: chPick([`Compose a melody in ${k} major that follows every rule. Press Check when it is ready.`, `Write your own tune in ${k} major. Follow all the rules, then press Check.`]),
+        hint: 'Plan the first and last notes first. Then fill the middle, moving mostly one row at a time.', rules, ruleState: melOf, check });
+      for (let tries = 0; tries < 400; tries++) {
+        const cnt = chRnd(n, Math.min(16, n + 3)), cols = chShuffle(chRange(16)).slice(0, cnt).sort((a, b) => a - b), ds = [chPick([0, 0, 7])];
+        while (ds.length < cnt) {
+          const p = ds[ds.length - 1];
+          if (extra.includes('chord')) { const opts = [0, 2, 4, 7].filter(x => x !== p && Math.abs(x - p) <= (extra.includes('noleap') ? 2 : 4)); ds.push(opts.length ? chPick(opts) : 4); continue; }
+          if (extra.includes('leapback') && Math.random() < 0.3 && ds.length < cnt - 2) { const dir = p <= 3 ? 1 : -1, j = p + dir * chRnd(3, 4); ds.push(j, j - dir); continue; }
+          ds.push(Math.max(0, Math.min(7, p + chPick([-2, -1, -1, 1, 1, 2]))));
+        }
+        ds.length = cnt; ds[cnt - 1] = ds[cnt - 2] >= 4 ? 7 : 0;
+        if (extra.includes('answer')) { const lastA = cols.filter(c => c < 8).length - 1; if (lastA >= 0) ds[lastA] = 4; }
+        t.sol = { notes: cols.map((c, i) => [7 - ds[i], c]), perc: extra.includes('drum') ? [[0, 0], [0, 8]] : [] };
+        if (check(chState(t, t.sol)) === null) return t;
+      }
+    }
+    const k = 'C', RU = chRules(k), rules = [RU.startEnd, RU.count(6), RU.noleap], degs = [0, 1, 2, 3, 2, 1, 0];
+    return chTask({ rows: chKeyRows(k), perc: true, steps: 16, beat: 2, barCells: 8, manual: true, rules, ruleState: st => (chSeq(st) || []).map(x => ({ c: x.c, d: 7 - x.r })),
+      text: 'Compose a melody in C major that follows every rule. Press Check when it is ready.', hint: 'Plan the first and last notes first. Then fill the middle, moving mostly one row at a time.',
+      sol: { notes: degs.map((d, i) => [7 - d, i * 2]) },
+      check: st => { if (!chSeq(st)) return 'One note at a time. Each column gets just one note.'; const m = (chSeq(st) || []).map(x => ({ c: x.c, d: 7 - x.r })); const bad = rules.find(R => !R.ok(m, st)); return bad ? 'Not yet: ' + bad.t : null; } });
+  } },
+];
+// Where a new player starts: the first rung for the child's music grade (set by the parent), 2nd grade when unknown.
+const START = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('music', LEVELS.map(l => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('music', LEVELS.length, 6) : 6));
+
+// --- Progress ----------------------------------------------------------------------------------------------------
+const CH_KEY = 'musicbox-challenges';
+let P = { stars: 0, lv: START, st: { streak: 0, miss: 0 } };
+try { const s = JSON.parse(localStorage.getItem(CH_KEY) || 'null'); if (s && typeof s.lv === 'number') P = Object.assign(P, s, { st: Object.assign({ streak: 0, miss: 0 }, s.st || {}) }); } catch (e) {}
+P.lv = Math.max(0, Math.min(LEVELS.length - 1, P.lv | 0));
+function chPersist() { try { localStorage.setItem(CH_KEY, JSON.stringify(P)); } catch (e) {} }
+// One result per challenge: right (finished with no miss) or missed. Returns +1, -1 or 0 for a rung change.
+function chRecord(right) {
+  const s = P.st; let change = 0;
+  if (right) { s.miss = 0; s.streak++; if (s.streak >= 4 && P.lv < LEVELS.length - 1) { P.lv++; s.streak = 0; change = 1; } }
+  else { s.streak = 0; s.miss++; if (s.miss >= 2 && P.lv > 0) { P.lv--; s.miss = 0; change = -1; } }
+  chPersist(); return change;
+}
+
+// --- Playing a challenge -------------------------------------------------------------------------------------------
+let CT = null, chOn = false, chMissed = false, chWon = false, chNextTimer = null, chSayTok = 0;
+const $c = id => document.getElementById(id);
+function chSayThen(text, done) {
+  const my = ++chSayTok; let fired = false;
+  const go = () => { if (fired || my !== chSayTok) return; fired = true; if (done) done(); };
+  systemSay(text, go); setTimeout(go, 900 + text.length * 65);
+}
+function chNow() { return { notes: song.grid.notes, perc: song.grid.perc, inst: song.inst }; }
+function chLoad(t, spec) {
+  const st = chState(t, spec);
+  song = { chal: true, rows: t.rows && t.rows.map(r => Object.assign({}, r, { name: chPretty(r.name) })), showPerc: t.perc, steps: t.steps, beat: t.beat, barCells: t.barCells, bpm: 30000 / t.cellMs, inst: t.inst || songs[slot].inst || 'bell', scale: 'happy', swing: false,
+    grid: { notes: st.notes, perc: st.perc, samp: Array.from({ length: PADS }, () => Array(t.steps).fill(false)) } };
+  if (song.inst === 'voice' && !starSample()) song.inst = 'bell';
+  build(); refreshButtons();
+}
+function chPlay(st) {
+  const a = audio(); if (!a || !CT || !st) return;
+  const t0 = a.currentTime + 0.08, dt = CT.cellMs / 1000;
+  for (let c = 0; c < CT.steps; c++) {
+    st.notes.forEach((row, r) => { if (row[c]) note(CT.rows[r].freq, t0 + c * dt, song.inst); });
+    st.perc.forEach((row, r) => { if (row[c]) perc(r, t0 + c * dt); });
+  }
+}
+function chListen() { if (CT.listen) chPlay(chState(CT, CT.sol)); else chSayThen(CT.speak || chSpoken(CT.text)); }
+function chInfo() {
+  $c('cInfo').innerHTML = `<span>${LEVELS[P.lv].name}</span><span>⭐ ${P.stars} <span class="dots">${'●'.repeat(P.st.streak)}${'○'.repeat(Math.max(0, 4 - P.st.streak))}</span></span>`;
+}
+function chRender() {
+  $c('cText').textContent = chPretty(CT.text);
+  const sh = CT.show || {}; let h = '';
+  const chips = list => list.map(ch => `<span class="chip${ch.dark ? ' dark' : ''}" style="--cc:${ch.c ? ch.c + '55' : '#fff'}">${chPretty(ch.t)}${ch.s ? '<small>' + chPretty(ch.s) + '</small>' : ''}</span>`).join('');
+  if (sh.chips) h += `<div class="crow">${chips(sh.chips)}</div>`;
+  if (sh.lines) sh.lines.forEach(l => { h += `<div class="crow"><span class="clab">${l.label}</span>${chips(l.chips)}</div>`; });
+  if (sh.svg || sh.sig) h += `<div class="crow">${sh.svg || ''}${sh.sig ? `<div class="sig"><span>${sh.sig.split('/')[0]}</span><span>${sh.sig.split('/')[1]}</span></div>` : ''}</div>`;
+  if (CT.rules) h += `<ul class="rules">${CT.rules.map((R, i) => `<li data-i="${i}">${chPretty(R.t)}</li>`).join('')}</ul>`;
+  $c('cShow').innerHTML = h; chRules2(); chInfo();
+}
+function chRules2() {
+  if (!CT || !CT.rules) return; const st = chNow(), m = CT.ruleState(st);
+  document.querySelectorAll('#cShow .rules li').forEach(li => li.classList.toggle('ok', !!(chSeq(st) && CT.rules[+li.dataset.i].ok(m, st))));
+}
+function chNew() {
+  clearTimeout(chNextTimer); if (playing) setPlaying(false);
+  CT = LEVELS[P.lv].gen(); chMissed = false; chWon = false;
+  document.body.classList.toggle('noinst', !CT.insts);
+  chLoad(CT, CT.pre); chRender();
+  $c('cListen').style.display = CT.listen ? '' : 'none';
+  chSayThen(CT.speak || chSpoken(CT.text), () => { if (chOn && CT.listen) chPlay(chState(CT, CT.sol)); });
+}
+function chMiss() { if (chMissed) return; chMissed = true; const ch = chRecord(false); chInfo(); if (ch < 0) setTimeout(() => toast('Next one is a little easier.', 1800), 1600); }
+function chWin() {
+  chWon = true; const ch = chMissed ? 0 : chRecord(true);
+  P.stars++; chPersist(); chInfo();
+  const grid = cells; rowsDef.forEach((row, r) => grid[r].forEach((d, c) => { if (d.classList.contains('on')) setTimeout(() => { if (cells === grid) flash(r, c); }, c * 40); }));
+  const cheer = chPick(['Yes! You did it!', 'Beautiful music!', 'Great listening!', 'That is it!', 'Wonderful!']);
+  toast('⭐ ' + cheer + (ch > 0 ? ' New challenge: ' + LEVELS[P.lv].name + '!' : ''), 2200);
+  systemSay(cheer + (ch > 0 ? ' Now try ' + LEVELS[P.lv].name + '.' : ''));
+  chNextTimer = setTimeout(() => { if (chOn) chNew(); }, 2600);
+}
+const CHAL = window.CHAL = {
+  on: () => chOn,
+  enter() { if (chOn) return; chOn = true; document.body.classList.add('chal'); chNew(); },
+  exit() {
+    chOn = false; clearTimeout(chNextTimer); chSayTok++; if (playing) setPlaying(false);
+    document.body.classList.remove('chal', 'noinst'); song = songs[slot]; build(); refreshButtons();
+  },
+  changed() { if (!chOn || !CT || chWon) return; chRules2(); if (!CT.manual && CT.check(chNow()) === null) chWin(); },
+  reset() { if (!CT || chWon) return; chLoad(CT, CT.pre); chRules2(); },
+  check() {
+    if (!CT || chWon) return; const why = CT.check(chNow());
+    if (why === null) { chWin(); return; }
+    chMiss(); toast(chPretty(why), 2600); systemSay(chSpoken(why));
+  },
+  skip() { if (!CT) return; if (!chWon && !chMissed) chMiss(); chNew(); },
+  hint() { if (!CT) return; toast('💡 ' + chPretty(CT.hint), 5000); systemSay(chSpoken(CT.hint)); },
+  listen: () => CT && chListen(),
+  task: () => CT, state: () => ({ level: P.lv, streak: P.st.streak, miss: P.st.miss, stars: P.stars, missed: chMissed, won: chWon }),
+  setLevel(i) { P.lv = i; P.st = { streak: 0, miss: 0 }; chPersist(); if (chOn) chNew(); },
+};
+$c('cCheck').onclick = CHAL.check; $c('cSkip').onclick = CHAL.skip; $c('cHint').onclick = CHAL.hint; $c('cListen').onclick = CHAL.listen;
+$c('cText').onclick = () => { if (CT) chSayThen(CT.speak || chSpoken(CT.text)); };
+
+// --- Self-check hook for tools/ladder-check.mjs: builds challenges at a rung without touching the screen ------------
+function chValidate(t, i) {
+  const where = 'level ' + i + ' (' + LEVELS[i].name + '): ', BAD = /NaN|undefined|\[object|null|\u2014/;
+  const sh = t.show || {}, chipTexts = [].concat(sh.chips || [], ...(sh.lines || []).map(l => l.chips)).flatMap(c => [c.t, c.s].filter(x => x !== undefined));
+  const texts = [t.text, t.hint].concat(t.speak !== undefined ? [t.speak] : [], chipTexts, (t.rules || []).map(R => R.t), sh.svg ? [sh.svg] : [], sh.sig ? [sh.sig] : []);
+  if (typeof t.text !== 'string' || !t.text || typeof t.hint !== 'string' || !t.hint) throw new Error(where + 'missing text');
+  texts.forEach(x => { if (typeof x !== 'string' || BAD.test(x)) throw new Error(where + 'bad text: ' + String(x).slice(0, 80)); });
+  if (!Number.isInteger(t.steps) || t.steps < 4 || t.steps > 16 || !Number.isInteger(t.beat) || t.beat < 1) throw new Error(where + 'grid size');
+  if (!t.rows && !t.perc) throw new Error(where + 'no rows');
+  if (t.rows && (!t.rows.length || t.rows.length > 13 || t.rows.some(r => typeof r.name !== 'string' || !isFinite(r.freq) || r.freq <= 0))) throw new Error(where + 'rows');
+  const cellsOk = spec => (spec.notes || []).every(([r, c]) => t.rows && r >= 0 && r < t.rows.length && c >= 0 && c < t.steps)
+    && (spec.perc || []).every(([r, c]) => t.perc && r >= 0 && r < PERC && c >= 0 && c < t.steps);
+  if (!t.sol || !cellsOk(t.sol) || !cellsOk(t.pre || {})) throw new Error(where + 'target off the grid');
+  const inst = t.sol.inst || t.inst || 'bell';
+  if (t.sol.inst && (!CH_INSTS.includes(t.sol.inst) || (!t.insts && t.sol.inst !== t.inst))) throw new Error(where + 'instrument not on screen');
+  const fin = chState(t, t.sol); fin.inst = inst;
+  const why = t.check(fin); if (why !== null) throw new Error(where + 'solution fails: ' + why + ' | ' + t.text);
+  const start = t.check(chState(t, t.pre)); if (start === null) throw new Error(where + 'already solved at start');
+  if (typeof start !== 'string' || BAD.test(start)) throw new Error(where + 'bad feedback');
+  if (t.rules && !t.rules.every(R => R.ok(t.ruleState(fin), fin))) throw new Error(where + 'rules');
+}
+function chDescribe(t) {
+  const s = t.sol, cells = [].concat((s.notes || []).map(([r, c]) => c + ':' + t.rows[r].name), (s.perc || []).map(([r, c]) => c + ':' + CH_PN[r]));
+  return t.text + ' [' + (s.inst ? s.inst + ' ' : '') + cells.join(' ') + ']';
+}
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START,
+  label: () => LEVELS[P.lv].name,
+  exercise(i, n) { const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); chValidate(t, i); out.push(chDescribe(t)); } return out; },
+};
 </script>
 </body>
 </html>

@@ -1,13 +1,13 @@
 {
   "id": "music-box",
   "name": "Music Box",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A tone matrix with drums and five instruments, three song slots, and a Voice Lab that turns the child's own voice into an instrument.",
   "subjects": [
     "music"
   ],
   "ageMin": 4,
-  "ageMax": 10,
+  "ageMax": 14,
   "starter": true,
   "permissions": [
     "microphone"
@@ -16,7 +16,7 @@
   "source": "trucule/Surface-Pro-X-KidSetup apps/music-box",
   "about": {
     "concept": "Pattern and rhythm. A tone matrix turns a grid of choices into a repeating melody, so the child hears how changing one cell changes the whole, and learns beats, bars and layers by building them.",
-    "progression": "A single instrument on a short loop leads to drums plus melody, then several instruments, saved songs, and the Voice Lab, where the child's own voice becomes an instrument.",
+    "progression": "Free play is an open tone matrix with drums, five instruments, three saved songs and a Voice Lab for the child's own voice. The Challenges ladder uses the same grid, from steady beat, high and low, and loud and soft at pre-K, through rhythms, echoes, scales, intervals, major and minor, chords and time signatures, up to key signatures, chord progressions, reading a staff and composing to a rule in 8th grade.",
     "lifeSkills": [
       "Listening closely",
       "Composing and revising",
