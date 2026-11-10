@@ -64,6 +64,8 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
     locked: isLocked(ent),
     // The iPad app passes this with every StoreKit purchase so Apple's notifications name the family.
     appAccountToken: fam?.app_account_token ?? null,
+    // Card payments through Stripe (the Windows parent area subscribes this way).
+    cardPayments: !!ctx.stripe,
     apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, tileUrl: a.tileUrl, permissions: a.latest!.permissions, ...a.latest })),
     hidden: [...hidden],
     allowlist: await getSetting(q, deviceId, 'allowlist', [] as unknown[]),

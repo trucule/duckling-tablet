@@ -28,8 +28,11 @@ import { makeAppleVerifier, type AppleVerifier } from './apple.js';
 import { makeGooglePlay, makePushAuth, type GooglePlay, type PushAuth } from './google.js';
 import { makeAnthropic, type Complete } from './anthropic.js';
 import { makeFcm, type Push } from './push.js';
+import { makeStripe, type Stripe } from './stripe.js';
+import stripeRoutes from './routes/stripe.js';
+import windowsRoutes from './routes/windows.js';
 
-export interface BuildOptions { apple?: AppleVerifier | null; google?: GooglePlay | null; googlePushAuth?: PushAuth; db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; push?: Push; logger?: boolean | Record<string, unknown> }
+export interface BuildOptions { stripe?: Stripe | null; apple?: AppleVerifier | null; google?: GooglePlay | null; googlePushAuth?: PushAuth; db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; push?: Push; logger?: boolean | Record<string, unknown> }
 
 export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise<{ app: FastifyInstance; ctx: Ctx }> {
   const wantLog = opts.logger ?? cfg.NODE_ENV !== 'test';
@@ -46,14 +49,16 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
     attachToTicket: opts.attachToTicket ?? makeEtDuckyAttach(cfg, log),
     complete: opts.complete ?? makeAnthropic(cfg),
     push: opts.push ?? makeFcm(cfg, log),
+    stripe: opts.stripe === undefined ? makeStripe(cfg, log) : opts.stripe,
     log,
   };
   const voice = makeVoiceCache(ctx);
 
   await app.register(cookie, { secret: cfg.SESSION_SECRET });
-  // The portal, the child web app, and the origins the shells give installed packages (Android's asset loader).
+  // The portal, the child web app, and the origins the shells give installed packages: Android's asset loader, the
+  // iPad's local server, and the Windows shell's WebView2 virtual host.
   // The portal and the web app call every verb the API has; @fastify/cors allows only GET, HEAD and POST unless told.
-  await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL, 'https://appassets.androidplatform.net', 'http://127.0.0.1:47900'], credentials: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
+  await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL, 'https://appassets.androidplatform.net', 'http://127.0.0.1:47900', 'https://apps.duckling.example'], credentials: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
   await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
 
   app.setErrorHandler((err, req, reply) => {
@@ -86,6 +91,8 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
     google: opts.google === undefined ? makeGooglePlay(cfg, ctx.log) : opts.google,
     googlePushAuth: opts.googlePushAuth ?? makePushAuth(cfg),
   });
+  await app.register(stripeRoutes, { ctx });
+  await app.register(windowsRoutes, { ctx });
   await app.register(adminRoutes, { ctx, voice });
 
   // Development only: serve files from local storage at /files/... (production uses the Spaces CDN).

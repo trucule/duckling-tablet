@@ -68,6 +68,21 @@ const schema = z.object({
   GOOGLE_PUSH_AUDIENCE: z.string().default(''),
   GOOGLE_PUSH_SERVICE_ACCOUNT: z.string().default(''),
 
+  // Stripe subscriptions (S2): how Windows tablets subscribe, and an option on the parent portal. With no
+  // STRIPE_SECRET_KEY the routes answer 503. The price is found by its lookup key unless STRIPE_PRICE_ID is set. The
+  // Customer Portal uses STRIPE_PORTAL_CONFIGURATION (Duckling's own branding and options) when set, else the
+  // account default. STRIPE_WEBHOOK_SECRET is the signing secret of the /hooks/stripe endpoint. All three are
+  // written into .env on the droplet by `node dist/stripe-setup.js`, except the secret key, which the operator adds.
+  STRIPE_SECRET_KEY: z.string().default(''),
+  STRIPE_WEBHOOK_SECRET: z.string().default(''),
+  STRIPE_PRICE_LOOKUP_KEY: z.string().default('duckling_monthly'),
+  STRIPE_PRICE_ID: z.string().default(''),
+  STRIPE_PORTAL_CONFIGURATION: z.string().default(''),
+  STRIPE_AUTOMATIC_TAX: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  STRIPE_API: z.string().url().default('https://api.stripe.com'),
+  // The public site, where Checkout returns to (checkout/success.html and checkout/cancel.html).
+  SITE_URL: z.string().url().default('https://ducklingtablet.com'),
+
   // The AI proxy (POST /ai/messages) for Draw With Me lessons and Story Maker scenes. With no key, apps get a 503
   // and fall back to their built-in content. Models outside AI_MODELS are served with AI_DEFAULT_MODEL.
   ANTHROPIC_API_KEY: z.string().default(''),

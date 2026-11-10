@@ -6,6 +6,7 @@ import type { Synth } from './azure.js';
 import type { CreateTicket, AttachToTicket } from './etducky.js';
 import type { Complete } from './anthropic.js';
 import type { Push } from './push.js';
+import type { Stripe } from './stripe.js';
 
 export interface Ctx {
   cfg: Config;
@@ -17,6 +18,8 @@ export interface Ctx {
   attachToTicket: AttachToTicket;
   complete: Complete;
   push: Push;
+  // Stripe, when STRIPE_SECRET_KEY is set (billing routes, and account deletion cancels the family's subscription).
+  stripe: Stripe | null;
   log: (msg: string) => void;
 }
 

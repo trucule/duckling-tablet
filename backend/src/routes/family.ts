@@ -56,6 +56,9 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
       familyId: a.familyId, you: a.email,
       pinSet: !!(await q.one<{ pin_hash: string | null }>('SELECT pin_hash FROM family WHERE id = $1', [a.familyId]))?.pin_hash,
       subscription: await entitlementOf(q, a.familyId),
+      // Whether card payments (Stripe) are offered, and whether this family has a Stripe customer to manage.
+      cardPayments: !!ctx.stripe,
+      cardCustomer: !!(await q.one<{ stripe_customer_id: string | null }>('SELECT stripe_customer_id FROM family WHERE id = $1', [a.familyId]))?.stripe_customer_id,
       parents: await q.all('SELECT id, email, role FROM parent ORDER BY created_at'),
       children: await Promise.all((await q.all('SELECT * FROM child ORDER BY created_at')).map((r) => childWithExtras(ctx, q, r))),
       devices: await q.all(`SELECT ${DEVICE_COLUMNS} FROM device ORDER BY created_at`),
@@ -169,11 +172,19 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
   });
 
   // Delete account and all data: every device is told to release itself on its next check-in, then the family's
-  // records go. Tombstones are a global table, so this is system work. (Store subscriptions are cancelled in
-  // Apple's or Google's own screens; Stripe is cancelled by the billing module.)
+  // records go. Tombstones are a global table, so this is system work. A card subscription (Stripe) is cancelled
+  // here first; App Store and Google Play subscriptions are cancelled in Apple's or Google's own screens, which the
+  // portal points to.
   app.delete('/family', async (req) => {
     const a = await parentAuth(ctx, req);
     z.object({ confirm: z.literal('DELETE') }).parse(req.body);
+    const customer = (await ctx.db.family(a.familyId, (q) => q.one<{ stripe_customer_id: string | null }>('SELECT stripe_customer_id FROM family WHERE id = $1', [a.familyId])))?.stripe_customer_id;
+    if (customer) {
+      if (!ctx.stripe) throw new HttpError(503, 'The card subscription could not be cancelled right now. Try again later.');
+      try {
+        for (const s of await ctx.stripe.subscriptionsOf(customer)) if (!['canceled', 'incomplete_expired'].includes(s.status)) await ctx.stripe.cancel(s.id);
+      } catch { throw new HttpError(503, 'The card subscription could not be cancelled right now. Try again later.'); }
+    }
     await ctx.db.system(async (q) => {
       await q.run('INSERT INTO device_tombstone (token_hash) SELECT token_hash FROM device WHERE family_id = $1 ON CONFLICT DO NOTHING', [a.familyId]);
       await q.run('DELETE FROM family WHERE id = $1', [a.familyId]);
