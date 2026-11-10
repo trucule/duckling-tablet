@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked } from '../state';
+import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked, unlinked } from '../state';
 import { shell } from '../shell';
 import type { Entitlement, InstalledApp } from '../api';
 
@@ -55,7 +55,12 @@ export function Home() {
           <strong>This tablet is not locked down yet.</strong> A child can still leave Duckling. Finish setup in the parent area.
         </button>
       )}
-      {subscriptionNote(c?.entitlement) && (
+      {unlinked.value && (
+        <button class="setup" onClick={() => go('pin')}>
+          <strong>This tablet is not linked to a family.</strong> The apps still work. A parent can link it again in the parent area.
+        </button>
+      )}
+      {!unlinked.value && subscriptionNote(c?.entitlement) && (
         <button class="setup" onClick={() => go('pin')}>{subscriptionNote(c?.entitlement)}</button>
       )}
       <div class="grid">

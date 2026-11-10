@@ -4,7 +4,17 @@ import { signal, computed } from '@preact/signals';
 import { api, ReleasedError, type DeviceConfig, type CatalogApp, type OtherApp } from './api';
 import { shell } from './shell';
 
-export const config = signal<DeviceConfig | null>(null);
+// The last config the server sent is kept on the tablet, so the home screen has its tiles at once on the next start,
+// offline, and after the tablet was removed from its family on the website.
+const CONFIG_KEY = 'duckling:last-config';
+const storedConfig = (): DeviceConfig | null => { try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null'); } catch { return null; } };
+export const config = signal<DeviceConfig | null>(storedConfig());
+// Removed from the family on the website, or the family account was deleted: the server answers 410. The tablet
+// keeps its apps, PIN and lockdown and the parent area asks for a new pairing code. Nothing is wiped; only the
+// tablet's own "Remove Duckling from this device" does that.
+const UNLINKED_KEY = 'duckling:unlinked';
+export const unlinked = signal<boolean>((() => { try { return localStorage.getItem(UNLINKED_KEY) === '1'; } catch { return false; } })());
+function setUnlinked(on: boolean) { unlinked.value = on; try { if (on) localStorage.setItem(UNLINKED_KEY, '1'); else localStorage.removeItem(UNLINKED_KEY); } catch { /* storage unavailable */ } }
 export const catalog = signal<CatalogApp[]>([]);
 export const installed = signal<Record<string, string>>(shell.installedApps());
 export const installing = signal<Record<string, string>>({}); // id -> status text
@@ -42,17 +52,23 @@ export async function checkin(): Promise<void> {
   if (!shell.getDeviceToken()) { paired.value = false; return; }
   try {
     const c = await api.checkin();
-    config.value = c;
+    setConfig(c);
     paired.value = true;
     lastError.value = '';
-    applyConfig(c);
     if (c.state === 'release') { await releaseDevice(true); return; }
     void installMissing(c);
     void reportInstalled();
   } catch (e) {
-    if (e instanceof ReleasedError) { await releaseDevice(false); return; }
+    if (e instanceof ReleasedError) { setUnlinked(true); return; }
     lastError.value = (e as Error).message;
   }
+}
+
+function setConfig(c: DeviceConfig) {
+  config.value = c;
+  setUnlinked(false);
+  applyConfig(c);
+  try { localStorage.setItem(CONFIG_KEY, JSON.stringify(c)); } catch { /* storage unavailable: the next check-in fills it */ }
 }
 
 // What the shell needs from the config: the websites it may open, the child's name and voice for the apps, and the
@@ -161,6 +177,8 @@ export async function releaseDevice(tellServer: boolean) {
   shell.release();
   shell.setDeviceToken('');
   config.value = null; paired.value = false; installed.value = {};
+  setUnlinked(false);
+  try { localStorage.removeItem(CONFIG_KEY); } catch { /* storage unavailable */ }
   go('pair');
 }
 
@@ -178,10 +196,20 @@ export async function pair(code: string, name: string) {
 // and the lockdown steps (on a tablet the parent who typed the code is holding it).
 function adopt(r: { deviceToken: string; config: DeviceConfig }) {
   shell.setDeviceToken(r.deviceToken);
-  config.value = r.config; paired.value = true;
-  applyConfig(r.config);
+  setConfig(r.config); paired.value = true;
   void installMissing(r.config);
   go(shell.platform === 'web' ? 'home' : 'pin');
+}
+
+// An unlinked tablet joins a family again with a pairing code from the website. The apps already on it that the new
+// family's list lacks are added to that list, so the child's tiles come back; the parent stays in the parent area.
+export async function relink(code: string, name: string) {
+  const r = await api.pair(code, name);
+  shell.setDeviceToken(r.deviceToken);
+  setConfig(r.config); paired.value = true;
+  const listed = new Set(r.config.apps.map((a) => a.id));
+  for (const id of Object.keys(installed.value)) if (!listed.has(id) && !r.config.hidden.includes(id)) { try { await api.install(id); } catch { /* the family is locked out, or the app is gone from the catalog */ } }
+  await checkin();
 }
 
 export async function pairWithCode(email: string, code: string, childFirstName: string | undefined, childAge: number | undefined, name: string) {

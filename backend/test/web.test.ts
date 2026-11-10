@@ -213,6 +213,38 @@ describe.skipIf(!ready)('child web app', () => {
     for (const d of '1357') await p.getByRole('button', { name: d, exact: true }).click();
     await p.getByRole('heading', { name: 'Parent area' }).waitFor();
 
+    // Removed on the website: the server answers 410, the tablet keeps its apps and asks for a new pairing code in
+    // the parent area; a code from the website links it to the family again, with the apps it had.
+    const before = await (await fetch(`${api}/devices`, { headers: auth })).json();
+    await fetch(`${api}/devices/${before.devices[0].id}`, { method: 'DELETE', headers: auth });
+    // Music Box stops being a starter, so a fresh pairing would not list it; the relink adds it back from the tablet.
+    await db.system((q) => q.run("UPDATE app SET starter = false WHERE id = 'music-box'"));
+    await p.getByRole('button', { name: 'Sync with the website' }).click();
+    await p.getByRole('heading', { name: 'Link this tablet to your family' }).waitFor();
+    await p.getByRole('button', { name: 'Done' }).click();
+    await p.getByText('This tablet is not linked to a family.').waitFor();
+    await p.getByRole('button', { name: 'Word Wizard' }).waitFor(); // the tiles stay
+    await p.reload();
+    await p.getByText('This tablet is not linked to a family.').waitFor(); // and survive a restart
+    await p.getByRole('button', { name: 'Parent', exact: true }).click();
+    for (const d of '1357') await p.getByRole('button', { name: d, exact: true }).click();
+    const { code: code2 } = await post('/devices/pairing-codes', { childId: child.id }, auth);
+    await p.getByLabel('Pairing code').fill(code2);
+    await p.getByLabel('Name for this tablet').fill('Kitchen tablet');
+    await p.getByRole('button', { name: 'Link' }).click();
+    await p.getByRole('heading', { name: 'Manage this tablet from your phone' }).waitFor();
+    const relinked = await (await fetch(`${api}/devices`, { headers: auth })).json();
+    expect(relinked.devices.map((d: { name: string; state: string }) => [d.name, d.state])).toEqual([['Kitchen tablet', 'active']]);
+    const relinkedApps = (await (await fetch(`${api}/devices/${relinked.devices[0].id}`, { headers: auth })).json()).apps.map((a: { id: string }) => a.id);
+    expect(relinkedApps).toContain('music-box');
+    expect(relinkedApps.length).toBe(STARTERS.length);
+    await db.system((q) => q.run("UPDATE app SET starter = true WHERE id = 'music-box'"));
+    await p.getByRole('button', { name: 'Done' }).click();
+    await p.getByRole('button', { name: 'Word Wizard' }).waitFor();
+    await p.getByRole('button', { name: 'Parent', exact: true }).click();
+    for (const d of '1357') await p.getByRole('button', { name: d, exact: true }).click();
+    await p.getByRole('heading', { name: 'Parent area' }).waitFor();
+
     // Release: back to pairing, and the server shows the device as released.
     p.once('dialog', (d) => d.accept());
     await p.getByRole('button', { name: 'Remove Duckling from this device' }).click();

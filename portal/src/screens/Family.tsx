@@ -116,7 +116,7 @@ export function Family() {
                 {fam.children.map((c) => <option key={c.id} value={c.id}>{c.firstName}</option>)}
               </select>
               <button class="btn quiet" onClick={() => { const n = prompt('Device name', d.name); if (n) act(() => api.renameDevice(d.id, { name: n })); }}>Rename</button>
-              <button class="btn quiet" onClick={() => { if (confirm(`Remove ${d.name} from the family? The next time it is online it lifts its lockdown, clears Duckling's apps and data, and offers to uninstall. It can be paired again later with a new code.`)) act(() => api.removeDevice(d.id)); }}>Remove</button>
+              <button class="btn quiet" onClick={() => { if (confirm(`Remove ${d.name} from the family? Changes from here stop reaching it and its narrator voice turns off; its apps, PIN and lockdown stay. Its parent area then asks for a new pairing code, so it can join a family again.`)) act(() => api.removeDevice(d.id)); }}>Remove</button>
             </li>
           ))}
         </ul>

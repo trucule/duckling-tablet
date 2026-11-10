@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates } from '../state';
+import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink } from '../state';
 import { shell, type LockdownStatus, type BillingResult } from '../shell';
 
 // Behind the PIN: lockdown steps for this platform, a check-in button, and Remove from this device.
@@ -13,6 +13,11 @@ export function Parent() {
   const ios = shell.platform === 'ios';
   const locks = android || ios;
   const [billingNote, setBillingNote] = useState('');
+  const [linkCode, setLinkCode] = useState(''); const [linkName, setLinkName] = useState(ios ? 'iPad' : 'Tablet'); const [linkError, setLinkError] = useState('');
+  const link = async (e: Event) => {
+    e.preventDefault(); setBusy(true); setLinkError('');
+    try { await relink(linkCode, linkName.trim() || 'Tablet'); setLinkCode(''); } catch (err) { setLinkError((err as Error).message); } finally { setBusy(false); refresh(); }
+  };
   const release = async () => {
     if (!confirm(ios
       ? 'Remove Duckling from this iPad? The lockdown is lifted and the apps and data are removed. Then delete Duckling Tablet from the home screen. The family account keeps its settings.'
@@ -55,6 +60,24 @@ export function Parent() {
         </div>
       )}
 
+      {unlinked.value && (
+        <div class="card manage">
+          <img class="qr" src="/parents-qr.svg" alt="QR code for parents.ducklingtablet.com" width="132" height="132" />
+          <form onSubmit={link}>
+            <h2>Link this tablet to your family</h2>
+            <p>This tablet is not linked to a family account: it was removed on the website, or the account was deleted. Its apps, PIN and lockdown are still here, but changes from the website do not reach it and the narrator voice is off.</p>
+            <p>To manage it again, open <strong>parents.ducklingtablet.com</strong> on your phone (scan the code), press Make a pairing code under Devices, and type the code here. The apps already on the tablet stay.</p>
+            <div class="row">
+              <input inputMode="numeric" pattern="[0-9]*" maxLength={6} placeholder="000000" aria-label="Pairing code" value={linkCode} onInput={(e) => setLinkCode((e.target as HTMLInputElement).value.replace(/\D/g, ''))} style={{ fontSize: 24, letterSpacing: 6, textAlign: 'center', width: 170 }} />
+              <input maxLength={60} placeholder="Name for this tablet" aria-label="Name for this tablet" value={linkName} onInput={(e) => setLinkName((e.target as HTMLInputElement).value)} style={{ width: 200 }} />
+              <button class="pill primary" disabled={busy || linkCode.length !== 6}>{busy ? 'Linking' : 'Link'}</button>
+            </div>
+            {linkError && <div class="error">{linkError}</div>}
+          </form>
+        </div>
+      )}
+
+      {!unlinked.value && (
       <div class="card manage">
         <img class="qr" src="/parents-qr.svg" alt="QR code for parents.ducklingtablet.com" width="132" height="132" />
         <div>
@@ -67,7 +90,9 @@ export function Parent() {
           {lastError.value && <div class="error">{lastError.value}</div>}
         </div>
       </div>
+      )}
 
+      {!unlinked.value && (
       <div class="card">
         <h2>Included with Duckling</h2>
         <p>{ent?.status === 'trial' && ent.daysLeft !== null ? `Free trial: ${ent.daysLeft} day${ent.daysLeft === 1 ? '' : 's'} left, then ${price || '$5'} a month for every tablet in the family.` : ent?.status === 'active' ? `Subscribed: ${price || '$5'} a month covers every tablet in the family.` : ent?.status === 'grace' ? 'The last payment did not go through. Everything keeps running while the store tries again.' : ent?.status === 'ended' ? (shell.storeBilling ? 'The free trial has ended. Subscribe below to keep everything running.' : 'The free trial has ended. Subscribe in the parent portal to keep everything running.') : 'Free for 7 days, then $5 a month for every tablet in the family.'}</p>
@@ -87,6 +112,7 @@ export function Parent() {
           <li>The parent portal: apps, websites, a second parent, and this tablet from your phone.</li>
         </ul>
       </div>
+      )}
 
       {ios && (
         <div class="card">

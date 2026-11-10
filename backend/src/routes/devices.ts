@@ -153,8 +153,9 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
     }));
   });
 
-  // Remove a tablet from the family: the record goes, so the tablet's next contact answers 410 and it clears itself.
-  // Its push token is used one last time so that happens now rather than at the next check-in.
+  // Remove a tablet from the family: the record goes, so the tablet's next contact answers 410. The tablet keeps its
+  // apps, PIN and lockdown and its parent area asks for a new pairing code. Its push token is used one last time so
+  // it finds out now rather than at the next check-in.
   app.delete<{ Params: { id: string } }>('/devices/:id', async (req) => {
     const a = await parentAuth(ctx, req);
     const token = await ctx.db.family(a.familyId, async (q) => {

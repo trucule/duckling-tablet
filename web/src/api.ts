@@ -1,5 +1,5 @@
-// Calls to api.ducklingtablet.com as the device. A 410 means the family was deleted or the device removed: the shell
-// releases the lockdown and the web app returns to pairing.
+// Calls to api.ducklingtablet.com as the device. A 410 means the family was deleted or the device removed on the
+// website: the tablet keeps running as it is and its parent area asks for a new pairing code (state.ts).
 import { shell } from './shell';
 
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
