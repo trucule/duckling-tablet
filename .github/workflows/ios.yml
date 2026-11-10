@@ -1,7 +1,7 @@
 # Builds the iPad app on every push that touches ios/. Without the App Store Connect key it compiles for the
 # simulator only (no signing), which checks every change. With the key in the repository secrets (ASC_KEY_ID,
 # ASC_ISSUER_ID, ASC_KEY_P8), the same run archives a signed build and uploads it to App Store Connect, where it
-# appears in TestFlight. Xcode signs with the team's cloud-managed certificate (automatic signing through the key).
+# appears in TestFlight. The export signs with the team's cloud-managed distribution certificate through the key.
 name: iOS
 
 on:
@@ -44,10 +44,17 @@ jobs:
           KEY="$RUNNER_TEMP/AuthKey.p8"
           printf '%s' "$ASC_KEY_P8" > "$KEY"
           AUTH="-allowProvisioningUpdates -authenticationKeyPath $KEY -authenticationKeyID $ASC_KEY_ID -authenticationKeyIssuerID $ASC_ISSUER_ID"
+          # The archive is signed locally without a certificate or profile ("-", which keeps the entitlements in the
+          # binary); the export signs it for the App Store with the team's cloud-managed distribution certificate.
+          # So no development profile, registered device or certificate on this runner is needed.
           xcodebuild -project DucklingTablet.xcodeproj -scheme DucklingTablet -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Duckling.xcarchive" \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} $AUTH archive > "$RUNNER_TEMP/archive.log" 2>&1 \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- PROVISIONING_PROFILE_SPECIFIER= \
+            archive > "$RUNNER_TEMP/archive.log" 2>&1 \
             || { grep -E "error:|fatal" "$RUNNER_TEMP/archive.log" | sort -u | head -60; tail -n 30 "$RUNNER_TEMP/archive.log"; exit 1; }
+          echo "Entitlements in the archive:"
+          codesign -d --entitlements - --xml "$RUNNER_TEMP/Duckling.xcarchive/Products/Applications/DucklingTablet.app" 2>/dev/null | plutil -p - || true
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -60,5 +67,7 @@ jobs:
           </dict></plist>
           PLIST
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Duckling.xcarchive" \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" $AUTH 2>&1 | tail -n 40
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" $AUTH > "$RUNNER_TEMP/export.log" 2>&1 \
+            || { grep -E "error|Error" "$RUNNER_TEMP/export.log" | sort -u | head -40; tail -n 40 "$RUNNER_TEMP/export.log"; exit 1; }
+          tail -n 20 "$RUNNER_TEMP/export.log"
           rm -f "$KEY"
