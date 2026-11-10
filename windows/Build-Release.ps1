@@ -76,7 +76,7 @@ foreach ($a in $Arch) {
         Invoke-CodeSign $tool $ours
     }
     Write-Step "MSI $a"
-    & dotnet build (Join-Path $root 'installer\Duckling.Installer.wixproj') -c Release -p:Arch=$a -p:Version=$Version "-p:PublishDir=$pub\" -o (Join-Path $out $a) --nologo -v quiet
+    & dotnet build (Join-Path $root 'installer\Duckling.Installer.wixproj') -c Release -p:Arch=$a -p:Version=$Version "-p:PublishDir=$pub\" "-p:IntermediateOutputPath=$out\$a\obj\" -o (Join-Path $out $a) --nologo -v quiet
     if ($LASTEXITCODE -ne 0) { throw "MSI ($a) failed" }
     $msi = Join-Path $out "$a\DucklingTablet-$Version-$a.msi"
     if (-not (Test-Path $msi)) { $msi = Get-ChildItem (Join-Path $out $a) -Filter '*.msi' | Select-Object -First 1 -ExpandProperty FullName }
