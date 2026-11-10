@@ -203,4 +203,7 @@ export function startCheckins() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - last > 10 * 60 * 1000) tick(); });
   // A push from the server: a parent changed something, or the shell has a new push token to report.
   window.addEventListener('duckling:push', tick);
+  // Back from an app: My Avatar may have saved a new portrait, and an app may have earned stars. A short gap keeps a
+  // child flicking in and out of apps from checking in every few seconds.
+  window.addEventListener('duckling:resume', () => { if (Date.now() - last > 20 * 1000) tick(); });
 }

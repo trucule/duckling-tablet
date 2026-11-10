@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createServer, type Server } from 'node:http';
-import { createReadStream, existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
@@ -13,6 +13,9 @@ import { buildServer } from '../src/server.js';
 import { loadConfig } from '../src/config.js';
 import type { Db } from '../src/db.js';
 import { freePort, startCluster, type Cluster } from './pg.js';
+
+// The starter set, read from the manifests so the tests follow it when an app joins or leaves the set.
+const STARTERS = readdirSync(join(import.meta.dirname, '..', '..', 'apps')).filter((d) => existsSync(join(import.meta.dirname, '..', '..', 'apps', d, 'manifest.json')) && JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', 'apps', d, 'manifest.json'), 'utf8')).starter).sort();
 
 const execFile = promisify(execFileCb);
 const ROOT = join(import.meta.dirname, '..', '..');
@@ -127,22 +130,30 @@ describe.skipIf(!ready)('child web app', () => {
     for (const name of ['Count With Me', 'Draw With Me', 'Music Box', 'Robot Path', 'Trace With Me', 'Word Wizard']) {
       await p.getByRole('button', { name }).waitFor();
     }
-    await p.waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem('duckling.installed') || '{}')).length === 7);
+    await p.waitForFunction((n) => Object.keys(JSON.parse(localStorage.getItem('duckling.installed') || '{}')).length === n, STARTERS.length);
     const theme = await p.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--c1').trim());
     expect(theme).toBe('#ffb3c6');
     await p.screenshot({ path: join(dir, 'home.png') });
+    // The child's own character sits in a circle at the top (her first letter until My Avatar saves a portrait), and
+    // tapping it opens My Avatar (the browser shell says apps run on the tablet).
+    const avatar = p.getByRole('button', { name: 'Your avatar', exact: true });
+    expect(await avatar.textContent()).toBe('A');
+    const opened = new Promise<string>((resolve) => p.once('dialog', (d) => { resolve(d.message()); void d.accept(); }));
+    await avatar.click();
+    expect(await opened).toMatch(/Apps run on the tablet/);
 
     // Library: every starter app shows Open; removing one and installing it again round-trips through the server.
     await p.getByRole('button', { name: 'Library' }).click();
     await p.getByRole('heading', { name: 'Library' }).waitFor();
-    expect(await p.getByRole('button', { name: 'Open' }).count()).toBe(7);
+    expect(await p.getByRole('button', { name: 'Open' }).count()).toBe(STARTERS.length);
     p.once('dialog', (d) => d.accept());
     await p.locator('.store-row', { hasText: 'Music Box' }).getByRole('button', { name: 'Remove' }).click();
     await p.locator('.store-row', { hasText: 'Music Box' }).getByRole('button', { name: 'Install' }).waitFor();
     let cfg = await (await fetch(`${api}/devices`, { headers: auth })).json();
     const deviceId = cfg.devices[0].id;
+    // The tablet removes first and tells the server right after, so wait for the server as the install below does.
+    await expect.poll(async () => ((await (await fetch(`${api}/devices/${deviceId}`, { headers: auth })).json()).apps as { id: string }[]).map((a) => a.id)).not.toContain('music-box');
     let dev = await (await fetch(`${api}/devices/${deviceId}`, { headers: auth })).json();
-    expect(dev.apps.map((a: { id: string }) => a.id)).not.toContain('music-box');
     await p.locator('.store-row', { hasText: 'Music Box' }).getByRole('button', { name: 'Install' }).click();
     await p.locator('.store-row', { hasText: 'Music Box' }).getByRole('button', { name: 'Open' }).waitFor();
     // The tablet installs first and tells the server right after.

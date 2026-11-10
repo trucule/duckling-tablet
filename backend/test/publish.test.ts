@@ -5,7 +5,7 @@ import { execFile as execFileCb, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 const execFile = promisify(execFileCb);
 import { createPublicKey, verify } from 'node:crypto';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
@@ -13,6 +13,9 @@ import { buildServer } from '../src/server.js';
 import { loadConfig } from '../src/config.js';
 import { freePort, startCluster, type Cluster } from './pg.js';
 import type { Db } from '../src/db.js';
+
+// The starter set, read from the manifests so the tests follow it when an app joins or leaves the set.
+const STARTERS = readdirSync(join(import.meta.dirname, '..', '..', 'apps')).filter((d) => existsSync(join(import.meta.dirname, '..', '..', 'apps', d, 'manifest.json')) && JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', 'apps', d, 'manifest.json'), 'utf8')).starter).sort();
 
 const TOOLS = join(import.meta.dirname, '..', '..', 'tools');
 const ADMIN = 'admin-token-for-tests-0123456789';
@@ -40,10 +43,12 @@ describe.skipIf(!existsSync(join(TOOLS, 'node_modules', 'fflate')))('publish too
     const { stdout: out } = await execFile('node', [join(TOOLS, 'publish.mjs'), 'all', '--starter'], { encoding: 'utf8', env, maxBuffer: 1 << 24 });
     expect(out).toMatch(/count-with-me \d+\.\d+\.\d+: published/);
     expect(out).toMatch(/draw-with-me \d+\.\d+\.\d+: published/);
+    // Each new version's narrator lines go to the voice cache right after it is stored.
+    expect(out).toMatch(/count-with-me: voice \d+ made, \d+ already cached/);
 
     const catalog = (await (await fetch(`${base}/catalog`)).json()).apps as any[];
     const ids = catalog.map((a) => a.id).sort();
-    expect(ids).toEqual(['count-with-me', 'draw-with-me', 'music-box', 'my-avatar', 'robot-path', 'trace-with-me', 'word-wizard']);
+    expect(ids).toEqual(STARTERS);
     for (const a of catalog) {
       expect(a.starter).toBe(true);
       expect(a.tileUrl).toMatch(new RegExp(`/tiles/${a.id}-[0-9a-f]{12}\\.png$`));
@@ -63,6 +68,8 @@ describe.skipIf(!existsSync(join(TOOLS, 'node_modules', 'fflate')))('publish too
       expect(html).not.toMatch(/KID-VOICE|voice-config\.js/);
       expect(entries['duckling-compat.js']).toBeDefined();
       expect(entries['manifest.json']).toBeDefined();
+      // phrases.json, written by tools/phrases.mjs after the app passed its check, travels with the package.
+      expect(JSON.parse(strFromU8(entries['phrases.json'])).lines).toBeInstanceOf(Array);
     }
     expect(catalog.find((a) => a.id === 'music-box').latest.permissions).toEqual(['microphone']);
 

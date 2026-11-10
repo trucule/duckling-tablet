@@ -1,17 +1,31 @@
-import { config, installed, installing, childName, go, setupNeeded, retryInstall, openOtherApp, otherAppState } from '../state';
+import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState } from '../state';
 import { shell } from '../shell';
 import type { InstalledApp } from '../api';
 
 // The child's home: installed apps alphabetically, website tiles from the allowlist, the Library, a small parent button.
+const AVATAR = 'my-avatar';
+
 export function Home() {
   const c = config.value;
   const apps = [...(c?.apps ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   const open = (a: InstalledApp) => { if (installed.value[a.id]) shell.openApp(a.id); else if (!installing.value[a.id]) void retryInstall(a.id); };
+  // The child's own character in a circle: tapping it opens My Avatar, where she changes it. Until she saves one,
+  // the circle shows her first letter. If My Avatar is not on this tablet, the tap installs it first.
+  const avatarApp = c?.apps.find((a) => a.id === AVATAR);
+  const avatarBusy = installing.value[AVATAR];
+  const openAvatar = () => {
+    if (avatarApp) return open(avatarApp);
+    const fromLibrary = catalog.value.find((a) => a.id === AVATAR);
+    if (fromLibrary) void installFromStore(fromLibrary); else go('store');
+  };
   return (
     <div class="screen">
       <div class="topbar">
         <span class="who">
-          {c?.child?.portraitUrl ? <img class="portrait" src={c.child.portraitUrl} alt="" /> : null}
+          <button class="avatar" onClick={openAvatar} aria-label="Your avatar" style={{ background: themeColors.value[0] ?? undefined }}>
+            {c?.child?.portraitUrl ? <img src={c.child.portraitUrl} alt="" /> : <span class="letter">{(childName.value || '?').slice(0, 1).toUpperCase()}</span>}
+            {avatarBusy ? <span class="busy">{avatarBusy}</span> : null}
+          </button>
           <h1>{childName.value ? `${childName.value}'s tablet` : 'Duckling'}</h1>
         </span>
         {c?.child?.stars ? <span class="stars" title="Stars earned in the apps">&#11088; {c.child.stars.balance}</span> : null}
