@@ -51,6 +51,11 @@ jobs:
             CURRENT_PROJECT_VERSION=${{ github.run_number }} CODE_SIGNING_ALLOWED=NO \
             archive > "$RUNNER_TEMP/archive.log" 2>&1 \
             || { grep -E "error:|fatal" "$RUNNER_TEMP/archive.log" | sort -u | head -60; tail -n 30 "$RUNNER_TEMP/archive.log"; exit 1; }
+          # The export takes the app's entitlements from its signature, so the archived app gets a local signature
+          # (no certificate) that carries them: nested code first, then the app.
+          APP="$RUNNER_TEMP/Duckling.xcarchive/Products/Applications/DucklingTablet.app"
+          find "$APP" -depth \( -name "*.framework" -o -name "*.bundle" -o -name "*.dylib" -o -name "*.appex" \) -print0 | xargs -0 -I{} codesign --force --sign - {}
+          codesign --force --sign - --entitlements DucklingTablet/DucklingTablet.entitlements "$APP"
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
