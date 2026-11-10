@@ -4,8 +4,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Other apps: list what is on the tablet, and come back to the front when an app's time ends. -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- Other apps: come back to the front when an app's time ends. The list of apps on the tablet comes from the
+         launcher query below (every app with a home-screen icon), which needs no broad package visibility. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Granted inside the WebView only to apps whose manifest lists microphone or camera. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -25,6 +25,11 @@
     <!-- The tablet's text-to-speech engine, the apps' voice when the narrator cannot play a line. -->
     <queries>
         <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
+        <!-- Apps a parent can allow from the home screen: everything with a launcher icon. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application
