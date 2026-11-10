@@ -32,6 +32,8 @@ T=`$(grep -m1 '^ADMIN_TOKEN=' /opt/duckling/.env | cut -d= -f2- | tr -d '"\r')
 trap 'rm -f /tmp/$name' EXIT
 curl -sS --fail-with-body -X POST 'http://127.0.0.1:8787/admin/windows/releases?version=$Version&arch=$arch' -H "authorization: Bearer `$T" -H 'content-type: application/x-msi' --data-binary @/tmp/$name
 echo
+# Windows PowerShell ends piped text with a carriage return and newline; the last line is this comment, which bash
+# ignores either way.
 "@
     ($script -replace "`r", '') | ssh "$User@$Server" 'bash -s'
     if ($LASTEXITCODE -ne 0) { throw "publishing $name failed" }
