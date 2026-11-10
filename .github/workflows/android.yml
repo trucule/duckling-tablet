@@ -25,7 +25,7 @@ jobs:
           java-version: "17"
       - uses: android-actions/setup-android@v3
         with:
-          packages: "platforms;android-35 build-tools;35.0.0 platform-tools"
+          packages: "platforms;android-36 build-tools;36.0.0 platform-tools"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
@@ -58,7 +58,7 @@ jobs:
       - uses: android-actions/setup-android@v3
         if: env.ANDROID_UPLOAD_KEYSTORE != ''
         with:
-          packages: "platforms;android-35 build-tools;35.0.0 platform-tools"
+          packages: "platforms;android-36 build-tools;36.0.0 platform-tools"
       - uses: gradle/actions/setup-gradle@v4
         if: env.ANDROID_UPLOAD_KEYSTORE != ''
         with:

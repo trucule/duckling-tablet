@@ -8,12 +8,12 @@ if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google
 
 android {
     namespace = "com.ducklingtablet.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.ducklingtablet.app"
         minSdk = 29
-        targetSdk = 35
+        targetSdk = 36
         // CI sets the build number (the workflow run number), so every uploaded bundle has a higher version code.
         versionCode = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
         versionName = "1.0.0"
