@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api, type DeviceDetail, type CatalogApp, type Family as FamilyT, type OtherApp } from '../api';
 import { useAppFilter } from '../appfilter';
+import { Requests, NoMatch } from './Requests';
 
-// One device: child, apps (install or hide), websites, travel mode, release.
+// One device: child, app requests, apps (install or hide), websites, travel mode, release.
 export function Device({ id, onBack }: { id: string; onBack: () => void }) {
   const [d, setD] = useState<DeviceDetail | null>(null);
   const [fam, setFam] = useState<FamilyT | null>(null);
@@ -11,6 +12,7 @@ export function Device({ id, onBack }: { id: string; onBack: () => void }) {
   const [error, setError] = useState('');
   const [host, setHost] = useState('');
   const [siteName, setSiteName] = useState('');
+  const [seed, setSeed] = useState<{ title: string; n: number } | undefined>();
   const load = () => api.device(id).then(setD).catch((e) => setError((e as Error).message));
   useEffect(() => { load(); api.family().then(setFam).catch(() => {}); api.catalog().then((c) => setCatalog(c.apps)).catch(() => {}); }, [id]);
   const act = async (fn: () => Promise<unknown>) => { try { await fn(); await load(); } catch (e) { setError((e as Error).message); } };
@@ -36,6 +38,8 @@ export function Device({ id, onBack }: { id: string; onBack: () => void }) {
         </div>
       </div>
 
+      <Requests grades={[fam?.children.find((c) => c.id === d.child?.id)?.grade].filter((g): g is string => !!g)} onError={setError} seed={seed} />
+
       <div class="card">
         <h2>Apps</h2>
         <p>Installed apps are on the home screen. Hidden apps disappear from this device's Library and home screen until you unhide them. Everything else the child can install from the Library.</p>
@@ -50,6 +54,7 @@ export function Device({ id, onBack }: { id: string; onBack: () => void }) {
             </span>
           ))}
         </div>
+        {catalog.length > 0 && filter.apps.length === 0 && <NoMatch q={filter.q} onAsk={(title) => setSeed((s) => ({ title, n: (s?.n ?? 0) + 1 }))} />}
       </div>
 
       <div class="card">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api, type Family as FamilyT, type Child, type CatalogApp } from '../api';
-import { Requests } from './Requests';
+import { Requests, NoMatch } from './Requests';
 import { InstallCard } from '../install';
 import { useAppFilter, ageText } from '../appfilter';
 
@@ -19,6 +19,7 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
   const [invite, setInvite] = useState(''); const [inviteMsg, setInviteMsg] = useState('');
   const [catalog, setCatalog] = useState<CatalogApp[]>([]);
   const filter = useAppFilter(catalog);
+  const [seed, setSeed] = useState<{ title: string; n: number } | undefined>();
   const load = () => api.family().then(setFam).catch((e) => setError((e as Error).message));
   useEffect(() => { load(); api.catalog().then((c) => setCatalog(c.apps)).catch(() => {}); const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
 
@@ -153,13 +154,13 @@ export function Family({ onOpenDevice }: { onOpenDevice: (id: string) => void })
               </a>
             </li>
           ))}
-          {catalog.length > 0 && filter.apps.length === 0 && <li><span class="muted">No app matches. Try fewer words or another subject.</span></li>}
         </ul>
+        {catalog.length > 0 && filter.apps.length === 0 && <NoMatch q={filter.q} onAsk={(title) => setSeed((s) => ({ title, n: (s?.n ?? 0) + 1 }))} />}
       </div>
 
       <InstallCard />
 
-      <Requests grades={fam.children.map((c) => c.grade).filter((g): g is string => !!g)} onError={setError} />
+      <Requests grades={fam.children.map((c) => c.grade).filter((g): g is string => !!g)} onError={setError} seed={seed} />
 
       <div class="card">
         <h2>Account</h2>

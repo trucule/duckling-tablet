@@ -4,7 +4,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createServer, type Server } from 'node:http';
-import { createReadStream, existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
@@ -18,6 +18,8 @@ const ROOT = join(import.meta.dirname, '..', '..');
 const DIST = join(ROOT, 'portal', 'dist');
 const TOOLS = join(ROOT, 'tools');
 const ADMIN = 'admin-token-for-tests-0123456789';
+const APPS = join(ROOT, 'apps');
+const STARTERS = readdirSync(APPS).filter((d) => existsSync(join(APPS, d, 'manifest.json')) && JSON.parse(readFileSync(join(APPS, d, 'manifest.json'), 'utf8')).starter);
 const ready = existsSync(join(DIST, 'index.html')) && existsSync(join(TOOLS, 'node_modules', 'fflate'));
 
 let cluster: Cluster, app: FastifyInstance, db: Db, dir: string, api: string, portal: string, server: Server;
@@ -48,7 +50,7 @@ beforeAll(async () => {
 }, 180_000);
 afterAll(async () => {
   server?.close(); await app?.close(); await db?.close(); await cluster?.stop();
-  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['portal-family.png', 'portal-device.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
+  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['portal-family.png', 'portal-device.png', 'portal-device-ask.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
   if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -100,7 +102,7 @@ describe.skipIf(!ready)('parent portal', () => {
     const paired = await (await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, platform: 'android', name: 'Kitchen tablet' }) })).json();
     expect(paired.deviceToken).toBeTruthy();
     expect(paired.config.child.firstName).toBe('Ada');
-    expect(paired.config.apps.length).toBe(7);
+    expect(paired.config.apps.length).toBe(STARTERS.length);
     await p.getByRole('button', { name: 'Refresh' }).click();
     await p.getByText('Kitchen tablet').waitFor();
     await p.screenshot({ path: join(dir, 'portal-family.png'), fullPage: true });
@@ -108,6 +110,18 @@ describe.skipIf(!ready)('parent portal', () => {
     // The device page: hide an app, allow a website, release.
     await p.getByRole('button', { name: 'Open' }).click();
     await p.getByRole('heading', { name: 'Kitchen tablet' }).waitFor();
+    // The request card sits between the device's own details and its apps; a search with no results offers it,
+    // with the search words as the name.
+    const headings = await p.locator('h1, h2').allTextContents();
+    expect(headings.findIndex((h) => h.startsWith('Ask for an app'))).toBe(headings.indexOf('Kitchen tablet') + 1);
+    expect(headings.indexOf('Apps')).toBe(headings.indexOf('Kitchen tablet') + 2);
+    await p.getByPlaceholder('Search apps', { exact: false }).fill('volcano eruptions');
+    await p.getByText('No app matches "volcano eruptions".', { exact: false }).waitFor();
+    await p.getByRole('button', { name: 'Ask for this app' }).click();
+    await expect.poll(() => p.getByPlaceholder('A short name, like Dinosaur dig').inputValue()).toBe('Volcano eruptions');
+    await expect.poll(() => p.evaluate(() => document.activeElement?.tagName)).toBe('TEXTAREA');
+    await p.screenshot({ path: join(dir, 'portal-device-ask.png'), fullPage: false });
+    await p.getByPlaceholder('Search apps', { exact: false }).fill('');
     await p.locator('.t', { hasText: 'Music Box' }).getByRole('button', { name: 'Hide' }).click();
     await p.locator('.t', { hasText: 'Music Box' }).getByRole('button', { name: 'Unhide' }).waitFor();
     await p.getByPlaceholder('pbskids.org').fill('pbskids.org');
@@ -165,6 +179,11 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByRole('button', { name: 'Music' }).first().click();
     expect(await p.locator('.list.apps li strong').allTextContents()).toEqual(['Music Box']);
     await p.getByRole('button', { name: 'All subjects' }).first().click();
+    await p.getByPlaceholder('Search apps', { exact: false }).first().fill('knitting');
+    await p.getByRole('button', { name: 'Ask for this app' }).click();
+    await expect.poll(() => p.getByPlaceholder('A short name, like Dinosaur dig').inputValue()).toBe('Knitting');
+    await p.getByPlaceholder('A short name, like Dinosaur dig').fill('');
+    await p.getByPlaceholder('Search apps', { exact: false }).first().fill('');
 
     // The About page for an app: the recording, the three sections, and Install for a paired tablet.
     await p.goto(`${portal}/#/app/robot-path`);

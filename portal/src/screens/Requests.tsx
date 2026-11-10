@@ -1,13 +1,38 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, type AppRequest, type Attachment } from '../api';
 
 const STATUS: Record<string, string> = { requested: 'Received', planned: 'Planned', building: 'Being built', declined: 'Not taken on', shipped: 'In the Store' };
 const OPEN = ['requested', 'planned', 'building'];
 
+export const ASK_ID = 'ask-for-an-app';
+
+// A search that found nothing offers the request form, with the search words as the request's name.
+export function NoMatch({ q, onAsk }: { q: string; onAsk: (title: string) => void }) {
+  const words = q.trim();
+  return (
+    <div class="nomatch">
+      <p class="muted" style={{ margin: 0 }}>{words ? `No app matches "${words}".` : 'No app matches.'} Try fewer words or another subject, or ask the ET Ducky team to build it.</p>
+      <button class="btn primary" onClick={() => onAsk(words)}>Ask for this app</button>
+    </div>
+  );
+}
+
 // App requests: one in progress at a time, with pictures (a drawing, a photo of a book page) up to 10 MB each.
-export function Requests({ grades, onError }: { grades: string[]; onError: (m: string) => void }) {
+// seed: a name to start the form with (from a search with no results); every new seed fills the form and
+// moves the page to it.
+export function Requests({ grades, onError, seed }: { grades: string[]; onError: (m: string) => void; seed?: { title: string; n: number } }) {
   const [list, setList] = useState<AppRequest[] | null>(null);
   const [title, setTitle] = useState(''); const [desc, setDesc] = useState(''); const [grade, setGrade] = useState(grades[0] ?? '');
+  const card = useRef<HTMLDivElement>(null);
+  const descBox = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { setGrade((g) => g || grades[0] || ''); }, [grades.join(',')]);
+  useEffect(() => {
+    if (!seed) return;
+    const t = seed.title.slice(0, 80);
+    if (t) setTitle(t.charAt(0).toUpperCase() + t.slice(1));
+    card.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => descBox.current?.focus({ preventScroll: true }), 400);
+  }, [seed?.n]);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState('');
   const load = () => api.requests().then((r) => setList(r.requests)).catch((e) => onError((e as Error).message));
@@ -33,7 +58,7 @@ export function Requests({ grades, onError }: { grades: string[]; onError: (m: s
   };
 
   return (
-    <div class="card">
+    <div class="card" id={ASK_ID} ref={card}>
       <h2>Ask for an app <span class="muted" style={{ fontWeight: 400, fontSize: 14 }}>included with your subscription</span></h2>
       {list === null && <p>Loading</p>}
       {list && list.length > 0 && (
@@ -62,7 +87,7 @@ export function Requests({ grades, onError }: { grades: string[]; onError: (m: s
               {['pre-k', 'k', '1', '2', '3', '4', '5', '6'].map((g) => <option key={g} value={g}>{g === 'pre-k' ? 'Pre-K' : g === 'k' ? 'K' : `Grade ${g}`}</option>)}
             </select>
           </div>
-          <textarea placeholder="What should it do, and what does your child like about the idea?" required minLength={10} maxLength={2000} rows={4} value={desc} onInput={(e) => setDesc((e.target as HTMLTextAreaElement).value)} style={{ width: '100%', marginTop: 10, boxSizing: 'border-box' }} />
+          <textarea ref={descBox} placeholder="What should it do, and what does your child like about the idea?" required minLength={10} maxLength={2000} rows={4} value={desc} onInput={(e) => setDesc((e.target as HTMLTextAreaElement).value)} style={{ width: '100%', marginTop: 10, boxSizing: 'border-box' }} />
           <div class="row" style={{ marginTop: 10 }}>
             <label class="btn quiet">{files.length ? `${files.length} picture${files.length > 1 ? 's' : ''} chosen` : 'Add pictures'}<input type="file" accept="image/*" multiple hidden onChange={(e) => setFiles(Array.from((e.target as HTMLInputElement).files ?? []).slice(0, 5))} /></label>
             <button class="btn primary" disabled={!!busy || title.trim().length < 3 || desc.trim().length < 10}>{busy || 'Send the request'}</button>

@@ -38,7 +38,7 @@ export function useAppFilter(catalog: CatalogApp[]) {
       </div>
     </div>
   );
-  return { apps, bar, active: !!(q || subject || age) };
+  return { apps, bar, q, active: !!(q || subject || age) };
 }
 
 export const ageText = (a: CatalogApp) => a.ageMin && a.ageMax ? `${a.ageMin} to ${a.ageMax}` : a.ageMin ? `${a.ageMin} and up` : '';
