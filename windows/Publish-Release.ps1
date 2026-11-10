@@ -23,8 +23,18 @@ foreach ($f in $Files) {
     Write-Host "Uploading $name ..."
     scp $f "$User@${Server}:/tmp/$name"
     if ($LASTEXITCODE -ne 0) { throw 'scp failed' }
-    $cmd = "set -a; . /opt/duckling/.env; set +a; curl -sS --fail-with-body -X POST 'http://127.0.0.1:8787/admin/windows/releases?version=$Version&arch=$arch' -H `"authorization: Bearer `$ADMIN_TOKEN`" -H 'content-type: application/x-msi' --data-binary @/tmp/$name; echo; rm -f /tmp/$name"
-    ssh "$User@$Server" $cmd
+    # The script goes to bash on its standard input: Windows PowerShell drops double quotes from arguments to native
+    # programs, so nothing is quoted on the command line. The admin token is read from .env on the droplet (the file
+    # is not sourced: some of its values are not shell syntax) and never leaves it.
+    $script = @"
+set -e
+T=`$(grep -m1 '^ADMIN_TOKEN=' /opt/duckling/.env | cut -d= -f2- | tr -d '"\r')
+trap 'rm -f /tmp/$name' EXIT
+curl -sS --fail-with-body -X POST 'http://127.0.0.1:8787/admin/windows/releases?version=$Version&arch=$arch' -H "authorization: Bearer `$T" -H 'content-type: application/x-msi' --data-binary @/tmp/$name
+echo
+"@
+    ($script -replace "`r", '') | ssh "$User@$Server" 'bash -s'
     if ($LASTEXITCODE -ne 0) { throw "publishing $name failed" }
 }
 Write-Host "Published. Check: https://api.ducklingtablet.com/windows/release"
+# (Every step above stops the script on a failure, so reaching this line means both uploads were accepted.)
