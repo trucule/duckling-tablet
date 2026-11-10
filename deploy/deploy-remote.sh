@@ -81,8 +81,15 @@ fi
 
 DOTENV_CONFIG_PATH="$ENV_FILE" node dist/migrate.js
 systemctl restart duckling-api
-sleep 2
-if curl -fsS http://127.0.0.1:8787/health; then echo; else echo; journalctl -u duckling-api -n 30 --no-pager; exit 1; fi
+# Node and the first database connection take a few seconds on this droplet: wait up to 60 s for /health, and only
+# then call it a failure (a fixed short sleep failed healthy deploys and skipped the app publish below).
+healthy=0
+for i in $(seq 1 30); do
+  if curl -fsS http://127.0.0.1:8787/health; then echo; healthy=1; break; fi
+  systemctl is-active --quiet duckling-api || break
+  sleep 2
+done
+if [ "$healthy" != 1 ]; then echo; echo "duckling-api did not answer /health"; journalctl -u duckling-api -n 40 --no-pager; exit 1; fi
 
 # Apps: any app or version in apps/ that the catalog does not have yet is packaged, signed and published. Versions the
 # catalog already has are left alone, so this is cheap on a deploy with no app changes.
