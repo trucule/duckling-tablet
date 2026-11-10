@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var web: WebView
     private lateinit var prefs: Prefs
     var allowedHosts: Set<String> = emptySet()
+    lateinit var billing: Billing
 
     // A push (or a new registration token) makes the web app check in now.
     private val pushReceiver = object : BroadcastReceiver() {
@@ -74,6 +75,10 @@ class MainActivity : AppCompatActivity() {
             setSupportMultipleWindows(false)
             userAgentString = "$userAgentString DucklingTablet/${BuildConfig.VERSION_NAME}"
         }
+        billing = Billing(this,
+            { status, message -> runOnUiThread { web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onBilling && DucklingWeb.onBilling(${org.json.JSONObject.quote(status)}, ${org.json.JSONObject.quote(message)})", null) } },
+            { web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()", null) })
+        billing.start()
         web.addJavascriptInterface(Shell(this, web), "DucklingShell")
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {

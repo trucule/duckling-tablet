@@ -36,7 +36,8 @@ export interface Shell {
   launchPackage(pkg: string, seconds: number): void;
   canDrawOverlays(): boolean;
   openOverlaySettings(): void;
-  // The subscription through the device's own store (the iPad's App Store). False where the store is not built in.
+  // The subscription through the device's own store (the App Store on the iPad, Google Play on Android). False where
+  // the store is not built in.
   readonly storeBilling: boolean;
   subscriptionPrice(): string; // the store's price text, '' until the store answers
   subscribe(): Promise<BillingResult>;

@@ -200,5 +200,12 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     @JavascriptInterface fun setChildLevels(json: String) { prefs.childLevels = json }
     @JavascriptInterface fun setChildId(id: String) { prefs.childId = id }
 
+    // ---- The subscription through Google Play. Results arrive at DucklingWeb.onBilling(status, message).
+    @JavascriptInterface fun setAppAccountToken(t: String) { prefs.appAccountToken = t }
+    @JavascriptInterface fun subscriptionPrice(): String = activity.billing.displayPrice
+    @JavascriptInterface fun subscribe() { activity.billing.subscribe() }
+    @JavascriptInterface fun restorePurchases() { activity.billing.restore() }
+    @JavascriptInterface fun manageSubscription() { activity.billing.manage() }
+
     @JavascriptInterface fun reload() { main.post { web.reload() } }
 }

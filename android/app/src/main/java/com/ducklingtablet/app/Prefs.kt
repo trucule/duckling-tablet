@@ -23,6 +23,12 @@ class Prefs(context: Context) {
         get() = p.getString("childId", "") ?: ""
         set(v) { p.edit().putString("childId", v).apply() }
 
+    /** The family's appAccountToken from the device config: the obfuscated account id on Play purchases, so the
+     *  API knows which family a purchase belongs to. */
+    var appAccountToken: String
+        get() = p.getString("appAccountToken", "") ?: ""
+        set(v) { p.edit().putString("appAccountToken", v).apply() }
+
     var childName: String
         get() = p.getString("childName", "") ?: ""
         set(v) { p.edit().putString("childName", v).apply() }

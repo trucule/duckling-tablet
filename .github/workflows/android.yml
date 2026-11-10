@@ -1,6 +1,8 @@
 # Builds the Android debug APK on every push that touches android/ and keeps it as a workflow artifact
 # (Actions tab > the run > Artifacts > duckling-tablet-debug). The debug keystore is committed, so each build
-# installs over the previous one.
+# installs over the previous one. With the upload key in the repository secrets (ANDROID_UPLOAD_KEYSTORE as base64,
+# ANDROID_UPLOAD_PASSWORD), the same run builds the release bundle for Google Play (artifact duckling-tablet-release,
+# a signed .aab whose version code is the run number).
 name: Android APK
 
 on:
@@ -13,6 +15,8 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -35,3 +39,43 @@ jobs:
           name: duckling-tablet-debug
           path: duckling-tablet-*.apk
           retention-days: 30
+
+  aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_UPLOAD_KEYSTORE: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
+      UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_PASSWORD }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.ANDROID_UPLOAD_KEYSTORE != ''
+      - uses: actions/setup-java@v4
+        if: env.ANDROID_UPLOAD_KEYSTORE != ''
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+        if: env.ANDROID_UPLOAD_KEYSTORE != ''
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0 platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        if: env.ANDROID_UPLOAD_KEYSTORE != ''
+        with:
+          gradle-version: "8.11.1"
+      - name: Build the signed release bundle
+        if: env.ANDROID_UPLOAD_KEYSTORE != ''
+        working-directory: android
+        run: |
+          export UPLOAD_KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE" | base64 -d > "$UPLOAD_KEYSTORE_FILE"
+          gradle --no-daemon bundleRelease
+          rm -f "$UPLOAD_KEYSTORE_FILE"
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab > /dev/null && echo "Signed with the upload key."
+          cp app/build/outputs/bundle/release/app-release.aab ../duckling-tablet-${GITHUB_RUN_NUMBER}.aab
+      - uses: actions/upload-artifact@v4
+        if: env.ANDROID_UPLOAD_KEYSTORE != ''
+        with:
+          name: duckling-tablet-release
+          path: duckling-tablet-*.aab
+          retention-days: 90

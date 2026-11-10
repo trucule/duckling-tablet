@@ -14,8 +14,9 @@ android {
         applicationId = "com.ducklingtablet.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI sets the build number (the workflow run number), so every uploaded bundle has a higher version code.
+        versionCode = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
+        versionName = "1.0.0"
     }
 
     signingConfigs {
@@ -27,11 +28,23 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // The Play upload key, from the CI secrets (ANDROID_UPLOAD_KEYSTORE, ANDROID_UPLOAD_PASSWORD). Google Play
+        // re-signs with the app signing key it holds.
+        val upload = System.getenv("UPLOAD_KEYSTORE_FILE")
+        if (!upload.isNullOrEmpty()) create("upload") {
+            storeFile = file(upload)
+            storePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+            keyAlias = "upload"
+            keyPassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+        }
     }
 
     buildTypes {
         getByName("debug") { applicationIdSuffix = ""; isDebuggable = true }
-        getByName("release") { isMinifyEnabled = false }
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfigs.findByName("upload")?.let { signingConfig = it }
+        }
     }
 
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
@@ -49,4 +62,6 @@ dependencies {
     // Push after parent changes.
     implementation("com.google.firebase:firebase-messaging:24.1.0")
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
+    // The subscription through Google Play.
+    implementation("com.android.billingclient:billing:8.0.0")
 }

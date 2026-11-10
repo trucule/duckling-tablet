@@ -20,14 +20,16 @@ export function Parent() {
     setBusy(true);
     await releaseDevice(true);
   };
-  // The App Store purchase, behind the parent PIN. The result reaches the server from the app, then this check-in
-  // shows it.
+  // The store purchase (App Store on the iPad, Google Play on Android), behind the parent PIN. The result reaches the
+  // server from the app, then this check-in shows it.
+  const storeName = ios ? 'the App Store' : 'Google Play';
+  const accountName = ios ? 'this Apple ID' : 'the Google account on this tablet';
   const store = async (call: () => Promise<BillingResult>) => {
     setBusy(true); setBillingNote('');
     const r = await call();
     const notes: Record<string, string> = {
-      purchased: 'Thank you. The subscription is active.', pending: 'The purchase is waiting for approval.', cancelled: '',
-      none: 'No subscription was found for this Apple ID.', unavailable: r.message || 'The App Store is not available right now.', failed: r.message || 'The purchase did not go through.',
+      purchased: 'Thank you. The subscription is active.', pending: r.message || 'The purchase is waiting for approval.', cancelled: '',
+      none: `No subscription was found for ${accountName}.`, unavailable: r.message || `${storeName.charAt(0).toUpperCase() + storeName.slice(1)} is not available right now.`, failed: r.message || 'The purchase did not go through.',
     };
     setBillingNote(notes[r.status] ?? r.message);
     await checkin(); setBusy(false); refresh();
@@ -59,11 +61,11 @@ export function Parent() {
         {shell.storeBilling && (
           <div class="row">
             {!subscribed && <button class="pill" disabled={busy} onClick={() => store(() => shell.subscribe())}>{price ? `Subscribe, ${price} a month` : 'Subscribe'}</button>}
-            {subscribed && ent?.source === 'apple' && <button class="pill quiet" onClick={() => shell.manageSubscription()}>Manage subscription</button>}
+            {subscribed && ent?.source === (ios ? 'apple' : 'google') && <button class="pill quiet" onClick={() => shell.manageSubscription()}>Manage subscription</button>}
             <button class="pill quiet" disabled={busy} onClick={() => store(() => shell.restorePurchases())}>Restore purchases</button>
           </div>
         )}
-        {shell.storeBilling && !subscribed && <p class="why">Billed through your Apple ID. It renews each month until cancelled in the App Store settings at least a day before the renewal date. <a href="https://ducklingtablet.com/terms">Terms</a> · <a href="https://ducklingtablet.com/privacy">Privacy</a></p>}
+        {shell.storeBilling && !subscribed && <p class="why">{ios ? 'Billed through your Apple ID. It renews each month until cancelled in the App Store settings at least a day before the renewal date.' : 'Billed through your Google Play account. It renews each month until cancelled in Google Play under Payments and subscriptions.'} <a href="https://ducklingtablet.com/terms">Terms</a> · <a href="https://ducklingtablet.com/privacy">Privacy</a></p>}
         {billingNote && <p>{billingNote}</p>}
         <ul class="included">
           <li><strong>Ask for an app, at no extra cost.</strong> Describe an app you wish existed; the ET Ducky team builds it for every family. Ask from the parent portal.</li>
