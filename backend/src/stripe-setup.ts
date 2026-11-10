@@ -1,6 +1,6 @@
 // One-time Stripe setup for Duckling, run on the droplet after STRIPE_SECRET_KEY is in /opt/duckling/.env:
 //
-//     cd /opt/duckling/src/backend && set -a && . /opt/duckling/.env && set +a && node dist/stripe-setup.js --write /opt/duckling/.env
+//     cd /opt/duckling/src/backend && DOTENV_CONFIG_PATH=/opt/duckling/.env node dist/stripe-setup.js --write /opt/duckling/.env
 //
 // It checks that the duckling_monthly price exists, creates Duckling's own Customer Portal configuration (cancel at
 // the end of the period, update the card, see invoices, Duckling's terms and privacy links), and creates the webhook
