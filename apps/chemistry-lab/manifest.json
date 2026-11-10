@@ -1,20 +1,20 @@
 {
   "id": "chemistry-lab",
   "name": "Chemistry Lab",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Safe experiments followed step by step, each step read aloud, with stars for the ones finished.",
   "subjects": [
     "science"
   ],
-  "ageMin": 5,
-  "ageMax": 8,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/chemistry-lab",
   "about": {
     "concept": "Following a procedure and observing cause and effect. Each experiment is a short sequence of steps, read aloud, with a change to notice at the end: a color shifts, a gas forms, something floats or sinks.",
-    "progression": "Early experiments have two or three steps and one visible result. Later ones have more steps, ask the child to predict before acting, and compare two runs with one thing changed.",
+    "progression": "Free play opens the lab with every shelf, the heat dial and the experiment book to explore at will. The Challenges ladder climbs from sorting liquids and powders and mixing colors in pre-K, through states of matter, dissolving, physical and chemical change and acids and bases, to reactions, conservation of mass and balancing equations in 8th grade.",
     "lifeSkills": [
       "Following instructions in order",
       "Predicting and then checking",
