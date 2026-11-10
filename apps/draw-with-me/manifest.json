@@ -1,20 +1,20 @@
 {
   "id": "draw-with-me",
   "name": "Draw With Me",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "152 step by step drawing lessons from simple to detailed, with a drawing of the day and a surprise pick.",
   "subjects": [
     "art"
   ],
   "ageMin": 4,
-  "ageMax": 10,
+  "ageMax": 14,
   "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/draw-with-me",
   "about": {
     "concept": "Decomposing a complex shape into simple strokes, in order. Each lesson shows one line at a time, so the child learns that a detailed picture is a sequence of small, repeatable moves.",
-    "progression": "Lessons run from four-stroke animals to detailed scenes with shading. A drawing of the day and a surprise pick keep the child moving along the sequence rather than repeating a favorite.",
+    "progression": "Free play runs from four-stroke animals to detailed scenes with shading, with a drawing of the day and a surprise pick. The Challenges ladder starts at the child's art grade and climbs from shapes and colors in pre-K through proportion, symmetry, shading and perspective to color theory and design principles in 8th grade, each drawing checked on the canvas.",
     "lifeSkills": [
       "Fine motor control",
       "Breaking a big task into steps",

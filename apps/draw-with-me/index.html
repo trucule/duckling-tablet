@@ -355,11 +355,32 @@
   #confetti i { position: absolute; top: -20px; width: 14px; height: 20px; border-radius: 4px; animation: fall linear forwards; }
   @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
   @media (max-width: 900px) { #filters { grid-template-columns: 140px; } h1 { font-size: 32px; } #steptext { font-size: 24px; } }
+  /* challenges */
+  #chalbtn { flex: none; border: 4px solid var(--ink); border-radius: 999px; background: #FFC93C; font-size: 24px; font-weight: 900; padding: 10px 20px; box-shadow: 0 5px 0 rgba(43,33,64,0.18); }
+  #chalbtn:active, .cb:active, #chalcheck:active { transform: scale(0.95); }
+  #chal .bar { padding-right: 210px; }
+  #chalhead { flex: 1; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; min-width: 0; }
+  #chalrung { font-size: 28px; font-weight: 900; }
+  #chalhead span { font-size: 18px; font-weight: 800; color: #6A5A86; }
+  #chal .work { margin-top: 8px; gap: 12px; }
+  #chalpanel { flex: 0 1 390px; min-width: 240px; overflow-y: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: 10px; padding: 2px 4px 4px; }
+  #chaltext { font-size: 21px; font-weight: 800; line-height: 1.3; background: #FFFFFF; border: 4px solid var(--ink); border-radius: 18px; padding: 10px 14px; }
+  #chalref { width: 140px; height: 140px; flex: none; align-self: center; border: 3px solid var(--ink); border-radius: 14px; background: #FFFFFF; }
+  #chalref[hidden] { display: none; }
+  #chalmsg { font-size: 19px; font-weight: 800; line-height: 1.3; min-height: 24px; color: #6A5A86; }
+  #chalmsg[data-kind="win"] { color: #1E8A50; } #chalmsg[data-kind="miss"] { color: #B4441A; }
+  #chalbtns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: auto; }
+  .cb { border: 3px solid var(--ink); border-radius: 16px; background: #FFFFFF; font-size: 16px; font-weight: 800; padding: 8px 4px; }
+  #chalcheck { width: 116px; height: 116px; border-radius: 50%; border: 4px solid var(--ink); background: var(--green); color: #FFFFFF; font-size: 46px; font-weight: 900; display: grid; place-items: center; align-content: center; padding: 0; line-height: 1; }
+  #chalcheck small { font-size: 18px; margin-top: 2px; }
+  #chal #pen { padding-top: 6px; gap: 6px; }
+  #chal #pen .pc, #chal #pen .dt, #chal #pen .ps { width: 44px; height: 44px; font-size: 21px; }
+  #chal #pen .gap { width: 8px; }
 </style>
 </head>
 <body>
 <section id="home">
-  <div class="bar"><h1>Draw <span>With Me</span></h1><button class="round" id="sound" aria-label="Sound on or off">🔊</button></div>
+  <div class="bar"><button id="chalbtn" aria-label="Challenges">🏆 Challenges</button><h1>Draw <span>With Me</span></h1><button class="round" id="sound" aria-label="Sound on or off">🔊</button></div>
   <div id="ask">
     <button id="mic" aria-label="Say what you want to draw">🎤</button>
     <div id="asklabel">What do you want to draw?</div>
@@ -420,6 +441,22 @@
     </div>
   </div>
   <div id="palette"></div>
+</section>
+<section id="chal" hidden>
+  <div class="bar"><button class="round" id="chalhome" aria-label="Back to free drawing">🏠</button><div id="chalhead"><b id="chalrung"></b><span id="challevel"></span><span id="chalstars"></span></div></div>
+  <div class="work">
+    <div id="chalpanel">
+      <div id="chaltext" aria-live="polite"></div>
+      <canvas id="chalref" hidden aria-label="The picture to copy"></canvas>
+      <div id="chalmsg" aria-live="polite"></div>
+      <div id="chalbtns">
+        <button class="cb" id="chalsay" aria-label="Say it again">🔈 Again</button><button class="cb" id="chalhint" aria-label="Hint">💡 Hint</button><button class="cb" id="chalundo" aria-label="Undo">↩️ Undo</button>
+        <button class="cb" id="chalclear" aria-label="Start over">🧽 Clear</button><button class="cb" id="chalskip" aria-label="Skip this one">⏭️ Skip</button>
+      </div>
+    </div>
+    <div class="stagebox" id="chalstage"></div>
+    <div class="rail"><button id="chalcheck" aria-label="Check my drawing">✓<small>Check</small></button></div>
+  </div>
 </section>
 <section id="finish" hidden>
   <div class="bar"><button class="round home" aria-label="Home">🏠</button><h2>Magic filters</h2><button class="round" id="backcolor" aria-label="Back to coloring">🎨</button></div>
@@ -1240,7 +1277,7 @@ function startStroke(e) {
   e.preventDefault();
   const p = toPage(e);
   try { touch.setPointerCapture(e.pointerId); } catch (x) {}
-  if (mode === 'draw' || ['shade', 'smudge', 'sketcherase'].includes(tool)) { startDrawStroke(p, e.pointerId); return; }
+  if (mode === 'draw' || mode === 'chal' || ['shade', 'smudge', 'sketcherase'].includes(tool)) { startDrawStroke(p, e.pointerId); return; }
   if (tool === 'bucket') { snapshot(pctx); bucketFill(Math.round(p.x), Math.round(p.y), color); return; }
   snapshot(pctx); stroke = { pts: [p], id: e.pointerId, hue: Math.random() * 360 };
   paintAt(p, p);
@@ -1258,11 +1295,12 @@ function moveStroke(e) {
 }
 function endStroke(e) { if (stroke && e.pointerId === stroke.id) stroke = null; }
 // The drawing tools (on the drawing screen; shading and smudge also while coloring).
-function activeDrawTool() { return mode === 'draw' ? drawTool : tool === 'sketcherase' ? 'erase' : tool; }
+function activeDrawTool() { return mode === 'draw' || mode === 'chal' ? drawTool : tool === 'sketcherase' ? 'erase' : tool; }
 function startDrawStroke(p, id) {
   const t = activeDrawTool();
   if (t === 'sketch') snapshot(kctx); else if (t === 'shade' || t === 'smudge') snapshot(sctx); else if (t === 'erase') snapshot(ictx, kctx, sctx); else snapshot(ictx);
   stroke = { pts: [p], id, draw: true, t };
+  if (mode === 'chal' && window.CHAL_REC) window.CHAL_REC(stroke);   // Challenges reads her strokes
   drawStrokeTo(p, p);
 }
 function grain(ctx, a, b, w, col, alpha, density) {
@@ -1783,6 +1821,1137 @@ else if (/[?&]lab\b/.test(location.search)) startLab();
 if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => { voice = pickVoice(); };
 // For testing only: exposed when opened with ?dwmtest
 if (/dwmtest/.test(location.search)) window.__dwm = { shadeL, sketch, setDrawTool: (t) => { drawTool = t; markPen(); }, setStyle: (st) => { drawStyle = st; }, DETAILED_EXAMPLE, composite, setPen: (c, s) => { penColor = c; penSize = s; markPen(); }, LESSON_VERSION, tryToLearn, checkLesson, learnDrawing, loadLearned, learnedToday, CFG, startDrawing, nextStep, helpStep, startColoring, bucketFill, startFinish, applyFilter, savePicture, matchSubject, SUBJECTS, paint, ink, setTool: (t, c) => { tool = t; if (c) color = c; }, get stepIdx() { return stepIdx; }, loadGallery, FILTERS };
+</script>
+<script>
+// ===========================================================================
+// Challenges: a ladder of drawing goals from pre-K to 8th grade, done with the free-play drawing tools (the marker
+// colors, the sketch pencil, the shading pencil, the eraser and undo). Free play stays what the app opens to; the
+// Challenges button on the home screen enters this mode and the house button goes back.
+// Every check reads what she really drew. Marker strokes are kept only while their ink is still on the canvas (so
+// undo and the eraser count), then joined into shapes and lines and measured with tolerant geometry: a closed loop
+// with its turning spread evenly is round, turning bunched into three or four corners is a triangle or a square, so a
+// wobbly circle still passes a circle rung. Shading is read from the shading layer itself. No AI call is involved.
+// Progress (rung, streaks, stars) is kept in localStorage under drawwithme-challenges; the stars count toward her
+// total through the KID-STARS block above. Self-check hook: window.DucklingLadder (tools/ladder-check.mjs).
+// ===========================================================================
+const CHAL = (() => {
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const rf = (a, b) => a + Math.random() * (b - a);
+  const shuf = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const NUM = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+
+  // ---- Colors: the marker colors by name -----------------------------------------------------------------------
+  const COLOR_NAMES = ['black', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'brown'];
+  const HEX = {}; COLOR_NAMES.forEach((n, i) => { HEX[n] = PEN_COLORS[i]; });
+  const nameOf = (hex) => { const i = PEN_COLORS.findIndex(c => c.toLowerCase() === String(hex).toLowerCase()); return i >= 0 ? COLOR_NAMES[i] : 'other'; };
+  const WARM = ['red', 'orange', 'yellow', 'pink'], COOL = ['green', 'blue', 'purple'];
+  const WHEEL = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'];
+  const COMP = { red: 'green', green: 'red', orange: 'blue', blue: 'orange', yellow: 'purple', purple: 'yellow' };
+  const temp = (c) => WARM.includes(c) ? 'warm' : COOL.includes(c) ? 'cool' : 'neutral';
+
+  // ---- Geometry on the 1000 x 1000 page ----------------------------------------------------------------------------
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const plen = (pts) => { let L = 0; for (let i = 1; i < pts.length; i++) L += dist(pts[i - 1], pts[i]); return L; };
+  function box(pts) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of pts) { if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y; }
+    const w = x1 - x0, h = y1 - y0;
+    return { x0, y0, x1, y1, w, h, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, diag: Math.hypot(w, h) };
+  }
+  function resample(pts, n, closed) {
+    const P = closed ? pts.concat([pts[0]]) : pts, L = plen(P);
+    if (!(L > 0)) return Array.from({ length: n }, () => P[0].slice());
+    const step = L / (closed ? n : n - 1), out = [P[0].slice()];
+    let cum = 0, target = step;
+    for (let i = 1; i < P.length && out.length < n; i++) {
+      const a = P[i - 1], b = P[i], seg = dist(a, b);
+      while (seg > 0 && cum + seg >= target && out.length < n) { const t = (target - cum) / seg; out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); target += step; }
+      cum += seg;
+    }
+    while (out.length < n) out.push(P[P.length - 1].slice());
+    return out;
+  }
+  // Points every `step` units along a polyline.
+  function along(pts, step) {
+    if (pts.length < 2) return pts.map(p => p.slice());
+    const out = [pts[0].slice()]; let carry = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], L = dist(a, b); let t = step - carry;
+      while (t <= L) { out.push([a[0] + (b[0] - a[0]) * t / L, a[1] + (b[1] - a[1]) * t / L]); t += step; }
+      carry = L - (t - step);
+    }
+    return out;
+  }
+  function area(pts) { let s = 0; for (let i = 0, n = pts.length; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; s += a[0] * b[1] - b[0] * a[1]; } return Math.abs(s) / 2; }
+  function inPoly(p, poly) {
+    let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i], b = poly[j];
+      if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c;
+    }
+    return c;
+  }
+  function segDist(p, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
+    const t = L2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2)) : 0;
+    return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+  }
+  function edgeDist(p, poly) { let m = Infinity; for (let i = 0; i < poly.length; i++) m = Math.min(m, segDist(p, poly[i], poly[(i + 1) % poly.length])); return m; }
+  // Distance from p to the infinite line through a and b.
+  const lineDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1; return Math.abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) / L; };
+  function turn(a, b, c) {
+    const ux = b[0] - a[0], uy = b[1] - a[1], vx = c[0] - b[0], vy = c[1] - b[1], L = Math.hypot(ux, uy) * Math.hypot(vx, vy);
+    return L ? Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / L))) * 180 / Math.PI : 0;
+  }
+  function straight(s) {
+    const a = s.pts[0], b = s.pts[s.pts.length - 1], L = dist(a, b); if (L < 1) return false;
+    let m = 0; for (const p of s.pts) m = Math.max(m, segDist(p, a, b));
+    return m <= Math.max(16, 0.08 * L);
+  }
+  // A closed loop from one stroke or a chain of strokes: the ends meet, or the line runs past where it started.
+  function closeLoop(pts) {
+    const L = plen(pts), b = box(pts); if (L < 60 || b.diag < 30) return null;
+    const tol = Math.max(30, 0.2 * b.diag);
+    if (dist(pts[0], pts[pts.length - 1]) <= tol) return pts;
+    let cum = 0;
+    for (let i = 1; i < pts.length; i++) { cum += dist(pts[i - 1], pts[i]); if (cum > 0.6 * L && dist(pts[i], pts[0]) <= tol * 0.7) return pts.slice(0, i + 1); }
+    cum = 0; const e = pts[pts.length - 1];
+    for (let i = 1; i < pts.length; i++) { cum += dist(pts[i - 1], pts[i]); if (cum > 0.4 * L) break; if (dist(pts[i], e) <= tol * 0.7) return pts.slice(i); }
+    return null;
+  }
+  // What kind of shape a closed loop is, by how well a triangle or a four-sided shape fills it. The biggest triangle
+  // that fits inside a circle covers 41% of it and the biggest four-sided shape 64% (the same for any oval); in a
+  // triangle the biggest triangle covers nearly all of it, in a square the biggest four-sided shape does. These
+  // ratios do not change with size, stretch or tilt, and a wobbly line moves them only a little.
+  function hull(pts) {
+    const P = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]), cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo = [], up = [];
+    for (const p of P) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+    for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+    return lo.slice(0, -1).concat(up.slice(0, -1));
+  }
+  const tri = (a, b, c) => Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
+  // Largest triangle and four-sided shape with corners on a convex outline H (in order).
+  function biggest(H) {
+    const n = H.length; let t3 = 0, t4 = 0, q = null;
+    for (let i = 0; i < n; i++) for (let k = i + 2; k < n; k++) {
+      let b1 = 0, j1 = -1, b2 = 0, j2 = -1;
+      for (let j = i + 1; j < k; j++) { const v = tri(H[i], H[j], H[k]); if (v > b1) { b1 = v; j1 = j; } }
+      for (let j = k + 1; j < n + i; j++) { const v = tri(H[i], H[k], H[j % n]); if (v > b2) { b2 = v; j2 = j % n; } }
+      t3 = Math.max(t3, b1, b2);
+      if (j1 >= 0 && j2 >= 0 && b1 + b2 > t4) { t4 = b1 + b2; q = [H[i], H[j1], H[k], H[j2]]; }
+    }
+    return { t3, t4, q };
+  }
+  function classify(loop) {
+    const N = 96, r = resample(loop, N, true), b = box(r), A = area(r);
+    let H = hull(r); const HA = area(H) || 1;
+    if (H.length > 36) H = resample(H, 36, true);
+    const big = biggest(H), f3 = big.t3 / HA, f4 = big.t4 / HA, solid = A / HA;
+    let cx = 0, cy = 0; for (const p of r) { cx += p[0]; cy += p[1]; } cx /= N; cy /= N;
+    // Stretch of a round shape: from the spread of its points along its long and short directions.
+    let sxx = 0, syy = 0, sxy = 0; for (const [x, y] of r) { sxx += (x - cx) ** 2; syy += (y - cy) ** 2; sxy += (x - cx) * (y - cy); }
+    const tr = (sxx + syy) / 2, dt = Math.sqrt(((sxx - syy) / 2) ** 2 + sxy * sxy), stretch = Math.sqrt((tr + dt) / Math.max(1e-6, tr - dt));
+    const q = big.q, qa = q ? (dist(q[0], q[1]) + dist(q[2], q[3])) / 2 : 1, qb = q ? (dist(q[1], q[2]) + dist(q[3], q[0])) / 2 : 1, qAspect = Math.max(qa, qb) / Math.max(1, Math.min(qa, qb));
+    let kind;
+    if (solid < 0.55) kind = 'blob';
+    else if (f3 >= 0.7) kind = 'triangle';
+    else if (f4 >= 0.78) kind = qAspect <= 1.45 ? 'square' : 'rect';
+    else kind = stretch <= 1.6 ? 'circle' : 'oval';
+    // mag: the square root of the area, for comparing sizes of the same kind (stray overshoots at corners barely move it)
+    return { kind, loop: r, box: b, area: A, mag: Math.sqrt(A), cx, cy, size: Math.max(b.w, b.h), f3, f4, solid, aspect: kind === 'square' || kind === 'rect' ? qAspect : stretch };
+  }
+  const majority = (members) => { const w = {}; for (const m of members) w[m.color] = (w[m.color] || 0) + m.len + 1; return Object.keys(w).sort((a, b) => w[b] - w[a])[0]; };
+  function mkShape(loop, members) { return Object.assign(classify(loop), { color: majority(members), members }); }
+  function mkLine(s) { return Object.assign({ kind: 'line', a: s.pts[0], b: s.pts[s.pts.length - 1], straight: straight(s) }, s); }
+
+  // Strokes into shapes. A closed stroke is a shape. Open strokes whose ends meet are chained (a square drawn as four
+  // lines); the search tries the nearest joins first and keeps a chain that closes. A chain whose two ends rest on
+  // another shape is closed along that shape (a roof drawn as a "^" on top of a square). What is left are lines.
+  // Join two strokes at a corner where they come closest, so a side that runs past the corner (as fingers do) leaves no
+  // spur sticking out: look along the last 60 units of the chain and the first 60 units of the next stroke.
+  function joinAt(chain, next) {
+    const tail = []; let L = 0; for (let i = chain.length - 1; i > 0 && L < 60; i--) { tail.push(i); L += dist(chain[i], chain[i - 1]); } if (!tail.length) tail.push(chain.length - 1);
+    const head = []; L = 0; for (let j = 0; j < next.length - 1 && L < 60; j++) { head.push(j); L += dist(next[j], next[j + 1]); } if (!head.length) head.push(0);
+    let bi = chain.length - 1, bj = 0, bd = Infinity;
+    for (const i of tail) for (const j of head) { const d = dist(chain[i], next[j]); if (d < bd) { bd = d; bi = i; bj = j; } }
+    return chain.slice(0, bi + 1).concat(next.slice(bj));
+  }
+  // Several chains may close (two squares drawn close together have nearby corners). Each join costs its gap plus a
+  // little for every stroke drawn in between, because the sides of one shape are usually drawn one after another;
+  // the cheapest closing chain wins.
+  function closeChain(start, pool, budget) {
+    const found = [];
+    const rec = (chain, members, depth, cost) => {
+      if (found.length >= 6 || budget.n-- <= 0) return;
+      if (members.length > 1) { const loop = closeLoop(chain); if (loop) { const b = box(loop); if (area(loop) >= 0.12 * b.diag * b.diag) { found.push({ loop, members, cost: cost + dist(chain[0], chain[chain.length - 1]) }); return; } } }
+      if (depth >= 7) return;
+      const cd = box(chain).diag, ce = chain[chain.length - 1], last = members[members.length - 1], cand = [];
+      for (const b of pool) {
+        if (members.includes(b)) continue;
+        const tol = Math.max(30, 0.1 * Math.max(cd, b.box.diag)), d0 = dist(ce, b.pts[0]), d1 = dist(ce, b.pts[b.pts.length - 1]), skip = 8 * Math.max(0, Math.abs(b.i - last.i) - 1);
+        if (d0 <= tol) cand.push([d0 + skip, b, false]); if (d1 <= tol) cand.push([d1 + skip, b, true]);
+      }
+      cand.sort((x, y) => x[0] - y[0]);
+      for (const [c, b, rev] of cand.slice(0, 3)) rec(joinAt(chain, rev ? b.pts.slice().reverse() : b.pts), members.concat([b]), depth + 1, cost + c);
+    };
+    rec(start.pts, [start], 0, 0);
+    rec(start.pts.slice().reverse(), [start], 0, 0);
+    return found.sort((a, b) => a.cost - b.cost)[0] || null;
+  }
+  function build(strokes) {
+    const shapes = [], opens = [], lines = [], budget = { n: 6000 };
+    for (const s of strokes) { const loop = closeLoop(s.pts); if (loop) shapes.push(mkShape(loop, [s])); else opens.push(s); }
+    let pool = opens.slice();
+    for (const a of opens) {
+      if (!pool.includes(a)) continue;
+      const c = closeChain(a, pool, budget);
+      if (c) { shapes.push(mkShape(c.loop, c.members)); pool = pool.filter(x => !c.members.includes(x)); }
+    }
+    for (const m of pool) lines.push(mkLine(m));
+    // Lines that lean on a shape: chain them greedily and close them along that shape's edge.
+    const base = shapes.slice(), used = new Set(), onShape = (p) => base.some(sh => edgeDist(p, sh.loop) <= 35);
+    for (const a of pool) {
+      if (used.has(a)) continue;
+      let chain = a.pts.slice(); const members = [a];
+      for (let guard = 0; guard < 8; guard++) {
+        const cs = chain[0], ce = chain[chain.length - 1]; let best = null;
+        for (const b of pool) {
+          if (used.has(b) || members.includes(b)) continue;
+          const tol = Math.max(30, 0.1 * Math.max(box(chain).diag, b.box.diag)), s0 = b.pts[0], s1 = b.pts[b.pts.length - 1];
+          for (const [d, how] of [[dist(ce, s0), 0], [dist(ce, s1), 1], [dist(cs, s1), 2], [dist(cs, s0), 3]]) if (d <= tol && (!best || d < best.d)) best = { d, how, b };
+        }
+        if (!best) break;
+        const bp = best.b.pts, rev = bp.slice().reverse();
+        chain = best.how === 0 ? chain.concat(bp) : best.how === 1 ? chain.concat(rev) : best.how === 2 ? bp.concat(chain) : rev.concat(chain);
+        members.push(best.b);
+      }
+      const e0 = chain[0], e1 = chain[chain.length - 1], gap = dist(e0, e1);
+      if (base.length && gap >= 40 && plen(chain) >= 1.3 * gap && onShape(e0) && onShape(e1)) {
+        members.forEach(m => used.add(m)); shapes.push(Object.assign(mkShape(chain, members), { attached: true }));
+      }
+    }
+    return { shapes, lines };
+  }
+
+  // ---- The state a check reads ---------------------------------------------------------------------------------------
+  // raw: [{ t: 'pen'|'charcoal'|'sketch'|'shade', color: '#hex', pts: [[x, y], ...] }] in page units (0..1000).
+  // tone: 100 x 100 cells of shading (the shading layer plus a little for marker ink), each 0..1.
+  const TONE_ON = 0.03;
+  function state(raw, tone) {
+    const strokes = [], dots = [];
+    for (const s of raw) {
+      if (!['pen', 'charcoal', 'sketch'].includes(s.t) || !s.pts || !s.pts.length) continue;
+      const pts = []; for (const p of s.pts) if (Number.isFinite(p[0]) && Number.isFinite(p[1]) && (!pts.length || dist(pts[pts.length - 1], p) >= 2)) pts.push([p[0], p[1]]);
+      if (!pts.length) continue;
+      const b = box(pts), L = plen(pts), color = s.t === 'pen' ? nameOf(s.color) : s.t === 'charcoal' ? 'black' : 'gray';
+      if (L < 22 || b.diag < 26) { dots.push({ kind: 'dot', cx: b.cx, cy: b.cy, size: Math.max(12, b.diag), color }); continue; }
+      strokes.push({ t: s.t, color, pts, box: b, len: L, i: strokes.length + dots.length });
+    }
+    const { shapes, lines } = build(strokes);
+    return { strokes, dots, shapes, lines, tone: tone || raster(raw) };
+  }
+  // Shading for a made-up drawing (the self-check), in the same cells the real canvas is read into.
+  const SHADE_DEP = 0.002;
+  function raster(raw) {
+    const T = new Float32Array(10000);
+    const dep = (x, y, rad, amt) => {
+      const g0 = Math.max(0, Math.floor((x - rad) / 10)), g1 = Math.min(99, Math.floor((x + rad) / 10)), h0 = Math.max(0, Math.floor((y - rad) / 10)), h1 = Math.min(99, Math.floor((y + rad) / 10));
+      for (let gy = h0; gy <= h1; gy++) for (let gx = g0; gx <= g1; gx++) if (Math.hypot(gx * 10 + 5 - x, gy * 10 + 5 - y) <= rad) { const i = gy * 100 + gx; T[i] = 1 - (1 - T[i]) * (1 - amt); }
+    };
+    for (const s of raw) {
+      if (!s.pts || !s.pts.length) continue;
+      if (s.t === 'shade') for (const [x, y] of along(s.pts, 3)) dep(x, y, 16, SHADE_DEP);
+      else if (s.t === 'pen' || s.t === 'charcoal') for (const [x, y] of along(s.pts, 4)) dep(x, y, 6, 0.12);
+    }
+    return T;
+  }
+  function region(S, test) {
+    let n = 0, sum = 0, wx = 0, wy = 0, on = 0;
+    for (let gy = 0; gy < 100; gy++) for (let gx = 0; gx < 100; gx++) {
+      const x = gx * 10 + 5, y = gy * 10 + 5; if (!test(x, y)) continue;
+      const v = S.tone[gy * 100 + gx]; n++; sum += v; wx += v * x; wy += v * y; if (v > TONE_ON) on++;
+    }
+    return { n, sum, mean: n ? sum / n : 0, cover: n ? on / n : 0, cx: sum ? wx / sum : 0, cy: sum ? wy / sum : 0 };
+  }
+  const toneTotal = (S) => { let s = 0; for (let i = 0; i < 10000; i++) s += S.tone[i]; return s; };
+  const anything = (S) => S.strokes.length + S.dots.length > 0 || toneTotal(S) > 1.5;
+
+  // ---- Shape vocabulary and small checks -----------------------------------------------------------------------------
+  const KINDS = { circle: ['circle', 'oval'], oval: ['oval', 'circle'], square: ['square', 'rect'], rect: ['rect', 'square'], triangle: ['triangle'], dot: [] };
+  const WORD = { circle: 'circle', oval: 'oval', square: 'square', rect: 'rectangle', triangle: 'triangle', blob: 'wiggly shape', dot: 'dot', line: 'line' };
+  const plural = (k) => WORD[k] + 's';
+  const aWord = (k) => (/^[aeiou]/.test(WORD[k]) ? 'an ' : 'a ') + WORD[k];
+  const is = (s, kind) => (KINDS[kind] || [kind]).includes(s.kind);
+  const OK = (say) => ({ ok: true, say: say || '' });
+  const NO = (say) => ({ ok: false, say });
+  const SHAPE_HINT = { circle: 'A circle is round all the way. Go around and end where you started.', oval: 'An oval is a long, stretched circle.', square: 'A square has four straight sides, all the same, and four corners.', rect: 'A rectangle has four straight sides and four corners. Two sides are long.', triangle: 'A triangle has three straight sides and three pointy corners.', dot: 'Tap the page with the marker to make a dot.' };
+  const of = (S, kind, min = 60) => S.shapes.filter(s => is(s, kind) && s.size >= min);
+  // Little marks: dots, tiny shapes and short strokes (eyes, spots, seeds).
+  const marks = (S, max) => [...S.dots, ...S.shapes.filter(s => s.size <= max), ...S.lines.filter(l => l.box.diag <= max).map(l => ({ kind: 'dot', cx: l.box.cx, cy: l.box.cy, size: l.box.diag, color: l.color }))];
+  function wrongKind(S, kind) {
+    const other = S.shapes.filter(s => s.size >= 60 && !is(s, kind)).sort((a, b) => b.size - a.size)[0];
+    if (other) return NO('That looks like ' + aWord(other.kind) + '. ' + SHAPE_HINT[kind]);
+    if (S.lines.some(l => l.len > 120)) return NO('Join the ends so the shape is closed. ' + SHAPE_HINT[kind]);
+    return NO(SHAPE_HINT[kind]);
+  }
+  const PLACE_TEXT = { top: 'Put it at the top of the page.', bottom: 'Put it at the bottom of the page.', left: 'Put it on the left side.', right: 'Put it on the right side.', middle: 'Put it in the middle.' };
+  const inPlace = (s, w) => w === 'top' ? s.cy < 430 : w === 'bottom' ? s.cy > 570 : w === 'left' ? s.cx < 430 : w === 'right' ? s.cx > 570 : Math.abs(s.cx - 500) < 170 && Math.abs(s.cy - 500) < 170;
+  const placeXY = (w) => w === 'top' ? [rf(320, 680), rf(190, 290)] : w === 'bottom' ? [rf(320, 680), rf(710, 800)] : w === 'left' ? [rf(190, 290), rf(320, 680)] : w === 'right' ? [rf(710, 810), rf(320, 680)] : w === 'middle' ? [rf(460, 540), rf(460, 540)] : [rf(330, 670), rf(330, 670)];
+  // The rule of thirds crossings and lines.
+  const THIRDS = { 'top left': [333, 333], 'top right': [667, 333], 'bottom left': [333, 667], 'bottom right': [667, 667] };
+  const thirdsOps = () => [333, 667].flatMap(v => [{ line: [v, 20, v, 980], dash: true }, { line: [20, v, 980, v], dash: true }]);
+  const LIGHTS = { 'top left': [-0.7071, -0.7071], 'top right': [0.7071, -0.7071], left: [-1, 0], right: [1, 0], top: [0, -1] };
+  const sunAt = (cx, cy, L, d) => ({ sun: [Math.max(70, Math.min(930, cx + L[0] * d)), Math.max(70, Math.min(930, cy + L[1] * d))] });
+
+  // ---- Made-up drawings for the self-check (what a child would draw), in page units ------------------------------
+  const SY = {
+    ring(cx, cy, rx, ry, color, n = 44) { const pts = []; for (let i = 0; i <= n; i++) { const a = i / n * 2 * Math.PI; pts.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]); } return { t: 'pen', color: HEX[color] || color, pts, round: true }; },
+    poly(P, color = 'black', closed = true) {
+      const Q = closed ? P.concat([P[0]]) : P, pts = [];
+      for (let i = 1; i < Q.length; i++) { const a = Q[i - 1], b = Q[i], n = Math.max(1, Math.ceil(dist(a, b) / 12)); for (let k = 0; k < n; k++) pts.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]); }
+      pts.push(Q[Q.length - 1].slice());
+      return { t: 'pen', color: HEX[color] || color, pts, poly: closed ? P : null };
+    },
+    line(x1, y1, x2, y2, color = 'black') { return SY.poly([[x1, y1], [x2, y2]], color, false); },
+    curve(pts, color = 'black') { return SY.poly(pts, color, false); },
+    dot(x, y, color = 'black') { return { t: 'pen', color: HEX[color] || color, pts: [[x, y]] }; },
+    shape(kind, cx, cy, size, color = 'black') {
+      const h = size / 2;
+      if (kind === 'circle') return SY.ring(cx, cy, h, h, color);
+      if (kind === 'oval') return SY.ring(cx, cy, h, h * 0.62, color);
+      if (kind === 'square') return SY.poly([[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]], color);
+      if (kind === 'rect') return SY.poly([[cx - h, cy - h * 0.5], [cx + h, cy - h * 0.5], [cx + h, cy + h * 0.5], [cx - h, cy + h * 0.5]], color);
+      return SY.poly([[cx, cy - h], [cx + h, cy + h * 0.8], [cx - h, cy + h * 0.8]], color);
+    },
+    // Shading pencil scribbles over the cells where test(x, y) is true.
+    fill(test, x0, y0, x1, y1, passes = 3, gap = 12) {
+      const out = [];
+      for (let p = 0; p < passes; p++) for (let y = y0 + (p * gap) / passes; y <= y1; y += gap) {
+        let run = [];
+        for (let x = x0; x <= x1; x += 6) { if (test(x, y)) run.push([x, y]); else { if (run.length > 1) out.push({ t: 'shade', pts: run }); run = []; } }
+        if (run.length > 1) out.push({ t: 'shade', pts: run });
+      }
+      return out;
+    },
+  };
+  // A wobbly, finger-drawn version: shaky lines, circles that run past the start, squares drawn side by side.
+  function jitter(s) {
+    const A = Math.min(rf(2, 6), 0.06 * box(s.pts).diag), ph = rf(0, 6), f = rf(0.2, 0.45);
+    const pts = s.pts.map((p, i) => { const a = s.pts[Math.max(0, i - 1)], b = s.pts[Math.min(s.pts.length - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, o = A * Math.sin(i * f + ph) + rf(-1.5, 1.5); return [p[0] - dy / L * o, p[1] + dx / L * o]; });
+    return Object.assign({}, s, { pts });
+  }
+  function wobble(raw) {
+    const out = [];
+    for (const s of raw) {
+      if (s.t !== 'pen' || s.pts.length < 2) { out.push(s); continue; }
+      if (s.poly && Math.random() < 0.5) {
+        const P = s.poly;
+        for (let i = 0; i < P.length; i++) {
+          const a = P[i], b = P[(i + 1) % P.length], L = dist(a, b) || 1, ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L, o = Math.min(8, 0.08 * L), o1 = rf(-0.75, 1) * o, o2 = rf(-0.75, 1) * o;
+          out.push(jitter(SY.poly([[a[0] - ux * o1, a[1] - uy * o1], [b[0] + ux * o2, b[1] + uy * o2]], s.color, false)));
+        }
+        continue;
+      }
+      let pts = s.pts;
+      if (s.round) pts = s.pts.concat(s.pts.slice(1, Math.max(2, Math.round(s.pts.length * rf(0, 0.12)))));
+      out.push(jitter(Object.assign({}, s, { pts })));
+    }
+    return out;
+  }
+  const WINS = ['You did it!', 'Wonderful drawing!', 'Yes! That is it!', 'Great job, artist!', 'Beautiful work!', 'Super drawing!', 'Look at that! Well done.'];
+  function task(o) { return Object.assign({ hint: '', win: pick(WINS), scaffold: [], ref: null, tool: 'pen' }, o); }
+
+  // ---- Content banks -------------------------------------------------------------------------------------------------
+  const LIKE = {
+    circle: ['a ball', 'the sun', 'a cookie', 'a wheel', 'a bubble', 'an orange', 'a plate', 'a button', 'a moon', 'a donut'],
+    square: ['a window', 'a box', 'a present', 'a cracker', 'a block', 'a sandwich', 'a picture frame', 'a napkin'],
+    triangle: ['a slice of pizza', 'a party hat', 'a tent', 'a mountain', 'a sail', 'a roof', 'a slice of cheese', 'a witch hat'],
+  };
+  const COLOR_THINGS = { red: ['an apple', 'a fire truck', 'a strawberry', 'a ladybug'], orange: ['an orange', 'a pumpkin', 'a carrot', 'a goldfish'], yellow: ['the sun', 'a banana', 'a duckling', 'a lemon'],
+    green: ['a leaf', 'a frog', 'the grass', 'a pickle'], blue: ['the sky', 'the sea', 'a blueberry', 'a whale'], purple: ['grapes', 'a plum', 'an eggplant', 'a violet'],
+    pink: ['a flamingo', 'a pig', 'bubble gum', 'a cupcake'], brown: ['a bear', 'a tree trunk', 'chocolate', 'a puppy'] };
+  const COUNT_THEMES = { circle: ['balloons', 'bubbles', 'balls', 'cookies', 'coins', 'grapes'], square: ['boxes', 'windows', 'blocks', 'presents', 'crackers'], triangle: ['party hats', 'tents', 'pizza slices', 'sails', 'trees'], dot: ['ladybug spots', 'raindrops', 'seeds', 'stars in the sky', 'sprinkles'] };
+
+  // ---- Draw what you see: models made of simple shapes ---------------------------------------------------------------
+  // Each model has a picture (ops, drawn on the reference card), a drawing a child might make (solve) and a check.
+  const above = (a, b, slack = 0.6) => a.cy < b.cy && Math.abs(a.cx - b.cx) < slack * Math.max(a.box.w, b.box.w);
+  const quad = (S, min) => S.shapes.filter(s => (is(s, 'rect') || is(s, 'square')) && s.size > min);
+  const ringAt = (T, x, y, r, c = 'black') => { const [p] = T([[x, y]]); return SY.ring(p[0], p[1], r * T.s, r * T.s, c); };
+  const MODELS = [
+    { text: 'a house', ops: [{ poly: [[330, 470], [670, 470], [670, 810], [330, 810]] }, { poly: [[300, 470], [500, 250], [700, 470]] }],
+      solve: (T) => [SY.poly(T([[330, 470], [670, 470], [670, 810], [330, 810]])), SY.poly(T([[300, 470], [500, 250], [700, 470]]))],
+      check(S) { const sq = of(S, 'square', 150), tr = of(S, 'triangle', 120);
+        if (!sq.length) return NO('Draw the square part of the house.'); if (!tr.length) return NO('Add the triangle roof.');
+        return sq.some(a => tr.some(b => above(b, a) && b.box.y1 < a.box.y0 + 0.45 * a.box.h)) ? OK() : NO('Put the triangle roof on top of the square.'); } },
+    { text: 'an ice cream cone', ops: [{ poly: [[380, 480], [620, 480], [500, 840]] }, { circle: [500, 380, 120] }],
+      solve: (T) => [SY.poly(T([[380, 480], [620, 480], [500, 840]])), ringAt(T, 500, 380, 120)],
+      check(S) { const c = of(S, 'circle', 100), tr = of(S, 'triangle', 120);
+        if (!tr.length) return NO('Draw the triangle cone.'); if (!c.length) return NO('Add a round scoop.');
+        return c.some(a => tr.some(b => above(a, b))) ? OK() : NO('Put the round scoop on top of the cone.'); } },
+    { text: 'a snowman', ops: [{ circle: [500, 720, 150] }, { circle: [500, 470, 110] }, { circle: [500, 285, 80] }],
+      solve: (T) => [ringAt(T, 500, 720, 150), ringAt(T, 500, 470, 110), ringAt(T, 500, 285, 80)],
+      check(S) { const c = of(S, 'circle', 80).sort((a, b) => b.cy - a.cy);
+        if (c.length < 3) return NO('I see ' + c.length + ' round ' + (c.length === 1 ? 'ball' : 'balls') + '. The snowman has three.');
+        for (let i = 1; i < c.length; i++) if (!above(c[i], c[i - 1], 0.8)) return NO('Stack the circles one on top of the other.');
+        return OK(); } },
+    { text: 'a balloon on a string', ops: [{ circle: [500, 360, 170] }, { lines: [[500, 530], [470, 650], [530, 760], [500, 880]] }],
+      solve: (T) => [ringAt(T, 500, 360, 170), SY.curve(T([[500, 530], [470, 650], [530, 760], [500, 880]]))],
+      check(S) { const c = of(S, 'circle', 150); if (!c.length) return NO('Draw a big round balloon.');
+        return c.some(b => S.lines.some(l => l.len > 120 && Math.min(dist(l.a, [b.cx, b.box.y1]), dist(l.b, [b.cx, b.box.y1])) < 80 && Math.max(l.a[1], l.b[1]) > b.box.y1 + 80)) ? OK() : NO('Add a string hanging down from the bottom of the balloon.'); } },
+    { text: 'a sun with sunbeams', ops: [{ circle: [500, 500, 170] }, ...Array.from({ length: 8 }, (_, i) => { const a = i * Math.PI / 4; return { line: [500 + 215 * Math.cos(a), 500 + 215 * Math.sin(a), 500 + 320 * Math.cos(a), 500 + 320 * Math.sin(a)] }; })],
+      solve: (T) => [ringAt(T, 500, 500, 170), ...Array.from({ length: 8 }, (_, i) => { const a = i * Math.PI / 4, q = T([[500 + 215 * Math.cos(a), 500 + 215 * Math.sin(a)], [500 + 320 * Math.cos(a), 500 + 320 * Math.sin(a)]]); return SY.line(q[0][0], q[0][1], q[1][0], q[1][1]); })],
+      check(S) { const c = of(S, 'circle', 120).sort((a, b) => b.size - a.size)[0]; if (!c) return NO('Draw a big circle for the sun.');
+        const r = c.size / 2, rays = S.lines.filter(l => { const d = dist([l.box.cx, l.box.cy], [c.cx, c.cy]); return l.len >= 35 && d > r * 1.02 && d < r * 2.8; });
+        return rays.length >= 5 ? OK() : NO('I see ' + rays.length + ' sunbeams. Draw five or more all around the sun.'); } },
+    { text: 'a happy face', ops: [{ circle: [500, 500, 280] }, { dot: [400, 430] }, { dot: [600, 430] }, { lines: [[390, 590], [450, 650], [550, 650], [610, 590]] }],
+      solve: (T) => { const q = T([[400, 430], [600, 430]]); return [ringAt(T, 500, 500, 280), SY.dot(q[0][0], q[0][1]), SY.dot(q[1][0], q[1][1]), SY.curve(T([[390, 590], [450, 650], [550, 650], [610, 590]]))]; },
+      check(S) { const h = of(S, 'circle', 250).sort((a, b) => b.size - a.size)[0]; if (!h) return NO('Draw a big circle for the face.');
+        const inH = (m) => m.cx > h.box.x0 && m.cx < h.box.x1 && m.cy > h.box.y0 && m.cy < h.box.y1;
+        const eyes = marks(S, 0.3 * h.size).filter(m => inH(m) && m.cy < h.cy + 0.1 * h.box.h);
+        if (eyes.length < 2) return NO('Add two eyes inside the face.');
+        const smile = S.lines.some(l => l.box.w > 0.18 * h.box.w && inH({ cx: l.box.cx, cy: l.box.cy }) && l.box.cy > h.cy);
+        return smile ? OK() : NO('Add a smile under the eyes.'); } },
+    { text: 'a tree', ops: [{ poly: [[450, 590], [550, 590], [550, 860], [450, 860]] }, { circle: [500, 410, 190] }],
+      solve: (T) => [SY.poly(T([[450, 600], [550, 600], [550, 860], [450, 860]])), ringAt(T, 500, 410, 190)],
+      check(S) { const c = of(S, 'circle', 150), r = quad(S, 100);
+        if (!c.length) return NO('Draw a big round top for the leaves.'); if (!r.length) return NO('Draw a rectangle for the trunk.');
+        return c.some(a => r.some(b => above(a, b, 0.7) && b.box.y0 < a.box.y1 + 80)) ? OK() : NO('Put the trunk under the round leaves.'); } },
+    { text: 'a rocket', ops: [{ poly: [[420, 380], [580, 380], [580, 800], [420, 800]] }, { poly: [[420, 380], [500, 200], [580, 380]] }],
+      solve: (T) => [SY.poly(T([[420, 380], [580, 380], [580, 800], [420, 800]])), SY.poly(T([[410, 375], [500, 190], [590, 375]]))],
+      check(S) { const r = quad(S, 150), tr = of(S, 'triangle', 80);
+        if (!r.length) return NO('Draw a tall rectangle for the rocket.'); if (!tr.length) return NO('Add a triangle nose on top.');
+        return r.some(a => tr.some(b => above(b, a, 0.8) && b.box.y1 < a.box.y0 + 0.4 * a.box.h)) ? OK() : NO('Put the triangle on top of the rectangle.'); } },
+    { text: 'a car', ops: [{ poly: [[250, 440], [750, 440], [750, 640], [250, 640]] }, { circle: [350, 690, 70] }, { circle: [650, 690, 70] }],
+      solve: (T) => [SY.poly(T([[250, 440], [750, 440], [750, 630], [250, 630]])), ringAt(T, 350, 700, 70), ringAt(T, 650, 700, 70)],
+      check(S) { const r = quad(S, 200).sort((a, b) => b.size - a.size)[0]; if (!r) return NO('Draw a long rectangle for the car.');
+        const w = of(S, 'circle', 50).filter(c => c !== r && c.cy > r.cy && c.cx > r.box.x0 - 40 && c.cx < r.box.x1 + 40);
+        return w.length >= 2 ? OK() : NO('Add two round wheels under the car.'); } },
+    { text: 'a flower', ops: [{ circle: [500, 400, 70] }, ...Array.from({ length: 6 }, (_, i) => { const a = i * Math.PI / 3 - Math.PI / 2; return { circle: [500 + 140 * Math.cos(a), 400 + 140 * Math.sin(a), 62] }; }), { line: [500, 600, 500, 900] }],
+      solve: (T) => [ringAt(T, 500, 400, 70), ...Array.from({ length: 6 }, (_, i) => { const a = i * Math.PI / 3 - Math.PI / 2; return ringAt(T, 500 + 140 * Math.cos(a), 400 + 140 * Math.sin(a), 60); }), SY.line(...T([[500, 605], [500, 900]]).flat())],
+      check(S) { const round = of(S, 'circle', 40); let best = null, n = 0;
+        for (const c of round) { const k = round.filter(o => o !== c && dist([o.cx, o.cy], [c.cx, c.cy]) < Math.max(c.size, o.size) * 2.8).length; if (k > n) { n = k; best = c; } }
+        if (!best || n < 5) return NO('I see ' + n + ' petals. The flower has six petals around the middle.');
+        const top = Math.max(...round.filter(o => dist([o.cx, o.cy], [best.cx, best.cy]) < best.size * 4).map(o => o.box.y1));
+        return S.lines.some(l => l.box.h > 120 && l.box.y0 > best.cy - 20 && l.box.y0 < top + 80) ? OK() : NO('Add a long stem under the flower.'); } },
+    { text: 'a traffic light', color: true, ops: [{ poly: [[400, 180], [600, 180], [600, 820], [400, 820]] }, { circle: [500, 300, 70], color: 'red' }, { circle: [500, 500, 70], color: 'yellow' }, { circle: [500, 700, 70], color: 'green' }],
+      solve: (T) => [SY.poly(T([[400, 180], [600, 180], [600, 820], [400, 820]])), ringAt(T, 500, 300, 70, 'red'), ringAt(T, 500, 500, 70, 'yellow'), ringAt(T, 500, 700, 70, 'green')],
+      check(S) { const r = quad(S, 250).sort((a, b) => b.size - a.size)[0]; if (!r) return NO('Draw a tall rectangle for the traffic light.');
+        const c = of(S, 'circle', 50).filter(o => o !== r && o.cx > r.box.x0 && o.cx < r.box.x1 && o.cy > r.box.y0 && o.cy < r.box.y1).sort((a, b) => a.cy - b.cy);
+        if (c.length < 3) return NO('Draw three round lights inside it.');
+        return /red.*yellow.*green/.test(c.map(o => o.color).join(' ')) ? OK() : NO('Look at the colors: red on top, then yellow, then green.'); } },
+    { text: 'a fish', ops: [{ oval: [440, 500, 220, 130] }, { poly: [[650, 500], [830, 380], [830, 620]] }, { dot: [330, 470] }],
+      solve: (T) => { const [c] = T([[440, 500]]); return [SY.ring(c[0], c[1], 220 * T.s, 130 * T.s, 'black'), SY.poly(T([[655, 500], [830, 380], [830, 620]])), SY.dot(...T([[330, 470]])[0])]; },
+      check(S) { const o = of(S, 'oval', 150), tr = of(S, 'triangle', 80); if (!o.length) return NO('Draw a long oval for the fish body.'); if (!tr.length) return NO('Add a triangle tail.');
+        return o.some(a => tr.some(b => b !== a && Math.abs(b.cy - a.cy) < 0.5 * a.box.h && Math.abs(b.cx - a.cx) > 0.4 * a.box.w && b.box.x0 < a.box.x1 + 80 && b.box.x1 > a.box.x0 - 80)) ? OK() : NO('Put the tail at the end of the body.'); } },
+    { text: 'a caterpillar', ops: Array.from({ length: 5 }, (_, i) => ({ circle: [180 + i * 160, 520 + (i % 2 ? -25 : 25), 76] })),
+      solve: (T) => Array.from({ length: 5 }, (_, i) => ringAt(T, 180 + i * 160, 520 + (i % 2 ? -25 : 25), 74)),
+      check(S) { const c = of(S, 'circle', 50); if (c.length < 5) return NO('I see ' + c.length + ' round parts. The caterpillar has five in a row.');
+        const ys = c.map(o => o.cy); return Math.max(...ys) - Math.min(...ys) < 260 ? OK() : NO('Put the five circles side by side in a row.'); } },
+  ];
+  const modelT = () => { const s = rf(0.82, 1.0), dx = rf(-50, 50) * s, dy = rf(-40, 40) * s; const T = (pts) => pts.map(([x, y]) => [500 + (x - 500) * s + dx, 500 + (y - 500) * s + dy]); T.s = s; return T; };
+
+  // ---- Mirror halves: the left half of a figure (x from -1 to 0, y from -1 down to 1) ----------------------------------
+  const FIGS = [
+    { name: 'heart', p: [[[0, -0.45], [-0.35, -0.85], [-0.85, -0.65], [-0.9, -0.1], [-0.5, 0.4], [0, 0.9]]] },
+    { name: 'butterfly', p: [[[0, -0.6], [-0.6, -0.95], [-0.95, -0.6], [-0.7, -0.05], [0, 0]], [[0, 0.05], [-0.75, 0.2], [-0.7, 0.75], [-0.25, 0.7], [0, 0.35]]] },
+    { name: 'house', p: [[[0, -0.9], [-0.85, -0.2], [-0.65, -0.2], [-0.65, 0.85], [0, 0.85]], [[0, 0.85], [-0.22, 0.85], [-0.22, 0.35], [0, 0.35]]] },
+    { name: 'pine tree', p: [[[0, -0.95], [-0.45, -0.35], [-0.25, -0.35], [-0.7, 0.3], [-0.12, 0.3], [-0.12, 0.85], [0, 0.85]]] },
+    { name: 'vase', p: [[[0, -0.85], [-0.3, -0.85], [-0.2, -0.6], [-0.75, -0.1], [-0.65, 0.6], [-0.35, 0.85], [0, 0.85]]] },
+    { name: 'crown', p: [[[0, -0.2], [-0.35, -0.75], [-0.55, -0.15], [-0.9, -0.65], [-0.85, 0.6], [0, 0.6]]] },
+    { name: 'rocket', p: [[[0, -0.95], [-0.35, -0.45], [-0.35, 0.45], [-0.7, 0.85], [-0.35, 0.7], [0, 0.7]]] },
+    { name: 'cat face', p: [[[0, -0.45], [-0.45, -0.45], [-0.7, -0.9], [-0.85, -0.2], [-0.8, 0.4], [-0.4, 0.8], [0, 0.85]], [[-0.45, -0.05], [-0.33, -0.17], [-0.21, -0.05], [-0.33, 0.07], [-0.45, -0.05]]] },
+    { name: 'bug', p: [[[0, -0.6], [-0.5, -0.4], [-0.6, 0.2], [-0.35, 0.75], [0, 0.85]], [[-0.57, 0], [-0.95, -0.15]], [[-0.15, -0.58], [-0.4, -0.95]]] },
+    { name: 'leaf', p: [[[0, -0.95], [-0.55, -0.4], [-0.6, 0.3], [-0.25, 0.75], [0, 0.95]], [[0, -0.3], [-0.3, -0.5]], [[0, 0.2], [-0.35, 0]]] },
+    { name: 'star', p: [[[0, -0.95], [-0.22, -0.32], [-0.92, -0.3], [-0.36, 0.12], [-0.58, 0.8], [0, 0.4]]] },
+    { name: 'castle', p: [[[0, -0.3], [-0.25, -0.3], [-0.25, -0.6], [-0.5, -0.6], [-0.5, -0.9], [-0.85, -0.9], [-0.85, 0.85], [0, 0.85]]] },
+    { name: 'owl', p: [[[0, -0.55], [-0.5, -0.7], [-0.7, -0.95], [-0.8, -0.3], [-0.75, 0.5], [-0.4, 0.9], [0, 0.95]], [[-0.4, -0.3], [-0.25, -0.45], [-0.12, -0.3], [-0.25, -0.15], [-0.4, -0.3]]] },
+  ];
+  function mirrorScore(S, target, side) {
+    const pts = []; for (const s of S.strokes) for (const p of along(s.pts, 8)) pts.push(p);
+    for (const d of S.dots) pts.push([d.cx, d.cy]);
+    const mine = pts.filter(side);
+    const tgt = []; for (const poly of target) for (const p of along(poly, 10)) tgt.push(p);
+    if (!mine.length) return { cover: 0, prec: 0 };
+    const near = (p, set, r) => { for (const q of set) if (Math.abs(q[0] - p[0]) <= r && Math.abs(q[1] - p[1]) <= r && dist(p, q) <= r) return true; return false; };
+    return { cover: tgt.filter(p => near(p, mine, 55)).length / tgt.length, prec: mine.filter(p => near(p, tgt, 60)).length / mine.length };
+  }
+
+  // ---- Perspective helpers -------------------------------------------------------------------------------------------
+  // A straight stroke that starts at E (either end) and heads for V (or straight away from V).
+  function aims(s, E, V, o = {}) {
+    if (s.len < (o.min || 70)) return false;
+    const a = s.pts[0], b = s.pts[s.pts.length - 1], [near, far] = dist(a, E) <= dist(b, E) ? [a, b] : [b, a];
+    if (dist(near, E) > (o.reach || 45) || !straight(s)) return false;
+    const vx = far[0] - E[0], vy = far[1] - E[1], tx = V[0] - E[0], ty = V[1] - E[1], vl = Math.hypot(vx, vy), tl = Math.hypot(tx, ty);
+    if (vl < 50 || tl < 1) return false;
+    const cos = (vx * tx + vy * ty) / (vl * tl) * (o.away ? -1 : 1);
+    if (cos <= 0) return false;
+    const ang = Math.acos(Math.min(1, cos)) * 180 / Math.PI, perp = Math.abs(vx * ty - vy * tx) / tl;
+    if (ang > 10 && perp > 24) return false;
+    if (!o.away && vl > tl + 60) return false;
+    return true;
+  }
+
+  // ---- Shading helpers -----------------------------------------------------------------------------------------------
+  const inEllipse = (cx, cy, rx, ry, k = 1) => (x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < k;
+  const inPolyM = (poly, m) => (x, y) => inPoly([x, y], poly) && edgeDist([x, y], poly) >= m;
+  const DARK_MIN = 0.06, STEP_MIN = 0.02;
+
+  // =====================================================================================================================
+  // The ladder. Grade bands (art): pre-K/K shapes and colors, draw what you see; 1st/2nd proportion, symmetry, warm and
+  // cool colors; 3rd/4th perspective basics, shading, composition; 5th/6th one and two point perspective, value and
+  // form; 7th/8th design principles and color theory.
+  //    0 Shapes ................. pre-K   circle, square, triangle, sometimes in a named place on the page
+  //    1 Colors ................ pre-K   a shape or a line in a named marker color
+  //    2 How many? .............. K       count shapes or dots to a number, sometimes in a row
+  //    3 Draw what you see ...... K       copy a picture made of shapes (house, snowman, traffic light...)
+  //    4 Big and small .......... 1st     proportion: big and small, ordered sizes, a stacked snowman
+  //    5 Mirror match ........... 1st     symmetry: draw the missing half across a mirror line
+  //    6 Warm and cool .......... 2nd     warm and cool colors
+  //    7 Face proportions ....... 2nd     proportion: eyes halfway down the head, body to head
+  //    8 Near and far ........... 3rd     perspective basics: far things smaller and higher, a road narrowing
+  //    9 Light and shadow ....... 3rd     shading: the side away from the light, a shadow on the ground
+  //   10 Rule of thirds ......... 4th     composition: thirds lines and crossings
+  //   11 Overlap ................ 4th     composition and depth: one thing behind another
+  //   12 One point perspective .. 5th     orthogonals to one vanishing point (box, road, hallway)
+  //   13 Value scale ............ 5th     value: light to dark steps
+  //   14 Two point perspective .. 6th     a box corner to two vanishing points, back edges
+  //   15 Form shading ........... 6th     value and form: highlight, core shadow, cast shadow; cube and cylinder
+  //   16 Color wheel ........... 7th     color theory: complementary, analogous, primary and secondary triads
+  //   17 Balance and rhythm ..... 7th     design principles: radial, symmetrical, asymmetrical balance, rhythm
+  //   18 Focal point ............ 8th     design principles: emphasis and contrast by color, size or shape
+  //   19 Depth with color ...... 8th     color theory and perspective: atmospheric perspective
+  // =====================================================================================================================
+  const LEVELS = [
+    { name: 'Shapes', g: -1, gen() {
+      const kind = pick(['circle', 'square', 'triangle']), where = Math.random() < 0.5 ? pick(['top', 'bottom', 'left', 'right', 'middle']) : null, like = pick(LIKE[kind]);
+      const text = pick([`Draw a ${kind}, like ${like}.`, `Can you draw a ${kind}? Make it like ${like}.`, `Let's draw a big ${kind}, like ${like}.`]) + (where ? ' ' + PLACE_TEXT[where] : '');
+      return task({ text, hint: SHAPE_HINT[kind], win: pick(['A perfect ' + kind + '!', 'What a ' + kind + '!', 'Yes! That is a ' + kind + '.']),
+        check(S) {
+          const good = of(S, kind, 100);
+          if (good.some(s => !where || inPlace(s, where))) return OK();
+          if (good.length) return NO('Good ' + kind + '! ' + PLACE_TEXT[where]);
+          if (of(S, kind, 30).length) return NO('Make your ' + kind + ' bigger!');
+          return wrongKind(S, kind);
+        },
+        solve() { const [x, y] = placeXY(where); return [SY.shape(kind, x, y, ri(220, 320))]; } });
+    } },
+    { name: 'Colors', g: -1, gen() {
+      const kind = pick(['circle', 'square', 'triangle', 'line']), col = pick(Object.keys(COLOR_THINGS)), thing = pick(COLOR_THINGS[col]);
+      const text = pick([`Draw a ${col} ${WORD[kind]}.`, `Pick the ${col} marker. Draw a ${WORD[kind]}.`, `Find ${col} and draw a ${WORD[kind]} with it.`]) + ' ' + pick([`${cap(col)} like ${thing}!`, `${cap(col)}, like ${thing}.`]);
+      return task({ text, hint: 'Tap the ' + col + ' dot at the bottom, then draw. ' + (kind === 'line' ? 'A line goes from one side to the other.' : SHAPE_HINT[kind]), win: pick([`A ${col} ${WORD[kind]}! You found ${col}.`, `Yes, that is ${col}!`, `Lovely ${col}!`]),
+        check(S) {
+          if (kind === 'line') {
+            const ls = S.strokes.filter(s => s.len >= 180 && !closeLoop(s.pts));
+            if (ls.some(s => s.color === col)) return OK();
+            return ls.length ? NO('Nice line! Now make one with the ' + col + ' marker.') : NO('Draw a long line, from one side to the other.');
+          }
+          const good = of(S, kind, 90);
+          if (good.some(s => s.color === col)) return OK();
+          if (good.length) return NO('Good ' + kind + '! Now draw it with the ' + col + ' marker.');
+          return wrongKind(S, kind);
+        },
+        solve() { const [x, y] = placeXY(null); return [kind === 'line' ? SY.line(150, y, 850, y + rf(-80, 80), col) : SY.shape(kind, x, y, ri(220, 320), col)]; } });
+    } },
+    { name: 'How many?', g: 0, gen() {
+      const kind = pick(['circle', 'square', 'triangle', 'dot']), n = kind === 'dot' ? ri(3, 8) : ri(2, 6), row = kind !== 'dot' && Math.random() < 0.4, theme = pick(COUNT_THEMES[kind]);
+      const text = (kind === 'dot' ? pick([`Make ${n} dots for ${n} ${theme}.`, `Tap ${n} dots. They are ${theme}.`]) : pick([`Draw ${n} ${plural(kind)} for ${n} ${theme}.`, `Can you draw ${n} ${plural(kind)}? They are ${theme}.`])) + (row ? ' Put them in a row.' : '');
+      const count = (S) => kind === 'dot' ? marks(S, 70).length : of(S, kind, 50).length;
+      return task({ text, hint: kind === 'dot' ? 'Count out loud as you tap: one, two, three.' : 'Count out loud as you draw each ' + kind + '. ' + SHAPE_HINT[kind], win: pick([`${cap(NUM[n])}! You counted just right.`, `That is ${n}! Great counting.`, `Yes, ${n} ${kind === 'dot' ? 'dots' : plural(kind)}!`]),
+        check(S) {
+          const c = count(S);
+          if (c < n) return NO('I count ' + c + '. We need ' + n + '. Draw ' + (n - c) + ' more.');
+          if (c > n) return NO('I count ' + c + '. We need ' + n + '. Tap undo to take ' + (c - n === 1 ? 'one' : 'some') + ' away.');
+          if (row) { const ys = of(S, kind, 50).map(s => s.cy); if (Math.max(...ys) - Math.min(...ys) > 260) return NO('Now put them side by side, in a row.'); }
+          return OK();
+        },
+        solve() {
+          if (row) { const y = rf(380, 620), gap = 1000 / (n + 1), sz = Math.min(150, gap * 0.7); return Array.from({ length: n }, (_, i) => SY.shape(kind, gap * (i + 1), y + rf(-20, 20), sz)); }
+          const cells = shuf(Array.from({ length: 12 }, (_, i) => [180 + (i % 4) * 213, 210 + Math.floor(i / 4) * 290])).slice(0, n);
+          return cells.map(([x, y]) => kind === 'dot' ? SY.dot(x + rf(-30, 30), y + rf(-30, 30)) : SY.shape(kind, x, y, ri(120, 150)));
+        } });
+    } },
+    { name: 'Draw what you see', g: 0, gen() {
+      const m = pick(MODELS), T = modelT();
+      return task({ text: pick([`Look at the little picture. Draw ${m.text} just like it.`, `Can you copy this picture? It is ${m.text}.`, `Draw what you see: ${m.text}.`]) + (m.color ? ' Use the same colors.' : ''),
+        hint: 'Look at the picture. Find the shapes in it, then draw them one at a time.', win: pick(['You drew what you saw!', `That looks just like ${m.text}!`, 'Great looking and drawing!']),
+        ref: m.ops, check: (S) => m.check(S), solve: () => m.solve(T) });
+    } },
+    { name: 'Big and small', g: 1, gen() {
+      const kind = pick(['circle', 'square', 'triangle']), v = pick(['two', 'three', 'three', 'stack', 'inside']);
+      if (v === 'two') {
+        const things = pick([['a big ball', 'a small ball'], ['a mama', 'a baby'], ['a big box', 'a little box'], ['a big mountain', 'a small hill']]);
+        return task({ text: `Draw a big ${kind} and a small ${kind}. ${cap(things[0])} and ${things[1]}!`, hint: 'Make one fill lots of the page, and one tiny.', win: 'Big and small! You can see the difference.',
+          check(S) { const s = of(S, kind, 40).sort((a, b) => b.size - a.size); if (s.length < 2) return s.length ? NO('Now draw a small ' + kind + ' too.') : wrongKind(S, kind);
+            return s[0].size >= 1.7 * s[s.length - 1].size ? OK() : NO('Make the big one much bigger than the small one.'); },
+          solve() { return [SY.shape(kind, rf(300, 360), rf(420, 560), ri(300, 360)), SY.shape(kind, rf(700, 780), rf(450, 560), ri(100, 150))]; } });
+      }
+      if (v === 'three') {
+        const up = Math.random() < 0.5;
+        return task({ text: `Draw three ${plural(kind)} in a row: ${up ? 'small, middle, big' : 'big, middle, small'}, from left to right.`, hint: 'Each one is ' + (up ? 'bigger' : 'smaller') + ' than the one before. Start ' + (up ? 'small.' : 'big.'), win: 'Your sizes go in order. Great proportion!',
+          check(S) { const s = of(S, kind, 40).sort((a, b) => a.cx - b.cx); if (s.length < 3) return NO('I see ' + s.length + ' ' + (s.length === 1 ? kind : plural(kind)) + '. Draw three.');
+            const z = s.map(o => o.mag), ok = z.every((v2, i) => !i || (up ? v2 >= z[i - 1] * 1.15 : v2 * 1.15 <= z[i - 1]));
+            return ok ? OK() : NO(up ? 'Make each one bigger than the one on its left.' : 'Make each one smaller than the one on its left.'); },
+          solve() { const z = up ? [110, 190, 290] : [290, 190, 110]; return z.map((sz, i) => SY.shape(kind, [190, 470, 780][i], 520, sz)); } });
+      }
+      if (v === 'stack') return task({ text: 'Draw a snowman: a big circle at the bottom, a middle circle, and a small circle on top.', hint: 'Start with the biggest circle at the bottom. Each one above is smaller.', win: 'A snowman with just the right sizes!',
+        check(S) { const c = of(S, 'circle', 50).sort((a, b) => b.cy - a.cy); if (c.length < 3) return NO('Draw three circles, one on top of the other.');
+          for (let i = 1; i < c.length; i++) { if (!above(c[i], c[i - 1], 0.8)) return NO('Stack the circles one on top of the other.'); if (c[i].size * 1.1 > c[i - 1].size) return NO('Each circle going up should be smaller.'); }
+          return OK(); },
+        solve() { const x = rf(450, 550); return [SY.ring(x, 740, 150, 150, 'black'), SY.ring(x, 490, 100, 100, 'black'), SY.ring(x, 320, 65, 65, 'black')]; } });
+      return task({ text: `Draw a big ${kind}. Then draw a small ${kind} inside it.`, hint: 'Draw the big one first. Then draw a tiny one in its middle.', win: 'A small one inside a big one!',
+        check(S) { const s = of(S, kind, 30).sort((a, b) => b.size - a.size); if (s.length < 2) return s.length ? NO('Now draw a small ' + kind + ' inside it.') : wrongKind(S, kind);
+          const big = s[0]; return s.slice(1).some(o => o.size * 1.8 <= big.size && inPoly([o.cx, o.cy], big.loop)) ? OK() : NO('Put the small ' + kind + ' inside the big one.'); },
+        solve() { const x = rf(440, 560), y = rf(460, 560); return [SY.shape(kind, x, y, 420), SY.shape(kind, x, y + (kind === 'triangle' ? 40 : 0), 120)]; } });
+    } },
+    { name: 'Mirror match', g: 1, gen() {
+      const f = pick(FIGS), axis = Math.random() < 0.7 ? 'v' : 'h', s = rf(250, 320), c = 500 + rf(-40, 40);
+      const given = f.p.map(poly => poly.map(([x, y]) => axis === 'v' ? [500 + x * s, c + y * s] : [c + y * s, 500 + x * s]));
+      const target = f.p.map(poly => poly.map(([x, y]) => axis === 'v' ? [500 - x * s, c + y * s] : [c + y * s, 500 - x * s]));
+      const side = axis === 'v' ? (p) => p[0] >= 475 : (p) => p[1] >= 475;
+      return task({ text: axis === 'v' ? `Here is half of a ${f.name}. Draw the other half on the right, like a mirror.` : `Here is the top half of a ${f.name}. Draw the bottom half, like a reflection in a lake.`,
+        hint: 'Each line on one side has a twin on the other side, the same distance from the dashed line.', win: pick(['Both sides match. That is symmetry!', 'A perfect mirror match!', 'Symmetrical! Both halves are twins.']),
+        scaffold: [axis === 'v' ? { line: [500, 30, 500, 970], dash: true } : { line: [30, 500, 970, 500], dash: true }, ...given.map(p => ({ lines: p }))],
+        check(S) { const r = mirrorScore(S, target, side);
+          if (r.cover < 0.7) return NO(r.cover < 0.3 ? 'Draw the missing half on the empty side of the dashed line.' : 'Some parts are still missing. Copy each line from the other side.');
+          if (r.prec < 0.7) return NO('Some lines are not where a mirror would put them. Keep each one the same distance from the dashed line.');
+          return OK(); },
+        solve() { return target.map(p => SY.curve(p)); } });
+    } },
+    { name: 'Warm and cool', g: 2, gen() {
+      const v = pick(['thing', 'thing', 'pair', 'many']);
+      const WT = [['sun', 'circle'], ['campfire flame', 'triangle'], ['slice of watermelon', 'triangle'], ['hot pancake', 'circle'], ['red barn', 'square'], ['beach ball', 'circle'], ['autumn leaf', 'triangle'], ['toasty blanket', 'square']];
+      const CT = [['ice cube', 'square'], ['puddle of rain', 'circle'], ['frozen pond', 'circle'], ['cold mountain', 'triangle'], ['whale', 'oval'], ['window at night', 'square'], ['snowy tent', 'triangle'], ['grape', 'circle']];
+      const tempOf = (s) => temp(s.color);
+      const tip = 'Red, orange, yellow and pink are warm. Green, blue and purple are cool.';
+      if (v === 'thing') {
+        const warm = Math.random() < 0.5, [thing, kind] = pick(warm ? WT : CT), want = warm ? 'warm' : 'cool';
+        return task({ text: `Draw a ${thing} with a ${want} color. Make it ${aWord(kind)}.`, hint: tip, win: pick([`Yes! That color feels ${want}.`, `A ${want} color for a ${thing}. Perfect!`]),
+          check(S) { const s = of(S, kind, 80); if (!s.length) return wrongKind(S, kind); if (s.some(o => tempOf(o) === want)) return OK();
+            return NO(s.some(o => tempOf(o) === 'neutral') ? 'Black and brown are not warm or cool. ' + tip : 'That color is ' + (want === 'warm' ? 'cool' : 'warm') + '. ' + tip); },
+          solve() { return [SY.shape(kind, rf(380, 620), rf(380, 620), ri(240, 320), pick(warm ? WARM : COOL))]; } });
+      }
+      if (v === 'pair') {
+        const k1 = pick(['circle', 'square', 'triangle']), k2 = pick(['circle', 'square', 'triangle']), up = Math.random() < 0.5;
+        return task({ text: `Draw a warm ${k1} ${up ? 'on top' : 'on the left'} and a cool ${k2} ${up ? 'below it' : 'on the right'}.`, hint: tip, win: 'Warm and cool, side by side. They really look different!',
+          check(S) { const a = of(S, k1, 70).filter(o => tempOf(o) === 'warm'), b = of(S, k2, 70).filter(o => tempOf(o) === 'cool');
+            if (!a.length) return NO('Draw ' + aWord(k1) + ' in a warm color. ' + tip); if (!b.length) return NO('Draw ' + aWord(k2) + ' in a cool color. ' + tip);
+            return a.some(x => b.some(y => x !== y && (up ? x.cy < y.cy - 60 : x.cx < y.cx - 60))) ? OK() : NO(up ? 'Put the warm one above the cool one.' : 'Put the warm one on the left and the cool one on the right.'); },
+          solve() { return up ? [SY.shape(k1, 500, 290, 240, pick(WARM)), SY.shape(k2, 500, 710, 240, pick(COOL))] : [SY.shape(k1, 290, 500, 240, pick(WARM)), SY.shape(k2, 710, 500, 240, pick(COOL))]; } });
+      }
+      const warm = Math.random() < 0.5, n = ri(2, 4), want = warm ? 'warm' : 'cool', what = warm ? pick([['flames', 'triangle'], ['suns', 'circle'], ['hot coals', 'circle']]) : pick([['waves', 'line'], ['raindrops', 'circle'], ['ice cubes', 'square']]);
+      return task({ text: `Draw ${n} ${what[0]} in ${want} colors.${what[1] === 'line' ? ' Each wave is a long line.' : ' Make each one ' + aWord(what[1]) + '.'}`, hint: tip, win: `All ${want}! You know your ${want} colors.`,
+        check(S) { const items = what[1] === 'line' ? S.lines.filter(l => l.len >= 150) : of(S, what[1], 60);
+          if (items.length < n) return NO('I see ' + items.length + '. Draw ' + n + '.');
+          const bad = items.filter(o => tempOf(o) !== want); return bad.length ? NO(bad.length === 1 ? 'One is not ' + want + '. ' + tip : 'Some are not ' + want + '. ' + tip) : OK(); },
+        solve() { return Array.from({ length: n }, (_, i) => { const y = 150 + (i + 0.5) * 700 / n, c = pick(warm ? WARM : COOL); return what[1] === 'line' ? SY.curve([[150, y], [330, y - 40], [500, y + 40], [680, y - 40], [850, y]], c) : SY.shape(what[1], 200 + (i * 600) / (n - 1), y, 130, c); }); } });
+    } },
+    { name: 'Face proportions', g: 2, gen() {
+      const v = pick(['eyes', 'eyes', 'mouth', 'body', 'cat']);
+      const head = (S) => S.shapes.filter(s => is(s, 'circle') && s.size >= 220).sort((a, b) => b.size - a.size)[0];
+      const eyeCheck = (S, h) => {
+        const e = marks(S, 0.3 * h.size).filter(m => m.cx > h.box.x0 && m.cx < h.box.x1 && m.cy > h.box.y0 && m.cy < h.box.y1);
+        if (e.length < 2) return { r: NO('Add two eyes inside the head.') };
+        let best = null; for (let i = 0; i < e.length; i++) for (let j = i + 1; j < e.length; j++) { const dy = Math.abs(e[i].cy - e[j].cy), dx = Math.abs(e[i].cx - e[j].cx); if (dx > 0.18 * h.box.w && (!best || dy < best.dy)) best = { dy, y: (e[i].cy + e[j].cy) / 2 }; }
+        if (!best) return { r: NO('Put the two eyes apart, one on each side.') };
+        if (best.dy > 0.12 * h.box.h) return { r: NO('Put both eyes at the same height.') };
+        const rel = (best.y - h.box.y0) / h.box.h;
+        if (rel < 0.36) return { r: NO('The eyes are too high. Eyes sit halfway down the head.') };
+        if (rel > 0.64) return { r: NO('The eyes are too low. Eyes sit halfway down the head.') };
+        return { ok: true, y: best.y };
+      };
+      const hx = () => rf(440, 560), hy = v === 'body' ? rf(200, 240) : rf(430, 540), hr = v === 'body' ? rf(100, 125) : rf(170, 240);
+      const solveHead = (cx, cy, rx, ry) => [SY.ring(cx, cy, rx, ry, 'black'), SY.dot(cx - rx * 0.4, cy + rf(-0.05, 0.05) * ry), SY.dot(cx + rx * 0.4, cy + rf(-0.05, 0.05) * ry)];
+      const tip = 'Artists know a secret: the eyes sit halfway between the top of the head and the chin.';
+      if (v === 'eyes') return task({ text: 'Draw a head, a big oval. Put two eyes halfway down, not too high.', hint: tip, win: 'Eyes right in the middle. Just like a real face!',
+        check(S) { const h = head(S); if (!h) return NO('Draw a big oval for the head.'); const r = eyeCheck(S, h); return r.ok ? OK() : r.r; },
+        solve() { return solveHead(hx(), hy, hr * 0.8, hr); } });
+      if (v === 'mouth') return task({ text: 'Draw a face: a big oval head, eyes halfway down, and a mouth near the chin.', hint: tip + ' The mouth goes between the eyes and the chin.', win: 'Great proportions! Everything is in its place.',
+        check(S) { const h = head(S); if (!h) return NO('Draw a big oval for the head.'); const r = eyeCheck(S, h); if (!r.ok) return r.r;
+          const m = S.lines.concat(S.shapes.filter(s => s !== h && s.size < 0.5 * h.size)).filter(o => o.box.w > 0.12 * h.box.w && o.box.cx > h.box.x0 && o.box.cx < h.box.x1 && o.box.cy > r.y + 0.12 * h.box.h && o.box.cy < h.box.y1);
+          return m.length ? OK() : NO('Add a mouth below the eyes, near the chin.'); },
+        solve() { const x = hx(), rx = hr * 0.8; return [...solveHead(x, hy, rx, hr), SY.curve([[x - rx * 0.35, hy + hr * 0.5], [x, hy + hr * 0.65], [x + rx * 0.35, hy + hr * 0.5]])]; } });
+      if (v === 'body') return task({ text: 'Draw a person: a round head, and under it a body about twice as tall as the head.', hint: 'Measure with your eyes. The body is about two heads tall.', win: 'Good proportions! The body is about two heads tall.',
+        check(S) { const all = S.shapes.filter(s => s.size >= 70).sort((a, b) => a.cy - b.cy); const h = all.find(s => is(s, 'circle')); if (!h) return NO('Draw a round head first.');
+          const b = all.filter(s => s !== h && s.cy > h.cy && Math.abs(s.cx - h.cx) < 0.8 * Math.max(s.box.w, h.box.w) && s.box.y0 < h.box.y1 + 80).sort((a, c) => c.box.h - a.box.h)[0];
+          if (!b) return NO('Draw the body under the head, touching it.'); const k = b.box.h / h.box.h;
+          if (k < 1.4) return NO('The body is too short. Make it about two heads tall.'); if (k > 3.2) return NO('The body is too tall. Make it about two heads tall.'); return OK(); },
+        solve() { const x = hx(), r = hr; return [SY.ring(x, hy, r, r, 'black'), SY.ring(x, hy + r * 3, r * 0.8, r * 2, 'black')]; } });
+      return task({ text: 'Draw a cat face: a big circle, two triangle ears on top, and eyes halfway down.', hint: tip + ' The ears sit on top of the head.', win: 'What a cute cat, with eyes in just the right place!',
+        check(S) { const h = head(S); if (!h) return NO('Draw a big circle for the head.'); const ears = of(S, 'triangle', 50).filter(t => t.cy < h.box.y0 + 0.3 * h.box.h);
+          if (!ears.some(e => e.cx < h.cx) || !ears.some(e => e.cx > h.cx)) return NO('Add two triangle ears on top of the head.'); const r = eyeCheck(S, h); return r.ok ? OK() : r.r; },
+        solve() { const x = hx(), y = rf(500, 560), r = rf(190, 230); return [...solveHead(x, y, r, r), SY.poly([[x - r * 0.85, y - r * 0.45], [x - r * 0.65, y - r * 1.25], [x - r * 0.2, y - r * 0.85]]), SY.poly([[x + r * 0.85, y - r * 0.45], [x + r * 0.65, y - r * 1.25], [x + r * 0.2, y - r * 0.85]])]; } });
+    } },
+    { name: 'Near and far', g: 3, gen() {
+      const H = ri(330, 440), v = pick(['two', 'two', 'three', 'road']);
+      const scaffold = [{ line: [20, H, 980, H], horizon: true }];
+      const KT = pick([['tree', 'triangle', 'trees'], ['ball', 'circle', 'balls'], ['house', 'square', 'houses'], ['tent', 'triangle', 'tents'], ['bush', 'circle', 'bushes']]);
+      const tip = 'Things far away look smaller and sit higher, close to the horizon line.';
+      if (v === 'two') return task({ text: `The line is the horizon. Draw two ${KT[2]}, each ${aWord(KT[1])}: a near one big and low on the page, and a far one small, up by the horizon.`, hint: tip, scaffold, win: 'Near and far! Your picture has depth.',
+        check(S) { const s = of(S, KT[1], 40); if (s.length < 2) return s.length ? NO('Now draw a second ' + KT[0] + '.') : wrongKind(S, KT[1]);
+          const byB = s.slice().sort((a, b) => b.box.y1 - a.box.y1), near = byB[0], far = byB[byB.length - 1];
+          if (near.size < 1.5 * far.size) return NO('The near one should be much bigger than the far one.');
+          if (far.box.y1 > H + 130 || far.box.y1 < H - 80) return NO('Move the far one up, so it sits near the horizon line.');
+          if (near.box.y1 < H + 200) return NO('Put the near one low on the page, close to you.'); return OK(); },
+        solve() { const k = KT[1], a = rf(260, 340), z = ri(110, 140); return [SY.shape(k, rf(250, 400), 930 - a / 2 - 20, a), SY.shape(k, rf(600, 760), H + 20 - z * 0.45, z)]; } });
+      if (v === 'three') return task({ text: `The line is the horizon. Draw three ${KT[2]} going back toward it. Each one is smaller and higher than the one before.`, hint: tip, scaffold, win: 'They shrink as they go back. That is perspective!',
+        check(S) { const s = of(S, KT[1], 30).sort((a, b) => b.box.y1 - a.box.y1); if (s.length < 3) return NO('I see ' + s.length + '. Draw three ' + KT[2] + '.');
+          for (let i = 1; i < s.length; i++) if (s[i].size * 1.15 > s[i - 1].size) return NO('Each one going back, higher up, should be smaller.');
+          return s[s.length - 1].box.y1 < H + 160 ? OK() : NO('Put the farthest one up near the horizon.'); },
+        solve() { const k = KT[1], bot = [920, H + 260, H + 60], sz = [260, 160, 90]; return sz.map((z, i) => SY.shape(k, 200 + i * 280, bot[i] - z * 0.45, z)); } });
+      return task({ text: 'The line is the horizon. Draw a road going far away: two lines that start wide apart at the bottom and come close together at the horizon.', hint: 'Railway tracks and roads look narrower the farther away they go.', scaffold, win: 'Your road goes far, far away!',
+        check(S) { const ls = S.strokes.filter(s => s.len >= 200 && !closeLoop(s.pts)).map(s => { const a = s.pts[0], b = s.pts[s.pts.length - 1]; return a[1] > b[1] ? { lo: a, hi: b } : { lo: b, hi: a }; }).filter(l => l.lo[1] > 650);
+          if (ls.length < 2) return NO('Draw two long lines from the bottom of the page up toward the horizon.');
+          for (let i = 0; i < ls.length; i++) for (let j = i + 1; j < ls.length; j++) { const a = ls[i], b = ls[j], wide = Math.abs(a.lo[0] - b.lo[0]), near = Math.abs(a.hi[0] - b.hi[0]);
+            if (wide >= 250 && near <= 0.35 * wide && Math.abs(a.hi[1] - H) < 90 && Math.abs(b.hi[1] - H) < 90) return OK(); }
+          return NO('Start the lines far apart at the bottom, and bring them close together up at the horizon.'); },
+        solve() { const x = rf(420, 580); return [SY.line(x - rf(250, 350), 960, x - 20, H + 10), SY.line(x + rf(250, 350), 960, x + 20, H + 10)]; } });
+    } },
+    { name: 'Light and shadow', g: 3, gen() {
+      const v = pick(['side', 'side', 'ground']), names = v === 'ground' ? ['top left', 'top right', 'left', 'right'] : Object.keys(LIGHTS), ln = pick(names), L = LIGHTS[ln];
+      const obj = v === 'ground' ? 'ball' : pick(['ball', 'ball', 'egg', 'box']);
+      const cx = rf(440, 560), cy = v === 'ground' ? rf(380, 460) : rf(450, 560), R = rf(150, 190), rx = obj === 'egg' ? R * 0.75 : R;
+      const sq = [[cx - R, cy - R], [cx + R, cy - R], [cx + R, cy + R], [cx - R, cy + R]];
+      const inside = obj === 'box' ? inPolyM(sq, 14) : inEllipse(cx, cy, rx - 12, R - 12);
+      const proj = (x, y) => ((x - cx) * L[0] + (y - cy) * L[1]) / R;
+      const scaffold = [obj === 'box' ? { poly: sq } : { oval: [cx, cy, rx, R] }, sunAt(cx, cy, L, R + 190)];
+      if (v === 'ground') scaffold.push({ line: [40, cy + R, 960, cy + R] });
+      const where = 'the ' + ln;
+      if (v === 'side') return task({ text: `The sun shines from ${where}. Use the shading pencil to shade the side of the ${obj} away from the sun.`, hint: 'Tap the shading pencil. The side facing the sun stays light. Rub gray on the other side.', tool: 'shade', scaffold, win: pick(['Light on one side, shadow on the other. It looks real!', 'Great shading! The light makes sense.']),
+        check(S) { const In = region(S, inside); if (In.cover < 0.12) return NO('Shade more of the side away from the sun.');
+          const lit = region(S, (x, y) => inside(x, y) && proj(x, y) > 0.25), dark = region(S, (x, y) => inside(x, y) && proj(x, y) < -0.25);
+          if (proj(In.cx, In.cy) > -0.12 || lit.mean > dark.mean * 0.6) return NO('The sun lights up the side near it. Shade the other side, away from the sun.'); return OK(); },
+        solve() { return SY.fill((x, y) => inside(x, y) && proj(x, y) < -0.15, cx - R, cy - R, cx + R, cy + R, 6); } });
+      const shadow = (x, y) => !inEllipse(cx, cy, R, R)(x, y) && y > cy + 0.4 * R && y < cy + 1.5 * R && Math.abs(x - cx) < 2.6 * R;
+      return task({ text: `The sun shines from ${where}. Use the shading pencil to shade the ball's shadow on the ground, on the side away from the sun.`, hint: 'A shadow falls on the ground, on the side away from the light, touching the bottom of the ball.', tool: 'shade', scaffold, win: 'The shadow falls away from the sun. Nice observing!',
+        check(S) { const sh = region(S, shadow); if (sh.sum < 1.2) return NO('Shade a shadow on the ground next to the bottom of the ball.');
+          return (sh.cx - cx) * L[0] < -0.2 * R ? OK() : NO('A shadow falls away from the light. Put it on the other side.'); },
+        solve() { const sx = cx - L[0] * R * 0.9; return SY.fill((x, y) => shadow(x, y) && inEllipse(sx, cy + R * 0.95, R, R * 0.32)(x, y), sx - R, cy + R * 0.6, sx + R, cy + R * 1.3, 6); } });
+    } },
+    { name: 'Rule of thirds', g: 4, gen() {
+      const v = pick(['sun', 'horizon', 'tree', 'both', 'any']), spot = pick(Object.keys(THIRDS)), P = THIRDS[spot], low = Math.random() < 0.6, Y = low ? 667 : 333, side = pick(['left', 'right']), X = side === 'left' ? 333 : 667;
+      const scaffold = thirdsOps(), tip = 'Artists put important things on the lines or where they cross, not right in the middle.';
+      const sunOK = (S, at) => of(S, 'circle', 70).some(c => at ? dist([c.cx, c.cy], at) < 80 : Object.values(THIRDS).some(q => dist([c.cx, c.cy], q) < 80));
+      const horizonOK = (S) => S.strokes.some(s => s.box.w >= 600 && Math.abs(s.box.cy - Y) < 50 && s.box.h < 120 && !closeLoop(s.pts));
+      if (v === 'sun') return task({ text: `Draw a sun on the ${spot} spot where two dashed lines cross.`, hint: tip, scaffold, win: 'Right on the crossing. A strong composition!',
+        check(S) { if (!of(S, 'circle', 70).length) return wrongKind(S, 'circle'); return sunOK(S, P) ? OK() : NO('Move the sun so its middle sits on the ' + spot + ' crossing.'); },
+        solve() { return [SY.ring(P[0], P[1], 90, 90, 'yellow')]; } });
+      if (v === 'horizon') return task({ text: `Draw the horizon along the ${low ? 'bottom' : 'top'} dashed line, all the way across. ${low ? 'Lots of sky!' : 'Lots of land!'}`, hint: tip + ' A horizon in the middle cuts the picture in half.', scaffold, win: 'The horizon on a third line. Very artistic!',
+        check(S) { return horizonOK(S) ? OK() : NO('Draw one long line across the page, on the ' + (low ? 'bottom' : 'top') + ' dashed line.'); },
+        solve() { return [SY.curve([[60, Y], [350, Y - 10], [650, Y + 10], [940, Y]])]; } });
+      if (v === 'tree') return task({ text: `Draw a tall tree, a big triangle, standing on the ${side} dashed line. Not in the middle!`, hint: tip, scaffold, win: 'Off to the side, on a third line. Great placement!',
+        check(S) { const t = of(S, 'triangle', 150); if (!t.length) return wrongKind(S, 'triangle'); return t.some(o => Math.abs(o.cx - X) < 75 && o.box.h >= 220) ? OK() : NO('Put the middle of the tree right on the ' + side + ' dashed line, and make it tall.'); },
+        solve() { return [SY.poly([[X, 180], [X + 140, 720], [X - 140, 720]], 'green')]; } });
+      if (v === 'both') return task({ text: `Draw the horizon on the ${low ? 'bottom' : 'top'} dashed line, and a sun on one of the ${low ? 'top' : 'bottom'} crossings.`, hint: tip, scaffold, win: 'Horizon and sun both on the thirds. Beautiful balance!',
+        check(S) { if (!horizonOK(S)) return NO('Draw the horizon along the ' + (low ? 'bottom' : 'top') + ' dashed line.'); const want = Object.entries(THIRDS).filter(([k]) => k.startsWith(low ? 'top' : 'bottom'));
+          return want.some(([, q]) => sunOK(S, q)) ? OK() : NO('Now put a sun on one of the ' + (low ? 'top' : 'bottom') + ' crossings.'); },
+        solve() { const q = THIRDS[(low ? 'top ' : 'bottom ') + pick(['left', 'right'])]; return [SY.curve([[60, Y], [500, Y + 8], [940, Y]]), SY.ring(q[0], q[1], 85, 85, 'orange')]; } });
+      return task({ text: 'Draw a balloon, a circle, on any spot where two dashed lines cross.', hint: tip, scaffold, win: 'The eye goes right to it. Great composition!',
+        check(S) { if (!of(S, 'circle', 70).length) return wrongKind(S, 'circle'); return sunOK(S) ? OK() : NO('Move the circle so its middle sits on a crossing.'); },
+        solve() { const q = THIRDS[pick(Object.keys(THIRDS))]; return [SY.ring(q[0], q[1], 80, 80, 'red')]; } });
+    } },
+    { name: 'Overlap', g: 4, gen() {
+      const F = pick(['circle', 'square', 'triangle']), B = pick(['circle', 'square', 'triangle']), two = Math.random() < 0.35;
+      const FT = { circle: 'ball', square: 'box', triangle: 'mountain' };
+      const tip = 'The front thing is whole. The thing behind stops where the front thing covers it.';
+      // A stroke for the thing behind: both ends on the front shape's edge, apart, and the line itself outside it.
+      const behind = (S, f) => S.strokes.filter(l => {
+        const a = l.pts[0], b = l.pts[l.pts.length - 1];
+        if (l.len < 100 || l.box.diag < 80 || f.members.includes(l) || dist(a, b) < 30) return false;
+        if (edgeDist(a, f.loop) > 45 || edgeDist(b, f.loop) > 45) return false;
+        const P = along(l.pts, 8); if (P.filter(p => !inPoly(p, f.loop) || edgeDist(p, f.loop) < 18).length < 0.85 * P.length) return false;
+        return P.filter(p => edgeDist(p, f.loop) > 25).length >= 0.5 * P.length;
+      });
+      const run = (S, need) => {
+        const fronts = of(S, F, 150).filter(f => !f.attached); if (!fronts.length) return wrongKind(S, F);
+        for (const f of fronts) { const b = behind(S, f); if (b.length >= need && (need < 2 || (b.some(l => l.box.cx < f.cx) && b.some(l => l.box.cx > f.cx)))) return OK(); }
+        if (S.shapes.some(s => s.size > 100 && fronts.some(f => f !== s && s.loop.some(p => inPoly(p, f.loop) && edgeDist(p, f.loop) > 25)))) return NO('The one behind is hidden where they overlap. Stop its line where it touches the front ' + WORD[F] + '.');
+        return NO(need > 1 ? 'Draw one on each side, both peeking out from behind the front ' + WORD[F] + '.' : 'Draw the ' + WORD[B] + ' peeking out from behind. Start and stop its line on the edge of the front ' + WORD[F] + '.');
+      };
+      const solveFront = () => SY.shape(F, 500, 560, 360);
+      const arcBehind = (dir) => { // the visible part of a shape behind the front one, from edge to edge
+        const f = classify(solveFront().pts).loop;
+        for (const off of [170, 150, 130, 110, 90, 70]) {
+          const P = along(SY.shape(B, 500 + dir * off, 390, 260).pts, 6), vis = P.map(p => !inPoly(p, f));
+          const starts = vis.map((v, i) => v && !vis[(i - 1 + vis.length) % vis.length]), frac = vis.filter(Boolean).length / P.length;
+          if (starts.filter(Boolean).length !== 1 || frac < 0.3 || frac > 0.9) continue;
+          const st = starts.indexOf(true), out = [];
+          for (let k = 0; k < P.length; k++) { const i = (st + k) % P.length; if (!vis[i]) break; out.push(P[i]); }
+          return SY.curve(out);
+        }
+        return SY.curve([[500 + dir * 300, 300], [500 + dir * 320, 320]]);
+      };
+      if (two) return task({ text: `Draw a big ${WORD[F]} in front. Then draw two ${plural(B)} behind it, one peeking out on each side.`, hint: tip, win: 'Overlapping makes depth. Those are clearly behind!',
+        check: (S) => run(S, 2), solve: () => [solveFront(), arcBehind(-1), arcBehind(1)] });
+      return task({ text: `Draw a ${FT[F]}, ${aWord(F)}. Then draw a ${FT[B]}, ${aWord(B)}, behind it. Stop the line where it meets the front one.`, hint: tip, win: pick(['It really looks behind! That is overlap.', 'Overlap shows what is in front. Great depth!']),
+        check: (S) => run(S, 1), solve: () => [solveFront(), arcBehind(pick([-1, 1]))] });
+    } },
+    { name: 'One point perspective', g: 5, gen() {
+      const v = pick(['box', 'box', 'road', 'hall']), H = ri(330, 460), V = [ri(400, 600), H];
+      const tip = 'In one point perspective, every line that goes back into the picture meets at the vanishing point.';
+      const sc = [{ line: [20, H, 980, H], horizon: true }, { vp: V }];
+      if (v === 'box') {
+        let corners, tries = 0;
+        do { const a = ri(130, 180), dx = pick([-1, 1]) * rf(170, 300), dy = pick([1, 1, -1]) * rf(170, 260), x = V[0] + dx, y = H + dy;
+          corners = [[x - a / 2, y - a / 2], [x + a / 2, y - a / 2], [x + a / 2, y + a / 2], [x - a / 2, y + a / 2]]; tries++;
+        } while (tries < 40 && corners.some(([x, y]) => x < 60 || x > 940 || y < 60 || y > 940));
+        if (corners.some(([x, y]) => x < 60 || x > 940 || y < 60 || y > 940)) { const x = V[0] + 220, y = H + 220; corners = [[x - 70, y - 70], [x + 70, y - 70], [x + 70, y + 70], [x - 70, y + 70]]; }
+        return task({ text: 'This square is the front of a box. Draw a straight line from each corner to the vanishing point. Three corners are enough.', hint: tip + ' Go slowly and keep each line straight.', scaffold: [...sc, { poly: corners }], win: 'The box goes back in space. Great one point perspective!',
+          check(S) { const n = corners.filter(c => S.strokes.some(s => aims(s, c, V))).length; return n >= 3 ? OK() : NO(n ? 'I see ' + n + '. Draw a straight line from three corners to the dot.' : 'Start each line on a corner of the square and aim it at the dot.'); },
+          solve() { return corners.slice(0, 3).map(c => SY.line(c[0], c[1], c[0] + (V[0] - c[0]) * 0.85, c[1] + (V[1] - c[1]) * 0.85)); } });
+      }
+      if (v === 'road') {
+        const d = [V[0] - rf(200, 330), V[0] + rf(200, 330)].map(x => [Math.max(60, Math.min(940, x)), 930]);
+        return task({ text: 'Draw a road. Draw two straight lines from the dots at the bottom to the vanishing point.', hint: tip, scaffold: [...sc, { dot: d[0] }, { dot: d[1] }], win: 'Your road vanishes into the distance!',
+          check(S) { const n = d.filter(c => S.strokes.some(s => aims(s, c, V))).length; return n >= 2 ? OK() : NO('Draw a straight line from each dot to the vanishing point.'); },
+          solve() { return d.map(c => SY.line(c[0], c[1], V[0] + (c[0] - V[0]) * 0.04, V[1] + 8)); } });
+      }
+      const w = ri(180, 260), h = ri(140, 200), wall = [[V[0] - w / 2, H - h / 2], [V[0] + w / 2, H - h / 2], [V[0] + w / 2, H + h / 2], [V[0] - w / 2, H + h / 2]];
+      return task({ text: 'This is the far wall of a hallway. From each corner, draw a straight line out toward the edge of the page, going straight away from the vanishing point.', hint: tip + ' Line up each line with the dot and the corner.', scaffold: [...sc, { poly: wall }], win: 'You are standing in the hallway. Amazing depth!',
+        check(S) { const n = wall.filter(c => S.strokes.some(s => aims(s, c, V, { away: true }))).length; return n >= 4 ? OK() : NO(n ? 'I see ' + n + '. Draw one from all four corners.' : 'Start at a corner and go straight out, away from the dot, along the line from the dot.'); },
+        solve() { return wall.map(c => SY.line(c[0], c[1], V[0] + (c[0] - V[0]) * 2.2, V[1] + (c[1] - V[1]) * 2.2)); } });
+    } },
+    { name: 'Value scale', g: 5, gen() {
+      const n = ri(3, 5), rev = Math.random() < 0.35, white = Math.random() < 0.5, vert = Math.random() < 0.25;
+      const size = vert ? Math.min(150, 760 / n) : Math.min(160, 840 / n), gap = 14, total = n * size + (n - 1) * gap, st = 500 - total / 2;
+      const boxes = Array.from({ length: n }, (_, i) => vert ? [[400, st + i * (size + gap)], [600, st + i * (size + gap) + size]] : [[st + i * (size + gap), 420], [st + i * (size + gap) + size, 580]]);
+      const order = rev ? boxes.slice().reverse() : boxes, inBox = (b) => (x, y) => x > b[0][0] + 14 && x < b[1][0] - 14 && y > b[0][1] + 14 && y < b[1][1] - 14;
+      const dir = vert ? (rev ? 'from bottom to top' : 'from top to bottom') : (rev ? 'from right to left' : 'from left to right');
+      return task({ text: `Make a value scale with the shading pencil. Go from light to dark, ${dir}. Each box a little darker than the one before.${white ? ' Leave the first box white.' : ''}`, tool: 'shade',
+        hint: 'Rub lightly for light, and go over it again and again for dark.', scaffold: boxes.map(b => ({ poly: [b[0], [b[1][0], b[0][1]], b[1], [b[0][0], b[1][1]]] })), win: 'A smooth value scale, from light to dark!',
+        check(S) { const m = order.map(b => region(S, inBox(b)).mean);
+          if (white && m[0] > 0.02) return NO('Leave the first box white, with no shading.'); if (!white && m[0] < 0.015) return NO('Shade the first box very lightly.');
+          for (let i = 1; i < n; i++) if (m[i] < m[i - 1] + STEP_MIN || m[i] < m[i - 1] * 1.2) return NO('Box ' + (i + 1) + ' needs to be darker than box ' + i + '.');
+          return m[n - 1] >= DARK_MIN ? OK() : NO('Make the last box really dark.'); },
+        solve() { const out = [], PASS = [0, 2, 4, 7, 12, 20]; order.forEach((b, i) => { const k = white ? i : i + 1; if (k > 0) out.push(...SY.fill(inBox(b), b[0][0], b[0][1], b[1][0], b[1][1], PASS[k])); }); return out; } });
+    } },
+    { name: 'Two point perspective', g: 6, gen() {
+      const v = pick(['below', 'eye', 'above']), back = Math.random() < 0.45, H = v === 'below' ? ri(300, 400) : v === 'above' ? ri(560, 660) : ri(420, 560);
+      const VL = [70, H], VR = [930, H], x = ri(430, 570);
+      let top, bot; if (v === 'below') { top = H + rf(90, 140); bot = top + rf(160, 220); } else if (v === 'above') { bot = H - rf(90, 140); top = bot - rf(160, 220); } else { top = H - rf(110, 170); bot = H + rf(110, 170); }
+      const T = [x, top], B = [x, bot], ends = [[T, VL], [T, VR], [B, VL], [B, VR]];
+      const view = v === 'below' ? 'We look down on this box.' : v === 'above' ? 'This building is above our eyes.' : 'This box is at eye level.';
+      const tip = 'In two point perspective, the lines going back on each side meet at their own vanishing point.';
+      const backOK = (S) => [VL, VR].every(Vp => S.strokes.some(s => { if (s.len < 50 || !straight(s)) return false; const a = s.pts[0], b = s.pts[s.pts.length - 1];
+        if (Math.abs(a[0] - b[0]) > 0.15 * Math.abs(a[1] - b[1])) return false; const xm = (a[0] + b[0]) / 2; if (Vp === VL ? xm > x - 50 : xm < x + 50) return false;
+        const [hi, lo] = a[1] < b[1] ? [a, b] : [b, a]; return lineDist(hi, T, Vp) < 40 && lineDist(lo, B, Vp) < 40; }));
+      return task({ text: `${view} Draw straight lines from the top and the bottom of the edge to both vanishing points.${back ? ' Then draw two straight up and down lines to close the sides.' : ''}`, hint: tip + ' That makes four lines.', scaffold: [{ line: [20, H, 980, H], horizon: true }, { vp: VL }, { vp: VR }, { line: [x, top, x, bot], bold: true }],
+        win: back ? 'A solid box in two point perspective. Like an architect!' : 'Four lines to two vanishing points. Great perspective!',
+        check(S) { const n = ends.filter(([E, Vp]) => S.strokes.some(s => aims(s, E, Vp, { min: 90 }))).length;
+          if (n < 4) return NO('I see ' + n + ' of 4. Draw from the top and the bottom of the edge, to the left dot and to the right dot.');
+          return !back || backOK(S) ? OK() : NO('Now draw an up and down line on each side, between your two lines, to end the box.'); },
+        solve() { const out = ends.map(([E, Vp]) => SY.line(E[0], E[1], E[0] + (Vp[0] - E[0]) * 0.8, E[1] + (Vp[1] - E[1]) * 0.8));
+          if (back) for (const Vp of [VL, VR]) { const f = 0.45, xb = x + (Vp[0] - x) * f, yt = top + (H - top) * f, yb = bot + (H - bot) * f; out.push(SY.line(xb, yt, xb, yb)); }
+          return out; } });
+    } },
+    { name: 'Form shading', g: 6, gen() {
+      const v = pick(['ball', 'ball', 'cube', 'cylinder']), ln = pick(['top left', 'top right']), L = LIGHTS[ln], left = ln === 'top left';
+      if (v === 'ball') {
+        const cx = rf(450, 550), cy = rf(380, 440), R = rf(160, 190), inside = inEllipse(cx, cy, R - 12, R - 12);
+        const proj = (x, y) => ((x - cx) * L[0] + (y - cy) * L[1]) / R, hx = cx + L[0] * 0.45 * R, hy = cy + L[1] * 0.45 * R;
+        const hl = (x, y) => Math.hypot(x - hx, y - hy) < 0.28 * R, sx = cx - L[0] * R * 0.9;
+        const cast = (x, y) => !inEllipse(cx, cy, R, R)(x, y) && y > cy + 0.4 * R && y < cy + 1.5 * R && Math.abs(x - cx) < 2.6 * R;
+        return task({ text: `Light comes from the ${ln}. Turn the circle into a ball: leave a highlight near the light, shade darker toward the far side, and add a cast shadow on the ground.`, tool: 'shade',
+          hint: 'Highlight, then light gray, then dark gray on the far side. The cast shadow touches the bottom of the ball.', scaffold: [{ oval: [cx, cy, R, R] }, sunAt(cx, cy, L, R + 190), { line: [40, cy + R, 960, cy + R] }],
+          win: 'Highlight, core shadow and cast shadow. That circle is a real ball now!',
+          check(S) { const dark = region(S, (x, y) => inside(x, y) && proj(x, y) < -0.3), mid = region(S, (x, y) => inside(x, y) && Math.abs(proj(x, y)) <= 0.3 && !hl(x, y)), h = region(S, hl);
+            if (dark.mean < DARK_MIN) return NO('Shade the side away from the light darker.');
+            if (h.mean > 0.45 * dark.mean) return NO('Leave a small white highlight near the light.');
+            if (mid.mean < 0.2 * dark.mean) return NO('Shade the middle a little too, so it turns slowly from light to dark.');
+            const c = region(S, cast); if (c.sum < 1.2) return NO('Add a cast shadow on the ground, under the ball.');
+            return (c.cx - cx) * L[0] < -0.15 * R ? OK() : NO('The cast shadow falls away from the light. Put it on the other side.'); },
+          solve() { return [...SY.fill((x, y) => inside(x, y) && proj(x, y) < -0.3, cx - R, cy - R, cx + R, cy + R, 12), ...SY.fill((x, y) => inside(x, y) && proj(x, y) >= -0.3 && proj(x, y) < 0.15 && !hl(x, y), cx - R, cy - R, cx + R, cy + R, 5),
+            ...SY.fill((x, y) => cast(x, y) && inEllipse(sx, cy + R * 0.95, R, R * 0.32)(x, y), sx - R, cy + R * 0.6, sx + R, cy + R * 1.3, 8)]; } });
+      }
+      if (v === 'cube') {
+        const a = rf(170, 210), x = rf(470, 530), y0 = rf(480, 540) - a, s3 = 0.866;
+        const top = [[x, y0], [x + a * s3, y0 + a / 2], [x, y0 + a], [x - a * s3, y0 + a / 2]], lf = [[x - a * s3, y0 + a / 2], [x, y0 + a], [x, y0 + 2 * a], [x - a * s3, y0 + 1.5 * a]], rt = [[x, y0 + a], [x + a * s3, y0 + a / 2], [x + a * s3, y0 + 1.5 * a], [x, y0 + 2 * a]];
+        const [nearF, farF] = left ? [lf, rt] : [rt, lf];
+        return task({ text: `Light comes from the ${ln}. Shade the cube: the top face lightest, the ${left ? 'left' : 'right'} side a bit darker, and the ${left ? 'right' : 'left'} side darkest.`, tool: 'shade',
+          hint: 'Three faces, three values. The face turned away from the light is the darkest.', scaffold: [{ poly: top }, { poly: lf }, { poly: rt }, sunAt(x, y0 + a, L, a * 2.1)], win: 'Three faces, three values. That cube looks solid!',
+          check(S) { const m = [top, nearF, farF].map(f => region(S, inPolyM(f, 14)).mean);
+            if (m[2] < DARK_MIN) return NO('Make the side away from the light really dark.');
+            if (m[1] < m[0] + STEP_MIN) return NO('The ' + (left ? 'left' : 'right') + ' side should be darker than the top.');
+            if (m[2] < m[1] + STEP_MIN) return NO('The ' + (left ? 'right' : 'left') + ' side should be the darkest of all.'); return OK(); },
+          solve() { const fillF = (f, k) => { const b = box(f); return SY.fill(inPolyM(f, 6), b.x0, b.y0, b.x1, b.y1, k); }; return [...fillF(nearF, 5), ...fillF(farF, 14)]; } });
+      }
+      const w = rf(220, 280), x0 = 500 - w / 2, x1 = 500 + w / 2, yt = rf(300, 340), yb = yt + rf(300, 360), e = w * 0.18;
+      const rel = (x) => left ? (x - x0) / w : (x1 - x) / w;
+      const body = (x, y) => x > x0 + 14 && x < x1 - 14 && y > yt + e + 10 && y < yb - 10, topE = inEllipse(500, yt, w / 2 - 14, e - 6);
+      const band = (k) => (x, y) => body(x, y) && rel(x) >= k / 3 && rel(x) < (k + 1) / 3;
+      const ell = []; for (let i = 0; i <= 36; i++) { const t = i / 36 * 2 * Math.PI; ell.push([500 + w / 2 * Math.cos(t), yt + e * Math.sin(t)]); }
+      const bot = []; for (let i = 0; i <= 18; i++) { const t = i / 18 * Math.PI; bot.push([500 + w / 2 * Math.cos(t), yb + e * Math.sin(t)]); }
+      return task({ text: `Light comes from the ${ln}. Shade the cylinder: lightest on the side near the light, darker across the middle, darkest on the far side. Leave the top light.`, tool: 'shade',
+        hint: 'A round form changes value slowly. Light side, middle, dark side.', scaffold: [{ lines: ell }, { line: [x0, yt, x0, yb] }, { line: [x1, yt, x1, yb] }, { lines: bot }, sunAt(500, yt + 100, L, w + 120)], win: 'The value changes smoothly. That cylinder looks round!',
+        check(S) { const m = [0, 1, 2].map(k => region(S, band(k)).mean), tp = region(S, topE).mean;
+          if (m[2] < DARK_MIN) return NO('Make the side away from the light dark.');
+          if (m[2] < m[0] + 2 * STEP_MIN) return NO('The side near the light should stay much lighter.');
+          if (m[1] < m[0] - 0.005 || m[1] > m[2] + 0.005) return NO('Shade the middle in between: darker than the light side, lighter than the dark side.');
+          return tp <= 0.6 * m[2] ? OK() : NO('Leave the top of the cylinder light.'); },
+        solve() { return [...SY.fill(band(1), x0, yt, x1, yb, 5), ...SY.fill(band(2), x0, yt, x1, yb, 14)]; } });
+    } },
+    { name: 'Color wheel', g: 7, gen() {
+      const v = pick(['comp', 'comp', 'analog', 'triad', 'inside', 'pair']), kind = pick(['circle', 'square', 'triangle']), X = pick(WHEEL);
+      const ref = [{ wheel: true }], tip = 'Look at the color wheel. Complements sit opposite each other. Analogous colors sit side by side.';
+      if (v === 'comp') return task({ text: `Draw ${aWord(kind)} in the complementary color of ${X}.`, hint: tip, ref, win: pick([`Yes! ${cap(COMP[X])} is opposite ${X} on the wheel.`, 'Complementary colors make each other pop!']),
+        check(S) { const s = of(S, kind, 60); if (!s.length) return wrongKind(S, kind); return s.some(o => o.color === COMP[X]) ? OK() : NO('Find ' + X + ' on the wheel, then use the color straight across from it.'); },
+        solve() { return [SY.shape(kind, 500, 500, 300, COMP[X])]; } });
+      if (v === 'analog') return task({ text: `Draw three ${plural(kind)} in analogous colors, three neighbors on the wheel. One of them is ${X}.`, hint: tip, ref, win: 'Analogous colors. They feel calm together!',
+        check(S) { if (of(S, kind, 60).length < 3) return NO('Draw three ' + plural(kind) + '.'); const c = [...new Set(of(S, kind, 60).map(o => o.color).filter(k => WHEEL.includes(k)))];
+          if (!c.includes(X)) return NO('One of them should be ' + X + '.'); if (c.length !== 3) return NO('Use three different colors from the wheel.');
+          const idx = c.map(k => WHEEL.indexOf(k)); return [0, 1, 2, 3, 4, 5].some(st => [0, 1, 2].every(d => idx.includes((st + d) % 6))) ? OK() : NO('Pick colors that sit next to each other on the wheel.'); },
+        solve() { const i = WHEEL.indexOf(X), st = (i - ri(0, 2) + 6) % 6; return [0, 1, 2].map(d => SY.shape(kind, 220 + d * 280, 500, 200, WHEEL[(st + d) % 6])); } });
+      if (v === 'triad') { const prim = Math.random() < 0.5, set = prim ? ['red', 'yellow', 'blue'] : ['orange', 'green', 'purple'];
+        return task({ text: `Draw three ${plural(kind)} in the ${prim ? 'three primary colors' : 'three secondary colors'}.`, hint: prim ? 'The primary colors cannot be mixed from other colors.' : 'Secondary colors are mixed from two primaries.', ref, win: `A ${prim ? 'primary' : 'secondary'} triad. Bold and balanced!`,
+          check(S) { if (of(S, kind, 60).length < 3) return NO('Draw three ' + plural(kind) + '.'); const c = new Set(of(S, kind, 60).map(o => o.color));
+            return set.every(k => c.has(k)) ? OK() : NO('Use ' + set[0] + ', ' + set[1] + ' and ' + set[2] + '.'); },
+          solve() { return set.map((k, d) => SY.shape(kind, 220 + d * 280, 500, 200, k)); } }); }
+      if (v === 'inside') return task({ text: `Draw a big ${X} ${kind}. Inside it, draw a small shape in its complementary color.`, hint: tip, ref, win: 'Complements side by side make the small shape glow!',
+        check(S) { const big = of(S, kind, 220).filter(o => o.color === X); if (!big.length) return NO('Draw a big ' + X + ' ' + kind + '.');
+          return big.some(b => S.shapes.some(o => o !== b && o.size < 0.6 * b.size && o.color === COMP[X] && inPoly([o.cx, o.cy], b.loop))) ? OK() : NO('Inside it, draw a small shape in the color opposite ' + X + ' on the wheel.'); },
+        solve() { return [SY.shape(kind, 500, 500, 520, X), SY.ring(500, 530, 70, 70, COMP[X])]; } });
+      return task({ text: `Draw a complementary pair: two ${plural(kind)} side by side in colors opposite each other on the wheel.`, hint: tip, ref, win: 'A complementary pair. Strong contrast!',
+        check(S) { const s = of(S, kind, 60); if (s.length < 2) return NO('Draw two ' + plural(kind) + '.'); return s.some(a => s.some(b => COMP[a.color] === b.color)) ? OK() : NO('Pick two colors straight across from each other on the wheel.'); },
+        solve() { const a = pick(WHEEL); return [SY.shape(kind, 300, 500, 260, a), SY.shape(kind, 700, 500, 260, COMP[a])]; } });
+    } },
+    { name: 'Balance and rhythm', g: 7, gen() {
+      const v = pick(['radial', 'sym', 'asym', 'rhythm', 'alt']), kind = pick(['circle', 'square', 'triangle']);
+      const grp = (s) => is(s, 'circle') ? 'r' : is(s, 'square') ? 'q' : s.kind;
+      if (v === 'radial') { const n = pick([4, 5, 6, 8]), pk = pick(['circle', 'oval', 'triangle']);
+        return task({ text: `Radial balance: draw ${n} ${plural(pk)} evenly spaced around the center dot, like petals or spokes.`, hint: 'Space them like the numbers on a clock, all the same distance from the middle.', scaffold: [{ dot: [500, 500] }], win: 'Radial balance. It spreads out from the center like a flower!',
+          check(S) { const s = of(S, pk, 50).filter(o => { const d = dist([o.cx, o.cy], [500, 500]); return d > 90 && d < 460; }); if (s.length !== n) return NO('I see ' + s.length + ' around the dot. Draw ' + n + '.');
+            const ang = s.map(o => Math.atan2(o.cy - 500, o.cx - 500)).sort((a, b) => a - b), gaps = ang.map((a, i) => ((i + 1 < n ? ang[i + 1] : ang[0] + 2 * Math.PI) - a) * 180 / Math.PI), even = 360 / n;
+            if (gaps.some(g => g > 1.5 * even || g < 0.5 * even)) return NO('Space them evenly all the way around.');
+            const ds = s.map(o => dist([o.cx, o.cy], [500, 500])), m = ds.reduce((a, b) => a + b) / n; if (ds.some(d => Math.abs(d - m) > 0.3 * m)) return NO('Keep them all about the same distance from the dot.'); return OK(); },
+          solve() { const R = rf(230, 300), ph = rf(0, 6); return Array.from({ length: n }, (_, i) => { const a = ph + i * 2 * Math.PI / n; return SY.shape(pk, 500 + R * Math.cos(a), 500 + R * Math.sin(a), Math.min(150, 2 * R * Math.sin(Math.PI / n) * 0.8)); }); } }); }
+      if (v === 'sym') { const n = ri(2, 3);
+        return task({ text: `Symmetrical balance: draw ${n} shapes on the left of the dashed line. Then draw the same shapes in mirror places on the right.`, hint: 'Each shape on the left needs a twin on the right, the same size and the same distance from the line.', scaffold: [{ line: [500, 30, 500, 970], dash: true }], win: 'Symmetrical balance. Calm and steady!',
+          check(S) { const s = S.shapes.filter(o => o.size >= 60), Ls = s.filter(o => o.cx < 480), Rs = s.filter(o => o.cx > 520); if (Ls.length < n) return NO('Draw ' + n + ' shapes on the left side.');
+            const used = new Set(); for (const a of Ls) { const b = Rs.find(o => !used.has(o) && grp(o) === grp(a) && Math.abs(1000 - o.cx - a.cx) < 90 && Math.abs(o.cy - a.cy) < 90 && o.size < a.size * 1.65 && o.size * 1.65 > a.size); if (!b) return NO('Each shape on the left needs a matching twin in the mirror place on the right.'); used.add(b); }
+            return Rs.length === used.size ? OK() : NO('There is a shape on the right with no twin on the left.'); },
+          solve() { const out = [], ks = shuf(['circle', 'square', 'triangle']); for (let i = 0; i < n; i++) { const x = rf(160, 330), y = 180 + i * 640 / (n - 1), z = ri(110, 150); out.push(SY.shape(ks[i], x, y, z), SY.shape(ks[i], 1000 - x, y, z)); } return out; } }); }
+      if (v === 'asym') { const n = ri(2, 4), bigLeft = Math.random() < 0.5, k2 = pick(['circle', 'square', 'triangle']);
+        return task({ text: `Asymmetrical balance: draw one big ${kind} on the ${bigLeft ? 'left' : 'right'}. Balance it with ${n} small ${plural(k2)} on the ${bigLeft ? 'right' : 'left'}.`, hint: 'Several small things can balance one big thing, like friends on a seesaw.', scaffold: [{ line: [500, 30, 500, 970], dash: true }], win: 'Asymmetrical balance. Different sides, but it feels even!',
+          check(S) { const side = (o, big) => (o.cx < 500) === (big ? bigLeft : !bigLeft); const Bg = of(S, kind, 220).filter(o => side(o, true)).sort((a, b) => b.area - a.area)[0];
+            if (!Bg) return NO('Draw one big ' + kind + ' on the ' + (bigLeft ? 'left.' : 'right.')); const sm = of(S, k2, 40).filter(o => side(o, false) && o.area <= 0.5 * Bg.area);
+            if (sm.length < n) return NO('Draw ' + n + ' small ' + plural(k2) + ' on the other side.'); const tot = sm.reduce((a, o) => a + o.area, 0);
+            if (tot < 0.3 * Bg.area) return NO('The small ones are too tiny to balance it. Make them a bit bigger.'); if (tot > 1.7 * Bg.area) return NO('The small side is too heavy now. Make them smaller.'); return OK(); },
+          solve() { const bx = bigLeft ? 260 : 740, sx = bigLeft ? 740 : 260, Bz = 330, AF = { circle: 0.785, square: 1, triangle: 0.45 }, out = [SY.shape(kind, bx, 500, Bz)];
+            const sz = Math.sqrt(0.6 * AF[kind] * Bz * Bz / n / AF[k2]); for (let i = 0; i < n; i++) out.push(SY.shape(k2, sx + (i % 2 ? 90 : -90), 160 + (i + 0.5) * 680 / n, sz)); return out; } }); }
+      if (v === 'rhythm') { const n = ri(4, 5), up = Math.random() < 0.5;
+        return task({ text: `Progressive rhythm: draw ${n} ${plural(kind)} in a row, each one ${up ? 'bigger' : 'smaller'} than the one before, from left to right.`, hint: 'A progressive rhythm grows step by step, like stairs.', win: 'Progressive rhythm. The eye moves along the row!',
+          check(S) { const s = of(S, kind, 40).sort((a, b) => a.cx - b.cx); if (s.length < n) return NO('I see ' + s.length + '. Draw ' + n + ' ' + plural(kind) + '.');
+            return s.every((o, i) => !i || (up ? o.mag >= s[i - 1].mag * 1.12 : o.mag * 1.12 <= s[i - 1].mag)) ? OK() : NO('Make each one ' + (up ? 'bigger' : 'smaller') + ' than the one on its left.'); },
+          solve() { const z = Array.from({ length: n }, (_, i) => (n === 4 ? 80 : 70) * 1.4 ** i); if (!up) z.reverse(); const gap = (900 - z.reduce((a, b) => a + b, 0)) / (n + 1); let x = 50; return z.map(sz => { x += gap + sz / 2; const o = SY.shape(kind, x, 500, sz); x += sz / 2; return o; }); } }); }
+      const n = pick([5, 6]);
+      return task({ text: `Alternating rhythm: draw ${n} ${plural(kind)} in a row: big, small, big, small.`, hint: 'Alternating rhythm repeats two things, like a beat: big, small, big, small.', win: 'Big, small, big, small. You can almost hear the beat!',
+        check(S) { const s = of(S, kind, 30).sort((a, b) => a.cx - b.cx); if (s.length < n) return NO('I see ' + s.length + '. Draw ' + n + ' ' + plural(kind) + '.');
+          return s.every((o, i) => !i || (i % 2 ? o.mag * 1.4 <= s[i - 1].mag : o.mag >= s[i - 1].mag * 1.4)) ? OK() : NO('Start big, then small, then big again. Each small one should be much smaller.'); },
+        solve() { const gap = 900 / n; return Array.from({ length: n }, (_, i) => SY.shape(kind, 50 + gap * (i + 0.5), 500, i % 2 ? Math.min(75, gap * 0.5) : Math.min(150, gap * 0.88))); } });
+    } },
+    { name: 'Focal point', g: 8, gen() {
+      const v = pick(['color', 'size', 'shape']), kind = pick(['circle', 'square', 'triangle']), n = ri(4, 6), thirds = Math.random() < 0.4;
+      const X = pick(WHEEL), odd = pick(['circle', 'square', 'triangle'].filter(k => k !== kind));
+      const extra = thirds ? ' Put the focal point on a crossing of the dashed lines.' : '', scaffold = thirds ? thirdsOps() : [];
+      const placed = (f) => !thirds || Object.values(THIRDS).some(q => dist([f.cx, f.cy], q) < 85);
+      const focusAt = () => thirds ? THIRDS[pick(Object.keys(THIRDS))] : [500, 500];
+      const others = (fp) => shuf(Array.from({ length: 16 }, (_, i) => [125 + (i % 4) * 250, 125 + Math.floor(i / 4) * 250])).filter(p => dist(p, fp) > 260);
+      const done = (f) => placed(f) ? OK() : NO('Great focal point! Now move it onto a crossing of the dashed lines.');
+      if (v === 'color') return task({ text: `Draw ${n} ${plural(kind)} in ${X}. Then draw one more in the complementary color, to make it the focal point.${extra}`, hint: 'Contrast pulls the eye. The complement is straight across the color wheel.', scaffold, ref: [{ wheel: true }], win: 'Strong emphasis. The complementary color pulls the eye straight to it!',
+        check(S) { const s = of(S, kind, 40), base = s.filter(o => o.color === X), f = s.filter(o => o.color === COMP[X]);
+          if (base.length < n) return NO('Draw ' + n + ' ' + plural(kind) + ' in ' + X + '.'); if (f.length !== 1) return NO(f.length ? 'Only one should stand out.' : 'Now draw one in the complement of ' + X + '.');
+          if (s.length > base.length + 1) return NO('Keep all the others ' + X + '.'); return done(f[0]); },
+        solve() { const fp = focusAt(); return [SY.shape(kind, fp[0], fp[1], 130, COMP[X]), ...others(fp).slice(0, n).map(p => SY.shape(kind, p[0], p[1], 120, X))]; } });
+      if (v === 'size') return task({ text: `Draw ${n} small ${plural(kind)} and one ${kind} at least twice as big. The big one is the focal point.${extra}`, hint: 'Size contrast makes one thing more important.', scaffold, win: 'Emphasis by size. The big one is the star of the picture!',
+        check(S) { const s = of(S, kind, 30).sort((a, b) => b.mag - a.mag); if (s.length < n + 1) return NO('Draw ' + (n + 1) + ' ' + plural(kind) + ' in all.');
+          const rest = s.slice(1).map(o => o.mag).sort((a, b) => a - b), med = rest[Math.floor(rest.length / 2)];
+          if (s[0].mag < 2 * med) return NO('Make the focal one at least twice as big as the others.'); if (s[1].mag >= 1.6 * med) return NO('Only one should be big. Keep the others small.'); return done(s[0]); },
+        solve() { const fp = focusAt(); return [SY.shape(kind, fp[0], fp[1], 240), ...others(fp).slice(0, n).map(p => SY.shape(kind, p[0], p[1], ri(80, 95)))]; } });
+      return task({ text: `Draw ${n} ${plural(kind)} and one ${odd}. The odd one out becomes the focal point.${extra}`, hint: 'When everything matches, the one that is different stands out.', scaffold, win: 'Emphasis by contrast. The odd one out grabs attention!',
+        check(S) { const s = of(S, kind, 40), f = of(S, odd, 40); if (s.length < n) return NO('Draw ' + n + ' ' + plural(kind) + '.'); if (f.length !== 1) return NO(f.length ? 'Only one ' + odd + ', please.' : 'Now add one ' + odd + '.'); return done(f[0]); },
+        solve() { const fp = focusAt(); return [SY.shape(odd, fp[0], fp[1], 140), ...others(fp).slice(0, n).map(p => SY.shape(kind, p[0], p[1], 120))]; } });
+    } },
+    { name: 'Depth with color', g: 8, gen() {
+      const H = ri(330, 420), v = pick(['mountains', 'two', 'three']), KT = v === 'mountains' ? ['mountains', 'triangle'] : pick([['trees', 'triangle'], ['hills', 'circle'], ['houses', 'square'], ['balloons', 'circle']]);
+      const tip = 'Atmospheric perspective: far things look smaller, higher and cooler. Near things are bigger, lower and warmer.';
+      const n = v === 'two' ? 2 : 3;
+      const text = v === 'mountains' ? 'Draw three mountains going back. The nearest is biggest, lowest and in a warm color. The farthest is smallest, up by the horizon, and in a cool color.'
+        : v === 'two' ? `Draw two ${KT[0]}: a near one, big and low in a warm color, and a far one, small and high in a cool color.` : `Use color to push things back. Draw three ${KT[0]}: the near one warm, the far ones cool. Each farther one is smaller and higher.`;
+      return task({ text, hint: tip, scaffold: [{ line: [20, H, 980, H], horizon: true }], win: pick(['Atmospheric perspective! Warm comes forward, cool goes back.', 'Deep space with color. Very convincing!']),
+        check(S) { const s = of(S, KT[1], 40).sort((a, b) => b.box.y1 - a.box.y1); if (s.length < n) return NO('I see ' + s.length + '. Draw ' + n + ' ' + KT[0] + '.');
+          for (let i = 1; i < s.length; i++) if (s[i].size * 1.15 > s[i - 1].size) return NO('Each farther one should be smaller and higher up.');
+          if (temp(s[0].color) !== 'warm') return NO('Give the nearest one a warm color. ' + tip);
+          const far = v === 'three' ? s.slice(1) : [s[s.length - 1]]; if (far.some(o => temp(o.color) !== 'cool')) return NO('Give the far ' + (far.length > 1 ? 'ones' : 'one') + ' a cool color.');
+          return s[s.length - 1].box.y1 < H + 170 ? OK() : NO('Put the farthest one up near the horizon.'); },
+        solve() { const sz = n === 2 ? [300, 120] : [300, 190, 100], bot = n === 2 ? [930, H + 40] : [930, H + 230, H + 40];
+          return sz.map((z, i) => SY.shape(KT[1], 230 + i * (540 / (n - 1)), bot[i] - z * 0.45, z, i === 0 ? pick(WARM) : pick(COOL))); } });
+    } },
+  ];
+
+  // ---- The self-check: build a challenge, then prove the check works on it ---------------------------------------------
+  const BAD = /NaN|undefined|null|\[object|\u2014/;
+  function opsOK(ops) {
+    for (const o of ops || []) {
+      const nums = [].concat(...Object.entries(o).filter(([k]) => !['dash', 'horizon', 'bold', 'color', 'wheel'].includes(k)).map(([, v]) => Array.isArray(v) ? v.flat(2) : [NaN]));
+      if (nums.some(x => typeof x !== 'number' || !Number.isFinite(x) || x < -60 || x > 1060)) return false;
+    }
+    return true;
+  }
+  function verify(t, where) {
+    for (const k of ['text', 'hint', 'win']) if (typeof t[k] !== 'string' || !t[k] || BAD.test(t[k])) throw new Error(where + 'bad ' + k + ': ' + t[k]);
+    if (typeof t.check !== 'function' || typeof t.solve !== 'function') throw new Error(where + 'no check');
+    if (!opsOK(t.scaffold) || !opsOK(t.ref)) throw new Error(where + 'bad picture');
+    const empty = t.check(state([]));
+    if (!empty || empty.ok || typeof empty.say !== 'string' || !empty.say || BAD.test(empty.say)) throw new Error(where + 'an empty page passes');
+    const sol = t.solve();
+    for (const s of sol) for (const p of s.pts) if (!(p[0] >= -5 && p[0] <= 1005 && p[1] >= -5 && p[1] <= 1005)) throw new Error(where + 'answer off the page');
+    const a = t.check(state(sol));
+    if (!a.ok) throw new Error(where + 'target cannot be reached (' + a.say + ') in: ' + t.text);
+    const b = t.check(state(wobble(sol)));
+    if (!b.ok) throw new Error(where + 'a wobbly answer fails (' + b.say + ') in: ' + t.text);
+    return sol;
+  }
+  return { LEVELS, state, raster, verify, wobble, HEX, anything };
+})();
+const LEVELS = CHAL.LEVELS;
+// Where a new player starts: the first rung for the child's art grade (set by the parent), 2nd grade when unknown.
+const START = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('art', LEVELS.map(l => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('art', LEVELS.length, 6) : 6));
+
+// ---------------------------------------------------------------------------
+// Progress. One result per challenge: right when the first check passes; missed when a check fails (counted once per
+// challenge) or when she skips it (giving up). Four right in a row moves up a rung, two missed in a row moves down one.
+// Finishing a challenge always earns a star, even after a miss. A check on an empty page is not a try.
+// ---------------------------------------------------------------------------
+const CH_KEY = 'drawwithme-challenges';
+let P = { lv: START, st: { streak: 0, miss: 0 }, stars: 0, done: 0, started: false };
+try { const s = JSON.parse(localStorage.getItem(CH_KEY) || 'null'); if (s) P = Object.assign(P, s, { st: Object.assign({ streak: 0, miss: 0 }, s.st || {}) }); } catch (e) {}
+P.lv = Math.max(0, Math.min(LEVELS.length - 1, P.lv | 0));
+function chPersist() { try { localStorage.setItem(CH_KEY, JSON.stringify(P)); } catch (e) {} }
+function chRecord(right) {
+  const s = P.st; let change = 0;
+  if (right) { s.miss = 0; s.streak++; if (s.streak >= 4 && P.lv < LEVELS.length - 1) { P.lv++; s.streak = 0; change = 1; } }
+  else { s.streak = 0; s.miss++; if (s.miss >= 2 && P.lv > 0) { P.lv--; s.miss = 0; change = -1; } }
+  chPersist(); return change;
+}
+
+// ---------------------------------------------------------------------------
+// The challenge screen: the same stage and marker row as free play, moved in while she plays.
+// ---------------------------------------------------------------------------
+screens.push('chal');
+let CHT = null, chMissed = false, chStrokes = [], chTimer = null, chPenHome = null;
+// Called by startDrawStroke: every stroke she makes in this mode, kept by reference so its points keep growing.
+window.CHAL_REC = (s) => { if (mode === 'chal' && s && ['pen', 'charcoal', 'sketch', 'shade'].includes(s.t)) chStrokes.push({ t: s.t, color: penColor, pts: s.pts }); };
+function chLiveState() {
+  const W = RES, C = 100, cs = W / C;
+  const ink = ictx.getImageData(0, 0, W, W).data, sk = kctx.getImageData(0, 0, W, W).data, sh = sctx.getImageData(0, 0, W, W).data;
+  const on = new Uint8Array(C * C), tone = new Float32Array(C * C);
+  for (let gy = 0; gy < C; gy++) for (let gx = 0; gx < C; gx++) {
+    let mx = 0, si = 0, ii = 0;
+    for (let y = gy * cs; y < (gy + 1) * cs; y++) { let o = (y * W + gx * cs) * 4 + 3; for (let x = 0; x < cs; x++, o += 4) { const a = ink[o] > sk[o] ? ink[o] : sk[o]; if (a > mx) mx = a; si += sh[o]; ii += ink[o]; } }
+    on[gy * C + gx] = mx > 60 ? 1 : 0; tone[gy * C + gx] = Math.min(1, (si + ii * 0.5) / (cs * cs * 255));
+  }
+  // A stroke counts while most of its ink is still on the page (undo and the eraser take it away).
+  const alive = (pts) => { let hit = 0; for (const [x, y] of pts) { const gx = Math.floor(x / 10), gy = Math.floor(y / 10); let f = 0; for (let dy = -1; dy <= 1 && !f; dy++) for (let dx = -1; dx <= 1 && !f; dx++) { const X = gx + dx, Y = gy + dy; if (X >= 0 && Y >= 0 && X < C && Y < C && on[Y * C + X]) f = 1; } hit += f; } return hit >= 0.5 * pts.length; };
+  const raw = chStrokes.filter(s => s.t !== 'shade').map(s => ({ t: s.t, color: s.color, pts: s.pts.map(p => [p.x / K, p.y / K]) })).filter(s => alive(s.pts));
+  return CHAL.state(raw, tone);
+}
+function chDrawOps(g, ops, scale, forGuide) {
+  g.save(); g.scale(scale, scale); g.lineCap = g.lineJoin = 'round';
+  for (const o of ops || []) {
+    const col = o.color ? CHAL.HEX[o.color] : forGuide ? 'rgba(59,51,85,0.62)' : '#3B3355';
+    g.strokeStyle = o.dash ? 'rgba(255,79,139,0.75)' : o.horizon ? 'rgba(47,111,208,0.7)' : col; g.lineWidth = o.bold ? 9 : o.dash ? 4 : forGuide ? 6 : 14;
+    g.setLineDash(o.dash ? [18, 16] : []);
+    if (o.line) { g.beginPath(); g.moveTo(o.line[0], o.line[1]); g.lineTo(o.line[2], o.line[3]); g.stroke(); }
+    if (o.lines || o.poly) { const p = o.lines || o.poly; g.beginPath(); p.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); if (o.poly) g.closePath(); g.stroke(); }
+    if (o.circle) { g.beginPath(); g.arc(o.circle[0], o.circle[1], o.circle[2], 0, Math.PI * 2); g.stroke(); }
+    if (o.oval) { g.beginPath(); g.ellipse(o.oval[0], o.oval[1], o.oval[2], o.oval[3], 0, 0, Math.PI * 2); g.stroke(); }
+    if (o.dot) { g.fillStyle = forGuide ? '#FF4F8B' : col; g.beginPath(); g.arc(o.dot[0], o.dot[1], forGuide ? 12 : 16, 0, Math.PI * 2); g.fill(); }
+    if (o.vp) { g.fillStyle = '#FF4F8B'; g.beginPath(); g.arc(o.vp[0], o.vp[1], 13, 0, Math.PI * 2); g.fill(); }
+    if (o.sun) { const [x, y] = o.sun; g.setLineDash([]); g.fillStyle = '#FFC93C'; g.strokeStyle = '#E8A400'; g.lineWidth = 6; g.beginPath(); g.arc(x, y, 34, 0, Math.PI * 2); g.fill(); g.stroke();
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.beginPath(); g.moveTo(x + 46 * Math.cos(a), y + 46 * Math.sin(a)); g.lineTo(x + 66 * Math.cos(a), y + 66 * Math.sin(a)); g.stroke(); } }
+    if (o.wheel) { ['red', 'orange', 'yellow', 'green', 'blue', 'purple'].forEach((c, i) => { const a0 = (i - 0.5) / 6 * 2 * Math.PI - Math.PI / 2, a1 = (i + 0.5) / 6 * 2 * Math.PI - Math.PI / 2; g.fillStyle = CHAL.HEX[c]; g.beginPath(); g.moveTo(500, 500); g.arc(500, 500, 430, a0, a1); g.closePath(); g.fill(); });
+      g.fillStyle = '#FFFFFF'; g.beginPath(); g.arc(500, 500, 150, 0, Math.PI * 2); g.fill(); }
+  }
+  g.restore();
+}
+function chMsg(text, kind) { const m = $('chalmsg'); m.textContent = text || ''; m.dataset.kind = kind || ''; }
+function chLabel() { $('chalrung').textContent = LEVELS[P.lv].name; $('chalstars').textContent = '⭐ ' + P.stars; $('challevel').textContent = 'Level ' + (P.lv + 1) + ' of ' + LEVELS.length; }
+function chClear() { for (const c of [pctx, sctx, kctx, ictx]) c.clearRect(0, 0, RES, RES); chStrokes = []; undoStack.length = 0; }
+function chNew(announce) {
+  clearTimeout(chTimer); chTimer = null; chMissed = false; chClear();
+  CHT = LEVELS[P.lv].gen();
+  gctx.clearRect(0, 0, RES, RES); chDrawOps(gctx, CHT.scaffold, K, true);
+  const ref = $('chalref'); ref.hidden = !CHT.ref;
+  if (CHT.ref) { const g = ref.getContext('2d'); ref.width = ref.height = 360; g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, 360, 360); chDrawOps(g, CHT.ref, 0.36, false); }
+  drawTool = CHT.tool === 'shade' ? 'shade' : 'pen'; markPen();
+  $('chaltext').textContent = CHT.text; chMsg(''); chLabel();
+  say((announce ? announce + ' ' : '') + CHT.text);
+}
+function chEnter() {
+  cancelAnimationFrame(anim); try { speechSynthesis.cancel(); } catch (e) {}
+  if (!chPenHome) chPenHome = $('pen').parentElement;
+  $('chalstage').appendChild($('stage')); $('chal').appendChild($('pen'));
+  mode = 'chal'; show('chal'); layoutStage();
+  const first = !P.started; P.started = true; chPersist();
+  chNew(first ? 'Welcome to Challenges!' : '');
+}
+function chLeave() {
+  clearTimeout(chTimer); chTimer = null; CHT = null; try { speechSynthesis.cancel(); } catch (e) {}
+  chClear(); gctx.clearRect(0, 0, RES, RES);
+  $('drawstage').appendChild($('stage')); (chPenHome || $('draw')).appendChild($('pen'));
+  mode = 'draw'; drawTool = 'pen'; markPen(); show('home');
+}
+function chCheck() {
+  if (!CHT || chTimer) return;
+  const S = chLiveState();
+  if (!CHAL.anything(S)) { chMsg('Draw first, then tap Check.', 'hint'); say('Draw first, then tap Check.'); return; }
+  let r; try { r = CHT.check(S); } catch (e) { r = { ok: false, say: 'Hmm, let me look again. Try one more time.' }; }
+  if (r.ok) {
+    const change = chMissed ? 0 : chRecord(true);
+    P.stars++; P.done++; chPersist(); chLabel();
+    const up = change > 0 ? ' New level: ' + LEVELS[P.lv].name + '!' : '';
+    chMsg(CHT.win + up + ' ⭐', 'win'); say(CHT.win + up); confetti();
+    chTimer = setTimeout(() => { chTimer = null; if (mode === 'chal') chNew(); }, 3200);
+  } else {
+    let down = '';
+    if (!chMissed) { chMissed = true; if (chRecord(false) < 0) down = ' Next time we will try an easier one.'; }
+    chMsg(r.say + down, 'miss'); say(r.say);
+  }
+}
+function chSkip() {
+  if (!CHT || chTimer) return;
+  const change = chMissed ? 0 : chRecord(false);
+  chNew(change < 0 ? 'Let’s try an easier one.' : '');
+}
+function chHint() { if (!CHT) return; chMsg(CHT.hint, 'hint'); say(CHT.hint); }
+function chUndo() { undo(); chStrokes.pop(); }
+$('chalbtn').addEventListener('click', chEnter);
+$('chalhome').addEventListener('click', chLeave);
+$('chalcheck').addEventListener('click', chCheck);
+$('chalskip').addEventListener('click', chSkip);
+$('chalhint').addEventListener('click', chHint);
+$('chalundo').addEventListener('click', chUndo);
+$('chalclear').addEventListener('click', () => { chClear(); chMsg(''); });
+$('chalsay').addEventListener('click', () => { if (CHT) say(CHT.text); });
+
+// Self-check hook for tools/ladder-check.mjs: builds challenges at a rung without touching the screen, proves each one
+// can be done (a drawing of the answer passes, a wobbly finger-drawn one too, an empty page does not) and throws on a
+// malformed one.
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START,
+  label: () => LEVELS[P.lv].name,
+  exercise(i, n) {
+    const out = [];
+    for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); CHAL.verify(t, 'level ' + i + ' (' + LEVELS[i].name + '): '); out.push(t.text); }
+    return out;
+  },
+};
+// For testing only: exposed when opened with ?dwmtest
+if (/dwmtest/.test(location.search)) window.__chal = { CHAL, get task() { return CHT; }, get P() { return P; }, liveState: chLiveState, newTask: chNew, setLevel: (i) => { P.lv = i; chPersist(); }, get strokes() { return chStrokes; } };
 </script>
 </body>
 </html>
