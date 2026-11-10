@@ -16,6 +16,9 @@
     <!-- Not needed for data-only push; declared so FCM does not ask for it on Android 13 and later. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:node="remove" />
 
+    <!-- Tablets only: Google Play offers Duckling to large and extra-large screens (7 inches and up), not phones. -->
+    <supports-screens android:smallScreens="false" android:normalScreens="false" android:largeScreens="true" android:xlargeScreens="true" android:requiresSmallestWidthDp="600" />
+
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
