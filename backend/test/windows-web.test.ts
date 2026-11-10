@@ -151,12 +151,17 @@ describe.skipIf(!ready)('web app on Windows', () => {
     await p.screenshot({ path: join(dir, 'win-setup.png'), fullPage: true });
     await p.getByRole('button', { name: 'Make this account' }).click();
     await p.getByText('Scarlett signs in by itself when the device starts.').waitFor();
+    // A different account can be chosen afterwards.
+    await p.getByRole('button', { name: 'Change' }).click();
+    await p.getByLabel('Account name').fill('Kid');
+    await p.getByRole('button', { name: 'Make this account' }).click();
+    await p.getByText('Kid signs in by itself when the device starts.').waitFor();
     // Step 2, then step 3.
     await p.getByRole('button', { name: 'Turn on' }).click();
     await p.getByRole('button', { name: 'Turn off' }).waitFor();
     await p.getByRole('button', { name: 'Restart', exact: true }).click();
     await expect.poll(async () => (await calls()).map((c) => c[0])).toContain('restartDevice');
-    expect((await calls()).find((c) => c[0] === 'setChildAccount')).toEqual(['setChildAccount', 'Scarlett', 'Scarlett']);
+    expect((await calls()).filter((c) => c[0] === 'setChildAccount')).toEqual([['setChildAccount', 'Scarlett', 'Scarlett'], ['setChildAccount', 'Kid', 'Scarlett']]);
     expect((await calls()).find((c) => c[0] === 'setLockdown')).toEqual(['setLockdown', true]);
     await p.getByRole('heading', { name: 'Parent area' }).waitFor();
 

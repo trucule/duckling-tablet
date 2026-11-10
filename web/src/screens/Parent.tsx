@@ -236,6 +236,7 @@ function WindowsLockdown({ status, childName, refresh }: { status: LockdownStatu
   const suggested = (childName || 'Child').replace(/[^A-Za-z0-9 ._-]/g, '').slice(0, 20) || 'Child';
   // null until the parent types: then the box holds exactly what they typed, even when they clear it.
   const [name, setName] = useState<string | null>(null);
+  const [changing, setChanging] = useState(false);
   // A step finishes on the device before Windows' own status shows it (the shell reads that status in the
   // background), so the step stays "Working" until the status changes, for up to 30 seconds.
   const run = async (what: string, f: () => Promise<unknown>) => {
@@ -258,15 +259,21 @@ function WindowsLockdown({ status, childName, refresh }: { status: LockdownStatu
       <ul class="steps">
         <li><span class={`dot ${status.homeRole ? 'done' : ''}`}>{status.homeRole ? '✓' : '1'}</span>
           <span><span class="what">The child's Windows account</span><br />
-            <span class="why">{status.homeRole ? `${w?.childAccount} signs in by itself when the device starts.` : 'A standard account just for the child, signed in automatically with a password nobody needs to know. Use an account the child already has, or make one.'}</span>
-            {!status.homeRole && w && (
+            <span class="why">{status.homeRole && !changing ? `${w?.childAccount} signs in by itself when the device starts.` : 'A standard account just for the child, signed in automatically with a password nobody needs to know. Use an account the child already has, or make one.'}</span>
+            {(!status.homeRole || changing) && w && (
               <span class="row">
                 <input list="duck-accounts" maxLength={20} value={chosen} onInput={(e) => setName((e.target as HTMLInputElement).value)} aria-label="Account name" style={{ width: 200 }} />
                 <datalist id="duck-accounts">{accounts.map((a) => <option value={a.name}>{a.fullName}</option>)}</datalist>
               </span>
             )}
           </span>
-          {!status.homeRole && <button class="pill quiet" disabled={!!busy || !w || !chosen.trim()} onClick={() => run('account', () => win.setChildAccount(chosen.trim(), childName || chosen.trim()))}>{busy === 'account' ? 'Working' : exists ? 'Use this account' : 'Make this account'}</button>}
+          {(!status.homeRole || changing) && <button class="pill quiet" disabled={!!busy || !w || !chosen.trim()} onClick={() => run('account', async () => {
+            await win.setChildAccount(chosen.trim(), childName || chosen.trim());
+            // With the lockdown on, the kiosk is applied again for the account now chosen.
+            if (status.lockdownOn) await win.setLockdown(true);
+            setChanging(false);
+          })}>{busy === 'account' ? 'Working' : exists ? 'Use this account' : 'Make this account'}</button>}
+          {status.homeRole && !changing && <button class="pill quiet" disabled={!!busy} onClick={() => { setName(''); setChanging(true); }}>Change</button>}
         </li>
         <li><span class={`dot ${status.lockdownOn ? 'done' : ''}`}>{status.lockdownOn ? '✓' : '2'}</span>
           <span><span class="what">Lock the account to Duckling</span><br />
