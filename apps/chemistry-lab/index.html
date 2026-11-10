@@ -301,7 +301,7 @@
   body[data-section="pantry"] #ui > :not([data-id="sound"]),
   body[data-section="cabinets"] #ui > :not([data-id="sound"]),
   body[data-section="oven"] #ui [data-id="blend"], body[data-section="oven"] #ui [data-id="broom"] { display: none; }
-  /* Ovens only heat: the cold half of the dial is greyed out. */
+  /* Ovens only heat: the cold half of the dial is grayed out. */
   body[data-section="oven"] #heat .track { background: linear-gradient(to top, #CFC8D8 0%, #CFC8D8 50%, #FFB52E 72%, #FF5A4E 100%); }
   body[data-section="oven"] #heat .icon.cold { opacity: 0.25; }
   @media (prefers-reduced-motion: reduce) { #toast.go, #fade.go, #badge.go { animation: none; } #toast.go { opacity: 1; } }
@@ -3705,7 +3705,7 @@ void main() {
    Free play stays what the lab opens to. The trophy button on the left (or Challenges in the experiment book) starts
    a ladder of goals from pre-K to 8th grade, done with the lab's own shelves, basket, beaker, heat dial and reactions.
    Every goal is checked from the lab's real state through window.ChemLabCore (set at the end of the bundle above):
-   what is in the basket, what is in the beaker and how much, its temperature, the colour of the cabbage juice, what
+   what is in the basket, what is in the beaker and how much, its temperature, the color of the cabbage juice, what
    floats, the reactions the lab logged (fizz, curds, foam, crystals) and the scale reading.
    Progress lives in localStorage (key chemistry-lab-challenges): P.lv, the streaks and P.stars. A finished challenge
    gives one star, the same as a finished experiment in the book; KID_STARS counts the stars field.
@@ -3761,7 +3761,7 @@ void main() {
   const bodies = (t) => C.bodies.filter((b) => b.type === t);
   const inBeaker = (b) => C.inBeaker(b.x) && b.y > C.beaker.rim - b.r * 0.5 && !b.held;
   const layer = (k) => C.layers().L.find((x) => x.kind === k);
-  // The cabbage-juice reading, the same sum the lab uses to colour it: above 0.35 pink (acid), below -0.4 green (base).
+  // The cabbage-juice reading, the same sum the lab uses to color it: above 0.35 pink (acid), below -0.4 green (base).
   function phS() { const l = pot(), a = l.vinegar + l.lemon * 1.5 + l.cola * 0.5, b = (l.sodaD + l.sodaS) * 2; return (a - b) / (a + b + liq() * 0.03 + 1); }
   const phKind = () => (pot().ind < 2 ? 'none' : phS() > 0.35 ? 'acid' : phS() < -0.4 ? 'base' : 'neutral');
   // The scale: grams of everything in the beaker (one unit poured is one gram). Gas that bubbles away leaves it.
@@ -3813,7 +3813,7 @@ void main() {
   const stateQ = (q, right, why) => qa(q, right, STATES.filter((s) => s !== right), why);
 
   // ---------------------------------------------------------------------------------------------------------------
-  // Pre-K: sorting the shelves, drops of colour
+  // Pre-K: sorting the shelves, drops of color
   // ---------------------------------------------------------------------------------------------------------------
   const SORTS = [
     { one: 'liquid', many: 'liquids', items: SUBS.filter((t) => C.subs[t] && C.subs[t].liquid).map(sub), where: 'Liquids come in bottles. Look in the fridge and the glassware cupboard.' },
@@ -3854,7 +3854,7 @@ void main() {
   }
 
   // ---------------------------------------------------------------------------------------------------------------
-  // K: hot and cold, mixing two colours
+  // K: hot and cold, mixing two colors
   // ---------------------------------------------------------------------------------------------------------------
   function hotCold() {
     const k = pick(['hot', 'freeze', 'warm', 'cool', 'boil']);

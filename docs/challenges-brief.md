@@ -14,7 +14,7 @@ additions below. A finished example of a grade-tagged ladder with a self-check h
 2. `LEVELS`: 12 to 20 rungs, each `{ name, g, gen }`. `g` is the grade the rung is for (-1 pre-K .. 8), in rising
    order, with at least one rung at pre-K or K and at least one at 8th grade. A comment above the ladder names the
    grade band of each rung. Content matches the grade band table in `docs/ladders.md` for the app's subject, written
-   as a teacher at that grade would recognise it.
+   as a teacher at that grade would recognize it.
 3. `const START = KidTablet.rungFor(subject, LEVELS.map(l => l.g))` with the same fallbacks the other apps use
    (`levelFor`, then a fixed index for a browser with no bridge). The challenge mode opens on START the first time
    and on the saved rung afterwards.
