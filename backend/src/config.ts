@@ -78,6 +78,8 @@ const schema = z.object({
   STRIPE_PRICE_LOOKUP_KEY: z.string().default('duckling_monthly'),
   STRIPE_PRICE_ID: z.string().default(''),
   STRIPE_PORTAL_CONFIGURATION: z.string().default(''),
+  // Duckling's name, colors and icon on the Checkout page instead of the account's (ET Ducky).
+  STRIPE_BRANDING: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   STRIPE_AUTOMATIC_TAX: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   STRIPE_API: z.string().url().default('https://api.stripe.com'),
   // The public site, where Checkout returns to (checkout/success.html and checkout/cancel.html).

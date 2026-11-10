@@ -25,6 +25,7 @@ const checkouts: Record<string, string>[] = [];
 const portals: Record<string, string>[] = [];
 const cancelled: string[] = [];
 let stripeDown = false;
+let rejectIcon = false;
 const setup = { portalForms: [] as URLSearchParams[], endpoints: [] as { id: string; url: string; events?: string[] }[], deleted: [] as string[] };
 const SECRET = 'whsec_test_secret';
 const DAY = 86_400_000;
@@ -57,7 +58,11 @@ beforeAll(async () => {
       if (req.headers.authorization !== 'Bearer sk_test_duck') return send(401, { error: { type: 'invalid_request_error' } });
       const form = Object.fromEntries(new URLSearchParams(data));
       if (url.startsWith('/v1/prices?') && decodeURIComponent(url).includes('lookup_keys[]=duckling_monthly')) return send(200, { data: [{ id: 'price_duck' }] });
-      if (url === '/v1/checkout/sessions' && req.method === 'POST') { checkouts.push(form); return send(200, { id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' }); }
+      if (url === '/v1/checkout/sessions' && req.method === 'POST') {
+        checkouts.push(form);
+        if (rejectIcon && form['branding_settings[icon][type]']) return send(400, { error: { type: 'invalid_request_error', param: 'branding_settings[icon]' } });
+        return send(200, { id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' });
+      }
       if (url === '/v1/billing_portal/sessions' && req.method === 'POST') { portals.push(form); return send(200, { id: 'bps_1', url: 'https://billing.stripe.com/p/session/bps_1' }); }
       if (url.startsWith('/v1/prices?') && decodeURIComponent(url).includes('lookup_keys[]=')) return send(200, { data: [] });
       if (url === '/v1/billing_portal/configurations' && req.method === 'POST') { setup.portalForms.push(new URLSearchParams(data)); return send(200, { id: 'bpc_new' }); }
@@ -79,7 +84,7 @@ afterAll(async () => { fake?.close(); await cluster?.stop(); });
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'duck-stripe-'));
   ({ db } = await cluster.newDb());
-  mails.length = 0; pushes.length = 0; subs.clear(); checkouts.length = 0; portals.length = 0; cancelled.length = 0; stripeDown = false;
+  mails.length = 0; pushes.length = 0; subs.clear(); checkouts.length = 0; portals.length = 0; cancelled.length = 0; stripeDown = false; rejectIcon = false;
   const cfg = loadConfig({ NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local', ADMIN_TOKEN: 'admin-test-token-123456', STRIPE_SECRET_KEY: 'sk_test_duck', STRIPE_WEBHOOK_SECRET: SECRET, STRIPE_API: fakeUrl, STRIPE_PORTAL_CONFIGURATION: 'bpc_duck' });
   ({ app } = await buildServer(cfg, {
     db, logger: false,
@@ -135,6 +140,9 @@ describe('Stripe subscriptions', () => {
     expect(c.customer_email).toBe('win@example.com');
     expect(c.success_url).toBe('https://ducklingtablet.com/checkout/success?from=tablet');
     expect(c['automatic_tax[enabled]']).toBe('true');
+    // Duckling's own name, colors and icon on the page.
+    expect(c['branding_settings[display_name]']).toBe('Duckling Tablet');
+    expect(c['branding_settings[icon][url]']).toBe('https://ducklingtablet.com/logo.png');
     // Seven days of trial left: Stripe is told to start billing at the trial's end.
     const trialEnd = Number(c['subscription_data[trial_end]']);
     expect(Math.abs(trialEnd * 1000 - (Date.now() + 7 * DAY))).toBeLessThan(60_000);
@@ -180,6 +188,11 @@ describe('Stripe subscriptions', () => {
     const r = await app.inject({ method: 'POST', url: '/billing/stripe/checkout', headers: f.auth });
     expect(r.statusCode).toBe(200);
     expect(checkouts[0]).toMatchObject({ customer_email: 'portal@example.com', success_url: 'http://localhost/?subscribed=1#subscription'.replace('http://localhost', 'https://parents.ducklingtablet.com') });
+    // Stripe refusing the icon: the page still opens, with the name and colors.
+    rejectIcon = true;
+    expect((await app.inject({ method: 'POST', url: '/billing/stripe/checkout', headers: f.auth })).statusCode).toBe(200);
+    expect(checkouts.slice(-2).map((x) => [x['branding_settings[icon][type]'] ?? null, x['branding_settings[display_name]']])).toEqual([['url', 'Duckling Tablet'], [null, 'Duckling Tablet']]);
+    rejectIcon = false;
     // No customer yet: nothing to manage.
     expect((await app.inject({ method: 'POST', url: '/billing/stripe/portal', headers: f.auth })).statusCode).toBe(404);
 

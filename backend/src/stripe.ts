@@ -76,7 +76,19 @@ export function makeStripe(cfg: Config, log: (msg: string) => void): Stripe | nu
       if (o.trialEnd) f['subscription_data[trial_end]'] = o.trialEnd;
       if (o.customer) { f.customer = o.customer; if (cfg.STRIPE_AUTOMATIC_TAX) f['customer_update[address]'] = 'auto'; }
       else if (o.email) f.customer_email = o.email;
-      const r = await call<{ url?: string }>('POST', '/v1/checkout/sessions', f);
+      // Duckling's name, colors and duck on the Checkout page; the Stripe account itself is branded ET Ducky. If Stripe
+      // refuses part of the branding (an older API version, a changed field), the page opens with less of it.
+      const brand: Form = cfg.STRIPE_BRANDING ? {
+        'branding_settings[display_name]': 'Duckling Tablet',
+        'branding_settings[background_color]': '#f4f5f2',
+        'branding_settings[button_color]': '#1e2a33',
+      } : {};
+      const icon: Form = cfg.STRIPE_BRANDING ? { 'branding_settings[icon][type]': 'url', 'branding_settings[icon][url]': `${cfg.SITE_URL}/logo.png` } : {};
+      let r = { status: 0, body: {} as { url?: string; error?: { param?: string } } };
+      for (const extra of [{ ...brand, ...icon }, brand, {}]) {
+        r = await call<{ url?: string; error?: { param?: string } }>('POST', '/v1/checkout/sessions', { ...f, ...extra });
+        if (r.body.url || r.status !== 400 || !String(r.body.error?.param ?? '').startsWith('branding_settings') || !Object.keys(extra).length) break;
+      }
       if (!r.body.url) throw new StripeUnavailable(`checkout ${r.status}`);
       return r.body.url;
     },
