@@ -17,7 +17,18 @@ function Shot([string]$name) {
     $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
     $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
     $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
-    $bmp.Save((Join-Path $Out "$name.png")); $g.Dispose(); $bmp.Dispose()
+    $bmp.Save((Join-Path $Out "$name.png")); $g.Dispose()
+    # Also into the log as a small JPEG in base64 lines, for readers who cannot download artifacts.
+    $w = [math]::Min(960, $b.Width); $h = [int]($b.Height * $w / $b.Width)
+    $small = New-Object System.Drawing.Bitmap $bmp, $w, $h
+    $ms = New-Object System.IO.MemoryStream
+    $enc = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object MimeType -eq 'image/jpeg'
+    $ep = New-Object System.Drawing.Imaging.EncoderParameters 1
+    $ep.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawing.Imaging.Encoder]::Quality), 70L
+    $small.Save($ms, $enc, $ep)
+    $b64 = [Convert]::ToBase64String($ms.ToArray())
+    for ($i = 0; $i -lt $b64.Length; $i += 4000) { Write-Host "SHOT $name $($b64.Substring($i, [math]::Min(4000, $b64.Length - $i)))" }
+    $small.Dispose(); $bmp.Dispose()
 }
 function Pipe([string]$op, $argsObj = @{}) {
     $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'DucklingTablet', [System.IO.Pipes.PipeDirection]::InOut)
@@ -106,4 +117,6 @@ Assert (-not (Get-Service DucklingTablet -ErrorAction SilentlyContinue)) 'releas
 Assert (-not (Test-Path (Join-Path $dir 'Duckling.exe'))) 'program files removed'
 Copy-Item "$env:ProgramData\Duckling\logs\*" $Out -ErrorAction SilentlyContinue
 Copy-Item "$env:LOCALAPPDATA\Duckling\shell.log" $Out -ErrorAction SilentlyContinue
+Get-Content (Join-Path $Out 'service.log') -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "LOG service $_" }
+Get-Content (Join-Path $Out 'shell.log') -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "LOG shell $_" }
 Write-Host 'All Windows install checks passed.'
