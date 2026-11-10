@@ -1,8 +1,8 @@
 {
- "source": "d87820947f1cadce0c8b25c1b3f680573c2cbfe3002e427c479f59609bcb8fa6",
+ "source": "c8a1fa17196ba6aa64d834d13b72e2a0e02ec315372374bce28c282b89f005f4",
  "lines": [
   {
-   "text": "4 volts push through 1 ohms. How many amps flow?",
+   "text": "3 amps flow through 5 ohms. How many volts push them?",
    "rate": -8
   },
   {
@@ -26,7 +26,7 @@
    "rate": -8
   },
   {
-   "text": "Light both bulbs. Then we test the wiring.",
+   "text": "Light 2 bulbs. Then one of them comes out.",
    "rate": -8
   },
   {
@@ -34,11 +34,11 @@
    "rate": -8
   },
   {
-   "text": "Which coil picks up more paper clips?",
+   "text": "Look at the batteries. Which house glows brighter?",
    "rate": -8
   },
   {
-   "text": "Which house gets more push from its batteries?",
+   "text": "Which coil picks up more paper clips?",
    "rate": -8
   },
   {

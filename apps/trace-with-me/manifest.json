@@ -1,7 +1,7 @@
 {
   "id": "trace-with-me",
   "name": "Trace With Me",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Handwriting: letters, numbers and shapes to color in, words and sentences to trace, spell and write from hearing, and cursive from first letters to reading a cursive word.",
   "subjects": [
     "reading"

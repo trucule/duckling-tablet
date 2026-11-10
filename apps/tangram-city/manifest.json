@@ -1,7 +1,7 @@
 {
   "id": "tangram-city",
   "name": "Tangram City",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Drag, turn and flip the seven tangram pieces to fill city shapes, then measure, transform and reason about what you built.",
   "subjects": [
     "math",

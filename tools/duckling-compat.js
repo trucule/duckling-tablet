@@ -27,6 +27,10 @@
   var TOKEN = read('deviceToken', '');
   var API = read('apiUrl', 'https://api.ducklingtablet.com').replace(/\/$/, '');
   var CHILD = read('childName', '');
+  // The paired child's id. With it, everything an app saves (localStorage and IndexedDB) is kept per app and per
+  // child: a child paired to this tablet later opens each app at her own grade and never sees an earlier child's
+  // progress, stars, photos or recordings. Shells older than the child id keep per-app storage as before.
+  var CHILD_ID = read('childId', '').replace(/[^A-Za-z0-9_-]/g, '');
   var VOICE = read('voice', 'en-US-AnaNeural');
   // The child's level per subject on one grade scale: -1 pre-K, 0 kindergarten, 1 to 8. Set by the parent (two years
   // below the child's age by default). Apps map it onto their own ladders with levelFor().
@@ -53,7 +57,7 @@
 
   // ---- 1. Per-app localStorage ------------------------------------------------------------------------------------
   try {
-    var real = window.localStorage, prefix = 'duckling:' + APP_ID + ':';
+    var real = window.localStorage, prefix = 'duckling:' + APP_ID + ':' + (CHILD_ID ? 'child=' + CHILD_ID + ':' : '');
     var ns = {
       getItem: function (k) { return real.getItem(prefix + k); },
       setItem: function (k, v) { real.setItem(prefix + k, v); },
@@ -65,6 +69,24 @@
     function keys() { var out = []; for (var i = 0; i < real.length; i++) { var k = real.key(i); if (k && k.indexOf(prefix) === 0) out.push(k.slice(prefix.length)); } return out; }
     Object.defineProperty(window, 'localStorage', { value: ns, configurable: true });
   } catch (e) { /* storage blocked: the app sees whatever the browser gives it */ }
+
+  // ---- 1b. Per-app, per-child IndexedDB -----------------------------------------------------------------------------
+  // Camera Fun's photos, Music Box and Voice Band recordings and Draw With Me's drawings live in IndexedDB, which every
+  // package shares (one origin). Database names get the same app and child prefix as localStorage. The narrator's clip
+  // cache below is shared on purpose (the same line sounds the same for every child) and opens through IDB_OPEN.
+  var IDB_OPEN = null;
+  try {
+    var idb = window.indexedDB;
+    if (idb) {
+      IDB_OPEN = idb.open.bind(idb);
+      if (CHILD_ID) {
+        var idbPrefix = 'duckling:' + APP_ID + ':child=' + CHILD_ID + ':', del0 = idb.deleteDatabase.bind(idb), list0 = idb.databases ? idb.databases.bind(idb) : null;
+        idb.open = function (name, version) { return version === undefined ? IDB_OPEN(idbPrefix + name) : IDB_OPEN(idbPrefix + name, version); };
+        idb.deleteDatabase = function (name) { return del0(idbPrefix + name); };
+        if (list0) idb.databases = function () { return list0().then(function (all) { return all.filter(function (d) { return d.name && d.name.indexOf(idbPrefix) === 0; }).map(function (d) { return { name: d.name.slice(idbPrefix.length), version: d.version }; }); }); };
+      }
+    }
+  } catch (e) { /* IndexedDB blocked: apps fall back as they would in any browser */ }
 
   // ---- 3. The small bridge for apps that look for it -----------------------------------------------------------------
   window.KidTablet = {
@@ -233,7 +255,7 @@
     if (dbp) return dbp;
     dbp = new Promise(function (res) {
       try {
-        var r = indexedDB.open('duckling-voice', 1);
+        var r = (IDB_OPEN || indexedDB.open.bind(indexedDB))('duckling-voice', 1);
         r.onupgradeneeded = function () { r.result.createObjectStore('clips'); };
         r.onsuccess = function () { res(r.result); };
         r.onerror = function () { res(null); };

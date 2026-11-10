@@ -17,6 +17,12 @@ class Prefs(context: Context) {
         get() = p.getString("pushToken", "") ?: ""
         set(v) { p.edit().putString("pushToken", v).apply() }
 
+    /** The paired child's id. Apps keep their saved progress, pictures and recordings under it (duckling-compat.js),
+     *  so a child paired to this tablet later starts at her own grade and never sees an earlier child's things. */
+    var childId: String
+        get() = p.getString("childId", "") ?: ""
+        set(v) { p.edit().putString("childId", v).apply() }
+
     var childName: String
         get() = p.getString("childName", "") ?: ""
         set(v) { p.edit().putString("childName", v).apply() }

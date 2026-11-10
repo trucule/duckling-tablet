@@ -198,6 +198,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     /** The child's first name (for private narrator lines) and the narrator voice, from the device config. */
     @JavascriptInterface fun setChildInfo(name: String, voice: String) { prefs.childName = name; if (voice.isNotEmpty()) prefs.narratorVoice = voice }
     @JavascriptInterface fun setChildLevels(json: String) { prefs.childLevels = json }
+    @JavascriptInterface fun setChildId(id: String) { prefs.childId = id }
 
     @JavascriptInterface fun reload() { main.post { web.reload() } }
 }

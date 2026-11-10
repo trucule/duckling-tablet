@@ -1,7 +1,7 @@
 {
   "id": "light-bridge",
   "name": "Light Bridge",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Connect matching orbs with bridges that never cross. Boards grow from 4 by 4 to 9 by 9, then add rocks, gems, length clues, bend counts, cross tiles and portals.",
   "subjects": [
     "logic"

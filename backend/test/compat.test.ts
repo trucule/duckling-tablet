@@ -12,10 +12,10 @@ const TONE = readFileSync(join(import.meta.dirname, 'fixtures', 'tone.mp3'));
 
 // webview: what Android's WebView offers, no speechSynthesis and no SpeechSynthesisUtterance, with the shell's own
 // voice on the bridge (speak/stopSpeaking) answering through window.__ducklingVoice like DeviceVoice.kt does.
-function page(appId: string, bridge: boolean, webview = false) {
+function page(appId: string, bridge: boolean, webview = false, childId = '') {
   const wv = webview ? `delete window.speechSynthesis; delete window.SpeechSynthesisUtterance; delete Window.prototype.speechSynthesis; window.deviceSaid = [];` : '';
   const speak = webview ? `, speak: (id, text, rate) => { window.deviceSaid.push(text + '@' + rate); setTimeout(() => window.__ducklingVoice.start(id), 5); setTimeout(() => window.__ducklingVoice.end(id), 30); }, stopSpeaking: () => {}` : '';
-  const b = bridge ? `${wv}window.DucklingApp = { appId: () => ${JSON.stringify(appId)}, deviceToken: () => 'dev-token-1', apiUrl: () => location.origin + '/api', childName: () => 'Ada', voice: () => 'en-US-AnaNeural', levels: () => JSON.stringify({ math: 5, reading: -1 })${speak} };` : '';
+  const b = bridge ? `${wv}window.DucklingApp = { ${childId ? `childId: () => ${JSON.stringify(childId)}, ` : ''}appId: () => ${JSON.stringify(appId)}, deviceToken: () => 'dev-token-1', apiUrl: () => location.origin + '/api', childName: () => 'Ada', voice: () => 'en-US-AnaNeural', levels: () => JSON.stringify({ math: 5, reading: -1 })${speak} };` : '';
   return `<!doctype html><html><head><script>${b}</script><script>${COMPAT}</script></head><body><div id="log"></div>
   <script>
     window.events = [];
@@ -65,7 +65,7 @@ describe('duckling-compat.js', () => {
         res.writeHead(200, { 'content-type': 'audio/mpeg', 'access-control-allow-origin': '*' }); return res.end(TONE);
       }
       const m = url.pathname.match(/^\/apps\/([a-z-]+)\/(index\.html|nobridge\.html|webview\.html)$/);
-      if (m) { res.writeHead(200, { 'content-type': 'text/html' }); return res.end(page(m[1], m[2] !== 'nobridge.html', m[2] === 'webview.html')); }
+      if (m) { res.writeHead(200, { 'content-type': 'text/html' }); return res.end(page(m[1], m[2] !== 'nobridge.html', m[2] === 'webview.html', url.searchParams.get('child') ?? '')); }
       res.writeHead(404); res.end();
     }).listen(port, '127.0.0.1');
     const base = `http://127.0.0.1:${port}`;
@@ -181,6 +181,26 @@ describe('duckling-compat.js', () => {
         speechSynthesis.speak(u);
       }));
       expect(device).toEqual(['Try again.@0.9']);
+
+      // A tablet paired to one child and later to another: each child has her own saved progress and her own
+      // IndexedDB (photos, recordings), so the second child opens at her own grade and sees nothing of the first.
+      const saveAndRead = async (child: string, write: boolean) => {
+        const q = await ctx.newPage(); await q.goto(`${base}/apps/read-it-say-it/index.html?child=${child}`);
+        const r = await q.evaluate(async (w) => {
+          const idb = (name: string) => new Promise<IDBDatabase>((ok, no) => { const o = indexedDB.open(name, 1); o.onupgradeneeded = () => o.result.createObjectStore('photos'); o.onsuccess = () => ok(o.result); o.onerror = () => no(o.error); });
+          const db = await idb('camerafun');
+          if (w) { localStorage.setItem('read-it-say-it-v1', JSON.stringify({ lv: 7 })); await new Promise((ok) => { const t = db.transaction('photos', 'readwrite'); t.objectStore('photos').put('selfie', 'p1'); t.oncomplete = ok; }); }
+          const photo = await new Promise((ok) => { const g = db.transaction('photos').objectStore('photos').get('p1'); g.onsuccess = () => ok(g.result ?? null); });
+          const names = (await indexedDB.databases()).map((d) => d.name);
+          return { progress: localStorage.getItem('read-it-say-it-v1'), photo, names, keys: localStorage.length };
+        }, write);
+        await q.close(); return r;
+      };
+      const first = await saveAndRead('chd_first', true);
+      expect(first).toMatchObject({ progress: '{"lv":7}', photo: 'selfie', names: ['camerafun'] });
+      const second = await saveAndRead('chd_second', false);
+      expect(second).toMatchObject({ progress: null, photo: null, keys: 0, names: ['camerafun'] });
+      expect(await saveAndRead('chd_first', false)).toMatchObject({ progress: '{"lv":7}', photo: 'selfie' });
     } finally { await browser.close(); server.close(); }
   }, 60_000);
 });

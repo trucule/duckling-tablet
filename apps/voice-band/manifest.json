@@ -1,7 +1,7 @@
 {
   "id": "voice-band",
   "name": "Voice Band",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Sing a melody and see its notes, play with ten voice effects, and layer a four-track looper band.",
   "subjects": [
     "music"

@@ -94,6 +94,7 @@ class AppActivity : AppCompatActivity() {
         @JavascriptInterface fun appId(): String = id
         @JavascriptInterface fun deviceToken(): String = prefs.deviceToken
         @JavascriptInterface fun apiUrl(): String = "https://api.ducklingtablet.com"
+        @JavascriptInterface fun childId(): String = prefs.childId
         @JavascriptInterface fun childName(): String = prefs.childName
         @JavascriptInterface fun voice(): String = prefs.narratorVoice
         @JavascriptInterface fun levels(): String = prefs.childLevels
