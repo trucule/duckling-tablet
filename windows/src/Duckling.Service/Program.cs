@@ -86,6 +86,8 @@ public class Worker : BackgroundService
         // kiosk in step with the WebView2 runtime, and every few minutes see whether an update is due.
         string? lastChildSession = null;
         int missing = 0;
+        string? watchedSession = null;
+        bool seenRunning = false;
         int ticks = 0;
         while (!ct.IsCancellationRequested)
         {
@@ -102,13 +104,15 @@ public class Worker : BackgroundService
                         try { lockdown.Run("ChildSettings", ("UserName", account)); } catch (ServiceError) { }
                     }
                     lastChildSession = key;
-                    // Duckling is the child's whole screen: if it is not running in her signed-in session for 45
-                    // seconds (closed by an update, or it crashed), she is signed out and automatic sign-in starts it.
+                    // Duckling is the child's whole screen. If it ran in her session and then stopped (closed by an update,
+                    // or it crashed) and is still gone 45 seconds later, she is signed out and automatic sign-in starts it
+                    // again. Only after it has run: a first sign-in can take minutes before the kiosk starts Duckling.
                     if (session is { Active: true } && store.Read(s => s.LockdownOn))
                     {
+                        if (key != watchedSession) { watchedSession = key; seenRunning = false; missing = 0; }
                         var running = System.Diagnostics.Process.GetProcessesByName("Duckling").Any(p => { try { return p.SessionId == session.Id; } catch (Exception) { return false; } });
-                        missing = running ? 0 : missing + 1;
-                        if (missing >= 3) { Log.Info("Duckling not running in the child's session: signing her out to restart it"); Sessions.Logoff(session.Id); missing = 0; }
+                        if (running) { if (!seenRunning) Log.Info("Duckling is running in the child's session"); seenRunning = true; missing = 0; }
+                        else if (seenRunning && ++missing >= 3) { Log.Info("Duckling stopped in the child's session: signing her out to start it again"); Sessions.Logoff(session.Id); missing = 0; seenRunning = false; }
                     }
                     else missing = 0;
                 }
