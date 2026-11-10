@@ -1,0 +1,14 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <!-- The MSI for one architecture (x64 or arm64). Build-Release.ps1 and CI publish the shell and the service into
+       $(PublishDir) first:  dotnet build -c Release -p:Arch=arm64 -p:Version=1.0.0 -p:PublishDir=<folder>\ -->
+  <PropertyGroup>
+    <Arch Condition="'$(Arch)' == ''">x64</Arch>
+    <Version Condition="'$(Version)' == ''">1.0.0</Version>
+    <OutputName>DucklingTablet-$(Version)-$(Arch)</OutputName>
+    <InstallerPlatform>$(Arch)</InstallerPlatform>
+    <DefineConstants>Version=$(Version);PublishDir=$(PublishDir);Root=$(MSBuildThisFileDirectory)..</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+  </ItemGroup>
+</Project>

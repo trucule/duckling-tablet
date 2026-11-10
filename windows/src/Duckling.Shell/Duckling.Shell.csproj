@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Duckling.exe: the home screen (app.ducklingtablet.com in WebView2) with the shell bridge, the app runner, other
+       apps with the Home pill, and the parent browser for Stripe and Wi-Fi sign-in pages. Runs in the child's session
+       (started by the kiosk) or a parent's (during setup); everything privileged goes through DucklingService. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Duckling</AssemblyName>
+    <RootNamespace>Duckling.Shell</RootNamespace>
+    <ApplicationIcon>duckling.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3179.45" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Duckling.Core\Duckling.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="duckling.ico" />
+  </ItemGroup>
+</Project>

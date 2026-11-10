@@ -1,0 +1,40 @@
+name: Windows
+
+# Unit tests, both MSIs (unsigned here; Build-Release.ps1 signs real ones with the EV certificate), then the x64 MSI
+# installed on the runner and driven end to end: service, pipe, shell bridge, a signed package from the production
+# catalog, the app runner, removal and uninstall. Screenshots and logs are kept as artifacts.
+on:
+  push:
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build the MSIs (unit tests first)
+        shell: pwsh
+        run: windows/Build-Release.ps1 -Version 0.0.${{ github.run_number }} -SkipSigning
+      - name: Install, drive and remove the x64 MSI
+        shell: pwsh
+        run: windows/tests/ci/Run-InstallTest.ps1 -Msi windows/out/DucklingTablet-0.0.${{ github.run_number }}-x64.msi
+      - name: Keep screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-ci-${{ github.run_number }}
+          path: |
+            windows/out/ci/*.png
+            windows/out/ci/*.log
+            windows/out/ci/web/*.json
+          if-no-files-found: warn
+      - name: Keep the unsigned MSIs
+        uses: actions/upload-artifact@v4
+        with:
+          name: duckling-tablet-windows-unsigned-${{ github.run_number }}
+          path: windows/out/*.msi

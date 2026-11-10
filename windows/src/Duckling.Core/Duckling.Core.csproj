@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What the shell and the service share: paths, the pipe protocol, package checks, host rules, kiosk XML. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Duckling</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.4.0" />
+  </ItemGroup>
+</Project>

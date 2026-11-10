@@ -1,0 +1,64 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Duckling shell test</title>
+<style>body{font:20px system-ui;margin:24px;background:#fffdf6} pre{font-size:13px;white-space:pre-wrap}</style>
+<h1>Duckling shell test</h1>
+<pre id="out">running</pre>
+<script>
+// Drives window.DucklingShell the way the web app does, against the real service, and reports to the test server.
+const out = document.getElementById('out');
+const R = { steps: [] };
+const step = (name, v) => { R.steps.push(name); R[name] = v; out.textContent = JSON.stringify(R, null, 1); };
+const post = (path, o) => fetch(path, { method: 'POST', body: JSON.stringify(o) });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const events = [];
+const waitFor = async (pred, ms = 120000) => { const end = Date.now() + ms; while (Date.now() < end) { const e = events.find(pred); if (e) return e; await sleep(200); } return null; };
+window.DucklingWeb = {
+  onInstall: (id, ok, message) => events.push({ kind: 'install', id, ok, message }),
+  onWindows: (kind, ok, message) => events.push({ kind, ok, message }),
+  onResume: () => events.push({ kind: 'resume' }), onPush: () => {}, onOtherApp: (pkg, s, reason) => events.push({ kind: 'other', pkg, s, reason }),
+};
+(async () => {
+  try {
+    const S = window.DucklingShell;
+    step('hasShell', !!S);
+    step('platform', S.platform());
+    step('version', S.shellVersion());
+    step('typeofSubscribe', typeof S.subscribe);
+    step('hasPinBefore', S.hasPin());
+    S.setPin('2468');
+    step('hasPinAfter', S.hasPin());
+    step('verifyWrong', S.verifyPin('1111'));
+    step('verifyRight', S.verifyPin('2468'));
+    step('network', S.networkStatus());
+    S.lockdownStatus();
+    await waitFor((e) => e.kind === 'resume', 30000);
+    step('status', JSON.parse(S.lockdownStatus()));
+    const pk = JSON.parse(S.installedPackages());
+    step('otherApps', pk.length);
+    step('otherSample', pk.slice(0, 6).map((p) => `${p.package} ${p.label} ${p.icon ? 'icon' : ''}`));
+    S.setDeviceToken('ci-token');
+    step('token', S.getDeviceToken());
+    S.setAllowedHosts('example.com,*.pbskids.org');
+    const app = await (await fetch('app.json')).json();
+    // A wrong checksum is refused; the real package installs.
+    S.installApp(app.id, app.version, app.url, '0'.repeat(64), app.signature, '');
+    step('badInstall', await waitFor((e) => e.kind === 'install'));
+    events.length = 0;
+    S.installApp(app.id, app.version, app.url, app.sha256, app.signature, (app.permissions || []).join(','));
+    step('install', await waitFor((e) => e.kind === 'install'));
+    step('installed', JSON.parse(S.installedApps()));
+    S.wifiNetworks();
+    step('wifi', await waitFor((e) => e.kind === 'wifi', 30000));
+    // The removal needs the parent window, which verifyPin opened.
+    step('done', true);
+    await post('/result', R);
+    S.openApp(app.id);
+    await sleep(1500);
+    await post('/opened', { at: Date.now() });
+  } catch (e) {
+    step('error', String(e && e.message || e));
+    await post('/result', R);
+  }
+})();
+</script>

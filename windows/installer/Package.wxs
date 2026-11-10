@@ -1,0 +1,73 @@
+<!--
+  Duckling Tablet for Windows. Per-machine, into Program Files\Duckling Tablet: Duckling.exe (the home screen), the
+  DucklingTablet service (LocalSystem, automatic, restarted on failure) and lockdown\DucklingLockdown.ps1. A Start menu
+  tile opens Duckling. Every version replaces the one before (major upgrade); the UpgradeCode never changes.
+  Uninstalling (not upgrading) first runs DucklingService.exe uninstall-cleanup, which turns the kiosk and automatic
+  sign-in off and removes the device state and apps. The child's Windows account stays.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="Duckling Tablet" Manufacturer="ET Ducky LLC" Version="$(var.Version)"
+           UpgradeCode="{A0324420-E3C7-4391-9582-9A86FC4796C0}" Scope="perMachine" Compressed="yes" Language="1033">
+    <SummaryInformation Description="Duckling Tablet: a locked-down learning device for a child" Manufacturer="ET Ducky LLC" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Duckling Tablet is already installed." Schedule="afterInstallInitialize" />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="duckling.ico" SourceFile="$(var.Root)\src\Duckling.Shell\duckling.ico" />
+    <Property Id="ARPPRODUCTICON" Value="duckling.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://ducklingtablet.com" />
+    <Property Id="ARPHELPLINK" Value="https://ducklingtablet.com/support" />
+    <Property Id="ARPCONTACT" Value="ET Ducky LLC" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Duckling Tablet">
+        <Directory Id="LockdownFolder" Name="lockdown" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)**">
+        <Exclude Files="$(var.PublishDir)DucklingService.exe" />
+        <Exclude Files="$(var.PublishDir)**\*.pdb" />
+      </Files>
+
+      <Component Id="ServiceExe">
+        <File Id="DucklingServiceExe" Source="$(var.PublishDir)DucklingService.exe" KeyPath="yes" />
+        <ServiceInstall Id="DucklingServiceInstall" Name="DucklingTablet" DisplayName="Duckling Tablet"
+                        Description="Keeps Duckling Tablet's apps, lockdown and updates on this device."
+                        Type="ownProcess" Start="auto" Account="LocalSystem" ErrorControl="normal" Vital="yes">
+          <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart"
+                              RestartServiceDelayInSeconds="10" ResetPeriodInDays="1" />
+        </ServiceInstall>
+        <ServiceControl Id="DucklingServiceControl" Name="DucklingTablet" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+      </Component>
+
+      <Component Id="ProductRegistry">
+        <RegistryValue Root="HKLM" Key="SOFTWARE\ET Ducky\Duckling Tablet" Name="ProductCode" Value="[ProductCode]" Type="string" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\ET Ducky\Duckling Tablet" Name="Version" Value="$(var.Version)" Type="string" />
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="LockdownScript" Directory="LockdownFolder">
+      <File Source="$(var.Root)\lockdown\DucklingLockdown.ps1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="StartMenuTile" Directory="ProgramMenuFolder">
+      <Shortcut Id="DucklingStartTile" Name="Duckling Tablet" Description="Duckling Tablet" Target="[INSTALLFOLDER]Duckling.exe"
+                WorkingDirectory="INSTALLFOLDER" Icon="duckling.ico" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\ET Ducky\Duckling Tablet" Name="StartTile" Value="1" Type="integer" KeyPath="yes" />
+    </Component>
+
+    <CustomAction Id="UninstallCleanup" FileRef="DucklingServiceExe" ExeCommand="--uninstall-cleanup" Execute="deferred" Impersonate="no" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="UninstallCleanup" Before="StopServices" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+
+    <Feature Id="Main" Title="Duckling Tablet" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="LockdownScript" />
+      <ComponentRef Id="StartMenuTile" />
+    </Feature>
+  </Package>
+</Wix>

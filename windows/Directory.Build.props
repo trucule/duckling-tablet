@@ -1,0 +1,18 @@
+<Project>
+  <!-- Shared by the shell, the service, the core library and the tests. Version comes from Build-Release.ps1 or CI
+       (-p:Version=1.2.3); the MSI takes the same number. -->
+  <PropertyGroup>
+    <Version Condition="'$(Version)' == ''">1.0.0</Version>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Company>ET Ducky LLC</Company>
+    <Product>Duckling Tablet</Product>
+    <Copyright>ET Ducky LLC</Copyright>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+</Project>
