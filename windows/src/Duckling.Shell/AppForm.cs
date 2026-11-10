@@ -24,7 +24,6 @@ public class AppForm : Form
         ShowInTaskbar = false;
         BackColor = System.Drawing.Color.White;
         Controls.Add(web);
-        KeyPreview = true;
     }
 
     protected override async void OnLoad(EventArgs e)
@@ -64,13 +63,6 @@ public class AppForm : Form
             core.Navigate($"https://{Paths.AppHost}/{id}/index.html");
         }
         catch (Exception ex) { ShellLog.Write($"app {id}: {ex.Message}"); Close(); }
-    }
-
-    protected override void OnKeyDown(KeyEventArgs e)
-    {
-        // Escape leaves the app, like the Home pill (a keyboard on a Surface).
-        if (e.KeyCode == Keys.Escape) { Close(); e.Handled = true; }
-        base.OnKeyDown(e);
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e) { web.Dispose(); base.OnFormClosed(e); }

@@ -16,7 +16,7 @@ const waitFor = async (pred, ms = 120000) => { const end = Date.now() + ms; whil
 window.DucklingWeb = {
   onInstall: (id, ok, message) => events.push({ kind: 'install', id, ok, message }),
   onWindows: (kind, ok, message) => events.push({ kind, ok, message }),
-  onResume: () => events.push({ kind: 'resume' }), onPush: () => {}, onOtherApp: (pkg, s, reason) => events.push({ kind: 'other', pkg, s, reason }),
+  onResume: () => { events.push({ kind: 'resume' }); if (window.__opened) post('/back', { at: Date.now() }); }, onPush: () => {}, onOtherApp: (pkg, s, reason) => events.push({ kind: 'other', pkg, s, reason }),
 };
 (async () => {
   try {
@@ -54,6 +54,7 @@ window.DucklingWeb = {
     step('done', true);
     await post('/result', R);
     S.openApp(app.id);
+    window.__opened = true;
     await sleep(1500);
     await post('/opened', { at: Date.now() });
   } catch (e) {

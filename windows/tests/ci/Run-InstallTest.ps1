@@ -95,10 +95,16 @@ Shot '2-app'
 $state = Pipe 'state'
 Assert ($state.value.allowedHosts -contains 'pbskids.org') 'allowed hosts kept by the service'
 
-# The Escape key leaves the app; Duckling is in front again.
-[System.Windows.Forms.SendKeys]::SendWait('{ESC}')
-Start-Sleep -Seconds 3
+# A tap on the Home pill (top right) leaves the app; the home screen is told it is in front again.
+Add-Type -Namespace Duck -Name Mouse -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y); [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint x, uint y, uint d, System.UIntPtr e);'
+$sb = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+[Duck.Mouse]::SetCursorPos($sb.Right - 8 - 88, $sb.Top + 6 + 28) | Out-Null
+[Duck.Mouse]::mouse_event(0x2, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 100; [Duck.Mouse]::mouse_event(0x4, 0, 0, 0, [UIntPtr]::Zero)
+$deadline = (Get-Date).AddSeconds(15)
+while (-not (Test-Path (Join-Path $web 'back.json')) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+Start-Sleep -Seconds 2
 Shot '3-back'
+Assert (Test-Path (Join-Path $web 'back.json')) 'the Home pill closed the app and the home screen came back'
 
 # ---- Removal from the parent area: refused once the parent window ends, accepted with it.
 $end = Pipe 'endParent'
