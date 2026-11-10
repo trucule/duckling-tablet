@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink } from '../state';
+import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink, entitlement } from '../state';
 import { shell, type LockdownStatus, type BillingResult } from '../shell';
 
 // Behind the PIN: lockdown steps for this platform, a check-in button, and Remove from this device.
@@ -39,7 +39,7 @@ export function Parent() {
     setBillingNote(notes[r.status] ?? r.message);
     await checkin(); setBusy(false); refresh();
   };
-  const ent = c?.entitlement;
+  const ent = entitlement.value;
   const subscribed = ent?.status === 'active' || ent?.status === 'grace';
   const price = shell.subscriptionPrice();
   return (

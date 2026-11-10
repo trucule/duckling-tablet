@@ -1,7 +1,7 @@
 // App state: the device config from the server, the catalog, and what the shell has installed. Installs the server
 // expects (starter apps at pairing, apps a parent added remotely) are downloaded as soon as the config arrives.
 import { signal, computed } from '@preact/signals';
-import { api, ReleasedError, type DeviceConfig, type CatalogApp, type OtherApp } from './api';
+import { api, ReleasedError, type DeviceConfig, type CatalogApp, type OtherApp, type Entitlement } from './api';
 import { shell } from './shell';
 
 // The last config the server sent is kept on the tablet, so the home screen has its tiles at once on the next start,
@@ -38,8 +38,16 @@ window.addEventListener('hashchange', () => { route.value = location.hash.replac
 export const go = (r: string) => { location.hash = `#/${r}`; };
 
 export const childName = computed(() => config.value?.child?.firstName ?? '');
-// The server decides this from the entitlement; an old config that predates the field reads as not locked.
-export const locked = computed(() => !!config.value?.locked);
+// The server decides the lock from the entitlement at each check-in. A trial ends at a time the tablet already knows,
+// with nobody there to push a change, so the tablet also ends it on its own the minute that time passes (the config
+// is re-read every minute below) rather than at the next check-in. A paid subscription is left to the server: the
+// store renews it, and a lapse arrives by push or check-in.
+export const entitlement = computed<Entitlement | undefined>(() => {
+  const e = config.value?.entitlement;
+  if (e?.status === 'trial' && e.periodEnd && new Date(e.periodEnd).getTime() <= Date.now()) return { ...e, status: 'ended', daysLeft: 0 };
+  return e;
+});
+export const locked = computed(() => !!config.value?.locked || entitlement.value?.status === 'ended');
 export const themeColors = computed(() => config.value?.child?.theme?.colors ?? []);
 
 export function refreshInstalled() { installed.value = shell.installedApps(); }
@@ -107,7 +115,14 @@ function applyHosts(c: DeviceConfig) {
   for (const a of c.otherApps ?? []) if (otherAppState(a).ok) for (const h of a.hosts) hosts.add(h.replace(/^\*\./, ''));
   shell.setAllowedHosts([...hosts]);
 }
-setInterval(() => { if (config.value) { applyHosts(config.value); config.value = { ...config.value }; } }, 60_000);
+let wasLocked = false;
+setInterval(() => {
+  if (!config.value) return;
+  applyHosts(config.value); config.value = { ...config.value };
+  // The trial just ran out on the tablet's clock: fetch the server's view too, in case a subscription landed.
+  if (locked.value && !wasLocked && !config.value.locked) void checkin();
+  wasLocked = locked.value;
+}, 60_000);
 
 // The tablet's own apps go up once per session so the parent can allow them; the shell lists them.
 let reportedInstalled = false;
