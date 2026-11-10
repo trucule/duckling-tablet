@@ -5,7 +5,9 @@
 //
 // Each app is served from its folder, opened in headless Chromium at tablet size with a drawn cursor, driven for a
 // few seconds (a start button if there is one, then taps on what is on screen, a drag on a canvas), recorded as
-// video, and turned into a 6-second GIF with ffmpeg. The narrator is stubbed so lines "finish" at once. A per-app
+// video, and turned into a 6-second GIF with ffmpeg. Driving starts once the app has finished loading (no network
+// requests and a screen that has stopped changing), and the GIF starts half a second before the first tap, so it
+// shows the app in use rather than its loading screen. The narrator is stubbed so lines "finish" at once. A per-app
 // script in SCRIPTS replaces the generic drive where the generic one does not show the app well.
 import http from 'node:http';
 import { createRequire } from 'node:module';
@@ -37,7 +39,10 @@ const VOICE_STUB = `(() => { const ss = window.speechSynthesis; if (!ss) return;
   ss.speak = (u) => { setTimeout(() => { try { u.dispatchEvent(new Event('start')); } catch (e) {} setTimeout(() => { try { u.dispatchEvent(new Event('end')); } catch (e) {} }, 250); }, 10); };
   ss.cancel = () => {}; ss.getVoices = () => []; })();`;
 
-async function tapAt(page, x, y) { await page.mouse.move(x, y, { steps: 8 }); await sleep(120); await page.mouse.down(); await sleep(80); await page.mouse.up(); }
+// When the first tap or drag of the current recording happened; the GIF starts just before it.
+let firstAt = 0;
+const touched = () => { if (!firstAt) firstAt = Date.now(); };
+async function tapAt(page, x, y) { await page.mouse.move(x, y, { steps: 8 }); await sleep(120); touched(); await page.mouse.down(); await sleep(80); await page.mouse.up(); }
 async function tap(page, loc) {
   const b = await loc.boundingBox().catch(() => null);
   if (!b || b.width < 8 || b.height < 8) return false;
@@ -45,7 +50,7 @@ async function tap(page, loc) {
 }
 async function drag(page, box, points) {
   const [x0, y0] = points[0];
-  await page.mouse.move(box.x + x0 * box.width, box.y + y0 * box.height, { steps: 6 }); await page.mouse.down();
+  await page.mouse.move(box.x + x0 * box.width, box.y + y0 * box.height, { steps: 6 }); touched(); await page.mouse.down();
   for (const [x, y] of points.slice(1)) { await page.mouse.move(box.x + x * box.width, box.y + y * box.height, { steps: 10 }); await sleep(30); }
   await page.mouse.up();
 }
@@ -93,6 +98,20 @@ async function generic(page) {
   }
 }
 
+// Waits for the app to finish loading: no network requests for half a second, then a screen that stays the same
+// for 600 ms (up to 8 seconds; apps that animate all the time go on after that).
+async function loaded(page) {
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+  const until = Date.now() + 8000;
+  let last = null, same = 0;
+  while (Date.now() < until) {
+    const shot = (await page.screenshot({ type: 'jpeg', quality: 30 })).toString('base64');
+    same = shot === last ? same + 1 : 0; last = shot;
+    if (same >= 2) return;
+    await sleep(300);
+  }
+}
+
 // Per-app drives. Positions are fractions of the canvas or absolute viewport points at 1024 x 640; each script
 // shows the central action of the app in about six seconds.
 const T = (page, sel) => page.locator(sel).first();
@@ -101,12 +120,23 @@ const tapSel = async (page, sel, wait = 700) => { const l = T(page, sel); if (aw
 const canvasBox = async (page, sel = 'canvas') => (await T(page, sel).boundingBox().catch(() => null)) || { x: 0, y: 0, width: W, height: H };
 const tapFrac = async (page, box, fx, fy, wait = 600) => { await tapAt(page, box.x + fx * box.width, box.y + fy * box.height); await sleep(wait); };
 
+
 const SCRIPTS = {
-  'chemistry-lab': async (page) => { await sleep(3200); await tapSel(page, '#bookbtn', 1500); const b = await canvasBox(page, '#c'); await tapFrac(page, b, 0.5, 0.5, 900); await tapSel(page, 'button.slot', 700); await tapFrac(page, b, 0.25, 0.55, 800); },
-  'kitchen-lab': async (page) => { await sleep(3200); await tapSel(page, '#bookbtn', 1500); const b = await canvasBox(page, '#c'); await tapFrac(page, b, 0.5, 0.5, 900); await tapSel(page, 'button.slot', 700); await tapFrac(page, b, 0.25, 0.55, 800); },
+  'chemistry-lab': async (page) => { await sleep(1200); await tapSel(page, '#bookbtn', 1500); const b = await canvasBox(page, '#c'); await tapFrac(page, b, 0.5, 0.5, 900); await tapSel(page, 'button.slot', 700); await tapFrac(page, b, 0.25, 0.55, 800); },
+  'kitchen-lab': async (page) => { await sleep(1200); await tapSel(page, '#bookbtn', 1500); const b = await canvasBox(page, '#c'); await tapFrac(page, b, 0.5, 0.5, 900); await tapSel(page, 'button.slot', 700); await tapFrac(page, b, 0.25, 0.55, 800); },
   'circuit-lab': async (page) => { await sleep(1800); const b = await canvasBox(page, '#gl'); await drag(page, b, [[0.3, 0.7], [0.45, 0.45]]); await sleep(400); await drag(page, b, [[0.55, 0.45], [0.7, 0.7]]); await sleep(400); await drag(page, b, [[0.3, 0.7], [0.7, 0.7]]); await sleep(600); await tapFrac(page, b, 0.5, 0.35, 900); await tapSel(page, '#done', 900); },
   'count-with-me': async (page) => { await sleep(1500); await tapSel(page, '#hint', 900); await tapText(page, /^1$/, 400); await tapText(page, /^2$/, 400); await tapSel(page, 'button.ok', 1200); await tapText(page, /Build it/, 900); const cells = page.locator('div.cell'); const n = await cells.count(); for (let i = 0; i < Math.min(4, n); i++) { await tap(page, cells.nth(i)); await sleep(250); } },
-  'draw-with-me': async (page) => { await sleep(1500); await tapText(page, /^Cat$/, 1300); for (let i = 0; i < 4; i++) { if (!(await tapText(page, /next|▶|→|step/i, 600))) break; } const cb = await T(page, 'canvas').last().boundingBox().catch(() => null); if (cb) await drag(page, cb, [[0.35, 0.35], [0.5, 0.3], [0.65, 0.4], [0.6, 0.6], [0.4, 0.62], [0.35, 0.45]]); await sleep(600); },
+  // The cat lesson: a circle for the head, then the ears, step by step.
+  'draw-with-me': async (page) => {
+    await sleep(800); await tapText(page, /^Cat$/, 1300);
+    const cb = await T(page, 'canvas:visible').last().boundingBox().catch(() => null) || { x: 322, y: 166, width: 340, height: 340 };
+    const circle = []; for (let a = 0; a <= 2 * Math.PI + 0.4; a += 0.4) circle.push([0.5 + 0.3 * Math.cos(a), 0.56 + 0.3 * Math.sin(a)]);
+    await drag(page, cb, circle); await sleep(500);
+    await tapSel(page, '#next', 1100);
+    await drag(page, cb, [[0.3, 0.36], [0.33, 0.12], [0.44, 0.28]]); await sleep(250);
+    await drag(page, cb, [[0.56, 0.28], [0.67, 0.12], [0.7, 0.36]]); await sleep(500);
+    await tapSel(page, '#next', 1000);
+  },
   'ecosystem-aquarium': async (page) => { await sleep(1800); await tapText(page, /^\+$/, 350); await tapText(page, /^\+$/, 350); await tapSel(page, '#run', 2500); const b = await canvasBox(page, '#gl'); await tapFrac(page, b, 0.5, 0.5, 600); },
   'fraction-pizza': async (page) => { await sleep(1500); const b = await canvasBox(page, '#c'); await tapFrac(page, b, 0.32, 0.5, 500); await tapFrac(page, b, 0.32, 0.5, 500); await drag(page, b, [[0.32, 0.5], [0.62, 0.5]]); await sleep(600); await tapSel(page, '#serveBtn', 1200); await tapFrac(page, b, 0.5, 0.5, 500); },
   'level-up': async (page) => { await sleep(1500); await tapText(page, /Math/, 1400); for (let i = 0; i < 4; i++) { const c = (await candidates(page)).filter((x) => x.b.y > 150 && x.b.height > 40); if (!c.length) break; await tapAt(page, c[0].b.x + c[0].b.width / 2, c[0].b.y + c[0].b.height / 2); await sleep(900); } },
@@ -125,7 +155,20 @@ const SCRIPTS = {
   'tangram-city': async (page) => { await sleep(1500); const b = await canvasBox(page, '#c'); await drag(page, b, [[0.15, 0.75], [0.45, 0.45]]); await sleep(300); await tapSel(page, '#flipBtn', 400); await drag(page, b, [[0.85, 0.75], [0.55, 0.5]]); await sleep(300); await drag(page, b, [[0.15, 0.4], [0.5, 0.6]]); await sleep(500); await tapSel(page, '#hintBtn', 800); },
   'trace-with-me': async (page) => { await sleep(1500); await tapText(page, /Little/, 900); const cb = await canvasBox(page, '#w'); await drag(page, cb, [[0.5, 0.2], [0.38, 0.8]]); await sleep(250); await drag(page, cb, [[0.5, 0.2], [0.62, 0.8]]); await sleep(250); await drag(page, cb, [[0.43, 0.58], [0.57, 0.58]]); await sleep(900); await tapSel(page, '#next', 800); },
   'voice-band': async (page) => { await sleep(1500); await tapText(page, /Voice Effects/, 1500); for (let i = 0; i < 4; i++) { const c = (await candidates(page)).filter((x) => x.b.y > 100); if (!c[i]) break; await tapAt(page, c[i].b.x + c[i].b.width / 2, c[i].b.y + c[i].b.height / 2); await sleep(700); } },
-  'word-wizard': async (page) => { await sleep(1800); await tapSel(page, '#hear', 600); const tiles = page.locator('button.tile'); const n = await tiles.count(); for (let i = 0; i < Math.min(3, n); i++) { await tap(page, tiles.nth(i)); await sleep(600); } await sleep(800); },
+  // Spells the word the prompt asks for ("Make a robot!"), letter by letter, so the thing appears.
+  'word-wizard': async (page) => {
+    await sleep(800);
+    const word = ((await page.locator('body').innerText()).match(/Make an? ([a-z]+)!/i)?.[1] ?? '').toLowerCase();
+    // The tiles stay in place as letters are used, so their positions are read once.
+    const tiles = await page.locator('button.tile').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { ch: e.innerText.trim().toLowerCase(), x: r.x + r.width / 2, y: r.y + r.height / 2 }; }));
+    for (const ch of word) {
+      const i = tiles.findIndex((t) => t.ch === ch);
+      if (i < 0) break;
+      const t = tiles.splice(i, 1)[0];
+      await tapAt(page, t.x, t.y); await sleep(250);
+    }
+    await sleep(2500);
+  },
 };
 
 // A synthetic camera and microphone, so Camera Fun shows a picture instead of a permission screen.
@@ -143,15 +186,18 @@ for (const id of ids) {
   const vdir = fs.mkdtempSync(path.join(root, '.demo-'));
   const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, recordVideo: { dir: vdir, size: { width: W, height: H } }, permissions: ['microphone', 'camera'] });
   const page = await ctx.newPage();
+  const videoAt = Date.now();
+  firstAt = 0;
   await page.addInitScript(VOICE_STUB);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   try {
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load', timeout: 30000 });
     await page.evaluate(CURSOR);
-    const t0 = Date.now();
+    await loaded(page);
     await (SCRIPTS[id] ?? generic)(page);
-    const left = SECONDS * 1000 + 800 - (Date.now() - t0);
+    // Keep recording until SECONDS after the first tap.
+    const left = (firstAt || Date.now()) + SECONDS * 1000 + 300 - Date.now();
     if (left > 0) await sleep(left);
   } catch (e) { errors.push(e.message); }
   const video = page.video();
@@ -159,10 +205,11 @@ for (const id of ids) {
   const webm = await video.path();
   const gif = path.join(root, 'demo.gif');
   // Two passes: a palette from the clip, then the GIF at 10 frames a second and 560 pixels wide, trimmed to the
-  // seconds that show the app (the first second is the page opening).
+  // seconds that show the app in use: from half a second before the first tap.
+  const from = Math.max(0, ((firstAt || videoAt + 1000) - videoAt) / 1000 - 0.5).toFixed(2);
   const palette = path.join(vdir, 'palette.png');
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', '1.0', '-t', String(SECONDS), '-i', webm, '-vf', 'fps=10,scale=560:-1:flags=lanczos,palettegen=max_colors=128:stats_mode=diff', palette]);
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', '1.0', '-t', String(SECONDS), '-i', webm, '-i', palette, '-lavfi', 'fps=10,scale=560:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle', '-loop', '0', gif]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', from, '-t', String(SECONDS), '-i', webm, '-vf', 'fps=10,scale=560:-1:flags=lanczos,palettegen=max_colors=128:stats_mode=diff', palette]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', from, '-t', String(SECONDS), '-i', webm, '-i', palette, '-lavfi', 'fps=10,scale=560:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle', '-loop', '0', gif]);
   fs.rmSync(vdir, { recursive: true, force: true });
   srv.close();
   console.log(`${id}: ${(fs.statSync(gif).size / 1024).toFixed(0)} KB${errors.length ? `  (page errors: ${errors.slice(0, 2).join(' | ').slice(0, 160)})` : ''}`);
