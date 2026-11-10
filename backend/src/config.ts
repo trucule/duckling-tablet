@@ -57,6 +57,17 @@ const schema = z.object({
   APPLE_ENVIRONMENTS: z.string().default('Production,Sandbox'),
   APPLE_PRODUCT_IDS: z.string().default('duckling_monthly'),
 
+  // Google Play subscriptions (A3). The Play Developer API is called with a service account that has access to the
+  // app in Play Console (Users and permissions); empty GOOGLE_PLAY_SERVICE_ACCOUNT_FILE uses the FCM one. Real-time
+  // Developer Notifications arrive by Pub/Sub push with an OIDC token whose audience is GOOGLE_PUSH_AUDIENCE
+  // (default PUBLIC_URL/hooks/google) and, when set, whose email is GOOGLE_PUSH_SERVICE_ACCOUNT.
+  GOOGLE_PLAY_PACKAGE: z.string().default('com.ducklingtablet.app'),
+  GOOGLE_PLAY_SERVICE_ACCOUNT_FILE: z.string().default(''),
+  GOOGLE_PLAY_PRODUCT_IDS: z.string().default('duckling_monthly'),
+  ANDROID_PUBLISHER_ENDPOINT: z.string().url().default('https://androidpublisher.googleapis.com'),
+  GOOGLE_PUSH_AUDIENCE: z.string().default(''),
+  GOOGLE_PUSH_SERVICE_ACCOUNT: z.string().default(''),
+
   // The AI proxy (POST /ai/messages) for Draw With Me lessons and Story Maker scenes. With no key, apps get a 503
   // and fall back to their built-in content. Models outside AI_MODELS are served with AI_DEFAULT_MODEL.
   ANTHROPIC_API_KEY: z.string().default(''),

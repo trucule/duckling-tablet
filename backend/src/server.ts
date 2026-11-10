@@ -25,10 +25,11 @@ import adminRoutes from './routes/admin.js';
 import aiRoutes from './routes/ai.js';
 import billingRoutes from './routes/billing.js';
 import { makeAppleVerifier, type AppleVerifier } from './apple.js';
+import { makeGooglePlay, makePushAuth, type GooglePlay, type PushAuth } from './google.js';
 import { makeAnthropic, type Complete } from './anthropic.js';
 import { makeFcm, type Push } from './push.js';
 
-export interface BuildOptions { apple?: AppleVerifier | null; db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; push?: Push; logger?: boolean | Record<string, unknown> }
+export interface BuildOptions { apple?: AppleVerifier | null; google?: GooglePlay | null; googlePushAuth?: PushAuth; db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; push?: Push; logger?: boolean | Record<string, unknown> }
 
 export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise<{ app: FastifyInstance; ctx: Ctx }> {
   const wantLog = opts.logger ?? cfg.NODE_ENV !== 'test';
@@ -79,7 +80,12 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
   for (const r of [authRoutes, familyRoutes, deviceRoutes, catalogRoutes, requestRoutes]) await app.register(r, { ctx });
   await app.register(ttsRoutes, { ctx, voice });
   await app.register(aiRoutes, { ctx });
-  await app.register(billingRoutes, { ctx, apple: opts.apple === undefined ? makeAppleVerifier(cfg) : opts.apple });
+  await app.register(billingRoutes, {
+    ctx,
+    apple: opts.apple === undefined ? makeAppleVerifier(cfg) : opts.apple,
+    google: opts.google === undefined ? makeGooglePlay(cfg, ctx.log) : opts.google,
+    googlePushAuth: opts.googlePushAuth ?? makePushAuth(cfg),
+  });
   await app.register(adminRoutes, { ctx, voice });
 
   // Development only: serve files from local storage at /files/... (production uses the Spaces CDN).
