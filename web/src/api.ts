@@ -18,6 +18,8 @@ export interface DeviceConfig {
   otherApps?: OtherApp[];
   deviceId: string; state: 'active' | 'release' | 'released'; child: Child | null; apps: InstalledApp[]; hidden: string[];
   allowlist: AllowEntry[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string; appAccountToken?: string | null;
+  // Card payments through Stripe are offered (how a Windows tablet subscribes).
+  cardPayments?: boolean;
 }
 export interface CatalogApp {
   id: string; name: string; description: string; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; tileUrl: string | null;
@@ -60,5 +62,8 @@ export const api = {
   install: (id: string) => call<{ installed: boolean }>('PUT', `/device/apps/${id}`),
   uninstall: (id: string) => call<{ installed: boolean }>('DELETE', `/device/apps/${id}`),
   released: () => call<{ state: string }>('POST', '/device/released'),
+  // Stripe Checkout and the Customer Portal, opened in the Windows shell's parent browser.
+  stripeCheckout: () => call<{ url: string; trialEnd: string | null }>('POST', '/billing/stripe/checkout', {}),
+  stripePortal: () => call<{ url: string }>('POST', '/billing/stripe/portal', {}),
   setPin: (pin: string) => call<{ set: boolean }>('PUT', '/device/pin', { pin }),
 };

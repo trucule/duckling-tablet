@@ -23,6 +23,7 @@ public class MainForm : Form
     readonly System.Windows.Forms.Timer pushTimer = new() { Interval = 5 * 60 * 1000 };
     readonly System.Windows.Forms.Timer frontTimer = new() { Interval = 400 };
     AppForm? appForm;
+    bool onWebsite;
     ParentBrowser? parentBrowser;
     public static readonly string Version = typeof(MainForm).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
 
@@ -83,6 +84,8 @@ public class MainForm : Form
         core.PermissionRequested += (_, ev) => ev.State = CoreWebView2PermissionState.Deny;   // apps run in the app runner
         core.DownloadStarting += (_, ev) => ev.Cancel = true;
         core.ProcessFailed += (_, ev) => { ShellLog.Write($"webview process failed: {ev.ProcessFailedKind}"); if (ev.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited) BeginInvoke(() => Application.Restart()); else core.Reload(); };
+        // A website from the allowlist opens in this view; the Home pill brings the child back to the home screen.
+        core.SourceChanged += (_, _) => { onWebsite = !core.Source.StartsWith(WebOrigin, StringComparison.OrdinalIgnoreCase); if (onWebsite) frontTimer.Start(); };
         core.Navigate(WebAppUrl);
         pushTimer.Start();
     }
@@ -155,6 +158,7 @@ public class MainForm : Form
     {
         if (appForm != null && !appForm.IsDisposed) appForm.Close();
         if (otherId != null) EndOther("returned");
+        if (onWebsite) { onWebsite = false; Web.CoreWebView2?.Navigate(WebAppUrl); }
         pill.Hide();
         ComeToFront();
     }
@@ -162,13 +166,13 @@ public class MainForm : Form
     void WatchFront()
     {
         if (otherId != null && DateTime.UtcNow >= otherEnd) { EndOther("timeup"); return; }
-        if (otherId == null && (appForm == null || appForm.IsDisposed)) { pill.Hide(); frontTimer.Stop(); return; }
+        if (otherId == null && (appForm == null || appForm.IsDisposed) && !onWebsite) { pill.Hide(); frontTimer.Stop(); return; }
         var fg = Native.GetForegroundWindow();
         Native.GetWindowThreadProcessId(fg, out var pid);
         var ours = pid == (uint)Environment.ProcessId;
         if (otherId != null && ours && fg == Handle) { EndOther("returned"); return; }
         // The pill shows over another app, and over a Duckling app (the app runner is ours, the pill sits on it).
-        var showOver = otherId != null ? !ours : appForm != null;
+        var showOver = otherId != null ? !ours : appForm != null || (onWebsite && ours);
         var cls = fg == IntPtr.Zero ? "" : Native.ClassOf(fg);
         if (cls is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "Progman" or "WorkerW") showOver = false;
         if (showOver) pill.Pin(Screen.FromHandle(fg == IntPtr.Zero ? Handle : fg).Bounds);

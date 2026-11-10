@@ -1,8 +1,34 @@
-// The bridge to the native shell (window.DucklingShell, injected by the Android app; iPad and Windows later).
+// The bridge to the native shell (window.DucklingShell, injected by the Android, iPad and Windows apps).
 // In a desktop browser there is no shell: the browser fallback keeps state in localStorage, "installs" are
 // recorded with the server only, and opening an app explains that apps run on the tablet.
 
-export interface LockdownStatus { homeRole: boolean; deviceSecure: boolean; pinned: boolean; lockdownOn: boolean }
+export interface LockdownStatus { homeRole: boolean; deviceSecure: boolean; pinned: boolean; lockdownOn: boolean; windows?: WindowsStatus }
+
+// Windows: homeRole is "the child's account signs in automatically", lockdownOn "the kiosk is applied for it", pinned
+// "this is the child's session", deviceSecure "this edition has the kiosk". The details below drive the setup card.
+export interface WindowsStatus {
+  edition?: string; productName?: string; build?: number; kioskSupported: boolean;
+  accounts: { name: string; fullName: string }[]; childAccount: string; autoSignInUser: string;
+  kioskApplied: boolean; otherKiosk: boolean; oldKidTablet: boolean; currentUser: string; parentPresent: boolean;
+}
+export interface WifiNetwork { ssid: string; signal: number; secured: boolean; connected: boolean }
+
+// What only the Windows shell does: the child's Windows account, the kiosk, restarts, Wi-Fi from the parent area,
+// a browser window for Stripe and network sign-in pages, and the other apps the kiosk must allow.
+export interface WindowsShell {
+  setChildAccount(name: string, fullName: string): Promise<string>;
+  setLockdown(on: boolean): Promise<string>;
+  restartDevice(): Promise<string>;
+  restartSession(): Promise<string>;
+  wifiNetworks(): Promise<WifiNetwork[]>;
+  connectWifi(ssid: string, password: string): Promise<string>;
+  // Resolves with how it ended: "purchased", "cancelled", "returned" (from Stripe) or "closed".
+  openParentPage(url: string): Promise<string>;
+  setOtherApps(ids: string[]): void;
+  endParent(): void;
+  exitShell(): void;
+  isChildSession(): boolean;
+}
 
 export interface Shell {
   readonly platform: 'android' | 'ios' | 'windows' | 'web';
@@ -44,6 +70,7 @@ export interface Shell {
   restorePurchases(): Promise<BillingResult>;
   manageSubscription(): void;
   setAppAccountToken(token: string): void;
+  readonly windows: WindowsShell | null;
 }
 
 export interface BillingResult { status: 'purchased' | 'pending' | 'cancelled' | 'unavailable' | 'failed' | 'none' | string; message: string }
@@ -83,10 +110,21 @@ interface NativeShell {
   manageSubscription?(): void;
   subscriptionPrice?(): string;
   setAppAccountToken?(token: string): void;
+  // Windows only (results arrive at DucklingWeb.onWindows(kind, ok, message))
+  setChildAccount?(name: string, fullName: string): void;
+  restartDevice?(): void;
+  restartSession?(): void;
+  wifiNetworks?(): void;
+  connectWifi?(ssid: string, password: string): void;
+  openParentPage?(url: string): void;
+  setOtherApps?(csv: string): void;
+  endParent?(): void;
+  exitShell?(): void;
+  isChildSession?(): boolean;
 }
 
 declare global {
-  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void; onBilling(status: string, message: string): void } }
+  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void; onBilling(status: string, message: string): void; onWindows(kind: string, ok: boolean, message: string): void } }
 }
 
 const pending = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
@@ -104,7 +142,34 @@ window.DucklingWeb = {
   onOtherApp(pkg, seconds, reason) { window.dispatchEvent(new CustomEvent('duckling:otherapp', { detail: { pkg, seconds, reason } })); },
   // A store purchase, restore or its failure: one at a time, so the waiting promise is the only one.
   onBilling(status, message) { const w = billingWait; billingWait = null; w?.({ status, message }); },
+  // Windows: the end of a lockdown step, a Wi-Fi scan or join, the parent browser closing.
+  onWindows(kind, ok, message) {
+    const w = windowsWaits.get(kind); windowsWaits.delete(kind);
+    w?.(ok, message);
+    window.dispatchEvent(new CustomEvent('duckling:windows', { detail: { kind, ok, message } }));
+  },
 };
+const windowsWaits = new Map<string, (ok: boolean, message: string) => void>();
+const windowsCall = (kind: string, start: () => void) => new Promise<string>((resolve, reject) => {
+  windowsWaits.set(kind, (ok, message) => (ok ? resolve(message) : reject(new Error(message || 'That did not work.'))));
+  try { start(); } catch (e) { windowsWaits.delete(kind); reject(e as Error); }
+});
+
+function windowsShell(n: NativeShell): WindowsShell {
+  return {
+    setChildAccount: (name, fullName) => windowsCall('account', () => n.setChildAccount!(name, fullName)),
+    setLockdown: (on) => windowsCall('lockdown', () => n.setLockdown(on)),
+    restartDevice: () => windowsCall('restart', () => n.restartDevice!()),
+    restartSession: () => windowsCall('restartSession', () => n.restartSession!()),
+    wifiNetworks: async () => JSON.parse(await windowsCall('wifi', () => n.wifiNetworks!())) as WifiNetwork[],
+    connectWifi: (ssid, password) => windowsCall('wifiConnect', () => n.connectWifi!(ssid, password)),
+    openParentPage: (url) => new Promise<string>((resolve) => { windowsWaits.set('parentPage', (_ok, message) => resolve(message.split(' ')[0] || 'closed')); n.openParentPage!(url); }),
+    setOtherApps: (ids) => { try { n.setOtherApps?.(ids.join(',')); } catch { /* older shell */ } },
+    endParent: () => { try { n.endParent?.(); } catch { /* older shell */ } },
+    exitShell: () => n.exitShell?.(),
+    isChildSession: () => { try { return !!n.isChildSession?.(); } catch { return false; } },
+  };
+}
 let billingWait: ((r: BillingResult) => void) | null = null;
 const billingCall = (start: () => void) => new Promise<BillingResult>((resolve) => { billingWait = resolve; start(); });
 
@@ -147,6 +212,7 @@ function native(n: NativeShell): Shell {
     restorePurchases: () => billingCall(() => n.restorePurchases?.()),
     manageSubscription: () => n.manageSubscription?.(),
     setAppAccountToken: (t) => { try { n.setAppAccountToken?.(t); } catch { /* older shell */ } },
+    windows: n.platform() === 'windows' ? windowsShell(n) : null,
   };
 }
 
@@ -190,6 +256,7 @@ function browser(): Shell {
     restorePurchases: async () => ({ status: 'unavailable', message: '' }),
     manageSubscription() {},
     setAppAccountToken() {},
+    windows: null,
   };
 }
 

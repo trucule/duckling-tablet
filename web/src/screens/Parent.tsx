@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink, entitlement } from '../state';
-import { shell, type LockdownStatus, type BillingResult } from '../shell';
+import { shell, type LockdownStatus, type BillingResult, type WifiNetwork } from '../shell';
+import { api } from '../api';
 
 // Behind the PIN: lockdown steps for this platform, a check-in button, and Remove from this device.
 export function Parent() {
@@ -11,7 +12,9 @@ export function Parent() {
   const c = config.value;
   const android = shell.platform === 'android';
   const ios = shell.platform === 'ios';
-  const locks = android || ios;
+  const win = shell.windows;
+  const locks = android || ios || !!win;
+  const device = ios ? 'iPad' : win ? 'device' : 'tablet';
   const [billingNote, setBillingNote] = useState('');
   const [linkCode, setLinkCode] = useState(''); const [linkName, setLinkName] = useState(ios ? 'iPad' : 'Tablet'); const [linkError, setLinkError] = useState('');
   const link = async (e: Event) => {
@@ -21,6 +24,8 @@ export function Parent() {
   const release = async () => {
     if (!confirm(ios
       ? 'Remove Duckling from this iPad? The lockdown is lifted and the apps and data are removed. Then delete Duckling Tablet from the home screen. The family account keeps its settings.'
+      : win
+      ? 'Remove Duckling from this device? The lockdown and automatic sign-in are turned off, the apps and data are removed, the child is signed out, and Duckling uninstalls itself. The child\'s Windows account stays. The family account keeps its settings.'
       : 'Remove Duckling from this device? The lockdown is lifted, the apps and data are removed, and Android then asks whether to uninstall Duckling. The family account keeps its settings.')) return;
     setBusy(true);
     await releaseDevice(true);
@@ -39,13 +44,22 @@ export function Parent() {
     setBillingNote(notes[r.status] ?? r.message);
     await checkin(); setBusy(false); refresh();
   };
+  // Windows: Stripe's own pages open in a parent browser window over Duckling; when it closes, check in.
+  const card = async (make: () => Promise<{ url: string }>) => {
+    setBusy(true); setBillingNote('');
+    try {
+      const how = await win!.openParentPage((await make()).url);
+      setBillingNote(how === 'purchased' ? 'Thank you. The subscription is starting.' : '');
+    } catch (e) { setBillingNote((e as Error).message); }
+    await checkin(); setBusy(false); refresh();
+  };
   const ent = entitlement.value;
   const subscribed = ent?.status === 'active' || ent?.status === 'grace';
   const price = shell.subscriptionPrice();
   return (
     <div class="screen">
       <div class="topbar">
-        <h1>{locks && setupNeeded.value ? (ios ? 'Set up this iPad' : 'Set up this tablet') : 'Parent area'}</h1>
+        <h1>{locks && setupNeeded.value ? `Set up this ${device}` : 'Parent area'}</h1>
         <button class="pill" onClick={() => { unlockParent(false); go('home'); }}>Done</button>
       </div>
 
@@ -57,6 +71,12 @@ export function Parent() {
       {ios && setupNeeded.value && (
         <div class="card">
           <p>The PIN is set. One more thing before handing the iPad over: the lockdown steps below. Until they are done, a child can leave Duckling and open other apps.</p>
+        </div>
+      )}
+
+      {win && setupNeeded.value && (
+        <div class="card">
+          <p>The PIN is set. One more thing before handing the device over: the lockdown steps below. Until they are done, Duckling is a window like any other and a child can leave it.</p>
         </div>
       )}
 
@@ -81,9 +101,9 @@ export function Parent() {
       <div class="card manage">
         <img class="qr" src="/parents-qr.svg" alt="QR code for parents.ducklingtablet.com" width="132" height="132" />
         <div>
-          <h2>Manage this tablet from your phone</h2>
+          <h2>Manage this {device} from your phone</h2>
           <p>Apps, websites, other apps and their daily minutes, the child's level{shell.storeBilling ? ' and a second parent' : ', a second parent and the subscription'} are chosen in the parent portal. Scan the code with your phone's camera, or open <strong>parents.ducklingtablet.com</strong> and sign in with your email. The portal offers to add itself to your phone's home screen.</p>
-          <p>Changes made there reach this tablet {instantUpdates() ? 'within seconds while it is on and online' : 'when it is opened, and every three hours'}; the button fetches them now.</p>
+          <p>Changes made there reach this {device} {instantUpdates() ? 'within seconds while it is on and online' : win ? 'within five minutes while it is on and online' : 'when it is opened, and every three hours'}; the button fetches them now.</p>
           <div class="row">
             <button class="pill" disabled={busy} onClick={async () => { setBusy(true); await checkin(); setBusy(false); refresh(); }}>Sync with the website</button>
           </div>
@@ -103,6 +123,13 @@ export function Parent() {
             <button class="pill quiet" disabled={busy} onClick={() => store(() => shell.restorePurchases())}>Restore purchases</button>
           </div>
         )}
+        {win && c?.cardPayments && (!subscribed || ent?.source === 'stripe') && (
+          <div class="row">
+            {!subscribed && <button class="pill" disabled={busy} onClick={() => card(api.stripeCheckout)}>Subscribe with a card, $5 a month</button>}
+            {subscribed && <button class="pill quiet" disabled={busy} onClick={() => card(api.stripePortal)}>Manage subscription</button>}
+          </div>
+        )}
+        {win && c?.cardPayments && !subscribed && <p class="why">Billed by card through Stripe{ent?.status === 'trial' ? ', starting when the free trial ends' : ''}. It renews each month until cancelled under Manage subscription, here or in the parent portal. <a href="https://ducklingtablet.com/terms">Terms</a> · <a href="https://ducklingtablet.com/privacy">Privacy</a></p>}
         {shell.storeBilling && !subscribed && <p class="why">{ios ? 'Billed through your Apple ID. It renews each month until cancelled in the App Store settings at least a day before the renewal date.' : 'Billed through your Google Play account. It renews each month until cancelled in Google Play under Payments and subscriptions.'} <a href="https://ducklingtablet.com/terms">Terms</a> · <a href="https://ducklingtablet.com/privacy">Privacy</a></p>}
         {billingNote && <p>{billingNote}</p>}
         <ul class="included">
@@ -132,6 +159,15 @@ export function Parent() {
               <span><span class="what">Guided Access</span><br /><span class="why">In Settings, then Accessibility, turn on Guided Access and set its passcode. Back in Duckling, press the top button three times and tap Start. To leave it, press three times and type that passcode.</span></span>
               <button class="pill quiet" onClick={() => { shell.openSecuritySettings(); setTimeout(refresh, 1500); }}>Open Settings</button></li>
           </ul>
+        </div>
+      )}
+
+      {win && <WindowsLockdown status={status} childName={c?.child?.firstName ?? ''} refresh={refresh} />}
+
+      {win && (
+        <div class="card">
+          <h2>Other apps</h2>
+          <p>Programs and Store apps already on this device can appear on the home screen with a daily allowance, chosen in the parent portal. {c?.otherApps?.length ? `${c.otherApps.length} allowed now.` : 'None allowed yet.'} When the time is up, Duckling closes the app and comes back. Windows adds a newly allowed app at the child's next sign-in; the home screen offers that restart when it is needed.</p>
         </div>
       )}
 
@@ -165,6 +201,7 @@ export function Parent() {
       <div class="card">
         <h2>Wi-Fi</h2>
         <p>{{ wifi: 'Connected to Wi-Fi.', cellular: 'Connected through mobile data.', other: 'Connected.', none: 'Not connected to the internet. Installed apps still work; new apps, the narrator voice and changes from the website wait until the tablet is back online.' }[shell.networkStatus()]}</p>
+        {win && <WindowsWifi />}
         {android && (
           <>
             <p>On a plane, in a hotel or at a cafe: open Android's Wi-Fi settings, pick the network, and if it asks you to sign in, tap "Sign in to network" in the notification that appears (or the network's own entry) and finish its page. Then press Back until Duckling is showing. The lockdown comes back on its own.</p>
@@ -177,14 +214,114 @@ export function Parent() {
 
       <div class="card">
         <h2>This device</h2>
-        <p>{c?.child ? `${c.child.firstName}'s` : 'Unassigned'} {shell.platform === 'web' ? 'browser' : 'tablet'} · id {c?.deviceId ?? '?'} · shell {shell.shellVersion()}</p>
+        <p>{c?.child ? `${c.child.firstName}'s` : 'Unassigned'} {shell.platform === 'web' ? 'browser' : device} · id {c?.deviceId ?? '?'} · shell {shell.shellVersion()}{status.windows?.productName ? ` · ${status.windows.productName}` : ''}</p>
+        {win && !win.isChildSession() && <div class="row"><button class="pill quiet" onClick={() => win.exitShell()}>Close Duckling</button></div>}
       </div>
 
       <div class="card">
         <h2>Remove from this device</h2>
-        <p>{ios ? 'Lifts the lockdown, tells the website and clears the apps and data. Then delete Duckling Tablet from the home screen. You can pair the iPad again later.' : 'Lifts the lockdown, tells the website, clears the apps and data, and then Android asks whether to uninstall Duckling. You can pair the tablet again later.'}</p>
+        <p>{ios ? 'Lifts the lockdown, tells the website and clears the apps and data. Then delete Duckling Tablet from the home screen. You can pair the iPad again later.' : win ? 'Turns the lockdown and automatic sign-in off, tells the website, clears the apps and data, signs the child out and uninstalls Duckling. The child\'s Windows account stays. You can install Duckling and pair the device again later.' : 'Lifts the lockdown, tells the website, clears the apps and data, and then Android asks whether to uninstall Duckling. You can pair the tablet again later.'}</p>
         <div class="row"><button class="pill danger" disabled={busy} onClick={release}>Remove Duckling from this device</button></div>
       </div>
     </div>
+  );
+}
+
+// Windows: the child's own account signing in automatically, the kiosk for that account, and the restart into it.
+function WindowsLockdown({ status, childName, refresh }: { status: LockdownStatus; childName: string; refresh: () => void }) {
+  const win = shell.windows!;
+  const w = status.windows;
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const suggested = (childName || 'Child').replace(/[^A-Za-z0-9 ._-]/g, '').slice(0, 20) || 'Child';
+  const [name, setName] = useState('');
+  const run = async (what: string, f: () => Promise<unknown>) => {
+    setBusy(what); setError('');
+    try { await f(); } catch (e) { setError((e as Error).message); } finally { setBusy(''); refresh(); }
+  };
+  const accounts = (w?.accounts ?? []).filter((a) => a.name.toLowerCase() !== (w?.currentUser ?? '').toLowerCase() || a.name === w?.childAccount);
+  const chosen = name || w?.childAccount || accounts.find((a) => a.name.toLowerCase() === suggested.toLowerCase())?.name || suggested;
+  const exists = accounts.some((a) => a.name.toLowerCase() === chosen.toLowerCase());
+  return (
+    <div class="card">
+      <h2>Lockdown</h2>
+      {!w && <p>Checking this device…</p>}
+      {w && !w.kioskSupported && <p class="error">{w.productName ?? 'This edition of Windows'} has no kiosk mode, which the lockdown needs. Duckling still starts in the child's account, but the Windows key leads out of it. Windows 11 Pro has the full lockdown.</p>}
+      <p>Each step is checked when it finishes. With all three done, the device signs in to the child's account by itself and shows only Duckling and the other apps you allow.</p>
+      <ul class="steps">
+        <li><span class={`dot ${status.homeRole ? 'done' : ''}`}>{status.homeRole ? '✓' : '1'}</span>
+          <span><span class="what">The child's Windows account</span><br />
+            <span class="why">{status.homeRole ? `${w?.childAccount} signs in by itself when the device starts.` : 'A standard account just for the child, signed in automatically with a password nobody needs to know. Use an account the child already has, or make one.'}</span>
+            {!status.homeRole && w && (
+              <span class="row">
+                <input list="duck-accounts" maxLength={20} value={chosen} onInput={(e) => setName((e.target as HTMLInputElement).value)} aria-label="Account name" style={{ width: 200 }} />
+                <datalist id="duck-accounts">{accounts.map((a) => <option value={a.name}>{a.fullName}</option>)}</datalist>
+              </span>
+            )}
+          </span>
+          {!status.homeRole && <button class="pill quiet" disabled={!!busy || !w || !chosen.trim()} onClick={() => run('account', () => win.setChildAccount(chosen.trim(), childName || chosen.trim()))}>{busy === 'account' ? 'Working' : exists ? 'Use this account' : 'Make this account'}</button>}
+        </li>
+        <li><span class={`dot ${status.lockdownOn ? 'done' : ''}`}>{status.lockdownOn ? '✓' : '2'}</span>
+          <span><span class="what">Lock the account to Duckling</span><br />
+            <span class="why">Windows' kiosk mode for that account: Duckling fills the screen, there is no taskbar, and only Duckling and the apps you allow can open.{w?.oldKidTablet ? ' The older Kid Tablet setup on this device is moved aside (kept in C:\\ProgramData\\Duckling\\old-kidtablet) when this is turned on.' : ''}{w?.otherKiosk && !status.lockdownOn ? ' This replaces the kiosk set up on this device before.' : ''}</span></span>
+          <button class="pill quiet" disabled={!!busy || !status.homeRole || !w?.kioskSupported} onClick={() => run('lockdown', () => win.setLockdown(!status.lockdownOn))}>{busy === 'lockdown' ? 'Working' : status.lockdownOn ? 'Turn off' : 'Turn on'}</button>
+        </li>
+        <li><span class={`dot ${status.pinned ? 'done' : ''}`}>{status.pinned ? '✓' : '3'}</span>
+          <span><span class="what">Restart into {w?.childAccount || "the child's account"}</span><br />
+            <span class="why">{status.pinned ? 'This is the child\'s account, locked to Duckling.' : 'The device restarts and signs in to the child\'s account, where Duckling opens by itself.'} To use Windows yourself later: press Ctrl+Alt+Delete, choose Sign out, and hold the Shift key while the sign-in screen appears; then sign in to your own account.</span></span>
+          {!status.pinned && <button class="pill quiet" disabled={!!busy || !status.homeRole || !status.lockdownOn} onClick={() => { if (confirm('Restart now? Save anything open in other windows first.')) void run('restart', () => win.restartDevice()); }}>{busy === 'restart' ? 'Restarting' : 'Restart'}</button>}
+        </li>
+      </ul>
+      {error && <div class="error">{error}</div>}
+    </div>
+  );
+}
+
+// Windows: Wi-Fi from the parent area, since the kiosk keeps Windows' own network settings out of reach.
+function WindowsWifi() {
+  const win = shell.windows!;
+  const [nets, setNets] = useState<WifiNetwork[] | null>(null);
+  const [pick, setPick] = useState<WifiNetwork | null>(null);
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+  const scan = async () => { setBusy(true); setNote(''); try { setNets(await win.wifiNetworks()); } catch (e) { setNote((e as Error).message); } finally { setBusy(false); } };
+  const join = async (e: Event) => {
+    e.preventDefault(); if (!pick) return;
+    setBusy(true); setNote('');
+    try {
+      await win.connectWifi(pick.ssid, password);
+      setNote(`Joining ${pick.ssid}. If the network shows a sign-in page (hotels, planes, cafes), press "Open the network's sign-in page".`);
+      setPick(null); setPassword('');
+      setTimeout(() => void scan(), 6000);
+    } catch (err) { setNote((err as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <>
+      <div class="row">
+        <button class="pill" disabled={busy} onClick={scan}>{busy && !pick ? 'Looking' : nets ? 'Look again' : 'Choose a Wi-Fi network'}</button>
+        <button class="pill quiet" disabled={busy} onClick={() => void win.openParentPage('http://www.msftconnecttest.com/redirect')}>Open the network's sign-in page</button>
+      </div>
+      {nets && (
+        <ul class="wifi">
+          {nets.length === 0 && <li>No networks found.</li>}
+          {nets.map((n) => (
+            <li key={n.ssid}>
+              <button class="link" disabled={busy || n.connected} onClick={() => { setPick(n); setPassword(''); }}>{n.ssid}</button>
+              <span class="why"> {n.connected ? 'connected' : `${n.signal}%`}{n.secured ? ' · password' : ''}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {pick && (
+        <form class="row" onSubmit={join}>
+          <strong>{pick.ssid}</strong>
+          {pick.secured && <input type="password" placeholder="Password" value={password} onInput={(e) => setPassword((e.target as HTMLInputElement).value)} autoComplete="off" style={{ width: 220 }} />}
+          <button class="pill primary" disabled={busy || (pick.secured && password.length < 8)}>{busy ? 'Joining' : 'Join'}</button>
+          <button type="button" class="pill quiet" onClick={() => setPick(null)}>Cancel</button>
+        </form>
+      )}
+      {note && <p>{note}</p>}
+    </>
   );
 }

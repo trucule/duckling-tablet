@@ -30,6 +30,7 @@ const unlockedUntil = () => { try { return Number(localStorage.getItem(UNLOCK_KE
 export const parentUnlocked = signal<boolean>(unlockedUntil() > Date.now());
 export function unlockParent(on: boolean) {
   parentUnlocked.value = on;
+  if (!on) shell.windows?.endParent();
   try { if (on) localStorage.setItem(UNLOCK_KEY, String(Date.now() + UNLOCK_MINUTES * 60 * 1000)); else localStorage.removeItem(UNLOCK_KEY); } catch { /* storage unavailable: no carry-over */ }
 }
 if (parentUnlocked.value && !location.hash.includes('parent')) location.hash = '#/parent';
@@ -88,6 +89,8 @@ function applyConfig(c: DeviceConfig) {
   shell.setChildId(c.child?.id ?? '');
   if (c.appAccountToken) shell.setAppAccountToken(c.appAccountToken);
   if (c.pinHash) shell.setPinHash(c.pinHash);
+  // Windows: the kiosk must list every other app a parent allowed before the child can open it.
+  shell.windows?.setOtherApps((c.otherApps ?? []).map((a) => a.package));
 }
 
 // ---- Websites the shell may open right now: the allowlist, every site during travel mode, and the sites of other
@@ -135,6 +138,9 @@ async function reportInstalled() {
 }
 
 // Opening another app: for as long as it has today, at most. The shell comes back when that ends.
+// The label of an app that needs Duckling to restart before it opens (Windows), shown on the home screen.
+export const restartNeeded = signal<string | null>(null);
+
 export function openOtherApp(a: OtherApp) {
   const st = otherAppState(a);
   if (!st.ok) { lastError.value = `${a.label}: ${st.reason}`; return; }
@@ -143,6 +149,9 @@ export function openOtherApp(a: OtherApp) {
 window.addEventListener('duckling:otherapp', async (e) => {
   const { pkg, seconds, reason } = (e as CustomEvent<{ pkg: string; seconds: number; reason: string }>).detail;
   if (reason === 'missing') { lastError.value = 'That app is not on this tablet any more.'; reportedInstalled = false; void reportInstalled(); return; }
+  // Windows reads the kiosk's list of apps at sign-in, so an app allowed since then needs Duckling to restart.
+  if (reason === 'restart') { restartNeeded.value = config.value?.otherApps?.find((a) => a.package === pkg)?.label ?? 'this app'; return; }
+  if (reason === 'failed') { lastError.value = 'That app did not open.'; return; }
   if (seconds <= 0) return;
   // Count it locally at once, then on the server.
   if (config.value) {

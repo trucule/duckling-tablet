@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked, unlinked, entitlement } from '../state';
+import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked, unlinked, entitlement, restartNeeded } from '../state';
 import { shell } from '../shell';
 import type { Entitlement, InstalledApp } from '../api';
 
@@ -58,6 +58,11 @@ export function Home() {
       {unlinked.value && (
         <button class="setup" onClick={() => go('pin')}>
           <strong>This tablet is not linked to a family.</strong> The apps still work. A parent can link it again in the parent area.
+        </button>
+      )}
+      {restartNeeded.value && (
+        <button class="setup" onClick={() => { restartNeeded.value = null; void shell.windows?.restartSession().catch(() => undefined); }}>
+          <strong>{restartNeeded.value} is ready.</strong> Duckling restarts once to add it: tap here, wait for Duckling to open again, then tap {restartNeeded.value}.
         </button>
       )}
       {!unlinked.value && subscriptionNote(entitlement.value) && (

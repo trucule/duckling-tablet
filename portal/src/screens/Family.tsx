@@ -25,6 +25,14 @@ export function Family() {
   const [invite, setInvite] = useState(''); const [inviteMsg, setInviteMsg] = useState('');
   const [catalog, setCatalog] = useState<CatalogApp[]>([]);
   const [seed, setSeed] = useState<{ title: string; n: number } | undefined>();
+  const [billingBusy, setBillingBusy] = useState(false);
+  // Back from Stripe Checkout: the webhook usually lands before the page does; the family reloads to show it.
+  const [subscribedNote] = useState(() => new URLSearchParams(location.search).get('subscribed') ? 'Thank you. The subscription is starting; the tablets pick it up within a minute.' : '');
+  const subscribed = !!fam && (fam.subscription.status === 'active' || fam.subscription.status === 'grace');
+  const goStripe = async (make: () => Promise<{ url: string }>) => {
+    setBillingBusy(true); setError('');
+    try { location.href = (await make()).url; } catch (e) { setError((e as Error).message); setBillingBusy(false); }
+  };
   const load = async () => {
     try {
       const f = await api.family(); setFam(f);
@@ -135,8 +143,19 @@ export function Family() {
         <h2>Subscription</h2>
         {fam.subscription.status === 'trial' && <p>Free trial: <strong>{fam.subscription.daysLeft} day{fam.subscription.daysLeft === 1 ? '' : 's'} left</strong>{fam.subscription.periodEnd ? ` (until ${new Date(fam.subscription.periodEnd).toLocaleDateString()})` : ''}. After that, $5 a month covers every tablet in the family, on any platform. No card is needed during the trial.</p>}
         {fam.subscription.status === 'active' && <p>Subscribed. $5 a month covers every tablet in the family.</p>}
-        {fam.subscription.status === 'grace' && <p class="error">The last payment did not go through. Everything keeps working while the store retries; update the card where you subscribed.</p>}
-        {(fam.subscription.status === 'ended' || fam.subscription.status === 'none') && <p class="error">The free trial has ended. Subscribe in the parent area of an iPad or Android tablet (the Parent button on its home screen); one subscription covers every tablet in the family.</p>}
+        {fam.subscription.status === 'grace' && <p class="error">The last payment did not go through. Everything keeps working while {fam.subscription.source === 'stripe' ? 'Stripe tries the card again; update it under Manage subscription' : 'the store retries; update the card where you subscribed'}.</p>}
+        {(fam.subscription.status === 'ended' || fam.subscription.status === 'none') && <p class="error">The free trial has ended, so the tablets are locked. Subscribe {fam.cardPayments ? 'here with a card, or ' : ''}in the parent area of an iPad or Android tablet (the Parent button on its home screen); one subscription covers every tablet in the family.</p>}
+        {fam.cardPayments && (subscribed ? fam.subscription.source === 'stripe' : true) && (
+          <>
+            <div class="row">
+              {!subscribed && <button class="btn primary" disabled={billingBusy} onClick={() => goStripe(api.stripeCheckout)}>Subscribe with a card, $5 a month</button>}
+              {fam.cardCustomer && <button class="btn quiet" disabled={billingBusy} onClick={() => goStripe(api.stripePortal)}>Manage subscription</button>}
+            </div>
+            {!subscribed && <p class="muted">Billed by card through Stripe{fam.subscription.status === 'trial' ? ', starting when the free trial ends' : ''}. It renews each month until you cancel under Manage subscription. <a href="https://ducklingtablet.com/terms">Terms</a> · <a href="https://ducklingtablet.com/privacy">Privacy</a></p>}
+          </>
+        )}
+        {subscribed && fam.subscription.source && fam.subscription.source !== 'stripe' && <p class="muted">Billed through {fam.subscription.source === 'apple' ? 'the App Store. Manage or cancel it in the Settings app on the iPad, under your name, then Subscriptions' : 'Google Play. Manage or cancel it in the Play Store app, under Payments and subscriptions'}.</p>}
+        {subscribedNote && <p>{subscribedNote}</p>}
         <p class="muted">Included: 24 learning apps and every new one, the narrator voice, the avatar and stars across tablets, this portal, and app requests at no extra cost (above).</p>
       </div>
 

@@ -7,7 +7,7 @@ export interface Device { id: string; childId: string | null; platform: string; 
 export interface Attachment { id: string; requestId: string; contentType: string; size: number; url: string; createdAt: string }
 export interface AppRequest { id: string; title: string; description: string; childGrade: string | null; installWhenReady: boolean; status: string; appId: string | null; createdAt: string; updatedAt: string; attachments: Attachment[] }
 export interface Entitlement { status: 'trial' | 'active' | 'grace' | 'ended' | 'none'; source: string | null; periodEnd: string | null; daysLeft: number | null }
-export interface Family { familyId: string; you: string; pinSet: boolean; subscription: Entitlement; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
+export interface Family { familyId: string; you: string; pinSet: boolean; subscription: Entitlement; cardPayments?: boolean; cardCustomer?: boolean; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
 export interface OtherApp { package: string; label: string; icon: string | null; allowed: boolean; dailyMinutes: number | null; window: { start: string; end: string } | null; hosts: string[]; usedSecondsToday: number }
 export interface DeviceDetail { deviceId: string; state: string; child: Child | null; apps: { id: string; name: string; version: string; tileUrl: string | null }[]; hidden: string[]; allowlist: { host: string; tile?: { name: string; url: string } }[]; travel: { active: boolean; until: string | null }; otherApps: OtherApp[] }
 export interface CatalogApp { id: string; name: string; tileUrl: string | null; description: string; demoUrl: string | null; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; about: { concept: string; progression: string; lifeSkills: string[] } | null }
@@ -36,6 +36,9 @@ export const api = {
   verify: (token: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/verify', { token }),
   logout: () => call('POST', '/auth/logout', {}),
   family: () => call<Family>('GET', '/family'),
+  // Card payments through Stripe: a Checkout page to subscribe, the Customer Portal to manage.
+  stripeCheckout: () => call<{ url: string; trialEnd: string | null }>('POST', '/billing/stripe/checkout', {}),
+  stripePortal: () => call<{ url: string }>('POST', '/billing/stripe/portal', {}),
   addChild: (b: { firstName: string; grade?: string | null; age?: number; startGrade?: number; levels?: Record<string, number>; theme?: Child['theme'] }) => call<Child>('POST', '/children', b),
   updateChild: (id: string, b: Partial<{ firstName: string; grade: string | null; age: number; startGrade: number; levels: Record<string, number>; theme: Child['theme'] }>) => call<Child>('PUT', `/children/${id}`, b),
   deleteChild: (id: string) => call('DELETE', `/children/${id}`),
