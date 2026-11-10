@@ -1,9 +1,23 @@
 import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState } from '../state';
 import { shell } from '../shell';
-import type { InstalledApp } from '../api';
+import type { Entitlement, InstalledApp } from '../api';
 
 // The child's home: installed apps alphabetically, website tiles from the allowlist, the Library, a small parent button.
 const AVATAR = 'my-avatar';
+
+// A line for the parent on the child's home screen while the family is not subscribed: what the trial is, when it
+// ends, and what a subscription keeps (the apps already here, and new apps on request at no charge). Tapping it opens
+// the parent area, where the subscription lives on a tablet that bills through its store.
+function subscriptionNote(e: Entitlement | undefined) {
+  if (!e || e.status === 'active') return null;
+  const keep = 'Subscribing keeps every app on this tablet and lets you request new apps at no charge.';
+  if (e.status === 'trial') {
+    const d = e.daysLeft ?? 0;
+    return <><strong>Free trial: {d === 0 ? 'ends today' : `${d} day${d === 1 ? '' : 's'} left`}.</strong> {keep}</>;
+  }
+  if (e.status === 'grace') return <><strong>The last payment did not go through.</strong> Everything keeps running while the store tries again. Check the subscription in the parent area.</>;
+  return <><strong>The free trial has ended.</strong> {keep} Subscribe in the parent area.</>;
+}
 
 export function Home() {
   const c = config.value;
@@ -34,6 +48,9 @@ export function Home() {
         <button class="setup" onClick={() => go('pin')}>
           <strong>This tablet is not locked down yet.</strong> A child can still leave Duckling. Finish setup in the parent area.
         </button>
+      )}
+      {subscriptionNote(c?.entitlement) && (
+        <button class="setup" onClick={() => go('pin')}>{subscriptionNote(c?.entitlement)}</button>
       )}
       <div class="grid">
         {apps.map((a) => {

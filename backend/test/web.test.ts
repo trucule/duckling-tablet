@@ -108,6 +108,9 @@ describe.skipIf(!ready)('child web app', () => {
     await t.getByPlaceholder('7').fill('5');
     await t.getByRole('button', { name: 'Finish setup' }).click();
     await t.getByRole('heading', { name: "Noor's tablet" }).waitFor();
+    // The child's home screen tells the parent where the trial stands and what subscribing keeps.
+    await t.getByText('Free trial: 7 days left', { exact: false }).waitFor();
+    await t.getByText('request new apps at no charge', { exact: false }).waitFor();
     await t.getByRole('button', { name: 'Parent' }).click();
     for (const d of '1357') await t.getByRole('button', { name: d, exact: true }).click();
     for (const d of '1357') await t.getByRole('button', { name: d, exact: true }).click();
