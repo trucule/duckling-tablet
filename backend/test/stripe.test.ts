@@ -17,7 +17,7 @@ import { stripeSetup, WEBHOOK_EVENTS } from '../src/stripe-setup.js';
 import type { Db } from '../src/db.js';
 import { freePort, startCluster, type Cluster } from './pg.js';
 
-let cluster: Cluster, app: FastifyInstance, db: Db, dir: string, fake: Server, fakeUrl: string;
+let cluster: Cluster, app: FastifyInstance, db: Db, urls: { appUrl: string; systemUrl: string }, dir: string, fake: Server, fakeUrl: string;
 const mails: { to: string; text: string }[] = [];
 const pushes: string[][] = [];
 const subs = new Map<string, StripeSubscription>();
@@ -83,7 +83,7 @@ beforeAll(async () => {
 afterAll(async () => { fake?.close(); await cluster?.stop(); });
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'duck-stripe-'));
-  ({ db } = await cluster.newDb());
+  const t = await cluster.newDb(); db = t.db; urls = t;
   mails.length = 0; pushes.length = 0; subs.clear(); checkouts.length = 0; portals.length = 0; cancelled.length = 0; stripeDown = false; rejectIcon = false;
   const cfg = loadConfig({ NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local', ADMIN_TOKEN: 'admin-test-token-123456', STRIPE_SECRET_KEY: 'sk_test_duck', STRIPE_WEBHOOK_SECRET: SECRET, STRIPE_API: fakeUrl, STRIPE_PORTAL_CONFIGURATION: 'bpc_duck' });
   ({ app } = await buildServer(cfg, {
@@ -157,6 +157,14 @@ describe('Stripe subscriptions', () => {
     // The same event again does nothing.
     expect((await hook({ id: 'evt_1', type: 'checkout.session.completed', data: { object: { subscription: 'sub_W' } } })).json()).toEqual({ duplicate: true });
     const fam = (await app.inject({ method: 'GET', url: '/family', headers: f.auth })).json();
+    // The support report names the family, its purchase and its device.
+    const { execFileSync } = await import('node:child_process');
+    const report = execFileSync('npx', ['tsx', 'src/family-report.ts', 'WIN@example.com'], { env: { ...process.env, NODE_ENV: 'test', DATABASE_URL_APP: urls.appUrl, DATABASE_URL_SYSTEM: urls.systemUrl, DOTENV_CONFIG_PATH: '/nonexistent' }, encoding: 'utf8' });
+    expect(report).toContain(`Family ${f.familyId}`);
+    expect(report).toMatch(/entitlement: active via stripe/);
+    expect(report).toMatch(/purchase stripe stripe:sub_W duckling_monthly: active/);
+    expect(report).toMatch(/device dev_\w+ windows "Surface" active/);
+    expect(report).toMatch(/Purchases updated in the last day: ?\n.*stripe:sub_W active -> family /);
     expect(fam).toMatchObject({ cardPayments: true, cardCustomer: true, subscription: { status: 'active', source: 'stripe' } });
 
     // A second Checkout is refused while subscribed; the Customer Portal opens instead, with Duckling's configuration.

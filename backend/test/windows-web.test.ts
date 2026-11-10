@@ -143,6 +143,10 @@ describe.skipIf(!ready)('web app on Windows', () => {
     await p.getByText('The older Kid Tablet setup on this device is moved aside', { exact: false }).waitFor();
     // Step 1: the account is named after the child unless one is chosen.
     expect(await p.getByLabel('Account name').inputValue()).toBe('Scarlett');
+    // The box keeps what the parent types, even empty, instead of jumping back to the suggestion.
+    await p.getByLabel('Account name').fill('');
+    expect(await p.getByLabel('Account name').inputValue()).toBe('');
+    await p.getByLabel('Account name').fill('Scarlett');
     expect(await p.getByRole('button', { name: 'Turn on' }).isDisabled()).toBe(true);
     await p.screenshot({ path: join(dir, 'win-setup.png'), fullPage: true });
     await p.getByRole('button', { name: 'Make this account' }).click();

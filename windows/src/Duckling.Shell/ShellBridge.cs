@@ -82,27 +82,36 @@ public class ShellBridge(MainForm main)
     // returned at once and a fresh one is fetched; when it differs, the web app is told to look again (onResume).
     string status = """{"homeRole":false,"deviceSecure":false,"pinned":false,"lockdownOn":false}""";
     DateTime statusAt = DateTime.MinValue;
-    int refreshing;
+    int refreshing, generation;
     public string lockdownStatus()
     {
         Guard();
-        if (DateTime.UtcNow - statusAt > TimeSpan.FromSeconds(3) && Interlocked.Exchange(ref refreshing, 1) == 0)
+        if (DateTime.UtcNow - statusAt > TimeSpan.FromSeconds(3)) RefreshStatus();
+        return status;
+    }
+    void RefreshStatus()
+    {
+        if (Interlocked.Exchange(ref refreshing, 1) != 0) return;
+        Task.Run(() =>
         {
-            Task.Run(() =>
+            try
             {
-                try
+                // A change made while a read was under way (a step just finished) is read again, so the web app never
+                // keeps a status from before the change.
+                int gen;
+                do
                 {
+                    gen = Volatile.Read(ref generation);
                     var fresh = Call("lockdownStatus")?.ToJsonString() ?? status;
                     statusAt = DateTime.UtcNow;
                     if (fresh != status) { status = fresh; main.Js("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()"); }
-                }
-                catch (Exception e) { ShellLog.Write($"status: {e.Message}"); }
-                finally { refreshing = 0; }
-            });
-        }
-        return status;
+                } while (gen != Volatile.Read(ref generation));
+            }
+            catch (Exception e) { ShellLog.Write($"status: {e.Message}"); }
+            finally { refreshing = 0; }
+        });
     }
-    void StatusChanged() { statusAt = DateTime.MinValue; }
+    void StatusChanged() { Interlocked.Increment(ref generation); statusAt = DateTime.MinValue; RefreshStatus(); }
 
     public void requestHomeRole() { }
     public void openSecuritySettings() { }

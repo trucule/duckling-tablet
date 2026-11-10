@@ -234,13 +234,20 @@ function WindowsLockdown({ status, childName, refresh }: { status: LockdownStatu
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const suggested = (childName || 'Child').replace(/[^A-Za-z0-9 ._-]/g, '').slice(0, 20) || 'Child';
-  const [name, setName] = useState('');
+  // null until the parent types: then the box holds exactly what they typed, even when they clear it.
+  const [name, setName] = useState<string | null>(null);
+  // A step finishes on the device before Windows' own status shows it (the shell reads that status in the
+  // background), so the step stays "Working" until the status changes, for up to 30 seconds.
   const run = async (what: string, f: () => Promise<unknown>) => {
     setBusy(what); setError('');
-    try { await f(); } catch (e) { setError((e as Error).message); } finally { setBusy(''); refresh(); }
+    const before = JSON.stringify(shell.lockdownStatus());
+    try {
+      await f();
+      for (let i = 0; i < 15 && JSON.stringify(shell.lockdownStatus()) === before; i++) await new Promise((r) => setTimeout(r, 2000));
+    } catch (e) { setError((e as Error).message); } finally { setBusy(''); refresh(); }
   };
   const accounts = (w?.accounts ?? []).filter((a) => a.name.toLowerCase() !== (w?.currentUser ?? '').toLowerCase() || a.name === w?.childAccount);
-  const chosen = name || w?.childAccount || accounts.find((a) => a.name.toLowerCase() === suggested.toLowerCase())?.name || suggested;
+  const chosen = name ?? (w?.childAccount || (accounts.length === 1 ? accounts[0].name : accounts.find((a) => a.name.toLowerCase() === suggested.toLowerCase())?.name) || suggested);
   const exists = accounts.some((a) => a.name.toLowerCase() === chosen.toLowerCase());
   return (
     <div class="card">

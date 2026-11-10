@@ -49,7 +49,10 @@ function Assert-SafeUserName([string]$Name) {
 
 function Get-Edition {
     $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
-    [pscustomobject]@{ EditionID = [string]$cv.EditionID; Build = [int]$cv.CurrentBuildNumber; Name = [string]$cv.ProductName }
+    # Windows 11 still reports "Windows 10" in ProductName; build 22000 and later is Windows 11.
+    $name = [string]$cv.ProductName
+    if ([int]$cv.CurrentBuildNumber -ge 22000) { $name = $name -replace '^Windows 10', 'Windows 11' }
+    [pscustomobject]@{ EditionID = [string]$cv.EditionID; Build = [int]$cv.CurrentBuildNumber; Name = $name }
 }
 
 function Test-KioskSupported($ed) { ($ed.EditionID -notlike 'Core*') -and ($ed.Build -ge 22621) }
