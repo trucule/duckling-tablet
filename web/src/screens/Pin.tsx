@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { shell } from '../shell';
-import { go, parentUnlocked, setFirstPin } from '../state';
+import { go, unlockParent, setFirstPin } from '../state';
 
 // The parent PIN: set on first use (typed twice), then asked for before the parent area.
 export function Pin() {
@@ -17,9 +17,9 @@ export function Pin() {
     if (setting) {
       if (first === null) { setFirst(next); setPin(''); return; }
       if (first !== next) { setError('The two PINs were different. Start again.'); setFirst(null); setPin(''); return; }
-      await setFirstPin(next); parentUnlocked.value = true; go('parent'); return;
+      await setFirstPin(next); unlockParent(true); go('parent'); return;
     }
-    if (await shell.verifyPin(next)) { parentUnlocked.value = true; go('parent'); }
+    if (await shell.verifyPin(next)) { unlockParent(true); go('parent'); }
     else { setError('That is not the PIN.'); setPin(''); }
   };
   return (

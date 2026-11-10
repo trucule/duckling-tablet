@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { config, checkin, releaseDevice, go, lastError, parentUnlocked, setupNeeded, refreshSetup, instantUpdates } from '../state';
+import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates } from '../state';
 import { shell, type LockdownStatus, type BillingResult } from '../shell';
 
 // Behind the PIN: lockdown steps for this platform, a check-in button, and Remove from this device.
@@ -41,7 +41,7 @@ export function Parent() {
     <div class="screen">
       <div class="topbar">
         <h1>{locks && setupNeeded.value ? (ios ? 'Set up this iPad' : 'Set up this tablet') : 'Parent area'}</h1>
-        <button class="pill" onClick={() => { parentUnlocked.value = false; go('home'); }}>Done</button>
+        <button class="pill" onClick={() => { unlockParent(false); go('home'); }}>Done</button>
       </div>
 
       {android && setupNeeded.value && (
@@ -99,17 +99,17 @@ export function Parent() {
       {android && (
         <div class="card">
           <h2>Lockdown</h2>
-          <p>Each step is checked when you come back to this screen. With all three done, the child cannot leave Duckling.</p>
+          <p>Each step is checked when you come back to this screen. With all three done, the child cannot leave Duckling. The last step restarts Duckling; you come back here on your own.</p>
           <ul class="steps">
-            <li><span class={`dot ${status.homeRole ? 'done' : ''}`}>{status.homeRole ? '✓' : '1'}</span>
-              <span><span class="what">Make Duckling the home screen</span><br /><span class="why">Home and recents then lead back here.</span></span>
-              <button class="pill quiet" onClick={() => { shell.requestHomeRole(); setTimeout(refresh, 1500); }}>Set</button></li>
+            <li><span class={`dot ${status.lockdownOn ? 'done' : ''}`}>{status.lockdownOn ? '✓' : '1'}</span>
+              <span><span class="what">Keep Duckling pinned</span><br /><span class="why">Android asks once to confirm pinning; after that it re-pins on every start.</span></span>
+              <button class="pill quiet" onClick={() => { shell.setLockdown(!status.lockdownOn); setTimeout(refresh, 800); }}>{status.lockdownOn ? 'Turn off' : 'Turn on'}</button></li>
             <li><span class={`dot ${status.deviceSecure ? 'done' : ''}`}>{status.deviceSecure ? '✓' : '2'}</span>
               <span><span class="what">A screen lock the child does not know</span><br /><span class="why">Needed so unpinning asks for it. Also turn on App pinning in the same settings.</span></span>
               <button class="pill quiet" onClick={() => { shell.openSecuritySettings(); setTimeout(refresh, 1500); }}>Open settings</button></li>
-            <li><span class={`dot ${status.lockdownOn ? 'done' : ''}`}>{status.lockdownOn ? '✓' : '3'}</span>
-              <span><span class="what">Keep Duckling pinned</span><br /><span class="why">Android asks once to confirm pinning; after that it re-pins on every start.</span></span>
-              <button class="pill quiet" onClick={() => { shell.setLockdown(!status.lockdownOn); setTimeout(refresh, 800); }}>{status.lockdownOn ? 'Turn off' : 'Turn on'}</button></li>
+            <li><span class={`dot ${status.homeRole ? 'done' : ''}`}>{status.homeRole ? '✓' : '3'}</span>
+              <span><span class="what">Make Duckling the home screen</span><br /><span class="why">Home and recents then lead back here. Choose Duckling in the list Android shows.</span></span>
+              <button class="pill quiet" onClick={() => { shell.requestHomeRole(); setTimeout(refresh, 1500); }}>Set</button></li>
           </ul>
         </div>
       )}

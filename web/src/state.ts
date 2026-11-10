@@ -11,7 +11,18 @@ export const installing = signal<Record<string, string>>({}); // id -> status te
 export const paired = signal<boolean>(!!shell.getDeviceToken());
 export const route = signal<string>(location.hash.replace(/^#\/?/, '') || 'home');
 export const lastError = signal<string>('');
-export const parentUnlocked = signal<boolean>(false);
+// The parent area stays unlocked across a restart for a few minutes. Making Duckling the home app, and some of the
+// settings screens the lockdown steps open, make Android recreate the activity, which reloads this page; without
+// this the parent landed on the child's home screen (or the PIN screen) mid-setup and had to find the way back.
+const UNLOCK_KEY = 'duckling:parent-unlocked-until';
+const UNLOCK_MINUTES = 5;
+const unlockedUntil = () => { try { return Number(localStorage.getItem(UNLOCK_KEY) || 0); } catch { return 0; } };
+export const parentUnlocked = signal<boolean>(unlockedUntil() > Date.now());
+export function unlockParent(on: boolean) {
+  parentUnlocked.value = on;
+  try { if (on) localStorage.setItem(UNLOCK_KEY, String(Date.now() + UNLOCK_MINUTES * 60 * 1000)); else localStorage.removeItem(UNLOCK_KEY); } catch { /* storage unavailable: no carry-over */ }
+}
+if (parentUnlocked.value && !location.hash.includes('parent')) location.hash = '#/parent';
 
 window.addEventListener('hashchange', () => { route.value = location.hash.replace(/^#\/?/, '') || 'home'; });
 export const go = (r: string) => { location.hash = `#/${r}`; };
