@@ -1,20 +1,20 @@
 {
   "id": "kitchen-lab",
   "name": "Kitchen Lab",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Recipes as experiments: measure, mix and watch what changes, with each step read aloud.",
   "subjects": [
     "science"
   ],
-  "ageMin": 5,
-  "ageMax": 8,
+  "ageMin": 4,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/kitchen-lab",
   "about": {
     "concept": "Measurement and change of state. A recipe is a procedure with quantities; mixing, heating and cooling change texture, volume and color in ways the child can predict and see.",
-    "progression": "Early recipes measure whole cups and spoons and have one visible change. Later ones use halves and quarters, several stages, and comparisons between two versions.",
+    "progression": "Free play is an open kitchen where she mixes, heats, cools, blends and bakes, with a recipe book of guided recipes. The Challenges ladder climbs from pre-K mixing, hot and cold, and floating or sinking, through melting, measuring cups and heat moving, to 7th and 8th grade acids and bases, leavening gas, browning reactions, conservation of mass and scaled-up ratios.",
     "lifeSkills": [
       "Measuring accurately",
       "Reading and following a recipe",
