@@ -6,7 +6,7 @@ import { audit, type Ctx } from '../context.js';
 import type { Q } from '../db.js';
 import { deviceAuth, parentAuth } from '../auth.js';
 import { childRow, portraitUrl, starsOf } from './family.js';
-import { entitlementOf } from '../entitlement.js';
+import { entitlementOf, isLocked, requireSubscribed } from '../entitlement.js';
 import { listCatalog } from '../catalog.js';
 import { after } from '../notify.js';
 import { HttpError, badRequest, forbidden, hashToken, inMinutes, newId, newToken, notFound, now, pairingCode, safeEqual, sha256 } from '../util.js';
@@ -54,11 +54,14 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
   const catalog = (await listCatalog(ctx, q)).filter((a) => !hidden.has(a.id));
   const travelUntil = await getSetting<string | null>(q, deviceId, 'travel_until', null);
   const fam = await q.one<{ pin_sync: string | null; app_account_token: string }>('SELECT pin_sync, app_account_token::text AS app_account_token FROM family WHERE id = $1', [d.family_id]);
+  const ent = await entitlementOf(q, d.family_id);
   return {
     deviceId, state: d.state, child,
     // SHA-256 of "duckling:<pin>", the form the shells keep; null until a parent sets a PIN.
     pinHash: fam?.pin_sync ?? null,
-    entitlement: await entitlementOf(q, d.family_id),
+    entitlement: ent,
+    // The tablet greys its apps and hides websites and other apps while this is true (see entitlement.ts).
+    locked: isLocked(ent),
     // The iPad app passes this with every StoreKit purchase so Apple's notifications name the family.
     appAccountToken: fam?.app_account_token ?? null,
     apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, tileUrl: a.tileUrl, permissions: a.latest!.permissions, ...a.latest })),
@@ -302,6 +305,7 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
     const dv = await deviceAuth(ctx, req);
     if (dv.state !== 'active') throw badRequest('This device is being removed');
     return ctx.db.family(dv.familyId, async (q) => {
+      await requireSubscribed(q, dv.familyId);
       await appExists(q, req.params.app);
       if (await q.one('SELECT 1 FROM device_hidden_app WHERE device_id = $1 AND app_id = $2', [dv.deviceId, req.params.app])) throw forbidden('A parent turned this app off');
       await q.run('INSERT INTO device_app (family_id, device_id, app_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [dv.familyId, dv.deviceId, req.params.app]);

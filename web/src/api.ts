@@ -13,6 +13,8 @@ export interface OtherApp { package: string; label: string; icon: string | null;
 
 export interface DeviceConfig {
   entitlement?: Entitlement;
+  // True when the trial ended with no subscription: the apps stay but are greyed, websites and other apps are hidden.
+  locked?: boolean;
   otherApps?: OtherApp[];
   deviceId: string; state: 'active' | 'release' | 'released'; child: Child | null; apps: InstalledApp[]; hidden: string[];
   allowlist: AllowEntry[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string; appAccountToken?: string | null;

@@ -28,6 +28,8 @@ window.addEventListener('hashchange', () => { route.value = location.hash.replac
 export const go = (r: string) => { location.hash = `#/${r}`; };
 
 export const childName = computed(() => config.value?.child?.firstName ?? '');
+// The server decides this from the entitlement; an old config that predates the field reads as not locked.
+export const locked = computed(() => !!config.value?.locked);
 export const themeColors = computed(() => config.value?.child?.theme?.colors ?? []);
 
 export function refreshInstalled() { installed.value = shell.installedApps(); }

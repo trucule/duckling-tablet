@@ -1,5 +1,6 @@
 // Parents request new apps; each request becomes an ET Ducky ticket, and ticket status flows back here.
 import type { FastifyInstance } from 'fastify';
+import { requireSubscribed } from '../entitlement.js';
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
@@ -74,6 +75,7 @@ export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx
 
   app.post('/requests', async (req) => {
     const a = await parentAuth(ctx, req);
+    await ctx.db.family(a.familyId, (q) => requireSubscribed(q, a.familyId));
     const b = z.object({
       title: z.string().trim().min(3).max(80),
       description: z.string().trim().min(10).max(2000),

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type { Ctx } from '../context.js';
 import { deviceAuth } from '../auth.js';
 import { HttpError } from '../util.js';
+import { requireSubscribed } from '../entitlement.js';
 
 const APP_ID = /^[a-z0-9][a-z0-9-]{1,40}$/;
 
@@ -42,6 +43,7 @@ export default async function aiRoutes(app: FastifyInstance, { ctx }: { ctx: Ctx
 
     // One call against the allowance, inside the device's family transaction.
     await ctx.db.family(dv.familyId, async (t) => {
+      await requireSubscribed(t, dv.familyId);
       const used = (await t.one<{ calls: number }>('SELECT calls FROM ai_usage WHERE device_id = $1 AND app_id = $2 AND day = CURRENT_DATE FOR UPDATE', [dv.deviceId, appId]))?.calls ?? 0;
       if (used >= limit) throw new HttpError(429, 'Daily AI limit reached for this app');
       await t.run(`INSERT INTO ai_usage (family_id, device_id, app_id, day, calls) VALUES ($1, $2, $3, CURRENT_DATE, 1)

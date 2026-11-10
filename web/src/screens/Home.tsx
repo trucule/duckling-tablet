@@ -1,4 +1,5 @@
-import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState } from '../state';
+import { useState } from 'preact/hooks';
+import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked } from '../state';
 import { shell } from '../shell';
 import type { Entitlement, InstalledApp } from '../api';
 
@@ -16,13 +17,18 @@ function subscriptionNote(e: Entitlement | undefined) {
     return <><strong>Free trial: {d === 0 ? 'ends today' : `${d} day${d === 1 ? '' : 's'} left`}.</strong> {keep}</>;
   }
   if (e.status === 'grace') return <><strong>The last payment did not go through.</strong> Everything keeps running while the store tries again. Check the subscription in the parent area.</>;
-  return <><strong>The free trial has ended.</strong> {keep} Subscribe in the parent area.</>;
+  return <><strong>The free trial has ended, so the apps are locked.</strong> Subscribing in the parent area unlocks every app on this tablet and lets you request new apps at no charge.</>;
 }
 
 export function Home() {
   const c = config.value;
   const apps = [...(c?.apps ?? [])].sort((a, b) => a.name.localeCompare(b.name));
-  const open = (a: InstalledApp) => { if (installed.value[a.id]) shell.openApp(a.id); else if (!installing.value[a.id]) void retryInstall(a.id); };
+  // While the family is locked out the tiles stay (the apps are still here) but a tap only explains why.
+  const [lockNote, setLockNote] = useState(false);
+  const open = (a: InstalledApp) => {
+    if (locked.value) { setLockNote(true); setTimeout(() => setLockNote(false), 3000); return; }
+    if (installed.value[a.id]) shell.openApp(a.id); else if (!installing.value[a.id]) void retryInstall(a.id);
+  };
   // The child's own character in a circle: tapping it opens My Avatar, where she changes it. Until she saves one,
   // the circle shows her first letter. If My Avatar is not on this tablet, the tap installs it first.
   const avatarApp = c?.apps.find((a) => a.id === AVATAR);
@@ -57,7 +63,7 @@ export function Home() {
           const ready = !!installed.value[a.id];
           const busy = installing.value[a.id];
           return (
-            <button class="tile" key={a.id} onClick={() => open(a)} aria-label={a.name}>
+            <button class={`tile ${locked.value ? 'off' : ''}`} key={a.id} onClick={() => open(a)} aria-label={a.name}>
               <span class="art">
                 {a.tileUrl ? <img src={a.tileUrl} alt="" /> : <span>{a.name.slice(0, 1)}</span>}
                 {!ready && <span class="busy">{busy ?? 'Waiting'}</span>}
@@ -66,18 +72,19 @@ export function Home() {
             </button>
           );
         })}
-        {(c?.allowlist ?? []).filter((w) => w.tile).map((w) => (
+        {!locked.value && (c?.allowlist ?? []).filter((w) => w.tile).map((w) => (
           <button class="tile" key={w.host} onClick={() => (location.href = w.tile!.url)} aria-label={w.tile!.name}>
             <span class="art" style={{ background: w.tile!.color ?? '#fff' }}>&#127760;</span>
             <span class="name">{w.tile!.name}</span>
           </button>
         ))}
-        <button class="tile" onClick={() => go('store')} aria-label="Library">
+        <button class={`tile ${locked.value ? 'off' : ''}`} onClick={() => (locked.value ? open({ id: 'library' } as InstalledApp) : go('store'))} aria-label="Library">
           <span class="art">&#128218;</span>
           <span class="name">Library</span>
         </button>
       </div>
-      {(c?.otherApps ?? []).length > 0 && (
+      {lockNote && <div class="banner">The apps are locked. Ask a parent to subscribe.</div>}
+      {!locked.value && (c?.otherApps ?? []).length > 0 && (
         <>
           <h2 class="section">Other apps</h2>
           <div class="grid">

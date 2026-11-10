@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type { Ctx } from '../context.js';
 import { deviceAuth } from '../auth.js';
 import { HttpError, sha256 } from '../util.js';
+import { requireSubscribed } from '../entitlement.js';
 
 const VOICE = /^[a-z]{2}-[A-Z]{2}-[A-Za-z]+Neural$/;
 
@@ -61,6 +62,7 @@ export default async function ttsRoutes(app: FastifyInstance, { ctx, voice }: { 
 
   app.get('/tts', async (req, reply) => {
     const dv = await deviceAuth(ctx, req);
+    await ctx.db.family(dv.familyId, (t) => requireSubscribed(t, dv.familyId));
     const p = q.parse(req.query);
     const text = normalizeLine(p.text), v = p.voice ?? ctx.cfg.NARRATOR_VOICE;
 

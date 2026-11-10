@@ -359,6 +359,36 @@ describe('one-device signup', () => {
     expect((await app.inject({ method: 'GET', url: '/family', headers: other.auth })).json().subscription.status).toBe('trial');
   });
 
+  it('locks the tablet when the trial ends: config says so, and installs, requests, the AI writer and narration are refused until a subscription', async () => {
+    await publish('word-wizard', '1.0.0', { starter: true });
+    await publish('music-box', '1.0.0');
+    const p = await signIn('ends@example.com');
+    const child = (await app.inject({ method: 'POST', url: '/family/children', headers: p.auth, payload: { firstName: 'Ada', age: 6 } })).json();
+    const t = await pair(p.auth, child.id);
+    const cfg = async () => (await app.inject({ method: 'GET', url: '/device/config', headers: t.dev })).json();
+    expect((await cfg()).locked).toBe(false);
+    const ai = () => app.inject({ method: 'POST', url: '/ai/messages', headers: { ...t.dev, 'x-duckling-app': 'draw-with-me' }, payload: { model: 'm', max_tokens: 10, messages: [{ role: 'user', content: 'hi' }] } });
+    expect((await ai()).statusCode).toBe(200);
+    // The trial ends.
+    await db.system((q) => q.run("UPDATE entitlement SET current_period_end = now() - interval '1 minute' WHERE family_id = $1", [p.familyId]));
+    const c = await cfg();
+    expect(c.locked).toBe(true);
+    expect(c.entitlement.status).toBe('ended');
+    expect(c.apps.map((a: any) => a.id)).toEqual(['word-wizard']); // still listed: the tiles stay, greyed
+    expect((await app.inject({ method: 'PUT', url: '/device/apps/music-box', headers: t.dev })).statusCode).toBe(402);
+    expect((await ai()).statusCode).toBe(402);
+    expect((await app.inject({ method: 'GET', url: '/tts?text=hello', headers: t.dev })).statusCode).toBe(402);
+    expect((await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title: 'Dinosaur dig', description: 'Fossils and measuring' } })).statusCode).toBe(402);
+    // The parent can still reach the family, set the PIN, and the tablet still checks in (the lockdown must stay).
+    expect((await app.inject({ method: 'GET', url: '/family', headers: p.auth })).json().subscription.status).toBe('ended');
+    expect((await app.inject({ method: 'POST', url: '/device/checkin', headers: t.dev, payload: {} })).statusCode).toBe(200);
+    // A subscription unlocks everything again.
+    await db.system((q) => q.run("UPDATE entitlement SET status = 'active', source = 'google', current_period_end = now() + interval '30 days' WHERE family_id = $1", [p.familyId]));
+    expect((await cfg()).locked).toBe(false);
+    expect((await app.inject({ method: 'PUT', url: '/device/apps/music-box', headers: t.dev })).statusCode).toBe(200);
+    expect((await ai()).statusCode).toBe(200);
+  });
+
   it('signs the store review family in with the fixed code from the environment, sends it no mail, and is off when unset', async () => {
     // Off by default: the review address is an ordinary address.
     await app.inject({ method: 'POST', url: '/auth/code', payload: { email: 'review@example.com' } });

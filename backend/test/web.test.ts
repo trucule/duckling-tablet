@@ -116,6 +116,22 @@ describe.skipIf(!ready)('child web app', () => {
     for (const d of '1357') await t.getByRole('button', { name: d, exact: true }).click();
     await t.getByText('Free trial: 7 days left', { exact: false }).waitFor();
     await t.getByText('Ask for an app, at no extra cost.').waitFor();
+
+    // The trial ends: the next check-in locks the home screen. The apps stay as greyed tiles, a tap only explains,
+    // the Library is off, and the parent area still opens so a parent can subscribe.
+    await db.system((q) => q.run("UPDATE entitlement SET current_period_end = now() - interval '1 minute' WHERE family_id = (SELECT family_id FROM parent WHERE email = 'new@example.com')"));
+    await t.getByRole('button', { name: 'Sync with the website' }).click();
+    await t.getByText('The free trial has ended', { exact: false }).waitFor();
+    await t.getByRole('button', { name: 'Done' }).click();
+    await t.getByText('The free trial has ended, so the apps are locked', { exact: false }).waitFor();
+    await t.getByRole('button', { name: 'Word Wizard' }).click();
+    await t.getByText('The apps are locked. Ask a parent to subscribe.').waitFor();
+    expect(await t.getByRole('button', { name: 'Word Wizard' }).getAttribute('class')).toContain('off');
+    await t.getByRole('button', { name: 'Library' }).click();
+    await t.getByRole('heading', { name: "Noor's tablet" }).waitFor(); // still home, not the Library
+    await t.getByRole('button', { name: 'Parent', exact: true }).click();
+    for (const d of '1357') await t.getByRole('button', { name: d, exact: true }).click();
+    await t.getByRole('heading', { name: 'Parent area' }).waitFor();
     await fresh.close();
 
     // Installable and offline-capable: manifest and service worker are served.
