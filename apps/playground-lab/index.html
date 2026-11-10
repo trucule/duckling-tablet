@@ -13419,6 +13419,7 @@ function toast(t) { const el = document.getElementById('toast'); el.textContent 
 function spawnSpot() { return [Math.random() * 6 - 3, 6 + Math.random() * 2, (Math.random() - 0.5) * 3]; }
 document.querySelectorAll('#tools button').forEach(b => b.addEventListener('pointerdown', e => {
   e.preventDefault(); audio(); const k = b.dataset.add;
+  if (k === 'broom' && window.chRestage && chRestage()) return;
   if (k === 'broom') { for (const t of things) remove(t); things.length = 0; sling.spring = null; loadSling(); catapult.ball = null; toast('All clear!'); return; }
   if (k === 'pins') { const [x, y, z] = spawnSpot(); rackPins(x, z); return; }
   add(k, ...spawnSpot()); if (k === 'balloon') toast('Balloons float up!'); if (k === 'feather') toast('Feathers fall slowly.');
@@ -13429,7 +13430,7 @@ document.getElementById('wind').onclick = () => { toast('Whoosh!'); sfx('whoosh'
 document.getElementById('look').onclick = () => { camIdx = (camIdx + 1) % CAMS.length; setCam(); };
 document.getElementById('sound').onclick = (e) => { muted = !muted; e.currentTarget.textContent = muted ? '🔇' : '🔊'; };
 document.getElementById('reset').onclick = () => { build(); toast('All set up again!'); };
-document.getElementById('fire').addEventListener('pointerdown', e => { e.preventDefault(); audio(); fireCatapult(); });
+document.getElementById('fire').addEventListener('pointerdown', e => { e.preventDefault(); audio(); if (window.chFire && chFire()) return; fireCatapult(); });
 
 // ---------------------------------------------------------------------------
 // Frame
@@ -13456,6 +13457,923 @@ function frame(now) {
 }
 build(); requestAnimationFrame(frame);
 window.PG = { step: (t) => { for (let i = 0; i < Math.round(t * 120); i++) world.step(1 / 120); }, world, scene, get sling() { return sling; }, get catapult() { return catapult; }, get things() { return things; }, add, fireCatapult, fireSling, build, CANNON };
+</script>
+<style>
+  /* Challenges mode: a card at the top, the launcher controls bottom left, a number pad or choices bottom right. */
+  #chGo { position: fixed; top: 10px; left: 100px; border: 4px solid var(--ink); border-radius: 999px; background: var(--sun); color: var(--ink); font: 900 22px system-ui, sans-serif; padding: 8px 20px; cursor: pointer; touch-action: manipulation; box-shadow: 0 4px 0 rgba(43,33,64,.35); }
+  #chGo:active { transform: scale(.95); }
+  #chCard { position: fixed; top: 8px; left: 100px; right: 222px; max-width: 780px; display: none; background: rgba(255,255,255,.96); border: 3px solid var(--ink); border-radius: 22px; padding: 8px 14px 10px; box-shadow: 0 4px 0 rgba(43,33,64,.3); }
+  #chCard .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #chLv { background: var(--grape); color: #fff; border-radius: 999px; padding: 3px 12px; font-weight: 900; font-size: 16px; }
+  #chStars { font-weight: 900; font-size: 18px; white-space: nowrap; }
+  #chCard .sp { flex: 1; }
+  #chCard button, #chLaunch button, #chPad button { border: 3px solid var(--ink); border-radius: 999px; background: #FAF6FF; color: var(--ink); font: 800 16px system-ui, sans-serif; padding: 4px 12px; cursor: pointer; touch-action: manipulation; }
+  #chCard button:active, #chLaunch button:active, #chPad button:active { transform: scale(.94); }
+  #chNext { background: var(--leaf) !important; display: none; }
+  #chText { font-size: 21px; font-weight: 800; line-height: 1.25; margin: 6px 0 2px; }
+  #chMsg { font-size: 17px; font-weight: 700; color: #5a3fa0; min-height: 1.25em; }
+  #chMsg.good { color: #1f8a4c; } #chMsg.bad { color: #c2364f; }
+  .chPanel { position: fixed; bottom: 12px; display: none; background: rgba(255,255,255,.95); border: 3px solid var(--ink); border-radius: 20px; padding: 8px 10px; }
+  #chLaunch { left: 100px; }
+  #chLaunch .row { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-weight: 900; font-size: 16px; }
+  #chLaunch .lab { width: 52px; }
+  #chLaunch .val { min-width: 74px; text-align: center; font-size: 20px; }
+  #chLaunch .st { width: 44px; height: 40px; padding: 0; font-size: 22px; }
+  #chLaunch .st:disabled { opacity: .3; }
+  #chLaunch .ball { width: 44px; height: 40px; padding: 0; font-size: 22px; }
+  #chLaunch .ball.on { background: var(--sun); }
+  #chBody { display: flex; gap: 12px; align-items: flex-start; }
+  #chWords { flex: 1; min-width: 0; }
+  #chPad { display: none; width: 282px; flex: none; margin-top: 6px; }
+  #chPadTop { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+  #chPadLab { font-weight: 800; font-size: 14px; flex: 1; text-align: right; line-height: 1.1; }
+  #chPadVal { background: #fff; border: 3px solid var(--ink); border-radius: 12px; font: 900 22px system-ui, sans-serif; text-align: center; width: 110px; height: 32px; line-height: 32px; }
+  #chKeys { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  #chKeys button { height: 38px; font-size: 19px; padding: 0; border-radius: 10px; }
+  #chChoices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  #chChoices button { font-size: 20px; padding: 6px; border-radius: 14px; }
+  #chChoices button.on { background: var(--sun); }
+  body.ch #chGo { display: none; } body.ch #chCard { display: block; }
+  body.ch #toast { top: 150px; }
+  @media (max-height: 700px) { #chText { font-size: 19px; } #chKeys button { height: 34px; } }
+</style>
+<button id="chGo" title="Challenges">🏆 Challenges</button>
+<div id="chCard" aria-live="polite">
+  <div class="row"><span id="chLv">Level</span><span id="chStars">⭐ 0</span><span class="sp"></span>
+    <button id="chHint">💡 Hint</button><button id="chSkip">⏭ Skip</button><button id="chNext">Next ▶</button><button id="chExit">🎈 Free play</button></div>
+  <div id="chBody"><div id="chWords"><div id="chText"></div><div id="chMsg"></div></div>
+    <div id="chPad"><div id="chPadTop"><span id="chPadLab">Your guess</span><span id="chPadVal"></span></div><div id="chKeys"></div><div id="chChoices"></div></div></div>
+</div>
+<div id="chLaunch" class="chPanel">
+  <div class="row" id="chBallRow"><span class="lab">Ball</span><button class="ball" data-ball="tennis" title="Bouncy ball">🎾</button><button class="ball" data-ball="beach" title="Beach ball">🏐</button><button class="ball" data-ball="bowling" title="Bowling ball">🎳</button></div>
+  <div class="row" id="chDegRow"><span class="lab">Angle</span><button class="st" data-k="deg" data-d="-1">−</button><span class="val" id="chDeg">45°</span><button class="st" data-k="deg" data-d="1">+</button></div>
+  <div class="row" id="chVRow"><span class="lab">Speed</span><button class="st" data-k="v" data-d="-1">−</button><span class="val" id="chV">5 m/s</span><button class="st" data-k="v" data-d="1">+</button></div>
+</div>
+<script>
+// ===========================================================================
+// Challenges: a ladder of goals from pre-K to 8th grade, played in the same physics world as free play.
+// Free play is untouched and is what the app opens to; the 🏆 button enters Challenges, 🎈 goes back.
+// Every check reads the physics state: where a body is, whether it tipped, how high it bounced, where a launched
+// ball landed, how fast a crate slides, the torque on the balance beam. Most challenges happen in the front lane
+// (z = 5), between the dominoes and the front fence, where nothing else stands.
+// ===========================================================================
+const LANE = 5, LX0 = -10.8, DT = 1 / 120, G_EARTH = 9.82, G_MOON = 1.62, CH_KEY = 'playground-lab-challenges';
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const r1 = (x) => Math.round(x * 10) / 10, r2 = (x) => Math.round(x * 100) / 100;
+const fmt = (x) => String(r2(x));
+const need = (ok, msg) => { if (!ok) throw new Error(msg); return true; };
+const NAMES = { beach: 'beach ball', bowling: 'bowling ball', tennis: 'bouncy ball', crate: 'crate', balloon: 'balloon', feather: 'feather' };
+const RAD = { beach: 0.6, bowling: 0.42, tennis: 0.3 };
+const COLORS = [['red', 0xFF4F4F], ['blue', 0x3D7BFF], ['yellow', 0xFFD23C], ['green', 0x138A45], ['purple', 0x9B6BFF], ['orange', 0xFF8C42], ['pink', 0xFF7AC0]];
+const steps = (lo, hi, st) => { const a = []; for (let x = lo; x <= hi + 1e-9; x += st) a.push(r2(x)); return a; };
+const restY = (kind) => { const k = KINDS[kind]; return k.r ? k.r + 0.01 : k.box ? k.box[1] + 0.01 : 0.5; };
+const inLane = (x, half) => x - (half || 0) >= -12.6 && x + (half || 0) <= 12.6;
+// Friction and bounce come from the same contact materials the physics uses.
+function cmOf(kind, other) { return world.getContactMaterial(MAT[KINDS[kind].mat], other) || world.defaultContactMaterial; }
+const SLIDE_TAN = Math.tan(0.85);
+
+// The flight of a launched ball, stepped exactly the way the physics steps it (fixed 1/120 s, gravity, no drag on
+// launched balls). x is the distance from the launch point. Used to place targets and to prove every one reachable.
+function flight(v, deg, o) {
+  o = o || {};
+  const g = o.g || G_EARTH, r = o.r || 0.3, a = deg * Math.PI / 180;
+  let x = 0, y = o.y0 != null ? o.y0 : r + 0.02, vx = v * Math.cos(a), vy = v * Math.sin(a), top = y, t = 0, clear = true, hit = null, entered = false, yAt = null;
+  for (let i = 0; i < 20000; i++) {
+    vy -= g * DT; x += vx * DT; y += vy * DT; t += DT; if (y > top) top = y;
+    if (o.at != null && yAt == null && x >= o.at) yAt = y;
+    if (o.wall && x + r > o.wall.a && x - r < o.wall.b && y - r < o.wall.h) clear = false;
+    if (o.box && !entered && x + r >= o.box.a) { entered = true; if (y >= o.box.lo && y <= o.box.hi) hit = { y, v: Math.hypot(vx, vy) }; }
+    if (y <= r && vy < 0) return { x, top, t, clear, hit, yAt };
+  }
+  return { x: Infinity, top, t, clear: false, hit, yAt };
+}
+
+// ---------------------------------------------------------------------------
+// Generators. Each returns a plain task: what she is asked, a hint, what the stage holds, and prove(), which shows
+// the goal can be reached with the controls on screen (a solve over the launcher's settings, or a physical rule
+// such as "friction is lower than the slope" or "dominoes stand closer than they are tall").
+// ---------------------------------------------------------------------------
+function genPlace() {
+  const kind = pick(['beach', 'bowling', 'tennis', 'crate', 'beach', 'crate']), [cn, col] = pick(COLORS);
+  const mx = rnd(-7, 7), side = pick([-1, 1]); let ox = mx + side * rnd(3, 5); if (!inLane(ox, 1)) ox = mx - side * rnd(3, 5);
+  const n = NAMES[kind];
+  const text = pick([`Push the ${n} onto the ${cn} mat.`, `Pull the ${n} over to the ${cn} mat.`, `Can you move the ${n} onto the ${cn} mat?`, `Slide the ${n} to the ${cn} mat.`, `The ${n} wants to sit on the ${cn} mat. Push it there.`]);
+  return { type: 'place', kind, text, hint: `Touch the ${n} and drag it with your finger.`, win: pick(['You pushed it there!', 'Right on the mat!', 'Push and pull. You did it!']),
+    mat: { x: mx, z: LANE, w: 2.2, d: 1.8, col }, obj: { x: ox },
+    prove() { return need(inLane(mx, 1.1) && inLane(ox, 0.6) && Math.abs(ox - mx) >= 2.5, 'mat out of lane'); } };
+}
+function genKnock() {
+  if (Math.random() < 0.5) {
+    const k = rnd(2, 3), x = rnd(-6, 6);
+    return { type: 'knock', text: pick(['Knock down the tower of crates.', 'Make the crate tower fall over.', `Push the ${k} crates over. Crash!`, 'Can you knock the tower down?']),
+      hint: 'Push it with your finger, or roll a ball into it.', win: pick(['Crash! Down it goes.', 'You knocked it over!']),
+      tower: { x, k }, needTop: k - 1,
+      prove() { return need(inLane(x, 0.5) && k >= 2, 'tower'); } };
+  }
+  const n = rnd(3, 6), want = rnd(2, n), x = rnd(-7, 4);
+  return { type: 'knock', text: pick([`Knock down ${want} pins.`, `Can you knock over ${want} pins?`, `Make ${want} pins fall down.`]),
+    hint: 'Roll a ball into the pins, or push them with your finger.', win: pick(['Strike!', 'The pins fell down!']),
+    pins: { x, n }, needPins: want,
+    prove() { return need(inLane(x, 0) && inLane(x + 0.6 * (n - 1), 0.3) && want <= n, 'pins'); } };
+}
+function genSlide() {
+  const v = rnd(0, 4), ball = pick(['tennis', 'beach', 'bowling']), b = NAMES[ball];
+  const objs = v <= 1 ? [ball] : v <= 3 ? ['crate'] : [ball, 'crate'];
+  const text = v === 0 ? pick([`Put the ${b} at the top of the slide. Let go and watch it roll down.`, `Balls roll. Roll the ${b} down the slide.`])
+    : v === 1 ? pick([`Lift the ${b} up the slide and let it roll down.`, `Can the ${b} roll all the way down the slide?`])
+    : v <= 3 ? pick(['Boxes slide. Slide the crate down the slide.', 'Put the crate on the slide and let it slide down.', 'Can the crate slide down the slide?'])
+    : `Roll the ${b} and slide the crate down the slide.`;
+  return { type: 'slide', objs, text, hint: 'Lift it up high onto the blue slide, then let go.', win: pick(['Whee! Down the slide.', 'Balls roll and boxes slide!']),
+    prove() { for (const k of objs) need(cmOf(k, MAT.slide).friction < SLIDE_TAN, 'too much friction for ' + k); return true; } };
+}
+function genBounce() {
+  // Balls only: a ball meets the trampoline at one point and keeps its bounce, a crate lands on a corner and loses it.
+  const kind = pick(['beach', 'tennis', 'bowling', 'tennis']), H = pick([2.5, 3, 3.5, 4, 4.5, 5]), n = NAMES[kind];
+  const text = pick([`Drop the ${n} on the trampoline. Make it bounce up to the star.`, `Bounce the ${n} as high as the star.`, `Let go of the ${n} over the trampoline. Can it reach the star?`]);
+  return { type: 'bounce', kind, H, text, hint: 'Lift it up high over the pink trampoline, then let go.', win: pick(['Boing! Up to the star!', 'What a bounce!']),
+    prove() { const e = cmOf(kind, MAT.tramp).restitution; return need(KINDS[kind].mat === 'ball' && e >= 1 && H <= 6, 'star out of reach'); } };
+}
+// A big push and a small push: the ball's speed as it rolls past the flag tells which one she gave. A let-go ball
+// keeps the finger's speed (see throwSpeed), and a rolling ball keeps most of it, so any speed from slow to fast is
+// in reach.
+const PUSH_FAST = 2.5, PUSH_SLOW = 1.5;
+function genPush() {
+  const hard = Math.random() < 0.5, kind = pick(['tennis', 'beach', 'bowling']), F = rnd(-3, 7), n = NAMES[kind];
+  const text = hard ? pick([`Give the ${n} a big push. Let go before the white line. Make it zoom past the flag.`, `Push hard! Roll the ${n} past the flag, fast.`, 'A big push makes it go fast. Zoom the ball past the flag.'])
+    : pick([`Give the ${n} a small push. Let go before the white line. Make it roll slowly past the flag.`, `Gently! Roll the ${n} past the flag nice and slow.`, 'A small push makes it go slow. Roll the ball slowly past the flag.']);
+  return { type: 'flick', mode: hard ? 'hard' : 'soft', kind, flag: F, text,
+    hint: hard ? 'Drag it fast toward the flag and let go before the white line.' : 'Move your finger slowly toward the flag and let go before the white line.',
+    win: hard ? pick(['A big push, a fast roll!', 'Zoom! A big push makes it fast.']) : pick(['A small push, a slow roll!', 'Nice and gentle. A small push makes it slow.']),
+    prove() { return need(inLane(F, 0.3) && F >= -3 && PUSH_FAST * 1.4 < 10 && PUSH_SLOW > 0.3, 'flag or speeds out of reach'); } };
+}
+function genFloat() {
+  const v = rnd(0, 2), [cn, col] = pick(COLORS);
+  if (v === 0) {
+    const sx = rnd(-6, 6), H = pick([3.5, 4, 4.5, 5, 5.5]), bx = sx + pick([-1, 1]) * rnd(3, 4);
+    return { type: 'float', mode: 'balloon', star: { x: sx, y: H }, bx: inLane(bx, 1) ? bx : sx - (bx - sx),
+      text: pick(['Balloons float up. Let the balloon float up to the star.', 'Let go of the balloon under the star. Up it goes!', 'Help the balloon float up and touch the star.']),
+      hint: 'Drag the balloon right under the star, then let go.', win: pick(['Up, up, up to the star!', 'Balloons float up!']),
+      prove() { return need(inLane(sx, 1) && H <= 6, 'star'); } };
+  }
+  if (v === 1) {
+    const mx = rnd(-7, 7), fx = mx + pick([-1, 1]) * rnd(3, 5);
+    return { type: 'float', mode: 'feather', mat: { x: mx, z: LANE, w: 2.4, d: 1.8, col }, fx: inLane(fx, 1) ? fx : mx - (fx - mx),
+      text: pick([`Feathers fall slowly. Drop the feather onto the ${cn} mat.`, `Hold the feather up high, then drop it on the ${cn} mat.`]),
+      hint: 'Lift the feather up above the mat and let go. Watch it float down.', win: pick(['Down it floats, slowly.', 'Soft landing!']),
+      prove() { return need(inLane(mx, 1.2), 'mat'); } };
+  }
+  const kind = pick(['tennis', 'bowling', 'beach']), rx = rnd(-7, 7), ox = rx + pick([-1, 1]) * rnd(3, 4), n = NAMES[kind];
+  return { type: 'float', mode: 'drop', kind, ring: { x: rx }, ox: inLane(ox, 1) ? ox : rx - (ox - rx),
+    text: pick([`Things fall down. Lift the ${n} up high and drop it in the ring.`, `Drop the ${n} into the ring. Down it falls!`]),
+    hint: 'Lift it up high right above the ring, then let go.', win: pick(['Down it fell, right in the ring!', 'Gravity pulls it down!']),
+    prove() { return need(inLane(rx, 1.2), 'ring'); } };
+}
+function genDomino() {
+  const n = rnd(6, 10), s = pick([0.45, 0.5, 0.55]), x0 = rnd(-8, 8 - Math.ceil(n * s)), ball = Math.random() < 0.3;
+  const text = ball ? `Roll a ball into the first domino. Can you knock down all ${n}?`
+    : pick(['Push the first domino. Make the whole row fall.', `Knock down all ${n} dominoes.`, 'Start a chain! Tip one domino and watch them all fall.', `Tip the end domino. Can all ${n} fall down?`]);
+  return { type: 'domino', n, s, x0, ball, text, hint: 'Push the end domino toward the others. If the chain stops, push the next one.', win: pick(['A chain reaction! One push did it all.', 'They all fell down!']),
+    // Reachable: every domino can be tipped by hand, and a tipped one leans past 15 degrees on its neighbor.
+    prove() { const lean = Math.asin((s - 0.14) / 0.8) * 180 / Math.PI; return need(s < 0.8 - 0.15 && lean > 16 && inLane(x0, 0.5) && inLane(x0 + s * (n - 1), 0.5), 'domino row'); } };
+}
+
+// The launcher: where its ball starts, and a search over the settings she can choose.
+function launchStart(t, ball) { const r = RAD[ball]; return t.table ? { x: t.table.edge + r + 0.02, y: t.table.h + r + 0.02 } : { x: LX0, y: r + 0.02 }; }
+function launchHits(t, ball, deg, v) {
+  const s = launchStart(t, ball), f = flight(v, deg, { g: t.g, y0: s.y, r: RAD[ball], wall: t.wallRel, box: t.boxRel });
+  if (t.mode === 'crash') return !!(f.hit && 0.5 * KINDS[ball].mass * f.hit.v * f.hit.v >= 70);
+  const x = s.x + f.x; return f.clear && Math.abs(x - t.zone.c) <= t.zone.w / 2 - 0.05 && x + RAD[ball] < 13.6;
+}
+function solveLaunch(t) {
+  const L = t.ui.launcher;
+  for (const ball of L.balls || [t.ball]) for (const deg of steps(...L.deg)) for (const v of steps(...L.v)) if (launchHits(t, ball, deg, v)) return { ball, deg, v };
+  return null;
+}
+function proveLaunch(t) { const s = solveLaunch(t); need(s, 'no launcher setting reaches the target'); t.solution = s; return true; }
+function zoneAt(x, w, col) { return { c: x, w, col }; }
+function launchTask(o) { return Object.assign({ type: 'launch', g: G_EARTH, ball: 'tennis', prove() { return proveLaunch(this); } }, o); }
+
+function genSpeed() {
+  for (let k = 0; k < 60; k++) {
+    const ball = pick(['tennis', 'tennis', 'beach', 'bowling']), r = RAD[ball], v = rnd(5, 14), f = flight(v, 45, { r });
+    const c = r1(LX0 + f.x + (Math.random() - 0.5) * 1.2), [cn, col] = pick(COLORS);
+    if (c - LX0 < 2.5 || c + 1.2 > 12.4) continue;
+    return launchTask({ mode: 'zone', ball, zone: zoneAt(c, 2.4, col), ui: { launcher: { deg: [45, 45, 5], v: [1, 16, 1] } }, start: { deg: 45, v: 3 },
+      text: pick([`Land the ball on the ${cn} mat. Change the speed, then launch.`, `More speed sends the ball farther. Hit the ${cn} mat.`, `The angle stays the same. Pick a speed that lands on the ${cn} mat.`]),
+      hint: 'Faster launches go farther. Slower launches land closer.', win: pick(['Right on the mat! More push, more distance.', 'Bullseye! You found the right speed.']) });
+  }
+  return genSpeed();
+}
+function genAim() {
+  for (let k = 0; k < 80; k++) {
+    const ball = 'tennis', r = RAD[ball], deg = rnd(4, 14) * 5, v = rnd(7, 14), f = flight(v, deg, { r }), [cn, col] = pick(COLORS);
+    const w = pick([2, 2, 1.6]), c = r1(LX0 + f.x + (Math.random() - 0.5) * (w - 0.6));
+    if (c - LX0 < 4 || c + w / 2 > 12.4) continue;
+    const t = launchTask({ mode: 'zone', ball, zone: zoneAt(c, w, col), ui: { launcher: { deg: [15, 75, 5], v: [1, 16, 1] } }, start: { deg: 30, v: 6 },
+      text: pick([`Aim the launcher. Change the angle and the speed to land on the ${cn} mat.`, `Land the ball on the ${cn} mat. Try a new angle or speed each time.`]),
+      hint: 'Change one thing at a time. A higher angle flies higher, more speed flies farther.', win: pick(['Great aim!', 'Angle and speed just right!']) });
+    if (Math.random() < 0.55) {
+      const a = r1(f.x * (0.3 + Math.random() * 0.3)), y = flight(v, deg, { r, at: a }).yAt, h = r1(Math.min(4, y - r - 0.7));
+      if (!(h >= 0.9) || a < 2) continue;
+      t.wall = { x: LX0 + a, h }; t.wallRel = { a: a - 0.2, b: a + 0.2, h };
+      t.text = pick([`Get the ball over the wall and onto the ${cn} mat.`, `A wall is in the way. Launch the ball over it and land on the ${cn} mat.`]);
+      t.hint = 'A higher angle sends the ball up over the wall. Then change the speed.';
+    }
+    return t;
+  }
+  return genAim();
+}
+function genCrash() {
+  for (let k = 0; k < 60; k++) {
+    const D = rnd(6, 14), kk = rnd(2, 3), xt = LX0 + D, top = Math.random() < 0.5;
+    const t = launchTask({ mode: 'crash', ball: 'tennis', tower: { x: xt, k: kk }, needTop: top ? 1 : kk - 1, boxRel: { a: D - 0.45, b: D + 0.45, lo: 0.9 * (kk - 1), hi: 0.9 * kk },
+      ui: { launcher: { deg: [10, 75, 5], v: [1, 16, 1], balls: ['tennis', 'beach', 'bowling'] } }, start: { deg: 20, v: 6, ball: 'tennis' },
+      text: top ? pick(['Knock the top crate off the tower. Pick a ball, an angle and a speed.', 'Hit the top crate hard enough to knock it off.'])
+        : pick(['Knock the whole tower down. Heavy, fast balls carry more energy.', 'Crash into the tower and knock all the crates off.']),
+      hint: 'A heavy ball moving fast carries the most energy. Try the bowling ball.', win: pick(['Crash! That ball had lots of energy.', 'Energy moved from the ball to the crates!']) });
+    try { if (proveLaunch(t)) return t; } catch (e) { /* tower out of reach for every setting: draw again */ }
+  }
+  return genCrash();
+}
+function genMoon() {
+  for (let k = 0; k < 80; k++) {
+    const fixed = Math.random() < 0.35, cap = pick([5, 6]), v = rnd(3, cap), deg = fixed ? 45 : rnd(5, 13) * 5, r = RAD.tennis;
+    const f = flight(v, deg, { g: G_MOON, r }), [cn, col] = pick(COLORS), c = r1(LX0 + f.x + (Math.random() - 0.5) * 1.4);
+    if (f.x < 7 || c + 1.2 > 12.4) continue;
+    return launchTask({ mode: 'zone', g: G_MOON, ball: 'tennis', zone: zoneAt(c, 2.4, col), needMoon: true,
+      ui: { launcher: { deg: fixed ? [45, 45, 5] : [15, 75, 5], v: [1, cap, 1] } }, start: { deg: 45, v: 2 },
+      text: pick([`The ${cn} mat is too far for Earth gravity. Turn on Moon gravity, then land the ball on the mat.`, `Gravity on the Moon pulls less. Use Moon gravity to reach the ${cn} mat.`, `This launcher only goes up to ${cap} m/s. Try it on the Moon and land on the ${cn} mat.`]),
+      hint: 'Tap the 🌙 button. Weaker gravity lets the ball fly much farther.', win: pick(['Moon gravity pulls less, so the ball flew farther!', 'A Moon landing!']) });
+  }
+  return genMoon();
+}
+
+// Balance beam: pegs 1 to 4 on each side, at most two things per peg. Crates are 3 kg, the bowling ball is 7 kg.
+const BEAM_X = 2, BEAM_Y = 3.0, BEAM_ARM = 2.0, BEAM_HALF = 4.6, MASS = { crate: 3, bowling: 7 };
+const PEG_LOADS = [[], ['crate'], ['bowling'], ['crate', 'crate'], ['crate', 'bowling']];
+function solveBeam(T, tray, rule) {
+  const pegs = [1, 2, 3, 4], out = [];
+  const go = (i, torque, used) => {
+    if (i === pegs.length) {
+      if (torque !== T || used.n === 0) return null;
+      if (rule === 'crates' && used.bowling) return null; if (rule === 'bowl' && used.bowling !== 1) return null;
+      return out.slice();
+    }
+    for (const load of PEG_LOADS) {
+      const c = load.filter(k => k === 'crate').length, b = load.length - c;
+      if (used.crate + c > tray.crate || used.bowling + b > tray.bowling) continue;
+      out.push(load.map(k => k + '@' + pegs[i]));
+      const r = go(i + 1, torque + load.reduce((s, k) => s + MASS[k] * pegs[i], 0), { crate: used.crate + c, bowling: used.bowling + b, n: used.n + load.length });
+      out.pop(); if (r) return r;
+    }
+    return null;
+  };
+  return go(0, 0, { crate: 0, bowling: 0, n: 0 });
+}
+function descLoads(left) {
+  const list = (a) => a.length === 1 ? String(a[0]) : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+  const c = left.filter(l => l.kind === 'crate').map(l => l.peg).sort((a, b) => a - b), b = left.find(l => l.kind === 'bowling'), out = [];
+  if (c.length) out.push(c.length === 1 ? `a 3 kg crate at peg ${c[0]}` : `3 kg crates at pegs ${list(c)}`);
+  if (b) out.push(`the 7 kg bowling ball at peg ${b.peg}`);
+  return out.join(' and ');
+}
+function beamTask(left, rule, tray, o) {
+  const T = left.reduce((s, l) => s + MASS[l.kind] * l.peg, 0);
+  return Object.assign({ type: 'beam', left, rule, tray, T, prove() { const s = solveBeam(T, tray, rule); need(s, 'beam has no balance'); this.solution = s; return true; } }, o);
+}
+function genBalance() {
+  const v = rnd(0, 3), p = rnd(1, 4), q = pick([1, 2, 3, 4].filter(x => x !== p));
+  const left = v === 0 ? [{ kind: 'crate', peg: p }] : v === 1 ? [{ kind: 'crate', peg: p }, { kind: 'crate', peg: p }] : v === 2 ? [{ kind: 'bowling', peg: p }] : [{ kind: 'crate', peg: p }, { kind: 'crate', peg: q }];
+  return beamTask(left, 'any', { crate: 4, bowling: 1 }, {
+    text: pick(['The beam tips to one side. Add weight to the other side to make it level.', 'Make the beam balance. Use things from the pile.', 'Balance the beam. Put the same weight at the same spot on the other side.']),
+    hint: 'Same weight, same distance from the middle. Count the pegs.', win: pick(['Balanced! The forces are equal.', 'Level! Both sides pull the same.']) });
+}
+function genLever() {
+  for (let k = 0; k < 80; k++) {
+    const n = rnd(1, 3), left = [], used = {};
+    for (let i = 0; i < n; i++) { const peg = rnd(1, 4); if ((used[peg] || 0) >= 2) continue; used[peg] = (used[peg] || 0) + 1; left.push({ kind: Math.random() < 0.35 ? 'bowling' : 'crate', peg }); }
+    if (!left.length || left.filter(l => l.kind === 'bowling').length > 1) continue;
+    // The rule rules out copying the left side: a bowling ball on the left means crates only on the right, all crates on
+    // the left means the bowling ball goes on the right.
+    const hasB = left.some(l => l.kind === 'bowling'), rule = hasB ? 'crates' : 'bowl';
+    const t = beamTask(left, rule, { crate: 5, bowling: 1 }, {
+      text: `Left side: ${descLoads(left)}. ${rule === 'crates' ? 'Balance it using only crates.' : 'Balance it, and use the bowling ball on the right.'}`,
+      hint: '', win: pick(['Balanced! Weight times distance is the same on both sides.', 'Level! The turning forces match.']) });
+    t.hint = `Weight times distance must match. Left side: ${left.map(l => MASS[l.kind] + ' × ' + l.peg).join(' + ')} = ${t.T}.`;
+    try { if (t.prove()) return t; } catch (e) { /* no balance with the pile: draw again */ }
+  }
+  return genLever();
+}
+
+// Ice lane: no friction, so a push changes speed exactly as F = m × a says.
+function genForce() {
+  const v = rnd(0, 3), m = rnd(1, 5), sp = pick([1, 1.5, 2, 2.5, 3, 4, 5, 6]), secs = v === 1 ? 2 : 1;
+  const F = r2(m * sp / secs);
+  if (F > 40 || !Number.isInteger(F * 2)) return genForce();
+  const base = { type: 'ice', m, secs, tol: 0.2, prove() {
+    // The ice has no friction and the crate no drag, so the speed after the push is exactly F ÷ m × time.
+    const F = this.mode === 'setF' ? this.answer : this.F, v = F / m * secs;
+    need(Math.abs((this.mode === 'accel' ? F / m : v) - (this.mode === 'setF' ? this.target : this.answer)) < 0.05, 'push numbers');
+    return need(v <= 7 && -9 + 0.5 * v * secs < 12, 'crate leaves the ice');
+  } };
+  if (v <= 1) return Object.assign(base, { mode: 'predict', F, answer: sp, unit: 'm/s', padLab: 'Speed (m/s)',
+    text: `The rocket pushes a ${m} kg crate with ${fmt(F)} newtons for ${secs} second${secs > 1 ? 's' : ''}. Predict its speed, then press Go.`,
+    hint: `Acceleration = force ÷ mass = ${fmt(F)} ÷ ${m}. Speed = acceleration × time.`, win: 'Newton\'s second law! Force ÷ mass gives the acceleration.' });
+  if (v === 2) return Object.assign(base, { mode: 'setF', target: sp, answer: F, unit: 'N', padLab: 'Push (newtons)',
+    text: `Make the ${m} kg crate reach ${fmt(sp)} m/s after a 1 second push. Type the push in newtons, then press Go.`,
+    hint: `Force = mass × acceleration. It must gain ${fmt(sp)} m/s in 1 second.`, win: 'Just the right push! F = m × a.' });
+  return Object.assign(base, { mode: 'accel', F, answer: sp, unit: 'm/s²', padLab: 'Acceleration', tol: 0.2,
+    text: `A ${fmt(F)} newton push acts on a ${m} kg crate. Predict its acceleration in meters per second each second, then press Go.`,
+    hint: `Acceleration = force ÷ mass = ${fmt(F)} ÷ ${m}.`, win: 'Right! More mass means less acceleration for the same push.' });
+}
+function genStick() {
+  for (let k = 0; k < 200; k++) {
+    const m1 = rnd(1, 4), m2 = rnd(1, 4), v1 = rnd(2, 8), vf = m1 * v1 / (m1 + m2), mode = pick(['predict', 'predict', 'setV', 'momentum']);
+    if (Math.abs(vf * 10 - Math.round(vf * 10)) > 1e-9 || vf < 0.5) continue;
+    const base = { type: 'stick', mode, m1, m2, v1, vf: r1(vf), tol: 0.2, prove() { need(Math.abs(this.m1 * this.v1 / (this.m1 + this.m2) - this.vf) < 0.01, 'momentum numbers'); need(this.v1 <= 9, 'too fast'); return true; } };
+    if (mode === 'predict') return Object.assign(base, { answer: r1(vf), unit: 'm/s', padLab: 'Speed after (m/s)',
+      text: `A ${m1} kg crate slides at ${v1} m/s into a ${m2} kg crate. They stick together. Predict their speed, then press Go.`,
+      hint: `Momentum = mass × speed stays the same. ${m1} × ${v1} = ${m1 * v1}. Share it over ${m1 + m2} kg.`, win: 'Momentum is conserved! The total stays the same in a crash.' });
+    if (mode === 'setV') return Object.assign(base, { answer: v1, unit: 'm/s', padLab: 'Speed of the first crate', target: r1(vf),
+      text: `Make the two stuck crates move at ${fmt(vf)} m/s. How fast must the ${m1} kg crate hit the ${m2} kg crate? Type it, then press Go.`,
+      hint: `Momentum after = ${m1 + m2} × ${fmt(vf)}. The first crate alone must carry it all.`, win: 'Just right! Momentum before equals momentum after.' });
+    return Object.assign(base, { answer: m1 * v1, unit: 'kg m/s', padLab: 'Momentum (kg m/s)', tol: 0.3,
+      text: `A ${m1} kg crate slides at ${v1} m/s into a ${m2} kg crate and sticks. Predict the total momentum after the crash, then press Go.`,
+      hint: 'Momentum = mass × speed. In a crash the total does not change.', win: 'Momentum before equals momentum after!' });
+  }
+  return genStick();
+}
+
+// Off the table: a ball leaves a table sideways at a set speed and falls. Fall time t = √(2h ÷ g).
+const TABLE_H = [1.2, 1.8, 2.5, 3.2, 4.9];
+function genTable() {
+  const h = pick(TABLE_H), t = Math.sqrt(2 * h / 9.8), v = rnd(2, 9), mode = pick(['dist', 'dist', 'time', 'setV']), r = RAD.tennis;
+  const table = { h, edge: -9 }, [cn, col] = pick(COLORS);
+  const base = launchTask({ table, ball: 'tennis', ui: { launcher: { deg: [0, 0, 5], v: [v, v, 1] } }, start: { deg: 0, v }, hv: v,
+    prove() {
+      const s = launchStart(this, 'tennis'), f = flight(this.mode === 'setV' ? this.answer : v, 0, { y0: s.y, r });
+      if (this.mode === 'setV') return need(Math.abs(s.x + f.x - this.zone.c) <= this.zone.w / 2 - 0.1 && s.x + f.x < 12.6, 'mat out of reach');
+      const meas = this.measure === 'time' ? f.t : f.x; return need(Math.abs(meas - this.answer) <= this.tol / 2 && s.x + f.x < 12.6, 'table numbers');
+    } });
+  if (mode === 'dist') return Object.assign(base, { mode: 'predict', measure: 'dist', answer: r1(v * t), tol: 0.4, unit: 'm', padLab: 'Distance (m)',
+    text: `The ball rolls off a ${h} m table at ${v} m/s. Predict how far out it lands, then press Launch.`,
+    hint: 'Fall time t = √(2 × height ÷ 9.8). Distance = speed × t.', win: 'Spot on! Sideways speed times fall time.' });
+  if (mode === 'time') return Object.assign(base, { mode: 'predict', measure: 'time', answer: r2(t), tol: 0.08, unit: 's', padLab: 'Fall time (s)',
+    text: `The ball leaves a ${h} m table at ${v} m/s. Predict how many seconds it falls, then press Launch.`,
+    hint: 'Fall time t = √(2 × height ÷ 9.8). The sideways speed does not change it.', win: 'Right! Falling time depends only on the height.' });
+  const vv = rnd(3, 9), d = r1(vv * t), c = r1(launchStart(base, 'tennis').x + d);
+  return Object.assign(base, { mode: 'setV', answer: vv, zone: zoneAt(c, 1.6, col), padLab: 'Speed (m/s)', unit: 'm/s', ui: { launcher: { deg: [0, 0, 5], v: [vv, vv, 1] } }, start: { deg: 0, v: 0 },
+    text: `Land on the ${cn} mat ${fmt(d)} m out from a ${h} m table. Type the launch speed, then press Launch.`,
+    hint: 'Fall time t = √(2 × height ÷ 9.8). Speed = distance ÷ t.', win: 'A perfect landing!' });
+}
+function genRange() {
+  const mode = pick(['predict', 'predict', 'setV', 'twin']), r = RAD.tennis, [cn, col] = pick(COLORS);
+  if (mode === 'twin') {
+    const deg = pick([15, 20, 25, 30, 35]), v = rnd(8, 13), f = flight(v, deg, { r }), other = 90 - deg;
+    const lands = (a) => Math.abs(flight(v, a, { r }).x - f.x) <= 0.7;
+    const wrong = [other + 15, other - 20, deg + 15, 80].filter((a, i, all) => all.indexOf(a) === i && a !== other && a !== deg && a > 5 && a < 90 && !lands(a)).slice(0, 2);
+    if (wrong.length < 2 || LX0 + f.x > 12) return genRange();
+    return launchTask({ mode: 'twin', ball: 'tennis', deg, hv: v, zone: zoneAt(r1(LX0 + f.x), 1.4, col), choices: [other, ...wrong].sort((a, b) => a - b).map(a => a + '°'), ans: other + '°',
+      ui: { launcher: { deg: [deg, deg, 5], v: [v, v, 1] } }, start: { deg, v },
+      text: `At ${deg} degrees and ${v} m/s the ball lands on the ${cn} mat. Pick another angle that lands in the same spot, then press Launch.`,
+      hint: 'Two angles that add up to 90 degrees fly the same distance.', win: 'Yes! Angles that add up to 90 degrees land together.',
+      prove() { const hit = (a) => Math.abs(LX0 + flight(v, a, { r }).x - this.zone.c) <= this.zone.w / 2; need(hit(other), 'twin angle misses'); for (const w of wrong) need(!hit(w), 'wrong angle also lands'); return true; } });
+  }
+  if (mode === 'setV') {
+    const D = rnd(5, 18), ans = r1(Math.sqrt(9.8 * D));
+    return launchTask({ mode: 'setV', ball: 'tennis', answer: ans, zone: zoneAt(LX0 + D, 1.6, col), unit: 'm/s', padLab: 'Speed (m/s)', ui: { launcher: { deg: [45, 45, 5], v: [ans, ans, 1] } }, start: { deg: 45, v: 0 },
+      text: `The ${cn} mat is ${D} m away and the angle is 45 degrees. Type the launch speed, then press Launch.`,
+      hint: 'At 45 degrees, distance = speed × speed ÷ 9.8. So speed = √(distance × 9.8).', win: 'A perfect shot!',
+      prove() { const f = flight(ans, 45, { r }); return need(Math.abs(LX0 + f.x - this.zone.c) <= this.zone.w / 2 - 0.1, 'speed misses'); } });
+  }
+  const deg = pick([45, 45, 30, 60]), v = deg === 45 ? rnd(5, 14) : rnd(6, 14), k = deg === 45 ? 1 : 0.87, ans = r1(k * v * v / 9.8), tol = Math.max(0.5, r1(ans * 0.05));
+  return launchTask({ mode: 'predict', measure: 'dist', ball: 'tennis', hv: v, answer: ans, tol, unit: 'm', padLab: 'Distance (m)', ui: { launcher: { deg: [deg, deg, 5], v: [v, v, 1] } }, start: { deg, v },
+    text: `The launcher is set to ${deg} degrees and ${v} m/s. Predict how far the ball flies, then press Launch.`,
+    hint: deg === 45 ? 'At 45 degrees, distance = speed × speed ÷ 9.8.' : `At ${deg} degrees, distance = 0.87 × speed × speed ÷ 9.8.`, win: 'Great prediction! Speed and angle decide the range.',
+    prove() { const f = flight(v, deg, { r }); return need(Math.abs(f.x - ans) <= tol / 2 && LX0 + f.x < 12.6, 'range numbers'); } });
+}
+
+// Grade bands of the rungs:
+//   0 Push and pull ........ pre-K      9 Crash energy ......... 4th
+//   1 Knock it down ........ pre-K     10 Aim and launch ....... 4th
+//   2 Roll and slide ....... K         11 Moon gravity ......... 5th
+//   3 Bounce up high ....... K         12 Lever balance ........ 6th
+//   4 Big push, small push . 1st       13 Force and mass ....... 7th
+//   5 Float and fall ....... 1st       14 Sticky crash ......... 7th
+//   6 Domino chain ......... 2nd       15 Off the table ........ 8th
+//   7 More push, more go ... 3rd       16 Launch angle ......... 8th
+//   8 Balance the beam ..... 3rd
+const LEVELS = [
+  { name: 'Push and pull', g: -1, gen: genPlace },
+  { name: 'Knock it down', g: -1, gen: genKnock },
+  { name: 'Roll and slide', g: 0, gen: genSlide },
+  { name: 'Bounce up high', g: 0, gen: genBounce },
+  { name: 'Big push, small push', g: 1, gen: genPush },
+  { name: 'Float and fall', g: 1, gen: genFloat },
+  { name: 'Domino chain', g: 2, gen: genDomino },
+  { name: 'More push, more go', g: 3, gen: genSpeed },
+  { name: 'Balance the beam', g: 3, gen: genBalance },
+  { name: 'Crash energy', g: 4, gen: genCrash },
+  { name: 'Aim and launch', g: 4, gen: genAim },
+  { name: 'Moon gravity', g: 5, gen: genMoon },
+  { name: 'Lever balance', g: 6, gen: genLever },
+  { name: 'Force and mass', g: 7, gen: genForce },
+  { name: 'Sticky crash', g: 7, gen: genStick },
+  { name: 'Off the table', g: 8, gen: genTable },
+  { name: 'Launch angle', g: 8, gen: genRange },
+];
+// Where a new player starts: the first rung for the child's science grade, 2nd grade when unknown.
+const START = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('science', LEVELS.map(l => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('science', LEVELS.length, 6) : 6));
+
+// ---------------------------------------------------------------------------
+// Progress: one star per completed challenge, saved where the stars counter finds it ("stars").
+// "Right" is a challenge finished with no miss. A miss is a wrong prediction or choice, three launches or pushes
+// that do not reach the goal, or Skip. Four right in a row moves up a rung, two missed in a row moves down one.
+// ---------------------------------------------------------------------------
+let P = { stars: 0, lv: START, st: { streak: 0, miss: 0 } };
+try { const s = JSON.parse(localStorage.getItem(CH_KEY) || 'null'); if (s) P = Object.assign(P, s, { st: Object.assign({ streak: 0, miss: 0 }, s.st || {}) }); } catch (e) {}
+P.lv = Math.max(0, Math.min(LEVELS.length - 1, P.lv | 0));
+function persist() { try { localStorage.setItem(CH_KEY, JSON.stringify(P)); } catch (e) {} }
+function record(right) {
+  const s = P.st; let change = 0;
+  if (right) { s.miss = 0; s.streak++; if (s.streak >= 4 && P.lv < LEVELS.length - 1) { P.lv++; s.streak = 0; change = 1; } }
+  else { s.streak = 0; s.miss++; if (s.miss >= 2 && P.lv > 0) { P.lv--; s.miss = 0; change = -1; } }
+  persist(); return change;
+}
+function chSpeak(t) {
+  try { speechSynthesis.cancel(); } catch (e) {}
+  try { if (window.KidTablet && KidTablet.say) KidTablet.say(t, { rate: 0.95 }); else { const u = new SpeechSynthesisUtterance(t); u.rate = 0.95; speechSynthesis.speak(u); } } catch (e) {}
+}
+
+// ---------------------------------------------------------------------------
+// Stage pieces that are only drawn (mats, stars, lines); build() clears the bodies, these are cleared here.
+// ---------------------------------------------------------------------------
+const S = { active: false, task: null, vis: [], p: {}, missed: false, done: false, tries: 0, typed: '', choice: null, L: { ball: 'tennis', deg: 45, v: 5 }, shot: null, run: null, held: null, timer: null };
+const chCam = { pos: [0.6, 9, 24], at: [0.6, 2.0, 2.5] };
+function vis(m) { scene.add(m); S.vis.push(m); return m; }
+function mat(x, z, w, d, col, y) { const m = vis(new THREE.Mesh(new THREE.BoxGeometry(w, 0.03, d), lam(col))); m.position.set(x, (y || 0) + 0.02, z); m.receiveShadow = true; return m; }
+function starMesh(x, y, z) { const g = new THREE.Group(); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.09, 8, 28), lam(0xFFC93C, { emissive: 0x7a5a00 })); g.add(ring); const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.28), lam(0xFFE066, { emissive: 0x8a6a00 })); g.add(c); g.position.set(x, y, z); return vis(g); }
+function flagMesh(x) { const g = new THREE.Group(); const pole = boxMesh(0.08, 2.2, 0.08, 0x2B2140); pole.position.y = 1.1; g.add(pole); const f = boxMesh(0.7, 0.45, 0.04, 0xFF4F8B); f.position.set(0.37, 1.95, 0); g.add(f); g.position.set(x, 0, LANE - 0.9); return vis(g); }
+function label(text, scale) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 96; const x = c.getContext('2d');
+  x.fillStyle = 'rgba(255,255,255,.92)'; x.strokeStyle = '#2B2140'; x.lineWidth = 8; x.beginPath(); x.roundRect ? x.roundRect(6, 6, 244, 84, 40) : x.rect(6, 6, 244, 84); x.fill(); x.stroke();
+  x.fillStyle = '#2B2140'; x.font = '900 52px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 128, 50);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); s.scale.set(1.6 * (scale || 1), 0.6 * (scale || 1), 1); s.renderOrder = 5; return s;
+}
+function pinLabel(text, x, y, z, scale) { const s = vis(label(text, scale)); s.position.set(x, y, z); return s; }
+function thingOf(b) { return things.find(t => t.body === b); }
+function drop(b) { const i = things.findIndex(t => t.body === b); if (i >= 0) { remove(things[i]); things.splice(i, 1); } }
+const held = (b) => !!(grab && grab.body === b);
+const up = (b) => b.quaternion.vmult(new CANNON.Vec3(0, 1, 0)).y;
+const kindThings = (k) => things.filter(t => t.kind === k && !t.body.chShot).map(t => t.body);
+function piece(kind, x, y, z) { const b = add(kind, x, y, z); b.p0 = b.position.clone(); return b; }
+// A domino in a finished chain rests leaning on the next one (about 20 degrees), so for dominoes a tilt past 15 counts.
+function fallen(b) { return up(b) < (b.kind === 'domino' ? 0.965 : 0.7) || b.position.y < b.p0.y - 0.4 || Math.hypot(b.position.x - b.p0.x, b.position.z - b.p0.z) > 0.8; }
+function inMat(b, m) { return Math.abs(b.position.x - m.x) <= m.w / 2 && Math.abs(b.position.z - m.z) <= m.d / 2; }
+
+// ---------------------------------------------------------------------------
+// Stage setup and live checks for each kind of challenge.
+// ---------------------------------------------------------------------------
+const TYPES = {
+  place: {
+    setup(t) { mat(t.mat.x, t.mat.z, t.mat.w, t.mat.d, t.mat.col); add(t.kind, t.obj.x, restY(t.kind), LANE); S.p.inT = 0; },
+    tick(t) { const ok = kindThings(t.kind).some(b => !held(b) && inMat(b, t.mat) && b.position.y < 1.5); S.p.inT = ok ? S.p.inT + DT : 0; if (S.p.inT > 0.3) win(); },
+  },
+  knock: {
+    setup(t) {
+      S.p.pieces = [];
+      if (t.tower) for (let j = 0; j < t.tower.k; j++) S.p.pieces.push(piece('crate', t.tower.x, 0.46 + 0.92 * j, LANE));
+      else for (let i = 0; i < t.pins.n; i++) S.p.pieces.push(piece('pin', t.pins.x + 0.6 * i, 0.5, LANE + (i % 2 ? 0.3 : -0.3)));
+      add('bowling', t.tower ? (t.tower.x > 0 ? t.tower.x - 4 : t.tower.x + 4) : t.pins.x - 3.5, restY('bowling'), LANE);
+    },
+    tick(t) {
+      const ps = S.p.pieces, n = t.tower ? ps.slice(1).filter(fallen).length : ps.filter(fallen).length;
+      if (n >= (t.tower ? t.needTop : t.needPins) && !ps.some(held)) win();
+    },
+  },
+  slide: {
+    // The pin rack makes room: the toys wait at the foot of the slide, at the slide's own depth.
+    setup(t) { for (const th of things.filter(th => th.kind === 'pin')) drop(th.body); S.p.objs = t.objs.map((k, i) => { const b = add(k, 5.7 + i * 1.0, restY(k), 0); b.phase = 0; return b; }); },
+    tick(t) {
+      for (const b of S.p.objs) {
+        if (held(b)) { b.phase = 0; continue; }
+        if (b.phase === 0 && b.position.x > 7.2 && b.position.y > 2.0 && Math.abs(b.position.z) < 1.2) b.phase = 1;
+        if (b.phase === 1 && b.position.y < 1.0 && b.position.x < 7) b.phase = 2;
+      }
+      if (S.p.objs.every(b => b.phase === 2)) win();
+    },
+  },
+  bounce: {
+    setup(t) { starMesh(-1, t.H, 1); add(t.kind, -3.4, restY(t.kind), 1); },
+    tick(t) { if (kindThings(t.kind).some(b => b.chTramp && !held(b) && b.velocity.y > 0 && b.position.y >= t.H - 0.15 && Math.abs(b.position.x + 1) < 2 && Math.abs(b.position.z - 0.5) < 1.6)) win(); },
+  },
+  flick: {
+    setup(t) { mat(-8, LANE, 0.12, 1.8, 0xFFFFFF); flagMesh(t.flag); add(t.kind, -10.5, restY(t.kind), LANE); },
+    tick(t) {
+      for (const b of kindThings(t.kind)) {
+        if (!b.chRel || held(b) || b.chRel.x >= -7.4) continue;   // let go before the line (a little grace for a finger)
+        if (b.position.x < t.flag || b.passed) continue;
+        b.passed = true; const v = Math.hypot(b.velocity.x, b.velocity.z);
+        if (t.mode === 'hard' ? v >= PUSH_FAST : v <= PUSH_SLOW) return win();
+        note(t.mode === 'hard' ? 'That was a gentle roll. Push harder!' : 'That was fast! Try a smaller push.', 'bad');
+      }
+    },
+  },
+  float: {
+    setup(t) {
+      if (t.mode === 'balloon') {
+        starMesh(t.star.x, t.star.y, LANE);
+        const b = add('balloon', t.bx, 1.4, LANE), peg = new CANNON.Body({ mass: 0, position: new CANNON.Vec3(t.bx, 0.05, LANE) }); world.addBody(peg); fixtures.push(peg);
+        S.p.tether = new CANNON.DistanceConstraint(b, peg, 1.3); world.addConstraint(S.p.tether); S.p.balloon = b; S.p.peg = peg;
+        const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]); S.p.string = vis(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x2B2140 })));
+        const pm = boxMesh(0.2, 0.1, 0.2, 0x8B5A2B); pm.position.set(t.bx, 0.05, LANE); vis(pm);
+      } else if (t.mode === 'feather') { mat(t.mat.x, t.mat.z, t.mat.w, t.mat.d, t.mat.col); add('feather', t.fx, 0.1, LANE); }
+      else { const ring = vis(new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.08, 8, 32), lam(0xFF4F8B))); ring.rotation.x = Math.PI / 2; ring.position.set(t.ring.x, 0.08, LANE); add(t.kind, t.ox, restY(t.kind), LANE); }
+    },
+    tick(t) {
+      if (t.mode === 'balloon') {
+        if (S.p.tether && S.p.string) { const a = S.p.balloon.position, gp = S.p.string.geometry.attributes.position; gp.setXYZ(0, a.x, a.y - 0.5, a.z); gp.setXYZ(1, S.p.peg.position.x, 0.1, LANE); gp.needsUpdate = true; }
+        if (kindThings('balloon').some(b => !held(b) && b.position.distanceTo(new CANNON.Vec3(t.star.x, t.star.y, LANE)) < 1.0 && b !== (S.p.tether && S.p.balloon))) win();
+      } else if (t.mode === 'feather') {
+        if (kindThings('feather').some(b => !held(b) && b.chRel && b.chRel.y > 1 && b.position.y < 0.2 && inMat(b, t.mat))) win();
+      } else {
+        const r = RAD[t.kind];
+        for (const b of kindThings(t.kind)) {
+          if (held(b) || !b.chRel || b.chRel.y < 1.5 || b.position.y > r + 0.06) continue;
+          if (Math.hypot(b.position.x - t.ring.x, b.position.z - LANE) <= 0.95) return win();
+          b.chRel = null; note('Close! Lift it right above the ring and try again.');
+        }
+      }
+    },
+  },
+  domino: {
+    // Challenge dominoes grip the ground and slip on each other, so a falling one tips the next instead of jamming.
+    setup(t) {
+      if (!MAT.dom) { MAT.dom = new CANNON.Material('dom'); world.addContactMaterial(new CANNON.ContactMaterial(MAT.dom, MAT.ground, { friction: 1.2, restitution: 0 })); world.addContactMaterial(new CANNON.ContactMaterial(MAT.dom, MAT.dom, { friction: 0, restitution: 0 })); }
+      S.p.pieces = []; for (let i = 0; i < t.n; i++) { const b = piece('domino', t.x0 + i * t.s, 0.41, LANE); b.material = MAT.dom; S.p.pieces.push(b); }
+      if (t.ball) add('bowling', t.x0 - 3, restY('bowling'), LANE);
+    },
+    tick(t) { if (S.p.pieces.every(fallen) && !S.p.pieces.some(held)) win(); },
+  },
+  launch: {
+    setup(t) {
+      if (t.table) { staticBox(t.table.edge - 1.2, t.table.h / 2, LANE, 2.4, t.table.h, 1.6, 0x8E5BD6); pinLabel(t.table.h + ' m', t.table.edge - 1.2, t.table.h + 1.4, LANE, 0.8); }
+      const base = launchStart(t, S.L.ball); const g = new THREE.Group(); const foot = boxMesh(0.9, 0.3, 0.9, 0x2B2140); foot.position.y = -RAD.tennis; g.add(foot);
+      const barrel = new THREE.Group(), tube = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 1.3, 16), lam(0xFF4F8B)); tube.rotation.z = -Math.PI / 2; tube.position.x = 0.45; barrel.add(tube); g.add(barrel);
+      g.position.set(base.x - (t.table ? 0.5 : 0.3), base.y, LANE); S.p.barrel = barrel; vis(g);
+      if (t.zone) mat(t.zone.c, LANE, t.zone.w, 1.8, t.zone.col);
+      if (t.mode === 'predict' && !t.table) for (let d = 2; d <= 24; d += 2) { const x = LX0 + d; if (x > 13.4) break; mat(x, LANE + 1.1, 0.06, 0.5, 0xFFFFFF); pinLabel(String(d), x, 0.3, LANE + 1.5, 0.55); }
+      if (t.table && t.mode === 'predict') for (let d = 1; d <= 20; d++) { const x = launchStart(t, 'tennis').x + d; if (x > 13.4) break; mat(x, LANE + 1.1, 0.05, 0.4, 0xFFFFFF); if (d % 2 === 0) pinLabel(String(d), x, 0.3, LANE + 1.5, 0.55); }
+      if (t.wall) staticBox(t.wall.x, t.wall.h / 2, LANE, 0.4, t.wall.h, 1.6, 0xC98B4F);
+      if (t.tower) { S.p.pieces = []; for (let j = 0; j < t.tower.k; j++) S.p.pieces.push(piece('crate', t.tower.x, 0.46 + 0.92 * j, LANE)); }
+      aimBarrel();
+    },
+    tick(t) {
+      const sh = S.shot; if (!sh || sh.done) return;
+      const b = sh.body, r = RAD[sh.ball]; sh.t += DT; if (b.position.y > sh.top) sh.top = b.position.y;
+      if (t.mode === 'crash') {
+        if (S.p.pieces.slice(1).filter(fallen).length >= t.needTop) { sh.done = true; return win(); }
+        if (sh.t > 4) { sh.done = true; tryAgain(b.position.x < t.tower.x - 0.5 ? 'The ball did not reach the tower. Aim higher or faster.' : 'Not enough energy. Try a heavier ball or more speed.'); }
+        return;
+      }
+      if (!sh.landed && sh.t > 0.05 && b.position.y <= r + 1e-6 && b.velocity.y < 0) { sh.landed = true; sh.x = b.position.x; sh.flight = sh.t; landed(t, sh); }
+      if (!sh.landed && sh.t > 15) { sh.done = true; tryAgain('Hmm, that ball got lost. Launch again.'); }
+    },
+  },
+  beam: {
+    setup(t) {
+      const stand = staticBox(BEAM_X, BEAM_Y / 2, LANE - 0.65, 0.3, BEAM_Y, 0.2, 0x8E5BD6);
+      // The beam's weight hangs 2 m below the pivot (the gray bob), so it rights itself and tilts in proportion to the
+      // difference in turning force; a balanced load hangs level.
+      const beam = new CANNON.Body({ mass: 15, material: MAT.thing, angularDamping: 0.7, linearDamping: 0.3 });
+      beam.addShape(new CANNON.Box(new CANNON.Vec3(BEAM_HALF, 0.07, 0.45)), new CANNON.Vec3(0, BEAM_ARM, 0));
+      beam.position.set(BEAM_X, BEAM_Y - BEAM_ARM, LANE);
+      const g = new THREE.Group(); const plank = boxMesh(BEAM_HALF * 2, 0.14, 0.9, 0xE7B36A); plank.position.y = BEAM_ARM; g.add(plank);
+      for (let p = -4; p <= 4; p++) { if (!p) continue; const m = boxMesh(0.06, 0.02, 0.9, 0x2B2140); m.position.set(p, BEAM_ARM + 0.08, 0); g.add(m); const l = label(String(Math.abs(p)), 0.55); l.position.set(p, BEAM_ARM - 0.4, 0.5); g.add(l); }
+      const rod = boxMesh(0.08, BEAM_ARM, 0.08, 0x6E6E80); rod.position.y = BEAM_ARM / 2; g.add(rod); const bob = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 12), lam(0x6E6E80)); g.add(bob);
+      fixture(beam, g); beam.collisionFilterMask = 1;
+      world.addConstraint(new CANNON.HingeConstraint(beam, stand, { pivotA: new CANNON.Vec3(0, BEAM_ARM, 0), pivotB: new CANNON.Vec3(0, BEAM_Y / 2, 0.65), axisA: new CANNON.Vec3(0, 0, 1), axisB: new CANNON.Vec3(0, 0, 1) }));
+      S.p.beam = beam; S.p.loads = []; S.p.levelT = 0;
+      for (const l of t.left) { const b = add(l.kind, BEAM_X - l.peg, BEAM_Y + 1, LANE); b.fixedLoad = true; snap(b, -l.peg); }
+      let x = -10.6; for (let i = 0; i < t.tray.crate; i++) { add('crate', x, 0.46, LANE + (i % 2 ? 0.55 : -0.55)); if (i % 2) x += 1.05; }
+      if (t.tray.bowling) add('bowling', x + 0.6, restY('bowling'), LANE);
+      pinLabel('3 kg', -10.1, 1.6, LANE, 0.6); if (t.tray.bowling) pinLabel('7 kg', x + 0.6, 1.1, LANE, 0.6);
+    },
+    tick(t) {
+      const beam = S.p.beam, loads = S.p.loads.filter(l => things.includes(l.t));
+      let torque = 0, right = { crate: 0, bowling: 0, n: 0 };
+      for (const l of loads) { torque += loadMass(l.t) * l.peg; if (l.peg > 0) { right.n++; if (l.t.kind in right) right[l.t.kind]++; } }
+      const ang = Math.abs(Math.asin(Math.max(-1, Math.min(1, beam.quaternion.vmult(new CANNON.Vec3(1, 0, 0)).y)))) * 180 / Math.PI;
+      const ruleOk = right.n > 0 && (t.rule !== 'crates' || !right.bowling) && (t.rule !== 'bowl' || right.bowling === 1);
+      const ok = ruleOk && Math.abs(torque) < 0.2 && ang < 2.5 && !grab && beam.angularVelocity.length() < 0.05;
+      S.p.levelT = ok ? S.p.levelT + DT : 0; S.p.torque = torque;
+      if (S.p.levelT > 1) win();
+      else if (Math.abs(torque) < 0.2 && right.n && !ruleOk && !S.p.toldRule) { S.p.toldRule = true; note(t.rule === 'crates' ? 'Level, but use only crates on the right.' : 'Level, but use the bowling ball on the right.'); }
+    },
+  },
+  ice: {
+    setup(t) { iceLane(); const b = iceCrate(t.m, -9); S.p.crate = b; rocketMesh(b); },
+    tick(t) {
+      const run = S.run; if (!run) return;
+      const b = S.p.crate; if (run.left > 0) { b.applyForce(new CANNON.Vec3(run.F, 0, 0), b.position); run.left--; if (S.p.flame) S.p.flame.visible = true; return; }
+      if (!run.measured) { run.measured = true; if (S.p.flame) S.p.flame.visible = false; const v = b.velocity.x; judgeIce(t, v); }
+    },
+  },
+  stick: {
+    setup(t) { iceLane(); S.p.a = iceCrate(t.m1, -9); S.p.b = iceCrate(t.m2, -3); },
+    tick(t) {
+      const run = S.run; if (!run) return;
+      if (run.lockNow && !run.lock) { run.lock = new CANNON.LockConstraint(S.p.a, S.p.b); world.addConstraint(run.lock); run.after = 0; sfx('crate', 4); }
+      if (run.lock && !run.measured) { run.after += DT; if (run.after > 0.5) { run.measured = true; judgeStick(t, S.p.b.velocity.x, S.p.a.velocity.x); } }
+      if (!run.lock && (run.t = (run.t || 0) + DT) > 8) { run.measured = true; tryAgain('The crates did not meet. Press Go again.'); }
+    },
+  },
+};
+TYPES.launch.wantsFire = true; TYPES.ice.wantsFire = true; TYPES.stick.wantsFire = true;
+
+function iceLane() {
+  if (!MAT.ice) { MAT.ice = new CANNON.Material('ice'); world.addContactMaterial(new CANNON.ContactMaterial(MAT.ice, MAT.thing, { friction: 0, restitution: 0 })); }
+  staticBox(0, 0.05, LANE, 25.4, 0.1, 1.8, 0xCFF3FF, { mat: MAT.ice });
+  for (let d = -9; d <= 11; d += 2) pinLabel(String(d + 9), d, 0.35, LANE + 1.3, 0.55);
+}
+function iceCrate(m, x) {
+  const b = add('crate', x, 0.1 + 0.46, LANE); b.mass = m; b.updateMassProperties(); b.linearDamping = 0; b.angularDamping = 0.5;
+  const l = label(m + ' kg', 0.7); l.position.set(0, 0.9, 0); meshes.get(b).add(l); return b;
+}
+function rocketMesh(b) {
+  const g = new THREE.Group(); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.6, 12), lam(0xFFFFFF)); body.rotation.z = Math.PI / 2; g.add(body);
+  const fl = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.5, 12), lam(0xFF8C42, { emissive: 0xff5500 })); fl.rotation.z = Math.PI / 2; fl.position.x = -0.55; fl.visible = false; g.add(fl);
+  g.position.set(-0.75, 0, 0); meshes.get(b).add(g); S.p.flame = fl;
+}
+
+// Beam: a thing let go above the plank snaps onto the nearest peg (two per peg). It then rides on the beam: it leaves
+// the contact world, follows the beam's pose, and its weight pushes down on the beam at its peg every step. So the tilt
+// she sees and the turning force the check reads come from the same numbers.
+function snap(b, peg) {
+  const t = thingOf(b); if (!t) return false;
+  const stack = S.p.loads.filter(l => l.peg === peg && things.includes(l.t));
+  if (stack.length >= 2) { toast('That peg is full.'); return false; }
+  const h = stack.reduce((s, l) => s + 2 * restY(l.t.kind) - 0.02, 0), half = restY(t.kind) - 0.01;
+  t.on = new CANNON.Vec3(peg, BEAM_ARM + 0.07 + h + half, 0);
+  world.removeBody(b); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0);
+  S.p.loads.push({ t, peg }); S.p.toldRule = false; sfx('crate', 3); rideBeam(); return true;
+}
+function unsnap(t) { if (t.on) { t.on = null; if (!world.bodies.includes(t.body)) world.addBody(t.body); } S.p.loads = S.p.loads.filter(l => l.t !== t); }
+function loadMass(t) { return MASS[t.kind] || t.body.mass; }
+const BEAM_STOP = 30 * Math.PI / 180;
+function rideBeam() {
+  const beam = S.p.beam; if (!beam) return;
+  // A soft stop at 30 degrees (a seesaw bumper) keeps the ends off the ground, so a tipped beam can always swing back.
+  const ang = Math.asin(Math.max(-1, Math.min(1, beam.quaternion.vmult(new CANNON.Vec3(1, 0, 0)).y))), over = Math.abs(ang) - BEAM_STOP;
+  if (over > 0) { beam.torque.z -= Math.sign(ang) * over * 3000; if (beam.angularVelocity.z * Math.sign(ang) > 0) beam.angularVelocity.z *= 0.5; }
+  for (const l of S.p.loads) {
+    const b = l.t.body, wp = beam.pointToWorldFrame(l.t.on);
+    b.position.copy(wp); b.quaternion.copy(beam.quaternion); b.velocity.copy(beam.velocity);
+    beam.applyForce(new CANNON.Vec3(0, world.gravity.y * loadMass(l.t), 0), wp.vsub(beam.position));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Launcher, Go button and predictions
+// ---------------------------------------------------------------------------
+function aimBarrel() { if (S.p.barrel) S.p.barrel.rotation.z = S.L.deg * Math.PI / 180; }
+function padValue() { const v = parseFloat(S.typed); return S.typed !== '' && isFinite(v) ? v : null; }
+function chFire() {
+  if (!S.active || !S.task || !TYPES[S.task.type].wantsFire) return false;
+  const t = S.task; if (S.done) return true;
+  if (S.shot && !S.shot.done && t.type === 'launch') return true;
+  if (S.run && !S.run.measured) return true;
+  const pv = padValue();
+  if (t.padLab && pv == null) { note('Type your answer on the number pad first.'); chSpeak('Type your answer first.'); return true; }
+  if (t.choices && !S.choice) { note('Pick an angle first.'); chSpeak('Pick an angle first.'); return true; }
+  S.locked = true; renderUI();
+  if (t.type === 'launch') {
+    let deg = S.L.deg, v = S.L.v;
+    if (t.mode === 'setV') v = pv; if (t.mode === 'twin') deg = parseInt(S.choice, 10);
+    if (!(v > 0) || v > 30) { S.locked = false; renderUI(); note('Pick a speed between 1 and 30 m/s.'); return true; }
+    if (t.mode !== 'predict' && t.mode !== 'twin' && t.mode !== 'setV') S.locked = false;
+    S.L.deg = deg; aimBarrel();
+    if (S.shot) drop(S.shot.body);
+    const ball = t.ui.launcher.balls ? S.L.ball : t.ball, s = launchStart(t, ball), b = add(ball, s.x, s.y, LANE), a = deg * Math.PI / 180;
+    b.linearDamping = 0; b.angularDamping = 0.2; b.chShot = true; b.velocity.set(v * Math.cos(a), v * Math.sin(a), 0);
+    S.shot = { body: b, ball, t: 0, top: s.y, x0: s.x, landed: false, done: false, v, deg }; sfx('whoosh'); note(''); return true;
+  }
+  if (t.type === 'ice') {
+    const b = S.p.crate; b.position.set(-9, 0.1 + 0.46, LANE); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.quaternion.set(0, 0, 0, 1);
+    const F = t.mode === 'setF' ? pv : t.F; if (!(F >= 0) || F > 200) { S.locked = false; renderUI(); return true; }
+    S.run = { F, left: Math.round(t.secs * 120), measured: false }; sfx('whoosh'); note(''); return true;
+  }
+  if (t.type === 'stick') {
+    const v1 = t.mode === 'setV' ? pv : t.v1; if (!(v1 > 0) || v1 > 30) { S.locked = false; renderUI(); return true; }
+    S.run = { v1, measured: false }; S.p.a.velocity.set(v1, 0, 0); sfx('whoosh'); note(''); return true;
+  }
+  return true;
+}
+function landed(t, sh) {
+  const d = sh.x - sh.x0;
+  if (t.mode === 'predict') {
+    const meas = t.measure === 'time' ? sh.flight : d, guess = padValue(), unit = t.unit;
+    const said = `It ${t.measure === 'time' ? 'fell for' : 'landed'} ${fmt(t.measure === 'time' ? r2(meas) : r1(meas))} ${unit === 's' ? 'seconds' : unit === 'm' ? 'm' : unit}${t.measure === 'time' ? '' : ' away'}.`;
+    sh.done = true;
+    if (Math.abs(guess - meas) <= t.tol) win(said + ' ' + t.win); else wrong(said + ` You said ${fmt(guess)}.`);
+    return;
+  }
+  const inZone = Math.abs(sh.x - t.zone.c) <= t.zone.w / 2;
+  sh.done = true;
+  if (inZone) return win();
+  if (t.mode === 'twin') return wrong(`That angle landed ${fmt(r1(d))} m away. The mat was at ${fmt(r1(t.zone.c - LX0))} m.`);
+  const short = sh.x < t.zone.c, gap = fmt(r1(Math.abs(sh.x - t.zone.c)));
+  if (t.wall && sh.x < t.wall.x) return tryAgain('The ball hit the wall. Try a higher angle.');
+  if (t.mode === 'setV') return tryAgain(short ? `Short by ${gap} m. Type a bigger speed.` : `Too far by ${gap} m. Type a smaller speed.`);
+  tryAgain(short ? `Short by ${gap} m. ${t.needMoon && !moon ? 'Try Moon gravity!' : 'Try more speed.'}` : `Too far by ${gap} m. Try less speed.`);
+}
+function judgeIce(t, v) {
+  const a = v / t.secs;
+  if (t.mode === 'setF') { const ok = Math.abs(v - t.target) <= t.tol; return ok ? win(`It reached ${fmt(r1(v))} m/s. ` + t.win) : tryAgain(`It reached ${fmt(r1(v))} m/s. The goal is ${fmt(t.target)} m/s. ${v < t.target ? 'Push harder.' : 'Push softer.'}`); }
+  const meas = t.mode === 'accel' ? a : v, guess = padValue(), said = t.mode === 'accel' ? `It sped up by ${fmt(r1(a))} m/s each second.` : `It reached ${fmt(r1(v))} m/s.`;
+  if (Math.abs(guess - meas) <= t.tol) win(said + ' ' + t.win); else wrong(said + ` You said ${fmt(guess)}.`);
+}
+function judgeStick(t, vb, va) {
+  const v = (vb + va) / 2, p = (t.m1 + t.m2) * v;
+  if (t.mode === 'setV') { const ok = Math.abs(v - t.target) <= t.tol; return ok ? win(`They move at ${fmt(r1(v))} m/s. ` + t.win) : tryAgain(`They move at ${fmt(r1(v))} m/s. The goal is ${fmt(t.target)} m/s. ${v < t.target ? 'Go faster.' : 'Go slower.'}`); }
+  const meas = t.mode === 'momentum' ? p : v, guess = padValue(), said = t.mode === 'momentum' ? `Momentum after: ${fmt(r1(p))} kg m/s.` : `They move at ${fmt(r1(v))} m/s.`;
+  if (Math.abs(guess - meas) <= t.tol) win(said + ' ' + t.win); else wrong(said + ` You said ${fmt(guess)}.`);
+}
+
+// ---------------------------------------------------------------------------
+// Flow: new challenge, win, miss, skip, level changes
+// ---------------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+function note(text, cls) { const m = $('chMsg'); m.textContent = text || ''; m.className = cls || ''; }
+function miss() { if (S.missed) return; S.missed = true; const ch = record(false); if (ch < 0) setTimeout(() => { chSpeak('Let us try an easier one.'); toast('Level: ' + LEVELS[P.lv].name); }, 1800); }
+function tryAgain(text) { S.tries++; S.locked = false; renderUI(); note(text, 'bad'); chSpeak(text); sfx('crate', 2); if (S.tries >= 3) miss(); }
+function wrong(text) { S.done = true; miss(); note(text, 'bad'); chSpeak(text); renderUI(); }
+function win(text) {
+  if (S.done) return; S.done = true;
+  let ch = 0; if (!S.missed) ch = record(true);
+  P.stars++; persist(); if (window.KID_STARS) KID_STARS.report();
+  const say = text || S.task.win; note('⭐ ' + say, 'good'); chSpeak(say); tone(660, 0.12, 'sine', 0.2); setTimeout(() => tone(880, 0.2, 'sine', 0.2), 130);
+  renderUI();
+  if (ch > 0) setTimeout(() => { toast('New level: ' + LEVELS[P.lv].name); chSpeak('New level! ' + LEVELS[P.lv].name + '.'); }, 1600);
+  clearTimeout(S.timer); S.timer = setTimeout(() => { if (S.active && S.done) newChallenge(); }, ch ? 4200 : 3000);
+}
+function newChallenge() {
+  clearTimeout(S.timer);
+  const t = LEVELS[P.lv].gen();
+  S.task = t; S.missed = false; S.done = false; S.tries = 0; S.typed = ''; S.choice = null; S.locked = false;
+  S.L = { ball: (t.start && t.start.ball) || t.ball || 'tennis', deg: t.start ? t.start.deg : 45, v: t.start ? t.start.v : 5 };
+  if (moon) { moon = false; $('moon').classList.remove('on'); }
+  restage(); renderUI(); note('');
+  setTimeout(() => { if (S.task === t) chSpeak(t.text); }, 300);
+}
+function restage() {
+  if (grab) { world.removeConstraint(grab.constraint); grab = null; }
+  for (const m of S.vis) scene.remove(m); S.vis = []; S.p = {}; S.shot = null; S.run = null;
+  build(); TYPES[S.task.type].setup(S.task);
+  if (S.task.type !== 'launch' && S.task.type !== 'ice' && S.task.type !== 'stick') S.locked = false;
+}
+function chRestage() { if (!S.active) return false; restage(); S.locked = false; renderUI(); toast('All set up again!'); return true; }
+function setCamTo(c) { camera.position.set(...c.pos); camera.lookAt(...c.at); }
+function enter() {
+  S.active = true; document.body.classList.add('ch'); setCamTo(chCam); S.camAlt = false; newChallenge();
+}
+function exitCh() {
+  S.active = false; clearTimeout(S.timer); document.body.classList.remove('ch');
+  for (const m of S.vis) scene.remove(m); S.vis = []; S.p = {}; S.shot = null; S.run = null; S.task = null;
+  if (grab) { world.removeConstraint(grab.constraint); grab = null; }
+  build(); setCam(); renderUI(); $('fire').textContent = 'Fire the catapult! 🚀'; try { speechSynthesis.cancel(); } catch (e) {}
+}
+
+// ---------------------------------------------------------------------------
+// The card, the launcher panel and the number pad
+// ---------------------------------------------------------------------------
+function renderUI() {
+  const t = S.task, on = S.active && t;
+  $('chLaunch').style.display = on && t.type === 'launch' && !t.table && t.mode !== 'predict' && t.mode !== 'setV' && t.mode !== 'twin' ? 'block' : 'none';
+  $('chPad').style.display = on && (t.padLab || t.choices) ? 'block' : 'none';
+  if (!on) return;
+  $('chLv').textContent = LEVELS[P.lv].name; $('chStars').textContent = '⭐ ' + P.stars; $('chText').textContent = t.text;
+  $('chNext').style.display = S.done ? 'inline-block' : 'none'; $('chSkip').style.display = S.done ? 'none' : 'inline-block';
+  $('fire').textContent = t.type === 'launch' ? 'Launch! 🚀' : t.type === 'ice' || t.type === 'stick' ? 'Go! 🚀' : 'Fire the catapult! 🚀';
+  if (t.type === 'launch') {
+    const L = t.ui.launcher; $('chBallRow').style.display = L.balls ? 'flex' : 'none';
+    document.querySelectorAll('#chLaunch .ball').forEach(b => b.classList.toggle('on', b.dataset.ball === S.L.ball));
+    $('chDeg').textContent = S.L.deg + '°'; $('chV').textContent = S.L.v + ' m/s';
+    document.querySelectorAll('#chLaunch .st').forEach(b => { const r = L[b.dataset.k]; b.disabled = r[0] === r[1]; });
+  }
+  if (t.padLab) { $('chPadLab').textContent = t.padLab; $('chPadVal').textContent = S.typed || ' '; $('chKeys').style.display = 'grid'; $('chPadVal').style.display = 'inline-block'; }
+  else { $('chKeys').style.display = 'none'; $('chPadVal').style.display = 'none'; }
+  const cc = $('chChoices'); cc.innerHTML = '';
+  if (t.choices) { $('chPadLab').textContent = 'Pick an angle'; for (const c of t.choices) { const b = document.createElement('button'); b.textContent = c; b.classList.toggle('on', S.choice === c); b.onclick = () => { if (S.locked || S.done) return; S.choice = c; renderUI(); }; cc.appendChild(b); } }
+}
+(function buildKeys() {
+  const k = $('chKeys');
+  for (const key of ['1', '2', '3', '4', '5', '⌫', '6', '7', '8', '9', '0', '.']) {
+    const b = document.createElement('button'); b.textContent = key;
+    b.onclick = () => { if (!S.task || S.locked || S.done) return; if (key === '⌫') S.typed = S.typed.slice(0, -1); else if (S.typed.length < 5 && !(key === '.' && S.typed.includes('.'))) S.typed += key; renderUI(); };
+    k.appendChild(b);
+  }
+})();
+document.querySelectorAll('#chLaunch .st').forEach(b => b.onclick = () => {
+  const t = S.task; if (!t || t.type !== 'launch') return; const r = t.ui.launcher[b.dataset.k], d = +b.dataset.d * r[2];
+  S.L[b.dataset.k] = Math.max(r[0], Math.min(r[1], r2(S.L[b.dataset.k] + d))); aimBarrel(); renderUI();
+});
+document.querySelectorAll('#chLaunch .ball').forEach(b => b.onclick = () => { S.L.ball = b.dataset.ball; renderUI(); });
+$('chGo').onclick = () => { audio(); enter(); };
+$('chExit').onclick = () => exitCh();
+$('chHint').onclick = () => { if (!S.task) return; note('💡 ' + S.task.hint); chSpeak(S.task.hint); };
+$('chSkip').onclick = () => { if (!S.task) return; if (!S.done && !S.missed) miss(); newChallenge(); };
+$('chNext').onclick = () => newChallenge();
+
+// Hooks into the sandbox: grabbing, letting go, the reset, broom, moon and look buttons, and where new toys appear.
+cv.addEventListener('pointerdown', () => {
+  if (!S.active || !grab) return; const b = grab.body, t = thingOf(b);
+  const refuse = (msg) => { world.removeConstraint(grab.constraint); grab = null; toast(msg); };
+  if (S.p.beam && b === S.p.beam) return refuse('Put things on the beam.');
+  if (b.fixedLoad) return refuse('That one stays.');
+  if (S.task && (S.task.type === 'launch' || S.task.type === 'ice' || S.task.type === 'stick') && (b.p0 || b === S.p.crate || b === S.p.a || b === S.p.b)) return refuse('Use the launcher for this one.');
+  if (t && t.on) unsnap(t);
+  if (S.p.tether && b === S.p.balloon) { world.removeConstraint(S.p.tether); S.p.tether = null; if (S.p.string) S.p.string.visible = false; }
+  b.chRel = null; b.chTramp = false; b.passed = false; S.held = b; S.trail = [];
+  // In Challenges a drag moves things on an upright plane through the thing, so lifting it never changes its depth
+  // and every goal sits at the same depth as the things meant to reach it.
+  // Round and boxy things are held by their middle so they do not twist off sideways; tall pins and dominoes keep
+  // the touch point so a push near the top tips them.
+  if (b.kind !== 'pin' && b.kind !== 'domino') {
+    world.removeConstraint(grab.constraint); jointBody.position.copy(b.position);
+    grab.constraint = new CANNON.PointToPointConstraint(b, new CANNON.Vec3(0, 0, 0), jointBody, new CANNON.Vec3(0, 0, 0), b.mass * 60 + 20); world.addConstraint(grab.constraint);
+  }
+  const jp = jointBody.position; grab.plane = new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1), new THREE.Vector3(jp.x, jp.y, jp.z));
+});
+// The finger's last fifth of a second sets the speed a thing keeps when let go, so a push or a throw carries on and a
+// still finger sets it down gently.
+cv.addEventListener('pointermove', (e) => {
+  if (!S.active || !grab) return; const now = e.timeStamp, p = jointBody.position;
+  S.trail = (S.trail || []).filter(s => now - s.t < 200); S.trail.push({ t: now, x: p.x, y: p.y });
+});
+function throwSpeed(now) {
+  const tr = S.trail || []; S.trail = [];
+  const rec = tr.filter(s => now - s.t < 200); if (rec.length < 2 || now - rec[rec.length - 1].t > 150) return null;
+  const a = rec[0], z = rec[rec.length - 1], dt = (z.t - a.t) / 1000; if (dt < 0.015) return null;
+  const k = Math.min(1, 10 / Math.max(1e-6, Math.hypot(z.x - a.x, z.y - a.y) / dt));   // at most 10 m/s
+  return [(z.x - a.x) / dt * k, (z.y - a.y) / dt * k];
+}
+function onRelease(e) {
+  const b = S.held; S.held = null; if (!S.active || !b || !thingOf(b)) return;
+  const v = throwSpeed(e.timeStamp); if (v && b.kind !== 'pin' && b.kind !== 'domino') b.velocity.set(v[0], v[1], 0);
+  b.chRel = { x: b.position.x, y: b.position.y }; b.chTramp = false;
+  if (S.p.beam && (b.kind === 'crate' || b.kind === 'bowling' || b.kind === 'tennis' || b.kind === 'beach')) {
+    const l = S.p.beam.pointToLocalFrame(b.position);
+    if (Math.abs(l.x) <= BEAM_HALF + 0.3 && l.y > BEAM_ARM - 0.3 && l.y < BEAM_ARM + 3.5 && Math.abs(b.position.z - LANE) < 1.3) {
+      let peg = Math.round(l.x); if (peg === 0) peg = l.x < 0 ? -1 : 1; peg = Math.max(-4, Math.min(4, peg));
+      if (peg < 0 && !b.fixedLoad) { toast('The left side is set. Use the right side.'); return; }
+      snap(b, peg);
+    }
+  }
+}
+cv.addEventListener('pointerup', onRelease); cv.addEventListener('pointercancel', onRelease);
+world.addEventListener('beginContact', (e) => {
+  if (!S.active) return; const a = e.bodyA, b = e.bodyB;
+  if (a.material === MAT.tramp) b.chTramp = true; if (b.material === MAT.tramp) a.chTramp = true;
+  if (S.run && S.task && S.task.type === 'stick' && ((a === S.p.a && b === S.p.b) || (a === S.p.b && b === S.p.a))) S.run.lockNow = true;
+});
+world.addEventListener('postStep', () => { if (S.active && S.p.beam) rideBeam(); if (S.active && S.task && !S.done) { try { TYPES[S.task.type].tick(S.task); } catch (e) { console.warn(e); } } });
+const freeSpawn = spawnSpot;
+spawnSpot = function () { return S.active ? [-9 + Math.random() * 3, 3, LANE + (Math.random() - 0.5) * 0.8] : freeSpawn(); };
+{ const r0 = $('reset').onclick; $('reset').onclick = (e) => { if (S.active) chRestage(); else r0(e); }; }
+{ const l0 = $('look').onclick; $('look').onclick = (e) => { if (!S.active) return l0(e); S.camAlt = !S.camAlt; setCamTo(S.camAlt ? CAMS[0] : chCam); }; }
+{ const m0 = $('moon').onclick; $('moon').onclick = (e) => { m0(e); if (S.active) renderUI(); }; }
+
+// ---------------------------------------------------------------------------
+// Self-check hook for tools/ladder-check.mjs: builds challenges at a rung without touching the screen and throws on a
+// malformed one or one the child could not complete.
+// ---------------------------------------------------------------------------
+function describe(t) {
+  const s = t.solution;
+  return t.text + ' [' + t.type + (t.mode ? '/' + t.mode : '') + (s && s.deg != null ? ` solve: ${s.ball} ${s.deg}° ${s.v} m/s` : '') + (Array.isArray(s) ? ' solve: ' + s.flat().join(' ') : '') + (t.answer != null ? ' = ' + t.answer + ' ' + (t.unit || '') : '') + (t.ans ? ' -> ' + t.ans : '') + ']';
+}
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START,
+  label: () => LEVELS[P.lv].name,
+  exercise(i, n) {
+    const out = [], bad = /NaN|undefined|null|\[object|Infinity|\u2014/;
+    for (let k = 0; k < n; k++) {
+      const t = LEVELS[i].gen(), where = 'level ' + i + ' (' + LEVELS[i].name + '): ';
+      if (!TYPES[t.type]) throw new Error(where + 'unknown type ' + t.type);
+      for (const x of [t.text, t.hint, t.win]) if (typeof x !== 'string' || !x.trim() || bad.test(x)) throw new Error(where + 'bad text: ' + String(x).slice(0, 60));
+      if (t.padLab != null && (typeof t.padLab !== 'string' || bad.test(t.padLab))) throw new Error(where + 'bad pad label');
+      if (t.answer != null && !isFinite(t.answer)) throw new Error(where + 'answer ' + t.answer);
+      if (t.choices && (t.choices.length < 2 || t.choices.some(c => typeof c !== 'string' || bad.test(c)) || !t.choices.includes(t.ans))) throw new Error(where + 'answer missing from choices');
+      if (t.padLab && t.answer == null) throw new Error(where + 'pad without an answer');
+      try { if (!t.prove()) throw new Error('not reachable'); } catch (e) { throw new Error(where + 'unreachable: ' + e.message + ' :: ' + t.text.slice(0, 60)); }
+      out.push(describe(t));
+    }
+    return out;
+  },
+};
+window.PG.ch = { S, P, LEVELS, TYPES, newChallenge, enter, exitCh, chFire, flight, solveLaunch, record, setLevel(i) { P.lv = i; P.st = { streak: 0, miss: 0 }; persist(); if (S.active) newChallenge(); } };
 </script>
 </body>
 </html>

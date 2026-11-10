@@ -1,20 +1,20 @@
 {
   "id": "playground-lab",
   "name": "Playground Lab",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A 3D physics playground with a slingshot, catapult, seesaw, trampoline, dominoes, moon gravity and slow motion.",
   "subjects": [
     "science"
   ],
   "ageMin": 4,
-  "ageMax": 10,
+  "ageMax": 14,
   "starter": false,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/playground-lab",
   "about": {
     "concept": "Intuitive physics by experiment. A slingshot, catapult, seesaw, trampoline and dominoes let the child vary force, angle, mass and gravity and watch the result, in slow motion when it helps.",
-    "progression": "Free play comes first. Challenges then ask for a target to be hit, a balance to be found, or a domino run to be completed, and moon gravity and slow motion invite comparing the same setup two ways.",
+    "progression": "Free play comes first: a physics playground with a slingshot, catapult, seesaw, trampoline, dominoes, moon gravity and slow motion. The Challenges ladder then sets goals in that same playground, from pushing a ball onto a mat and knocking down pins in pre-K, through bounces, domino chains, launch speed and balancing a beam, to predicting speeds, momentum and where a launched ball lands with Newton's laws in 8th grade.",
     "lifeSkills": [
       "Cause and effect",
       "Adjusting one thing at a time",
