@@ -44,8 +44,9 @@ done
 
 # Apple's root certificates, which verify every App Store purchase and server notification (APPLE_ROOT_CERTS).
 mkdir -p /opt/duckling/apple-root-certs
-for c in AppleRootCA-G3.cer AppleRootCA-G2.cer AppleIncRootCertificate.cer; do
-  [ -s "/opt/duckling/apple-root-certs/$c" ] || curl -fsSL "https://www.apple.com/certificateauthority/$c" -o "/opt/duckling/apple-root-certs/$c" || echo "could not fetch $c"
+for u in certificateauthority/AppleRootCA-G3.cer certificateauthority/AppleRootCA-G2.cer appleca/AppleIncRootCertificate.cer; do
+  c=$(basename "$u")
+  [ -s "/opt/duckling/apple-root-certs/$c" ] || curl -fsSL "https://www.apple.com/$u" -o "/opt/duckling/apple-root-certs/$c" || echo "could not fetch $c"
 done
 
 cd "$SRC/backend"
