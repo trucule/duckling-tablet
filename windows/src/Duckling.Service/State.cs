@@ -32,6 +32,8 @@ public class DeviceState
     public List<string> KioskWebView2 { get; set; } = new();
 
     public string LastUpdateCheck { get; set; } = "";
+    /// <summary>The stars and avatar from the setup before Duckling were sent to the server (or there were none).</summary>
+    public bool OldStarsImported { get; set; }
 }
 
 public record OtherApp(string Target, string Label);

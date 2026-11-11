@@ -128,6 +128,7 @@ public class Worker : BackgroundService
                 }
                 if (ticks % 200 == 0) { try { lockdown.RefreshKioskIfNeeded(); } catch (ServiceError) { } }
                 if (ticks % 100 == 25) await updater.Tick(ct);
+                if (ticks % 100 == 50) await ImportOldStars(store, http, ct);
             }
             catch (Exception e) { Log.Error($"worker: {e.GetType().Name}: {e.Message}"); }
             ticks++;
@@ -135,6 +136,24 @@ public class Worker : BackgroundService
             try { await Task.Delay(TimeSpan.FromSeconds(3), ct); } catch (OperationCanceledException) { break; }
         }
         await pipeTask;
+    }
+
+    /// <summary>Every 5 minutes until done: the stars and avatar from the setup before Duckling go to the child's
+    /// profile on the server, once the tablet is set up for her.</summary>
+    static async Task ImportOldStars(Store store, HttpClient http, CancellationToken ct)
+    {
+        var (done, token) = store.Read(s => (s.OldStarsImported, s.DeviceToken));
+        if (done || token == "") return;
+        var users = Path.Combine(Path.GetPathRoot(Environment.SystemDirectory) ?? @"C:\", "Users");
+        var old = OldStars.Best(OldStars.Folders(users));
+        if (old == null) { store.Update(s => s.OldStarsImported = true); return; }
+        try
+        {
+            if (!await OldStars.Import(http, Duckling.Paths.Api, token, old, ct)) return;
+            store.Update(s => s.OldStarsImported = true);
+            Log.Info($"brought over {old.Earned} stars, {old.Spent} spent and {old.Owned.Count} owned items from {old.Dir}");
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException) { Log.Error($"old stars: {e.Message}"); }
     }
 
     /// <summary>After a parent removed Duckling: the child is signed out (the kiosk ends with her session, and with

@@ -275,3 +275,81 @@ public class HandlerTests : IDisposable
         Assert.False(t["restartNeeded"]!.GetValue<bool>());
     }
 }
+
+public class OldStarsTests : IDisposable
+{
+    readonly string users = Path.Combine(Path.GetTempPath(), "duckling-users-" + Guid.NewGuid().ToString("N"));
+    public void Dispose() { try { Directory.Delete(users, true); } catch (Exception) { } }
+
+    string OldFolder(string user, int stars, string avatarJson, bool portrait)
+    {
+        var d = Path.Combine(users, user, "AppData", "Local", "KidTablet", "avatar");
+        Directory.CreateDirectory(d);
+        File.WriteAllText(Path.Combine(d, "stars.txt"), stars.ToString());
+        File.WriteAllText(Path.Combine(d, "avatar.json"), avatarJson);
+        if (portrait) { var png = new byte[200]; new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }.CopyTo(png, 0); File.WriteAllBytes(Path.Combine(d, "portrait.png"), png); }
+        return d;
+    }
+
+    [Fact]
+    public void Finds_the_old_folder_with_the_most_stars()
+    {
+        OldFolder("Kid", 412, """{"design":{"hair":"curly"},"owned":["hat-crown","pet-cat"],"spent":150,"earned":412}""", true);
+        OldFolder("Chris", 3, """{"design":{}}""", false);
+        Directory.CreateDirectory(Path.Combine(users, "Public"));
+        var f = OldStars.Best(OldStars.Folders(users))!;
+        Assert.Equal(412, f.Earned);
+        Assert.Equal(150, f.Spent);
+        Assert.Equal(new[] { "hat-crown", "pet-cat" }, f.Owned);
+        Assert.Equal("curly", f.Design!["hair"]!.GetValue<string>());
+        Assert.NotNull(f.Portrait);
+        Assert.Null(OldStars.Best(OldStars.Folders(Path.Combine(users, "missing"))));
+    }
+
+    [Fact]
+    public void Merge_keeps_the_current_avatar_adds_spending_once()
+    {
+        var old = new OldStars.Found("x", 412, new JsonObject { ["hair"] = "curly" }, new() { "hat-crown", "pet-cat" }, 150, null);
+        var server = JsonNode.Parse("""{"design":{"hair":"bun"},"owned":["pet-cat","shoes-red"],"spent":20,"savedAt":5000,"earned":90}""");
+        var (body, usedOld) = OldStars.Merge(server, old, 1000).Value;
+        Assert.False(usedOld);
+        Assert.Equal("bun", body["design"]!["hair"]!.GetValue<string>());
+        Assert.Equal(170, body["spent"]!.GetValue<int>());
+        Assert.Equal(new[] { "pet-cat", "shoes-red", "hat-crown", OldStars.Marker }, body["owned"]!.AsArray().Select(x => x!.GetValue<string>()));
+        Assert.Equal(5001, body["savedAt"]!.GetValue<double>());
+        // A second run (the marker is on the server now) changes nothing.
+        Assert.Null(OldStars.Merge(JsonNode.Parse(body.ToJsonString()), old, 9000));
+        // No avatar on the server yet: the old one is used, with its portrait.
+        var (fresh, usedOld2) = OldStars.Merge(JsonNode.Parse("""{"design":null,"owned":[],"spent":0,"savedAt":0}"""), old, 1000).Value;
+        Assert.True(usedOld2);
+        Assert.Equal("curly", fresh["design"]!["hair"]!.GetValue<string>());
+        Assert.Equal(150, fresh["spent"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task Import_sends_stars_before_the_avatar_and_retries_on_failure()
+    {
+        var calls = new List<string>();
+        var fail = true;
+        var http = new HttpClient(new FakeHttp(r =>
+        {
+            Assert.Equal("Device tok", r.Headers.Authorization!.ToString());
+            var body = r.Content?.ReadAsStringAsync().Result ?? "";
+            calls.Add($"{r.Method} {r.RequestUri!.AbsolutePath} {body}");
+            if (r.Method == HttpMethod.Get) return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{"design":null,"owned":[],"spent":0,"savedAt":0,"earned":0,"earnedByApp":{}}""") };
+            if (fail) return new HttpResponseMessage(HttpStatusCode.Conflict);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
+        }));
+        var d = OldFolder("Kid", 412, """{"design":{"hair":"curly"},"owned":["hat-crown"],"spent":150}""", true);
+        var old = OldStars.Read(d)!;
+        Assert.False(await OldStars.Import(http, "https://api.test", "tok", old, CancellationToken.None, () => 1000));
+        Assert.Equal(2, calls.Count);
+        calls.Clear(); fail = false;
+        Assert.True(await OldStars.Import(http, "https://api.test", "tok", old, CancellationToken.None, () => 1000));
+        Assert.Equal(4, calls.Count);
+        Assert.StartsWith("POST /device/child/stars {\"appId\":\"kidtablet\",\"earned\":412}", calls[1]);
+        Assert.StartsWith("PUT /device/child/avatar", calls[2]);
+        Assert.Contains("\"spent\":150", calls[2]);
+        Assert.StartsWith("PUT /device/child/portrait data:image/png;base64,", calls[3]);
+    }
+}
