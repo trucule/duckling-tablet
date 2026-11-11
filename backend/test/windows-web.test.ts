@@ -117,7 +117,9 @@ describe.skipIf(!ready)('web app on Windows', () => {
     const { code } = await post('/devices/pairing-codes', { childId: child.id }, auth);
 
     const browser = await chromium.launch();
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    // STORE_SHOTS=<folder> also saves Microsoft Store screenshots (1366 x 768 at 2x).
+    const store = process.env.STORE_SHOTS;
+    const ctx = await browser.newContext(store ? { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 } : { viewport: { width: 1280, height: 900 } });
     await ctx.route('https://api.ducklingtablet.com/**', async (route) => {
       const req = route.request();
       const r = await fetch(req.url().replace('https://api.ducklingtablet.com', api), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() ?? undefined });
@@ -164,6 +166,7 @@ describe.skipIf(!ready)('web app on Windows', () => {
     expect((await calls()).filter((c) => c[0] === 'setChildAccount')).toEqual([['setChildAccount', 'Scarlett', 'Scarlett'], ['setChildAccount', 'Kid', 'Scarlett']]);
     expect((await calls()).find((c) => c[0] === 'setLockdown')).toEqual(['setLockdown', true]);
     await p.getByRole('heading', { name: 'Parent area' }).waitFor();
+    if (store) { await p.getByRole('heading', { name: 'Lockdown' }).evaluate((h) => h.scrollIntoView({ block: 'start' })); await p.screenshot({ path: join(store, 'win-lockdown.png') }); }
 
     // Wi-Fi: pick a network, type its password, join.
     await p.getByRole('button', { name: 'Choose a Wi-Fi network' }).click();
@@ -181,6 +184,7 @@ describe.skipIf(!ready)('web app on Windows', () => {
     expect((await calls()).find((c) => c[0] === 'openParentPage')).toEqual(['openParentPage', 'https://checkout.stripe.com/c/pay/cs_test_windows']);
     expect(checkouts.length).toBe(1);
     await p.screenshot({ path: join(dir, 'win-done.png'), fullPage: true });
+    if (store) { await p.evaluate(() => window.scrollTo(0, 0)); await p.screenshot({ path: join(store, 'win-parent.png') }); }
 
     // A parent allows an app the device reported; the shell is told, and the first tap asks for the restart.
     const devices = await (await fetch(`${api}/devices`, { headers: auth })).json();
