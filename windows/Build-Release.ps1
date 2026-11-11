@@ -71,9 +71,14 @@ foreach ($a in $Arch) {
         if ($LASTEXITCODE -ne 0) { throw "publish $proj ($a) failed" }
     }
     if ($tool) {
+        # The Microsoft Store requires every PE file in the package to carry a valid signature. Microsoft's own files
+        # come signed; ours and any third-party file without a signature are signed here, then all are checked.
         Write-Step "Sign $a binaries"
-        $ours = 'Duckling.exe', 'Duckling.dll', 'DucklingService.exe', 'DucklingService.dll', 'Duckling.Core.dll' | ForEach-Object { Join-Path $pub $_ } | Where-Object { Test-Path $_ }
-        Invoke-CodeSign $tool $ours
+        $pe = Get-ChildItem $pub -Recurse -File -Include *.exe, *.dll
+        $unsigned = @($pe | Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne 'Valid' } | ForEach-Object { $_.FullName })
+        if ($unsigned.Count) { Invoke-CodeSign $tool $unsigned }
+        $bad = @($pe | Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne 'Valid' } | ForEach-Object { $_.Name })
+        if ($bad.Count) { throw "Not signed after signing: $($bad -join ', ')" }
     }
     Write-Step "MSI $a"
     & dotnet build (Join-Path $root 'installer\Duckling.Installer.wixproj') -c Release -p:Arch=$a -p:Version=$Version "-p:PublishDir=$pub\" "-p:IntermediateOutputPath=$out\$a\obj\" -o (Join-Path $out $a) --nologo -v quiet
