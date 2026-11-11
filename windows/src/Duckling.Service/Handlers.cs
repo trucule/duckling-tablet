@@ -224,7 +224,7 @@ public class Handlers(Store store, Packages packages, Lockdown lockdown, Func<Da
             {
                 NeedParent();
                 var account = store.Read(s => s.ChildAccount);
-                try { lockdown.Run("Release"); } catch (ServiceError e) { Log.Error("release: " + e.Message); }
+                try { lockdown.Run("Release", ("UserName", account)); } catch (ServiceError e) { Log.Error("release: " + e.Message); }
                 foreach (var id in store.Read(s => s.Installed.Keys.ToList())) packages.Uninstall(id);
                 store.Reset();
                 parentUntil = DateTime.MinValue;

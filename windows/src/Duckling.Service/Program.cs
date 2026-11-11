@@ -28,7 +28,8 @@ public static class Program
         {
             var store = new Store(Duckling.Paths.StateFile);
             var lockdown = new Lockdown(store, Duckling.Paths.LockdownScript);
-            try { lockdown.Run("Release"); } catch (Exception e) { Log.Error("uninstall release: " + e.Message); }
+            var account = store.Read(s => s.ChildAccount);
+            try { if (account != "") lockdown.Run("Release", ("UserName", account)); else lockdown.Run("Release"); } catch (Exception e) { Log.Error("uninstall release: " + e.Message); }
             try { Directory.Delete(Duckling.Paths.AppsDir, true); } catch (Exception) { }
             try { Directory.Delete(Duckling.Paths.StateDir, true); } catch (Exception) { }
             try { Directory.Delete(Duckling.Paths.UpdatesDir, true); } catch (Exception) { }
@@ -88,6 +89,7 @@ public class Worker : BackgroundService
         int missing = 0;
         string? watchedSession = null;
         bool seenRunning = false;
+        int notStarted = 0;
         int ticks = 0;
         while (!ct.IsCancellationRequested)
         {
@@ -109,10 +111,17 @@ public class Worker : BackgroundService
                     // again. Only after it has run: a first sign-in can take minutes before the kiosk starts Duckling.
                     if (session is { Active: true } && store.Read(s => s.LockdownOn))
                     {
-                        if (key != watchedSession) { watchedSession = key; seenRunning = false; missing = 0; }
+                        if (key != watchedSession) { watchedSession = key; seenRunning = false; missing = 0; notStarted = 0; }
                         var running = System.Diagnostics.Process.GetProcessesByName("Duckling").Any(p => { try { return p.SessionId == session.Id; } catch (Exception) { return false; } });
-                        if (running) { if (!seenRunning) Log.Info("Duckling is running in the child's session"); seenRunning = true; missing = 0; }
+                        if (running) { if (!seenRunning) Log.Info("Duckling is running in the child's session"); seenRunning = true; missing = 0; notStarted = 0; }
                         else if (seenRunning && ++missing >= 3) { Log.Info("Duckling stopped in the child's session: signing her out to start it again"); Sessions.Logoff(session.Id); missing = 0; seenRunning = false; }
+                        // Not started at sign-in (neither the kiosk's AutoLaunch nor the Run entry): after 90 seconds the
+                        // service starts it in her session itself, and again every minute until it runs.
+                        else if (!seenRunning && ++notStarted >= 6 && notStarted % 4 == 2)
+                        {
+                            var pid = Sessions.StartInSession(session.Id, Duckling.Paths.ShellExe);
+                            Log.Info(pid > 0 ? "Duckling had not started in the child's session: started it" : $"could not start Duckling in the child's session (error {System.Runtime.InteropServices.Marshal.GetLastPInvokeError()})");
+                        }
                     }
                     else missing = 0;
                 }

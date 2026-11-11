@@ -187,6 +187,10 @@ switch ($Action) {
             Set-RegValue "$root\Control Panel\Desktop" 'ScreenSaverIsSecure' '0' String
             # The older setup's home screen start and its Edge allowlist do not apply to Duckling.
             Remove-ItemProperty -Path "$root\Software\Microsoft\Windows\CurrentVersion\Run" -Name 'KidHome' -ErrorAction SilentlyContinue
+            # Duckling starts at sign-in from here as well as from the kiosk's AutoLaunch, which Windows does not always
+            # honor (the Surface setup needed the same). Duckling is single-instance, so two starts open one window.
+            $duck = Join-Path ${env:ProgramFiles} 'Duckling Tablet\Duckling.exe'
+            Set-RegValue "$root\Software\Microsoft\Windows\CurrentVersion\Run" 'Duckling' "`"$duck`"" String
             foreach ($k in 'URLBlocklist', 'URLAllowlist', 'AutoplayAllowlist', 'AudioCaptureAllowedUrls', 'VideoCaptureAllowedUrls', 'LocalNetworkAccessAllowedForUrls', 'InsecurePrivateNetworkRequestsAllowedForUrls') {
                 Remove-Item "$root\Software\Policies\Microsoft\Edge\$k" -Recurse -Force -ErrorAction SilentlyContinue
             }
@@ -236,6 +240,7 @@ switch ($Action) {
     }
 
     'Release' {
+        if ($UserName) { try { Invoke-UserHive $UserName { param($root) Remove-ItemProperty -Path "$root\Software\Microsoft\Windows\CurrentVersion\Run" -Name 'Duckling' -ErrorAction SilentlyContinue } | Out-Null } catch { } }
         $aa = Get-AssignedAccess
         if ($aa -and [string]$aa.Configuration -like "*$ProfileId*") { $aa.Configuration = $null; Set-CimInstance -CimInstance $aa }
         Set-RegValue $WinlogonKey 'AutoAdminLogon' '0' String
