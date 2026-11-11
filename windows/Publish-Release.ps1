@@ -20,6 +20,11 @@ foreach ($f in $Files) {
     $arch = $Matches[1]
     $sig = Get-AuthenticodeSignature $f
     if ($sig.Status -ne 'Valid') { throw "$name is not signed (signature status $($sig.Status)). Build it with Build-Release.ps1 and the YubiKey." }
+    # A version already published for this architecture is left as it is: the server keeps one file per version, and
+    # devices and the Microsoft Store may already have its hash.
+    $live = $null
+    try { $live = Invoke-RestMethod "https://api.ducklingtablet.com/windows/release?arch=$arch" -TimeoutSec 20 } catch { }
+    if ($live -and $live.version -eq $Version) { Write-Host "$name : $Version is already published for $arch ($($live.url)); skipped." -ForegroundColor Yellow; continue }
     Write-Host "Uploading $name ..."
     scp $f "$User@${Server}:/tmp/$name"
     if ($LASTEXITCODE -ne 0) { throw 'scp failed' }
