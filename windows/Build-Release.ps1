@@ -46,8 +46,15 @@ function Resolve-SignTool([string]$preferred) {
 
 function Invoke-CodeSign([string]$tool, [string[]]$paths) {
     # One signtool call for many files: one YubiKey PIN prompt.
-    & $tool sign /fd sha256 /sha1 $Thumbprint /tr $TimestampUrl /td sha256 /v @paths
-    if ($LASTEXITCODE -ne 0) { throw "signtool sign failed (exit $LASTEXITCODE)" }
+    # The YubiKey sometimes drops a signing session mid-run (SignerSign 0x8010001f, a smart card communication error).
+    # Files already signed are signed again on a retry, which is harmless.
+    for ($try = 1; $try -le 3; $try++) {
+        & $tool sign /fd sha256 /sha1 $Thumbprint /tr $TimestampUrl /td sha256 /v @paths
+        if ($LASTEXITCODE -eq 0) { break }
+        if ($try -eq 3) { throw "signtool sign failed (exit $LASTEXITCODE) after 3 tries. Unplug and replug the YubiKey, then run again." }
+        Write-Host "signtool failed (exit $LASTEXITCODE); trying again in 5 seconds (try $($try + 1) of 3)" -ForegroundColor Yellow
+        Start-Sleep -Seconds 5
+    }
     & $tool verify /pa @paths | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "signature verification failed (exit $LASTEXITCODE)" }
 }
