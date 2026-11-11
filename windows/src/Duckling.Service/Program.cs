@@ -83,7 +83,7 @@ public class Worker : BackgroundService
         var pipe = new PipeServer(handlers);
         var pipeTask = pipe.Run(ct);
 
-        // Every 15 seconds: notice the child signing in (her settings, and which kiosk profile Windows read), keep the
+        // Every 3 seconds: notice the child signing in (her settings, and which kiosk profile Windows read), keep the
         // kiosk in step with the WebView2 runtime, and every few minutes see whether an update is due.
         string? lastChildSession = null;
         int missing = 0;
@@ -114,10 +114,11 @@ public class Worker : BackgroundService
                         if (key != watchedSession) { watchedSession = key; seenRunning = false; missing = 0; notStarted = 0; }
                         var running = System.Diagnostics.Process.GetProcessesByName("Duckling").Any(p => { try { return p.SessionId == session.Id; } catch (Exception) { return false; } });
                         if (running) { if (!seenRunning) Log.Info("Duckling is running in the child's session"); seenRunning = true; missing = 0; notStarted = 0; }
-                        else if (seenRunning && ++missing >= 3) { Log.Info("Duckling stopped in the child's session: signing her out to start it again"); Sessions.Logoff(session.Id); missing = 0; seenRunning = false; }
-                        // Not started at sign-in (neither the kiosk's AutoLaunch nor the Run entry): after 90 seconds the
-                        // service starts it in her session itself, and again every minute until it runs.
-                        else if (!seenRunning && ++notStarted >= 6 && notStarted % 4 == 2)
+                        else if (seenRunning && ++missing >= 15) { Log.Info("Duckling stopped in the child's session: signing her out to start it again"); Sessions.Logoff(session.Id); missing = 0; seenRunning = false; }
+                        // On the Surface neither the kiosk's AutoLaunch nor the Run entry starts Duckling, so the service
+                        // starts it in her session itself 6 seconds after she signs in, and again every 30 seconds until it
+                        // runs. Duckling is single-instance, so a start that races another opens nothing twice.
+                        else if (!seenRunning && ++notStarted >= 2 && notStarted % 10 == 2)
                         {
                             var pid = Sessions.StartInSession(session.Id, Duckling.Paths.ShellExe);
                             Log.Info(pid > 0 ? "Duckling had not started in the child's session: started it" : $"could not start Duckling in the child's session (error {System.Runtime.InteropServices.Marshal.GetLastPInvokeError()})");
@@ -125,12 +126,13 @@ public class Worker : BackgroundService
                     }
                     else missing = 0;
                 }
-                if (ticks % 40 == 0) { try { lockdown.RefreshKioskIfNeeded(); } catch (ServiceError) { } }
-                if (ticks % 20 == 5) await updater.Tick(ct);
+                if (ticks % 200 == 0) { try { lockdown.RefreshKioskIfNeeded(); } catch (ServiceError) { } }
+                if (ticks % 100 == 25) await updater.Tick(ct);
             }
             catch (Exception e) { Log.Error($"worker: {e.GetType().Name}: {e.Message}"); }
             ticks++;
-            try { await Task.Delay(TimeSpan.FromSeconds(15), ct); } catch (OperationCanceledException) { break; }
+            // Every 3 seconds: the child's sign-in is seen at once. The periodic work counts in these ticks.
+            try { await Task.Delay(TimeSpan.FromSeconds(3), ct); } catch (OperationCanceledException) { break; }
         }
         await pipeTask;
     }

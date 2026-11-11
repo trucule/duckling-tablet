@@ -191,6 +191,9 @@ switch ($Action) {
             # honor (the Surface setup needed the same). Duckling is single-instance, so two starts open one window.
             $duck = Join-Path ${env:ProgramFiles} 'Duckling Tablet\Duckling.exe'
             Set-RegValue "$root\Software\Microsoft\Windows\CurrentVersion\Run" 'Duckling' "`"$duck`"" String
+            # Windows holds sign-in programs back until the desktop settles; with these, the Run entry starts at once.
+            Set-RegValue "$root\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" 'StartupDelayInMSec' 0
+            Set-RegValue "$root\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" 'WaitForIdleState' 0
             foreach ($k in 'URLBlocklist', 'URLAllowlist', 'AutoplayAllowlist', 'AudioCaptureAllowedUrls', 'VideoCaptureAllowedUrls', 'LocalNetworkAccessAllowedForUrls', 'InsecurePrivateNetworkRequestsAllowedForUrls') {
                 Remove-Item "$root\Software\Policies\Microsoft\Edge\$k" -Recurse -Force -ErrorAction SilentlyContinue
             }
