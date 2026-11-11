@@ -12,7 +12,7 @@ import { startCluster, type Cluster } from './pg.js';
 let cluster: Cluster, app: FastifyInstance, db: Db, dir: string;
 const mails: { to: string; subject?: string; text: string }[] = [];
 const tickets: any[] = []; const attached: any[] = [];
-let synthCalls = 0, azureUp = true;
+let synthCalls = 0, azureUp = true, etduckyUp = true;
 const aiCalls: any[] = []; const pushes: { tokens: string[]; data: Record<string, string> }[] = []; let deadTokens: string[] = []; let aiUp: 'ok' | 'down' | 'refuse' = 'ok';
 const ADMIN = 'admin-test-token-123456';
 const HOOK = 'hook-secret-123';
@@ -23,7 +23,7 @@ afterAll(async () => { await cluster?.stop(); });
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'duck-'));
   ({ db } = await cluster.newDb());
-  mails.length = 0; tickets.length = 0; attached.length = 0; synthCalls = 0; azureUp = true; aiCalls.length = 0; aiUp = 'ok'; pushes.length = 0; deadTokens = [];
+  mails.length = 0; tickets.length = 0; attached.length = 0; synthCalls = 0; azureUp = true; etduckyUp = true; aiCalls.length = 0; aiUp = 'ok'; pushes.length = 0; deadTokens = [];
   const cfg = loadConfig({
     NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local',
     ADMIN_TOKEN: ADMIN, ETDUCKY_WEBHOOK_SECRET: HOOK, TTS_DAILY_CHARS_PER_DEVICE: 200, PUBLIC_URL: 'https://api.test', AI_DAILY_CALLS: 'draw-with-me:3,*:1', AI_MAX_PROMPT_CHARS: 500,
@@ -32,7 +32,7 @@ beforeEach(async () => {
     db, logger: false,
     mailer: { async send(to, subject, text) { mails.push({ to, subject, text }); } },
     synth: async (text) => { synthCalls++; await new Promise((r) => setTimeout(r, 20)); return azureUp ? Buffer.from(`mp3:${text}`) : null; },
-    createTicket: async (t) => { tickets.push(t); return `T-${tickets.length}`; },
+    createTicket: async (t) => { if (!etduckyUp) return null; tickets.push(t); return `T-${tickets.length}`; },
     attachToTicket: async (ticketId, url, contentType) => { attached.push({ ticketId, url, contentType }); return true; },
     push: async (tokens, data) => { pushes.push({ tokens, data }); return { sent: tokens.length, dead: tokens.filter((t) => deadTokens.includes(t)) }; },
     complete: async (r) => {
@@ -231,6 +231,29 @@ describe('voice cache', () => {
 });
 
 describe('app requests', () => {
+  it('opens the ET Ducky ticket later for a request made while ET Ducky could not take it, with its pictures', async () => {
+    const p = await signIn('late@example.com'); await pair(p.auth);
+    etduckyUp = false;
+    const r = await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title: 'Bird songs', description: 'Match the song to the bird' } });
+    expect(r.statusCode).toBe(200);
+    const rid = r.json().id;
+    const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(40, 7)]);
+    expect((await app.inject({ method: 'POST', url: `/requests/${rid}/attachments`, headers: { ...p.auth, 'content-type': 'image/png' }, payload: png })).statusCode).toBe(200);
+    expect(tickets).toHaveLength(0); expect(attached).toHaveLength(0);
+    const admin = { authorization: `Bearer ${ADMIN}` };
+    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: admin })).json()).toEqual({ configured: false, waiting: 1, created: 0 });
+    etduckyUp = true;
+    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: admin })).json()).toEqual({ configured: false, waiting: 0, created: 1 });
+    expect(tickets[0]).toMatchObject({ requestId: rid, title: 'Bird songs' });
+    expect(attached).toEqual([expect.objectContaining({ ticketId: 'T-1', contentType: 'image/png' })]);
+    expect(attached[0].url).toMatch(new RegExp(`^https://api.test/requests/${rid}/attachments/att_`));
+    // Nothing waits now; the ticket's status reaches the request as usual.
+    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: admin })).json()).toEqual({ configured: false, waiting: 0, created: 0 });
+    const hook = await app.inject({ method: 'POST', url: '/hooks/etducky', headers: { 'content-type': 'application/json', authorization: `Bearer ${HOOK}` }, payload: { ticketId: 'T-1', status: 'Planned' } });
+    expect(hook.json().updated).toBe(1);
+    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets' })).statusCode).toBe(401);
+  });
+
   it('creates an ET Ducky ticket, allows one open request, follows ticket status, ships and installs', async () => {
     const p = await signIn('p@example.com'); const d = await pair(p.auth);
     const req1 = await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title: 'Dinosaur dig', description: 'Fossils and measuring', childGrade: '2' } });

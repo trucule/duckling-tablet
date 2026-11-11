@@ -17,11 +17,36 @@ export const requestRow = (r: any) => r && ({
 const IMAGE_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/heic': 'heic' };
 const MAX_ATTACHMENT = 10 * 1024 * 1024, MAX_PER_REQUEST = 5;
 
+// Pictures are private in storage. Parents read them with their session; ET Ducky gets a signed link (30 days).
+const attachmentPath = (requestId: string, attId: string) => `/requests/${requestId}/attachments/${attId}`;
+const signFor = (ctx: Ctx, requestId: string, attId: string, exp: number) => hashToken(`${requestId}/${attId}/${exp}`, ctx.cfg.SESSION_SECRET).slice(0, 32);
+const signedUrlFor = (ctx: Ctx, requestId: string, attId: string) => { const exp = Date.now() + 30 * 86_400_000; return `${ctx.cfg.PUBLIC_URL}${attachmentPath(requestId, attId)}?exp=${exp}&sig=${signFor(ctx, requestId, attId, exp)}`; };
+
+/** Opens the ET Ducky ticket for every open request that has none: a request made while ET Ducky was not configured,
+ * unreachable or refusing gets its ticket here, with its pictures. ET Ducky returns the existing ticket for a repeated
+ * request id, so a retry never makes a second one. Runs every 10 minutes and from POST /admin/requests/tickets. */
+export async function sendMissingTickets(ctx: Ctx): Promise<{ configured: boolean; waiting: number; created: number }> {
+  const configured = !!ctx.cfg.ETDUCKY_API_URL;
+  const rows = await ctx.db.system((q) => q.all<{ id: string; family_id: string; title: string; description: string; child_grade: string | null }>(
+    'SELECT id, family_id, title, description, child_grade FROM app_request WHERE etducky_ticket_id IS NULL AND status = ANY($1) ORDER BY created_at LIMIT 50', [OPEN]));
+  let created = 0;
+  for (const r of rows) {
+    const ticket = await ctx.createTicket({ requestId: r.id, familyId: r.family_id, title: r.title, description: r.description, childGrade: r.child_grade });
+    if (!ticket) continue;
+    const atts = await ctx.db.system(async (q) => {
+      await q.run('UPDATE app_request SET etducky_ticket_id = $1 WHERE id = $2 AND etducky_ticket_id IS NULL', [ticket, r.id]);
+      return q.all<{ id: string; content_type: string }>('SELECT id, content_type FROM request_attachment WHERE request_id = $1 ORDER BY created_at', [r.id]);
+    });
+    for (const att of atts) await ctx.attachToTicket(ticket, signedUrlFor(ctx, r.id, att.id), att.content_type);
+    created++;
+  }
+  if (rows.length) ctx.log(`ET Ducky tickets: ${created} of ${rows.length} waiting requests sent${configured ? '' : ' (ETDUCKY_API_URL is not set)'}`);
+  return { configured, waiting: rows.length - created, created };
+}
+
 export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx: Ctx }) {
-  // Pictures are private in storage. Parents read them with their session; ET Ducky gets a signed link (30 days).
-  const attachmentPath = (requestId: string, attId: string) => `/requests/${requestId}/attachments/${attId}`;
-  const sign = (requestId: string, attId: string, exp: number) => hashToken(`${requestId}/${attId}/${exp}`, ctx.cfg.SESSION_SECRET).slice(0, 32);
-  const signedUrl = (requestId: string, attId: string) => { const exp = Date.now() + 30 * 86_400_000; return `${ctx.cfg.PUBLIC_URL}${attachmentPath(requestId, attId)}?exp=${exp}&sig=${sign(requestId, attId, exp)}`; };
+  const sign = (requestId: string, attId: string, exp: number) => signFor(ctx, requestId, attId, exp);
+  const signedUrl = (requestId: string, attId: string) => signedUrlFor(ctx, requestId, attId);
   const attachmentRow = (r: any) => ({ id: r.id, requestId: r.request_id, contentType: r.content_type, size: Number(r.size), url: `${ctx.cfg.PUBLIC_URL}${attachmentPath(r.request_id, r.id)}`, createdAt: r.created_at });
 
   app.get('/requests', async (req) => {

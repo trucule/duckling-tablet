@@ -20,7 +20,7 @@ import familyRoutes from './routes/family.js';
 import deviceRoutes from './routes/devices.js';
 import catalogRoutes from './routes/catalog.js';
 import ttsRoutes, { makeVoiceCache } from './routes/tts.js';
-import requestRoutes from './routes/requests.js';
+import requestRoutes, { sendMissingTickets } from './routes/requests.js';
 import adminRoutes from './routes/admin.js';
 import aiRoutes from './routes/ai.js';
 import billingRoutes from './routes/billing.js';
@@ -107,6 +107,14 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
     });
   }
 
+  // App requests whose ET Ducky ticket could not be opened when they were made get it here, every 10 minutes.
+  if (cfg.NODE_ENV !== 'test') {
+    if (!cfg.ETDUCKY_API_URL) app.log.warn('ETDUCKY_API_URL is not set: app requests are kept here and get their ET Ducky tickets once it is');
+    let timer: NodeJS.Timeout | undefined;
+    const run = () => { sendMissingTickets(ctx).catch((e) => app.log.error({ err: { type: (e as Error).name, message: redactText((e as Error).message) } }, 'ET Ducky ticket retry failed')); };
+    app.addHook('onReady', async () => { setTimeout(run, 30_000).unref(); timer = setInterval(run, 10 * 60_000); timer.unref(); });
+    app.addHook('onClose', async () => { if (timer) clearInterval(timer); });
+  }
   app.addHook('onClose', async () => { if (!opts.db) await db.close(); });
   return { app, ctx };
 }
