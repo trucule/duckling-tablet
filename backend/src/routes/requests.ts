@@ -98,6 +98,20 @@ export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx
     return reply.send(bytes);
   });
 
+  // The parent withdraws a request still in progress. Its ET Ducky ticket stays (the API has no close call); a
+  // status change on it later no longer moves the request, and a request with no ticket yet never gets one.
+  app.post<{ Params: { id: string } }>('/requests/:id/withdraw', async (req) => {
+    const a = await parentAuth(ctx, req);
+    return ctx.db.family(a.familyId, async (q) => {
+      const r = await q.one<{ status: string }>('SELECT status FROM app_request WHERE id = $1', [req.params.id]);
+      if (!r) throw notFound('No such request');
+      if (!OPEN.includes(r.status)) throw new HttpError(409, 'This request is already finished.');
+      await q.run("UPDATE app_request SET status = 'withdrawn', updated_at = now() WHERE id = $1", [req.params.id]);
+      await audit(q, a.familyId, `parent:${a.parentId}`, 'request.withdrawn', { id: req.params.id });
+      return requestRow(await q.one('SELECT * FROM app_request WHERE id = $1', [req.params.id]));
+    });
+  });
+
   app.post('/requests', async (req) => {
     const a = await parentAuth(ctx, req);
     await ctx.db.family(a.familyId, (q) => requireSubscribed(q, a.familyId));
@@ -151,7 +165,7 @@ export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx
       if (!status) return { ignored: true };
       return ctx.db.system(async (q) => {
         if (eventId && !(await firstDelivery(q, 'etducky', eventId))) return { duplicate: true, updated: 0 };
-        const updated = await q.run("UPDATE app_request SET status = $1, updated_at = now() WHERE etducky_ticket_id = $2 AND status != 'shipped'", [status, b.ticketId]);
+        const updated = await q.run("UPDATE app_request SET status = $1, updated_at = now() WHERE etducky_ticket_id = $2 AND status NOT IN ('shipped', 'withdrawn')", [status, b.ticketId]);
         return { updated };
       });
     });

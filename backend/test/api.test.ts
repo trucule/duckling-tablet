@@ -231,6 +231,25 @@ describe('voice cache', () => {
 });
 
 describe('app requests', () => {
+  it('lets a parent withdraw a request in progress: the slot frees, the ticket no longer moves it, no ticket is sent later', async () => {
+    const p = await signIn('wd@example.com'); await pair(p.auth);
+    const first = (await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title: 'Test one', description: 'Just trying the form' } })).json();
+    const w = await app.inject({ method: 'POST', url: `/requests/${first.id}/withdraw`, headers: p.auth });
+    expect(w.json().status).toBe('withdrawn');
+    expect((await app.inject({ method: 'POST', url: `/requests/${first.id}/withdraw`, headers: p.auth })).statusCode).toBe(409);
+    const hook = await app.inject({ method: 'POST', url: '/hooks/etducky', headers: { 'content-type': 'application/json', authorization: `Bearer ${HOOK}` }, payload: { ticketId: 'T-1', status: 'In Progress' } });
+    expect(hook.json().updated).toBe(0);
+    etduckyUp = false;
+    const second = (await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title: 'Bird songs', description: 'Match the song to the bird' } })).json();
+    expect(second.status).toBe('requested');
+    await app.inject({ method: 'POST', url: `/requests/${second.id}/withdraw`, headers: p.auth });
+    etduckyUp = true;
+    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: { authorization: `Bearer ${ADMIN}` } })).json().created).toBe(0);
+    // Another family cannot withdraw it.
+    const other = await signIn('other-wd@example.com');
+    expect((await app.inject({ method: 'POST', url: `/requests/${second.id}/withdraw`, headers: other.auth })).statusCode).toBe(404);
+  });
+
   it('opens the ET Ducky ticket later for a request made while ET Ducky could not take it, with its pictures', async () => {
     const p = await signIn('late@example.com'); await pair(p.auth);
     etduckyUp = false;

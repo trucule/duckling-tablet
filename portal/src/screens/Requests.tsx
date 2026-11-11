@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, type AppRequest, type Attachment } from '../api';
 
-const STATUS: Record<string, string> = { requested: 'Received', planned: 'Planned', building: 'Being built', declined: 'Not taken on', shipped: 'In the Store' };
+const STATUS: Record<string, string> = { requested: 'Received', planned: 'Planned', building: 'Being built', declined: 'Not taken on', shipped: 'In the Store', withdrawn: 'Withdrawn' };
 const OPEN = ['requested', 'planned', 'building'];
 
 export const ASK_ID = 'ask-for-an-app';
@@ -35,6 +35,13 @@ export function Requests({ grades, onError, seed }: { grades: string[]; onError:
   }, [seed?.n]);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState('');
+  const [confirming, setConfirming] = useState('');
+  const withdraw = async (r: AppRequest) => {
+    setBusy('Withdrawing');
+    try { await api.withdrawRequest(r.id); setConfirming(''); await load(); }
+    catch (err) { onError((err as Error).message); }
+    finally { setBusy(''); }
+  };
   const load = () => api.requests().then((r) => setList(r.requests)).catch((e) => onError((e as Error).message));
   useEffect(() => { load(); }, []);
   const open = list?.find((r) => OPEN.includes(r.status));
@@ -73,6 +80,9 @@ export function Requests({ grades, onError, seed }: { grades: string[]; onError:
               {OPEN.includes(r.status) && r.attachments.length < 5 && (
                 <label class="btn quiet">Add a picture<input type="file" accept="image/*" multiple hidden onChange={(e) => { const f = Array.from((e.target as HTMLInputElement).files ?? []); if (f.length) addPictures(r, f.slice(0, 5 - r.attachments.length)); }} /></label>
               )}
+              {OPEN.includes(r.status) && (confirming === r.id
+                ? <span class="row"><button class="btn danger" disabled={!!busy} onClick={() => withdraw(r)}>Withdraw it</button><button class="btn quiet" onClick={() => setConfirming('')}>Keep it</button></span>
+                : <button class="btn quiet" onClick={() => setConfirming(r.id)}>Withdraw</button>)}
             </li>
           ))}
         </ul>

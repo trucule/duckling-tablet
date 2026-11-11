@@ -263,6 +263,14 @@ describe.skipIf(!ready)('parent portal', () => {
     expect(reqs.requests[0].attachments).toHaveLength(1);
     expect(reqs.requests[0].attachments[0]).toMatchObject({ contentType: 'image/png', size: PNG.length });
     await p.screenshot({ path: join(dir, 'portal-family-after.png'), fullPage: true });
+    // Withdrawing asks once on the page, then frees the request slot.
+    const ask = p.locator('#ask-for-an-app');
+    await ask.getByRole('button', { name: 'Withdraw', exact: true }).click();
+    await ask.screenshot({ path: join(process.env.SHOT_DIR ?? dir, 'portal-withdraw-confirm.png') });
+    await ask.getByRole('button', { name: 'Withdraw it' }).click();
+    await ask.getByText('Withdrawn', { exact: false }).waitFor();
+    await p.getByRole('button', { name: 'Send the request' }).waitFor();
+    await ask.screenshot({ path: join(process.env.SHOT_DIR ?? dir, 'portal-withdrawn.png') });
     expect(errors).toEqual([]);
     await browser.close();
   }, 120_000);

@@ -57,6 +57,7 @@ export const api = {
   inviteParent: (email: string) => call<{ sent: boolean }>('POST', '/family/parents/invite', { email }),
   removeParent: (id: string) => call('DELETE', `/family/parents/${id}`),
   requests: () => call<{ requests: AppRequest[] }>('GET', '/requests'),
+  withdrawRequest: (id: string) => call<AppRequest>('POST', `/requests/${id}/withdraw`),
   createRequest: (b: { title: string; description: string; childGrade?: string | null; installWhenReady: boolean }) => call<AppRequest>('POST', '/requests', b),
   // A picture goes up as its own bytes with the image content type.
   attach: async (requestId: string, file: File): Promise<Attachment> => {
