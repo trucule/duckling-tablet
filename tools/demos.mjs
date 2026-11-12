@@ -122,6 +122,19 @@ const tapFrac = async (page, box, fx, fy, wait = 600) => { await tapAt(page, box
 
 
 const SCRIPTS = {
+  'paint-studio': async (page) => {
+    await sleep(600);
+    const cb = await T(page, '#view').boundingBox();
+    await tapSel(page, '#palette i:nth-child(14)', 300);
+    await tapSel(page, '#mirror', 150); await tapSel(page, '#mirror', 150); await tapSel(page, '#mirror', 150); await tapSel(page, '#mirror', 300);
+    await drag(page, cb, [[0.5, 0.2], [0.58, 0.32], [0.55, 0.42], [0.62, 0.5]]); await sleep(300);
+    await tapSel(page, '#palette i:nth-child(10)', 250);
+    await page.locator('#tools .tool', { hasText: 'Watercolor' }).click(); await sleep(250);
+    await drag(page, cb, [[0.4, 0.3], [0.45, 0.4], [0.4, 0.5]]); await sleep(300);
+    await tapSel(page, '#palette i:nth-child(8)', 250);
+    await page.locator('#tools .tool', { hasText: 'Crayon' }).click(); await sleep(250);
+    await drag(page, cb, [[0.52, 0.6], [0.6, 0.66], [0.55, 0.75]]); await sleep(900);
+  },
   'chemistry-lab': async (page) => { await sleep(1200); await tapSel(page, '#bookbtn', 1500); const b = await canvasBox(page, '#c'); await tapFrac(page, b, 0.5, 0.5, 900); await tapSel(page, 'button.slot', 700); await tapFrac(page, b, 0.25, 0.55, 800); },
   'kitchen-lab': async (page) => { await sleep(1200); await tapSel(page, '#bookbtn', 1500); const b = await canvasBox(page, '#c'); await tapFrac(page, b, 0.5, 0.5, 900); await tapSel(page, 'button.slot', 700); await tapFrac(page, b, 0.25, 0.55, 800); },
   'circuit-lab': async (page) => { await sleep(1800); const b = await canvasBox(page, '#gl'); await drag(page, b, [[0.3, 0.7], [0.45, 0.45]]); await sleep(400); await drag(page, b, [[0.55, 0.45], [0.7, 0.7]]); await sleep(400); await drag(page, b, [[0.3, 0.7], [0.7, 0.7]]); await sleep(600); await tapFrac(page, b, 0.5, 0.35, 900); await tapSel(page, '#done', 900); },

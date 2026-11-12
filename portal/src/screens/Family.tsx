@@ -156,7 +156,7 @@ export function Family() {
         )}
         {subscribed && fam.subscription.source && fam.subscription.source !== 'stripe' && <p class="muted">Billed through {fam.subscription.source === 'apple' ? 'the App Store. Manage or cancel it in the Settings app on the iPad, under your name, then Subscriptions' : 'Google Play. Manage or cancel it in the Play Store app, under Payments and subscriptions'}.</p>}
         {subscribedNote && <p>{subscribedNote}</p>}
-        <p class="muted">Included: 24 learning apps and every new one, the narrator voice, the avatar and stars across tablets, this portal, and app requests at no extra cost (above).</p>
+        <p class="muted">Included: every learning app and every new one, the narrator voice, the avatar and stars across tablets, this portal, and app requests at no extra cost (above).</p>
       </div>
 
       <div class="card" id="pin">

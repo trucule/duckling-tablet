@@ -1,0 +1,24 @@
+{
+  "id": "paint-studio",
+  "name": "Paint Studio",
+  "version": "1.0.0",
+  "description": "A paint box with textured brushes, a smudge tool for shading, mirror and kaleidoscope drawing, three layers, a gallery, and art challenges from pre-K to 8th grade.",
+  "subjects": [
+    "art"
+  ],
+  "ageMin": 3,
+  "ageMax": 14,
+  "starter": true,
+  "permissions": [],
+  "minShell": "1.0.0",
+  "about": {
+    "concept": "Making marks on purpose. Each brush behaves like its real counterpart (a pencil scratches, chalk crumbles, watercolor pools), so the child learns that the tool and the pressure change the mark, and that a picture is built from choices about color, value and placement.",
+    "progression": "Free painting has every tool from the start. The Challenges ladder starts at the child's art grade and climbs from shapes and colors in pre-K through symmetry with the mirror tool, warm and cool palettes, shading with Smudge and Shade, composition and perspective, to value studies, color theory and design principles in 8th grade. Three finished challenges move her up a rung.",
+    "lifeSkills": [
+      "Fine motor control",
+      "Seeing light, shadow and form",
+      "Planning a picture before painting it",
+      "Finishing a piece and keeping it"
+    ]
+  }
+}

@@ -134,7 +134,7 @@ export function Parent() {
         {billingNote && <p>{billingNote}</p>}
         <ul class="included">
           <li><strong>Ask for an app, at no extra cost.</strong> Describe an app you wish existed; the ET Ducky team builds it for every family. Ask from the parent portal.</li>
-          <li>24 learning apps and every new one, with the narrator voice.</li>
+          <li>Every learning app, and every new one, with the narrator voice.</li>
           <li>The child's avatar, stars and progress on every tablet she uses.</li>
           <li>The parent portal: apps, websites, a second parent, and this tablet from your phone.</li>
         </ul>

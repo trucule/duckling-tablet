@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Paint Studio</title>
+<style>
+  :root { --bar: #2b2f3a; --bar2: #363b49; --ink: #f4f6fb; --dim: #aab1c4; --acc: #ffd36b; --acc2: #8fd6ff; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #1e212a; color: var(--ink); font-family: "Segoe UI", system-ui, -apple-system, sans-serif; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #app { display: grid; grid-template-columns: 76px 1fr; grid-template-rows: 60px 1fr; height: 100%; }
+  #top { grid-column: 1 / 3; background: var(--bar); display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid #0007; overflow: hidden; }
+  #tools { background: var(--bar); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; overflow-y: auto; border-right: 1px solid #0007; }
+  #stage { position: relative; background: #3a3f4e; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #view { background: #fff; box-shadow: 0 6px 30px #0008; touch-action: none; cursor: crosshair; }
+  .tool { width: 64px; height: 52px; border: 0; border-radius: 12px; background: transparent; color: var(--ink); font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; }
+  .tool svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .tool.on { background: var(--acc); color: #222; }
+  .tool:active { transform: scale(0.95); }
+  .btn { height: 40px; min-width: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--bar2); color: var(--ink); font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .btn.on { background: var(--acc2); color: #123; }
+  .btn:disabled { opacity: 0.35; }
+  .btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .sep { width: 1px; height: 36px; background: #0006; margin: 0 2px; flex: none; }
+  .grow { flex: 1; }
+  #swatch { width: 40px; height: 40px; border-radius: 10px; border: 3px solid #fff4; cursor: pointer; flex: none; }
+  #palette { display: flex; gap: 3px; flex-wrap: wrap; width: 246px; }
+  #palette i { display: block; width: 24px; height: 17px; border-radius: 4px; cursor: pointer; border: 1px solid #0004; }
+  .slider { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--dim); width: 72px; }
+  .slider input { width: 72px; margin: 0; }
+  input[type=range] { accent-color: var(--acc); height: 22px; }
+  .layers { display: flex; gap: 3px; }
+  .layers .btn { min-width: 34px; padding: 0 8px; }
+  .layers .btn.hid { text-decoration: line-through; opacity: 0.55; }
+  #panel { position: absolute; left: 12px; top: 12px; background: var(--bar); border-radius: 14px; padding: 12px; box-shadow: 0 10px 30px #0008; display: none; z-index: 5; max-width: 420px; }
+  #panel.open { display: block; }
+  #panel h3 { margin: 0 0 8px; font-size: 14px; color: var(--dim); font-weight: 600; }
+  .mix { display: grid; grid-template-columns: 56px 1fr; gap: 6px 10px; align-items: center; font-size: 13px; margin-top: 8px; }
+  .mix input { width: 220px; }
+  #recent { display: flex; gap: 4px; margin-top: 8px; }
+  #recent i { display: block; width: 24px; height: 24px; border-radius: 6px; border: 1px solid #0004; cursor: pointer; }
+  #prompt { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); background: #fff; color: #222; border-radius: 14px; padding: 10px 16px; font-size: 17px; box-shadow: 0 8px 24px #0006; display: none; align-items: center; gap: 12px; max-width: 90%; z-index: 4; }
+  #prompt.open { display: flex; }
+  #prompt .btn { background: var(--acc); color: #222; }
+  #prompt .btn.quiet { background: #eee; }
+  #badge { font-size: 12px; color: var(--dim); white-space: nowrap; }
+  #gallery { position: absolute; inset: 0; background: #1e212aee; display: none; flex-direction: column; padding: 16px; z-index: 6; overflow: auto; }
+  #gallery.open { display: flex; }
+  #gallery .head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  #gallery h2 { margin: 0; font-size: 20px; flex: 1; }
+  #shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  #shots .shot { background: #fff; border-radius: 10px; overflow: hidden; cursor: pointer; position: relative; }
+  #shots img { width: 100%; display: block; aspect-ratio: 8 / 5; object-fit: cover; }
+  #shots .del { position: absolute; right: 6px; top: 6px; background: #0008; color: #fff; border: 0; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+  #toast { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: #fff; color: #222; padding: 8px 16px; border-radius: 12px; font-weight: 600; display: none; z-index: 7; box-shadow: 0 6px 20px #0006; }
+  #stars { font-size: 14px; color: var(--acc); white-space: nowrap; }
+  #promptLevel { font-size: 12px; color: #667; display: block; }
+  @media (max-width: 900px) { #palette { width: 165px; } #palette i { height: 14px; } .slider { width: 56px; } .slider input { width: 56px; } #stars { display: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <div id="swatch" title="Mix a color"></div>
+    <div id="palette"></div>
+    <div class="sep"></div>
+    <label class="slider">size <input id="size" type="range" min="1" max="90" value="12"></label>
+    <label class="slider">strength <input id="alpha" type="range" min="5" max="100" value="100"></label>
+    <div class="sep"></div>
+    <button class="btn" id="mirror" title="Mirror"><svg viewBox="0 0 24 24"><path d="M12 3v18M4 7l5 5-5 5M20 7l-5 5 5 5"/></svg></button>
+    <div class="layers" id="layers"></div>
+    <div class="sep"></div>
+    <button class="btn" id="undo" title="Undo"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+    <button class="btn" id="redo" title="Redo"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
+    <div class="grow"></div>
+    <span id="stars">★ 0</span>
+    <button class="btn" id="challenge" title="Challenge"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></button>
+    <button class="btn" id="newPage" title="New page"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 11v6M9 14h6"/></svg></button>
+    <button class="btn" id="save" title="Save to gallery"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h7V3"/><path d="M8 21v-7h8v7"/></svg></button>
+    <button class="btn" id="open" title="Gallery"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg></button>
+  </div>
+  <div id="tools"></div>
+  <div id="stage">
+    <canvas id="view" width="1280" height="800"></canvas>
+    <div id="panel">
+      <h3>Mix a color</h3>
+      <div class="mix">
+        <span>hue</span><input id="hue" type="range" min="0" max="360" value="200">
+        <span>bright</span><input id="sat" type="range" min="0" max="100" value="80">
+        <span>light</span><input id="lig" type="range" min="0" max="100" value="50">
+      </div>
+      <div id="recent"></div>
+      <div style="margin-top:10px;text-align:right"><button class="btn" id="mixDone">Done</button></div>
+    </div>
+    <div id="prompt"><span><span id="promptLevel"></span><span id="promptText"></span></span><button class="btn quiet" id="promptSkip">Another</button><button class="btn" id="promptDone">Done!</button></div>
+    <div id="gallery">
+      <div class="head"><h2>My paintings</h2><button class="btn" id="galleryClose">Back to painting</button></div>
+      <div id="shots"></div>
+    </div>
+    <div id="toast"></div>
+  </div>
+</div>
+<script>
+'use strict';
+// Paint Studio: a free paint app for a child. Brushes with texture, a smudge tool for shading, mirror and kaleidoscope
+// drawing, three layers, undo, a gallery kept on the tablet, and art challenges by grade (docs/ladders.md). Every
+// stroke is a run of stamps on the active layer; the layers are composited onto the visible canvas after each one.
+const $ = (id) => document.getElementById(id);
+const W = 1280, H = 800;
+const view = $('view'), vctx = view.getContext('2d');
+const STORE = 'paint-studio';
+const say = (text) => { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; speechSynthesis.speak(u); } catch (e) {} };
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const toast = (t) => { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.display = 'none'; }, 1800); };
+
+// ---- Layers ---------------------------------------------------------------------------------------------------------
+const layers = [0, 1, 2].map(() => { const c = document.createElement('canvas'); c.width = W; c.height = H; return { c, ctx: c.getContext('2d', { willReadFrequently: true }), on: true }; });
+let active = 0;
+function composite() {
+  vctx.globalCompositeOperation = 'source-over'; vctx.globalAlpha = 1;
+  vctx.fillStyle = '#fff'; vctx.fillRect(0, 0, W, H);
+  for (const l of layers) if (l.on) vctx.drawImage(l.c, 0, 0);
+}
+function renderLayers() {
+  const box = $('layers'); box.innerHTML = '';
+  layers.forEach((l, i) => {
+    const b = document.createElement('button'); b.className = 'btn' + (i === active ? ' on' : '') + (l.on ? '' : ' hid'); b.textContent = String(i + 1); b.title = 'Layer ' + (i + 1) + ' (tap again to hide or show)';
+    b.onclick = () => { if (active === i) { l.on = !l.on; say(l.on ? 'Layer ' + (i + 1) + ' is showing' : 'Layer ' + (i + 1) + ' is hidden'); } else { active = i; say('Layer ' + (i + 1)); } renderLayers(); composite(); };
+    box.appendChild(b);
+  });
+}
+
+// ---- Undo -----------------------------------------------------------------------------------------------------------
+const undoStack = [], redoStack = [], UNDO_MAX = 16;
+function snapshot(layer) { const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(layers[layer].c, 0, 0); return { layer, c }; }
+function remember() { undoStack.push(snapshot(active)); if (undoStack.length > UNDO_MAX) undoStack.shift(); redoStack.length = 0; buttons(); }
+function restore(from, to) { const s = from.pop(); if (!s) return; to.push(snapshot(s.layer)); const l = layers[s.layer]; l.ctx.globalCompositeOperation = 'source-over'; l.ctx.globalAlpha = 1; l.ctx.clearRect(0, 0, W, H); l.ctx.drawImage(s.c, 0, 0); composite(); buttons(); }
+function buttons() { $('undo').disabled = !undoStack.length; $('redo').disabled = !redoStack.length; }
+$('undo').onclick = () => restore(undoStack, redoStack);
+$('redo').onclick = () => restore(redoStack, undoStack);
+
+// ---- Colors ---------------------------------------------------------------------------------------------------------
+const PALETTE = ['#000000', '#5b5b5b', '#9e9e9e', '#ffffff', '#7a3b12', '#c47a3a', '#f3c7a0', '#e63946', '#ff7a00', '#ffd400', '#8bd346', '#1f8f3a', '#1fbfb8', '#3aa0ff', '#2b4fd6', '#7b3fe4', '#e46bd9', '#ff9ec4'];
+let color = '#2b4fd6', recent = [];
+const hsl = { h: 225, s: 66, l: 50 };
+const hslToHex = (h, s, l) => { s /= 100; l /= 100; const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)); return '#' + [f(0), f(8), f(4)].map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join(''); };
+function setColor(c, speakIt) {
+  color = c; $('swatch').style.background = c;
+  if (!recent.includes(c)) { recent.unshift(c); recent = recent.slice(0, 8); renderRecent(); }
+  if (speakIt) say(colorName(c));
+}
+function colorName(c) {
+  const r = parseInt(c.slice(1, 3), 16), g = parseInt(c.slice(3, 5), 16), b = parseInt(c.slice(5, 7), 16);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 510;
+  if (max - min < 24) return l < 0.15 ? 'black' : l > 0.9 ? 'white' : 'gray';
+  let h = 0; const d = max - min;
+  if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  const name = h < 15 ? 'red' : h < 40 ? 'orange' : h < 65 ? 'yellow' : h < 160 ? 'green' : h < 200 ? 'teal' : h < 260 ? 'blue' : h < 290 ? 'purple' : h < 335 ? 'pink' : 'red';
+  if (name === 'orange' && l < 0.4) return 'brown';
+  return (l < 0.3 ? 'dark ' : l > 0.75 ? 'light ' : '') + name;
+}
+function renderRecent() { const box = $('recent'); box.innerHTML = ''; for (const c of recent) { const i = document.createElement('i'); i.style.background = c; i.onclick = () => setColor(c, true); box.appendChild(i); } }
+(function paletteUi() {
+  const box = $('palette');
+  for (const c of PALETTE) { const i = document.createElement('i'); i.style.background = c; i.onclick = () => { setColor(c, true); if (tool === 'eraser') selectTool('pen'); }; box.appendChild(i); }
+  $('swatch').onclick = () => { $('panel').classList.toggle('open'); if ($('panel').classList.contains('open')) say('Mix a color'); };
+  $('mixDone').onclick = () => { $('panel').classList.remove('open'); setColor(color, true); };
+  const mix = () => { hsl.h = +$('hue').value; hsl.s = +$('sat').value; hsl.l = +$('lig').value; color = hslToHex(hsl.h, hsl.s, hsl.l); $('swatch').style.background = color; };
+  for (const id of ['hue', 'sat', 'lig']) $(id).oninput = mix;
+  setColor(color, false);
+})();
+
+// ---- Tools ----------------------------------------------------------------------------------------------------------
+// Each brush stamps along the stroke. spacing is the gap between stamps as a fraction of the size. draw(ctx, x, y, r,
+// pressure) paints one stamp; the stroke sets the layer's alpha and color before it.
+const I = {
+  pen: '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M13 7l3 3"/>',
+  marker: '<path d="M6 20h12"/><path d="M8 17V8a4 4 0 0 1 8 0v9"/>',
+  pencil: '<path d="M3 21l3-1 12-12-2-2L4 18z"/><path d="M14 6l2 2"/><path d="M3 21l1-3"/>',
+  chalk: '<rect x="5" y="9" width="14" height="6" rx="3"/><path d="M19 12h2"/>',
+  crayon: '<path d="M6 21h12"/><path d="M8 18V8l4-5 4 5v10"/><path d="M8 11h8"/>',
+  water: '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>',
+  spray: '<path d="M9 9h6v12H9z"/><path d="M11 9V6h2v3"/><path d="M16 4h1M18 7h1M16 10h1M19 4h1"/>',
+  shade: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
+  smudge: '<path d="M8 4v8"/><path d="M12 3v9"/><path d="M16 5v7"/><path d="M6 12c0 5 3 8 6 8s6-3 6-8"/>',
+  fill: '<path d="M5 12l7-7 7 7-7 7z"/><path d="M19 14s2 2.5 2 4a2 2 0 0 1-4 0c0-1.5 2-4 2-4z"/>',
+  eraser: '<path d="M4 15l9-9 6 6-6 6H7z"/><path d="M10 21h10"/>',
+};
+const TOOLS = {
+  pen: { name: 'Pen', spacing: 0.12, draw: (c, x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); } },
+  marker: { name: 'Marker', spacing: 0.15, alpha: 0.45, draw: (c, x, y, r) => { c.beginPath(); c.arc(x, y, r * 1.3, 0, 7); c.fill(); } },
+  pencil: { name: 'Pencil', spacing: 0.3, alpha: 0.7, draw: (c, x, y, r) => { const n = 6 + r; for (let i = 0; i < n; i++) { const a = Math.random() * 7, d = Math.random() * r * 0.5; c.beginPath(); c.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, Math.max(0.6, r * 0.18), 0, 7); c.fill(); } } },
+  chalk: { name: 'Chalk', spacing: 0.25, alpha: 0.35, draw: (c, x, y, r) => { const n = 10 + r * 2; for (let i = 0; i < n; i++) { const a = Math.random() * 7, d = Math.sqrt(Math.random()) * r; c.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.6, 1.6); } } },
+  crayon: { name: 'Crayon', spacing: 0.2, alpha: 0.8, draw: (c, x, y, r) => { const n = 8 + r; for (let i = 0; i < n; i++) { const a = Math.random() * 7, d = Math.sqrt(Math.random()) * r; c.beginPath(); c.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 1 + Math.random() * r * 0.25, 0, 7); c.fill(); } } },
+  water: { name: 'Watercolor', spacing: 0.35, alpha: 0.12, draw: (c, x, y, r) => { const g = c.createRadialGradient(x, y, 0, x, y, r * 1.8); g.addColorStop(0, color); g.addColorStop(1, color + '00'); c.fillStyle = g; c.beginPath(); c.arc(x, y, r * 1.8, 0, 7); c.fill(); c.fillStyle = color; } },
+  spray: { name: 'Spray', spacing: 0.1, alpha: 0.5, draw: (c, x, y, r) => { for (let i = 0; i < 14; i++) { const a = Math.random() * 7, d = Math.random() * r * 2; c.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.4, 1.4); } } },
+  shade: { name: 'Shade', spacing: 0.3, alpha: 0.06, draw: (c, x, y, r) => { const g = c.createRadialGradient(x, y, 0, x, y, r * 2.2); g.addColorStop(0, color); g.addColorStop(1, color + '00'); c.fillStyle = g; c.beginPath(); c.arc(x, y, r * 2.2, 0, 7); c.fill(); c.fillStyle = color; } },
+  smudge: { name: 'Smudge', spacing: 0.2, smudge: true },
+  fill: { name: 'Fill', fill: true },
+  eraser: { name: 'Eraser', spacing: 0.12, erase: true, draw: (c, x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); } },
+};
+let tool = 'pen';
+function selectTool(id, speakIt) {
+  tool = id;
+  for (const b of document.querySelectorAll('#tools .tool')) b.classList.toggle('on', b.dataset.id === id);
+  if (speakIt) say(TOOLS[id].name);
+}
+(function toolsUi() {
+  const box = $('tools');
+  for (const id of Object.keys(TOOLS)) {
+    const b = document.createElement('button'); b.className = 'tool'; b.dataset.id = id;
+    b.innerHTML = '<svg viewBox="0 0 24 24">' + I[id] + '</svg>' + TOOLS[id].name;
+    b.onclick = () => selectTool(id, true);
+    box.appendChild(b);
+  }
+  selectTool('pen', false);
+})();
+
+// ---- Mirror ---------------------------------------------------------------------------------------------------------
+const MIRRORS = [['off', 'Mirror off'], ['lr', 'Left and right'], ['ud', 'Up and down'], ['four', 'Four ways'], ['kal6', 'Kaleidoscope 6'], ['kal8', 'Kaleidoscope 8']];
+let mirror = 0;
+$('mirror').onclick = () => { mirror = (mirror + 1) % MIRRORS.length; $('mirror').classList.toggle('on', mirror > 0); toast(MIRRORS[mirror][1]); say(MIRRORS[mirror][1]); };
+// Every point a stamp lands on, for the current mirror mode.
+function images(x, y) {
+  const m = MIRRORS[mirror][0], cx = W / 2, cy = H / 2;
+  if (m === 'off') return [[x, y]];
+  if (m === 'lr') return [[x, y], [W - x, y]];
+  if (m === 'ud') return [[x, y], [x, H - y]];
+  if (m === 'four') return [[x, y], [W - x, y], [x, H - y], [W - x, H - y]];
+  const n = m === 'kal6' ? 6 : 8, out = [], dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy), a0 = Math.atan2(dy, dx);
+  for (let i = 0; i < n; i++) { const a = a0 + (i * 2 * Math.PI) / n; out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)], [cx + r * Math.cos(-a), cy + r * Math.sin(-a)]); }
+  return out;
+}
+
+// ---- Strokes --------------------------------------------------------------------------------------------------------
+let drawing = false, last = null, carry = 0, sprayTimer = null, strokeCount = 0;
+const size = () => +$('size').value, strength = () => +$('alpha').value / 100;
+function canvasPoint(e) { const b = view.getBoundingClientRect(); return { x: ((e.clientX - b.left) / b.width) * W, y: ((e.clientY - b.top) / b.height) * H, p: e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.6 }; }
+function stampAt(x, y, p) {
+  const t = TOOLS[tool], l = layers[active], c = l.ctx, r = Math.max(0.8, (size() / 2) * (0.5 + p));
+  c.globalCompositeOperation = t.erase ? 'destination-out' : 'source-over';
+  c.globalAlpha = (t.alpha ?? 1) * strength();
+  c.fillStyle = color;
+  for (const [ix, iy] of images(x, y)) t.draw(c, ix, iy, r, p);
+}
+// Smudge drags the paint under the brush along the stroke: the pixels at the last point are copied a little ahead.
+function smudgeStep(from, to) {
+  const l = layers[active], c = l.ctx, r = Math.max(4, size()), s = r * 2;
+  const pairs = images(from.x, from.y).map((f, i) => [f, images(to.x, to.y)[i]]);
+  for (const [[fx, fy], [tx, ty]] of pairs) {
+    const sx = Math.round(fx - r), sy = Math.round(fy - r);
+    if (sx < 0 || sy < 0 || sx + s > W || sy + s > H) continue;
+    const img = c.getImageData(sx, sy, s, s);
+    const tmp = smudgeStep.tmp || (smudgeStep.tmp = document.createElement('canvas')); tmp.width = s; tmp.height = s;
+    const tc = tmp.getContext('2d'); tc.putImageData(img, 0, 0);
+    tc.globalCompositeOperation = 'destination-in'; const g = tc.createRadialGradient(r, r, 0, r, r, r); g.addColorStop(0, '#fff'); g.addColorStop(1, '#fff0'); tc.fillStyle = g; tc.fillRect(0, 0, s, s);
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 0.5 * strength();
+    c.drawImage(tmp, Math.round(tx - r), Math.round(ty - r));
+  }
+}
+function strokeTo(pt) {
+  const t = TOOLS[tool];
+  if (t.smudge) { if (last) smudgeStep(last, pt); last = pt; return; }
+  const step = Math.max(1, size() * t.spacing);
+  if (!last) { stampAt(pt.x, pt.y, pt.p); last = pt; return; }
+  const dx = pt.x - last.x, dy = pt.y - last.y, dist = Math.hypot(dx, dy);
+  let d = carry;
+  while (d <= dist) { const f = dist ? d / dist : 0; stampAt(last.x + dx * f, last.y + dy * f, last.p + (pt.p - last.p) * f); d += step; }
+  carry = d - dist; last = pt;
+}
+view.addEventListener('pointerdown', (e) => {
+  if (e.button !== undefined && e.button !== 0) return;
+  view.setPointerCapture(e.pointerId);
+  const pt = canvasPoint(e);
+  if (TOOLS[tool].fill) { remember(); for (const [x, y] of images(pt.x, pt.y)) floodFill(layers[active], Math.round(x), Math.round(y), color); composite(); strokeCount++; return; }
+  remember(); drawing = true; last = null; carry = 0; strokeTo(pt); composite(); strokeCount++;
+  if (tool === 'spray') sprayTimer = setInterval(() => { if (last) { stampAt(last.x, last.y, last.p); composite(); } }, 40);
+});
+view.addEventListener('pointermove', (e) => {
+  if (!drawing) return;
+  const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const ev of events.length ? events : [e]) strokeTo(canvasPoint(ev));
+  composite();
+});
+const end = () => { drawing = false; last = null; clearInterval(sprayTimer); sprayTimer = null; };
+view.addEventListener('pointerup', end); view.addEventListener('pointercancel', end); view.addEventListener('lostpointercapture', end);
+
+// Flood fill on one layer: every connected pixel close in color to the tapped one, through the transparent background
+// too, so tapping the white of an empty layer fills the whole outline the child drew on it.
+function floodFill(layer, x0, y0, hex) {
+  if (x0 < 0 || y0 < 0 || x0 >= W || y0 >= H) return;
+  const img = layer.ctx.getImageData(0, 0, W, H), d = img.data;
+  const i0 = (y0 * W + x0) * 4, r0 = d[i0], g0 = d[i0 + 1], b0 = d[i0 + 2], a0 = d[i0 + 3];
+  const nr = parseInt(hex.slice(1, 3), 16), ng = parseInt(hex.slice(3, 5), 16), nb = parseInt(hex.slice(5, 7), 16);
+  if (a0 > 200 && Math.abs(r0 - nr) + Math.abs(g0 - ng) + Math.abs(b0 - nb) < 6) return;
+  const near = (i) => Math.abs(d[i] - r0) + Math.abs(d[i + 1] - g0) + Math.abs(d[i + 2] - b0) + Math.abs(d[i + 3] - a0) < 90;
+  const seen = new Uint8Array(W * H), stack = [y0 * W + x0];
+  while (stack.length) {
+    let p = stack.pop(); if (seen[p]) continue;
+    let x = p % W, y = (p - x) / W, lx = x;
+    while (lx > 0 && !seen[p - 1] && near((p - 1) * 4)) { p--; lx--; }
+    let up = false, down = false;
+    for (; lx < W && !seen[p] && near(p * 4); lx++, p++) {
+      seen[p] = 1; d[p * 4] = nr; d[p * 4 + 1] = ng; d[p * 4 + 2] = nb; d[p * 4 + 3] = 255;
+      if (y > 0) { const q = p - W; if (!seen[q] && near(q * 4)) { if (!up) { stack.push(q); up = true; } } else up = false; }
+      if (y < H - 1) { const q = p + W; if (!seen[q] && near(q * 4)) { if (!down) { stack.push(q); down = true; } } else down = false; }
+    }
+  }
+  layer.ctx.putImageData(img, 0, 0);
+}
+
+// ---- Gallery and stars -----------------------------------------------------------------------------------------------
+const store = { get: (k, d) => { try { const v = localStorage.getItem(STORE + '-' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(STORE + '-' + k, JSON.stringify(v)); } catch (e) {} } };
+let stars = store.get('stars', 0);
+const renderStars = () => { $('stars').textContent = '★ ' + stars; };
+function award(n, why) { stars += n; store.set('stars', stars); renderStars(); toast('★ ' + (n === 1 ? 'A star' : n + ' stars') + ' for ' + why); }
+function painted() { const d = vctx.getImageData(0, 0, W, H).data; let n = 0; for (let i = 0; i < d.length; i += 64) if (d[i] < 250 || d[i + 1] < 250 || d[i + 2] < 250) n++; return n; }
+let savedThisPainting = false;
+$('save').onclick = () => {
+  if (painted() < 40) { say('Paint something first'); toast('Paint something first'); return; }
+  const c = document.createElement('canvas'); c.width = 640; c.height = 400; c.getContext('2d').drawImage(view, 0, 0, 640, 400);
+  const shots = store.get('gallery', []);
+  shots.unshift({ id: Date.now(), data: c.toDataURL('image/jpeg', 0.8) });
+  while (shots.length > 24) shots.pop();
+  store.set('gallery', shots);
+  if (!savedThisPainting) { savedThisPainting = true; const today = new Date().toISOString().slice(0, 10), day = store.get('day', { d: today, n: 0 }); if (day.d !== today) { day.d = today; day.n = 0; } if (day.n < 5) { day.n++; store.set('day', day); award(1, 'a finished painting'); } else toast('Saved'); }
+  else toast('Saved');
+  say('Saved to your gallery');
+};
+function renderGallery() {
+  const box = $('shots'); box.innerHTML = '';
+  const shots = store.get('gallery', []);
+  if (!shots.length) box.innerHTML = '<p style="color:#aab1c4">No paintings yet. Press Save when one is finished.</p>';
+  for (const s of shots) {
+    const div = document.createElement('div'); div.className = 'shot';
+    const img = document.createElement('img'); img.src = s.data; img.alt = ''; div.appendChild(img);
+    const del = document.createElement('button'); del.className = 'del'; del.textContent = 'Remove'; del.onclick = (e) => { e.stopPropagation(); store.set('gallery', store.get('gallery', []).filter((x) => x.id !== s.id)); renderGallery(); };
+    div.appendChild(del);
+    div.onclick = () => { remember(); const l = layers[active]; const im = new Image(); im.onload = () => { l.ctx.globalCompositeOperation = 'source-over'; l.ctx.globalAlpha = 1; l.ctx.drawImage(im, 0, 0, W, H); composite(); }; im.src = s.data; $('gallery').classList.remove('open'); say('Here it is. Keep painting on layer ' + (active + 1)); };
+    box.appendChild(div);
+  }
+}
+$('open').onclick = () => { renderGallery(); $('gallery').classList.add('open'); say('Your paintings'); };
+$('galleryClose').onclick = () => $('gallery').classList.remove('open');
+
+// ---- Challenges: an art ladder from pre-K to 8th grade ---------------------------------------------------------------
+// Each rung lists prompts a teacher at that grade would set, using the tools this app has. The child paints the prompt
+// and presses Done; the only check is that the canvas has paint on it. Grade bands follow docs/ladders.md.
+const LEVELS = [
+  { g: -1, name: 'Shapes and colors', prompts: ['Paint a big red circle.', 'Paint a blue square and a yellow triangle.', 'Make three dots: one red, one green, one blue.', 'Paint a long wiggly line with the crayon.', 'Fill the whole page with your favorite color.', 'Paint a sun in the corner.', 'Paint a rainbow with the marker.', 'Paint a tall green line and a short green line.'] },
+  { g: 0, name: 'Draw what you see', prompts: ['Paint an apple with a stem and a leaf.', 'Paint a house with a door and two windows.', 'Paint a tree with a brown trunk and a green top.', 'Paint a fish with the watercolor brush.', 'Paint a flower with five petals.', 'Paint the sky with the chalk, then add clouds.', 'Paint a cat face: two ears, two eyes, whiskers.', 'Paint a ball and color it in with Fill.'] },
+  { g: 1, name: 'Symmetry', prompts: ['Turn on Left and right mirror and paint a butterfly.', 'With Left and right mirror, paint a face.', 'With Up and down mirror, paint a boat on a lake.', 'With Four ways, paint a snowflake.', 'Paint a heart with Left and right mirror on.', 'With Left and right mirror, paint a vase with flowers.', 'Paint a ladybug with the mirror on, then its spots.', 'With Four ways, paint a window with curtains.'] },
+  { g: 2, name: 'Warm and cool', prompts: ['Paint a sunset using only warm colors: red, orange, yellow.', 'Paint an ocean using only cool colors: blue, green, purple.', 'Paint a campfire with warm colors and a night sky with cool colors.', 'Paint a hot day on the left and a cold day on the right.', 'Paint a big flower in warm colors on a cool background.', 'Paint a desert with warm colors.', 'Paint a snowy hill with cool colors and one warm house.', 'Paint a fruit bowl: warm fruit, cool bowl.'] },
+  { g: 3, name: 'Shading', prompts: ['Paint a ball, then use Shade to make one side dark.', 'Paint an apple with a light side and a dark side.', 'Paint a cup and shade the inside.', 'Use Smudge to blend two colors into each other.', 'Paint a moon and shade it so it looks round.', 'Paint an egg and shade it with Smudge.', 'Paint a hill and shade the far side.', 'Paint a banana with a shadow under it.'] },
+  { g: 4, name: 'Composition', prompts: ['Paint a scene with something big in front and something small far away.', 'Paint a picture where the main thing is not in the middle.', 'Paint a road that gets narrower as it goes away.', 'Paint a landscape with a foreground, a middle and a background.', 'Paint a row of trees that get smaller into the distance.', 'Paint a still life of three objects, one overlapping another.', 'Paint a bird and leave space in front of where it flies.', 'Paint a path that leads the eye to a house.'] },
+  { g: 5, name: 'Perspective', prompts: ['Paint a box in one-point perspective: lines meet at one dot on the horizon.', 'Paint a hallway in one-point perspective.', 'Paint a street with buildings on both sides meeting at a vanishing point.', 'Paint railroad tracks going to the horizon.', 'Paint a room corner in two-point perspective.', 'Paint a row of fence posts shrinking into the distance.', 'Paint a bridge that goes away from you.', 'Paint a city block in two-point perspective.'] },
+  { g: 6, name: 'Value and form', prompts: ['Paint a sphere with a highlight, a mid tone, a core shadow and a cast shadow.', 'Paint a cylinder with five values from light to dark.', 'Paint a cube with each face a different value.', 'Make a value scale: ten steps from white to black with Shade.', 'Paint a cone lit from the left.', 'Paint a crumpled paper bag using only one color and Shade.', 'Paint a glass of water with reflections and shadows.', 'Paint three spheres lit from the same side.'] },
+  { g: 7, name: 'Color theory', prompts: ['Paint a picture using only complementary colors: blue and orange.', 'Paint a picture in an analogous scheme: three colors next to each other on the wheel.', 'Paint the same tree twice: once in warm light, once in cool light.', 'Paint a monochrome scene: one hue, many values.', 'Paint a color wheel with the mixer: twelve hues around a circle.', 'Paint a portrait using a split-complementary scheme.', 'Paint a landscape where the colors fade with distance (atmospheric perspective).', 'Mix a tint, a tone and a shade of green and paint a leaf with each.'] },
+  { g: 8, name: 'Design principles', prompts: ['Paint a poster with a clear focal point, using contrast to lead the eye.', 'Paint a composition with rhythm: a repeated shape that changes as it goes.', 'Paint a balanced picture that is not symmetrical.', 'Paint a design with unity: one shape family, one color scheme.', 'Paint an abstract piece with emphasis on a single element.', 'Paint a pattern with the kaleidoscope, then break it in one place on purpose.', 'Paint a logo for an imaginary company using two colors.', 'Paint a scene that uses movement: lines that pull the eye across the page.'] },
+];
+const START = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('art', LEVELS.map((l) => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('art', LEVELS.length, 3) : 3));
+let level = Math.max(0, Math.min(LEVELS.length - 1, store.get('level', START))), prompt = null, done = store.get('done', 0);
+const gradeName = (g) => g === -1 ? 'pre-K' : g === 0 ? 'kindergarten' : g + (g === 1 ? 'st' : g === 2 ? 'nd' : g === 3 ? 'rd' : 'th') + ' grade';
+function badge() { $('promptLevel').textContent = LEVELS[level].name + ' (' + gradeName(LEVELS[level].g) + ')'; }
+function promptFor(i) { return pick(LEVELS[i].prompts); }
+function newPrompt() { prompt = promptFor(level); $('promptText').textContent = prompt; $('prompt').classList.add('open'); say(prompt); }
+$('challenge').onclick = () => { if ($('prompt').classList.contains('open')) { $('prompt').classList.remove('open'); prompt = null; return; } newPrompt(); };
+$('promptSkip').onclick = newPrompt;
+$('promptDone').onclick = () => {
+  if (painted() < 60) { say('Paint it first, then press Done'); return; }
+  done++; store.set('done', done);
+  award(1, 'a challenge');
+  if (done % 3 === 0 && level < LEVELS.length - 1) { level++; store.set('level', level); badge(); say('You moved up to ' + LEVELS[level].name); }
+  else say('Nice work');
+  $('prompt').classList.remove('open'); prompt = null;
+};
+
+// ---- Start ----------------------------------------------------------------------------------------------------------
+function fit() {
+  const s = $('stage'), aw = s.clientWidth - 24, ah = s.clientHeight - 24, k = Math.min(aw / W, ah / H);
+  view.style.width = Math.floor(W * k) + 'px'; view.style.height = Math.floor(H * k) + 'px';
+}
+window.addEventListener('resize', fit);
+fit(); renderLayers(); renderStars(); buttons(); badge(); composite();
+let newArmed = 0;
+$('newPage').onclick = () => {
+  if (Date.now() - newArmed > 3000) { newArmed = Date.now(); toast('Tap again for a blank page'); say('Tap again for a blank page'); return; }
+  newArmed = 0;
+  for (const l of layers) { l.ctx.globalCompositeOperation = 'source-over'; l.ctx.globalAlpha = 1; l.ctx.clearRect(0, 0, W, H); l.on = true; }
+  undoStack.length = 0; redoStack.length = 0; active = 0; savedThisPainting = false;
+  renderLayers(); buttons(); composite(); say('A blank page');
+};
+setTimeout(() => say('Welcome to Paint Studio. Pick a brush and a color, and paint.'), 600);
+
+// Self-check hook for tools/ladder-check.mjs: every rung yields prompts, and each prompt names something to paint.
+for (const l of LEVELS) for (const p of l.prompts) if (!/^Paint|^Make|^Turn on|^With|^Use|^Mix|^Fill/.test(p)) throw new Error('prompt without an instruction: ' + p);
+window.DucklingLadder = {
+  levels: () => LEVELS.length,
+  start: () => START,
+  label: () => $('promptLevel').textContent,
+  exercise: (i, n) => { const out = []; for (let k = 0; k < n; k++) { const p = promptFor(i); if (!p || p.length < 12) throw new Error('bad prompt at rung ' + i); out.push(LEVELS[i].name + ': ' + p); } return out; },
+};
+</script>
+</body>
+</html>
