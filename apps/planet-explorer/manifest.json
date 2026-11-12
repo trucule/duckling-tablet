@@ -8,7 +8,7 @@
   ],
   "ageMin": 4,
   "ageMax": 14,
-  "starter": false,
+  "starter": true,
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/planet-explorer",
