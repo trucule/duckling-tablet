@@ -451,6 +451,24 @@ describe('one-device signup', () => {
     expect((await app.inject({ method: 'PUT', url: '/admin/families/trial', payload: { email: 'trial@example.com', days: 0 } })).statusCode).toBe(401);
   });
 
+  it('lets the admin grant a family a complimentary license that never ends, and take it back', async () => {
+    await publish('word-wizard', '1.0.0', { starter: true });
+    const p = await signIn('comp@example.com');
+    const child = (await app.inject({ method: 'POST', url: '/family/children', headers: p.auth, payload: { firstName: 'Ada', age: 6 } })).json();
+    const t = await pair(p.auth, child.id);
+    const admin = { authorization: `Bearer ${ADMIN}` };
+    const license = (email: string, complimentary: boolean) => app.inject({ method: 'PUT', url: '/admin/families/license', headers: admin, payload: { email, complimentary } });
+    expect((await license('nobody@example.com', true)).statusCode).toBe(404);
+    const on = await license('Comp@Example.com', true);
+    expect(on.statusCode).toBe(200);
+    expect(on.json().entitlement).toEqual({ status: 'active', source: 'complimentary', periodEnd: null, daysLeft: null });
+    expect((await app.inject({ method: 'GET', url: '/family', headers: p.auth })).json().subscription.status).toBe('active');
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: t.dev })).json().locked).toBe(false);
+    const off = await license('comp@example.com', false);
+    expect(off.json().entitlement.status).toBe('ended');
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: t.dev })).json().locked).toBe(true);
+  });
+
   it('signs the store review family in with the fixed code from the environment, sends it no mail, and is off when unset', async () => {
     // Off by default: the review address is an ordinary address.
     await app.inject({ method: 'POST', url: '/auth/code', payload: { email: 'review@example.com' } });

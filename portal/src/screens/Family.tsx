@@ -142,7 +142,7 @@ export function Family() {
       <div class="card" id="subscription">
         <h2>Subscription</h2>
         {fam.subscription.status === 'trial' && <p>Free trial: <strong>{fam.subscription.daysLeft} day{fam.subscription.daysLeft === 1 ? '' : 's'} left</strong>{fam.subscription.periodEnd ? ` (until ${new Date(fam.subscription.periodEnd).toLocaleDateString()})` : ''}. After that, $5 a month covers every tablet in the family, on any platform. No card is needed during the trial.</p>}
-        {fam.subscription.status === 'active' && <p>Subscribed. $5 a month covers every tablet in the family.</p>}
+        {fam.subscription.status === 'active' && <p>{fam.subscription.source === 'complimentary' ? 'Complimentary license: every tablet in the family is covered, with nothing to pay.' : 'Subscribed. $5 a month covers every tablet in the family.'}</p>}
         {fam.subscription.status === 'grace' && <p class="error">The last payment did not go through. Everything keeps working while {fam.subscription.source === 'stripe' ? 'Stripe tries the card again; update it under Manage subscription' : 'the store retries; update the card where you subscribed'}.</p>}
         {(fam.subscription.status === 'ended' || fam.subscription.status === 'none') && <p class="error">The free trial has ended, so the tablets are locked. Subscribe {fam.cardPayments ? 'here with a card, or ' : ''}in the parent area of an iPad or Android tablet (the Parent button on its home screen); one subscription covers every tablet in the family.</p>}
         {fam.cardPayments && (subscribed ? fam.subscription.source === 'stripe' : true) && (
