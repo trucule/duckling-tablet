@@ -1,16 +1,20 @@
 {
- "source": "4b756b7cd9a87fd6c28ec56c39a66f5d2cd3f20ae6adb61a5f88973a273e1de4",
+ "source": "33a59de6299efb878930c8d8508768202110394dd9bded65b62d906cf6e99430",
  "lines": [
   {
    "text": "Count by tens from zero, then look between the marks.",
    "rate": -10
   },
   {
-   "text": "Tap the line where 300 goes. Then launch!",
+   "text": "Tap the line where 0 point 3 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where 4 point 4 goes. Then launch!",
+   "text": "Tap the line where 100 goes. Then launch!",
+   "rate": -10
+  },
+  {
+   "text": "Tap the line where 18 goes. Then launch!",
    "rate": -10
   },
   {
@@ -18,23 +22,27 @@
    "rate": -10
   },
   {
-   "text": "Tap the line where negative 20 goes. Then launch!",
+   "text": "Tap the line where 66 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where negative 3 goes. Then launch!",
+   "text": "Tap the line where 7 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where one third goes. Then launch!",
+   "text": "Tap the line where five sixths goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where the square root of 138 goes. Then launch!",
+   "text": "Tap the line where negative 40 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "The marks count by 25. Tap the line where negative 21 goes. Then launch!",
+   "text": "Tap the line where the square root of 62 goes. Then launch!",
+   "rate": -10
+  },
+  {
+   "text": "The marks count by 25. Tap the line where 183 goes. Then launch!",
    "rate": -10
   }
  ]

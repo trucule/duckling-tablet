@@ -202,7 +202,10 @@ describe.skipIf(!ready)('parent portal', () => {
     expect(await p.locator('.list.apps li strong').first().textContent()).toBe('Robot Path');
     await p.getByPlaceholder('Search apps', { exact: false }).first().fill('');
     await p.getByRole('button', { name: 'Music' }).first().click();
-    expect(await p.locator('.list.apps li strong').allTextContents()).toEqual(['Music Box']);
+    // Every published app with the music subject, from the manifests (all apps are starters, so all are published).
+    const musicApps = STARTERS.map((d) => JSON.parse(readFileSync(join(APPS, d, 'manifest.json'), 'utf8'))).filter((m) => (m.subjects ?? []).includes('music')).map((m) => m.name).sort();
+    expect(musicApps).toContain('Music Box');
+    expect((await p.locator('.list.apps li strong').allTextContents()).sort()).toEqual(musicApps);
     await p.getByRole('button', { name: 'All subjects' }).first().click();
     await p.getByPlaceholder('Search apps', { exact: false }).first().fill('knitting');
     await p.getByRole('button', { name: 'Ask for this app' }).click();

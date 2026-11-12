@@ -1,12 +1,12 @@
 {
- "source": "ac42d112b049efa4f1e85dbdb53b21ed5a204ae529beb2130848431f7780bcc5",
+ "source": "82cb543b352352fc6e30a2d3051529333093ff82eb8f61eb3e78ef03c44d396f",
  "lines": [
   {
-   "text": "4, 11, 18, 25. Is this pattern arithmetic or geometric, and what comes next? Tap it.",
+   "text": "162, 54, 18, 6. Is this pattern arithmetic or geometric, and what comes next? Tap it.",
    "rate": -10
   },
   {
-   "text": "Find the rule from the three pairs. Then, when 9 goes in, what comes out? Type it.",
+   "text": "Find the rule from the three pairs. Then, when 8 goes in, what comes out? Type it.",
    "rate": -10
   },
   {
@@ -26,7 +26,7 @@
    "rate": -10
   },
   {
-   "text": "The shape goes through 2 machines. First one paints it orange. Last one turns it a quarter turn, the way a clock goes. What comes out at the end?",
+   "text": "The shape goes through 2 machines. First one flips it like a mirror. Last one paints it yellow. What comes out at the end?",
    "rate": -10
   },
   {
@@ -34,7 +34,7 @@
    "rate": -10
   },
   {
-   "text": "This machine flips it like a mirror. What comes out? Tap it.",
+   "text": "This machine paints it blue. What comes out? Tap it.",
    "rate": -10
   },
   {
@@ -42,11 +42,7 @@
    "rate": -10
   },
   {
-   "text": "This machine paints it yellow. What comes out? Tap it.",
-   "rate": -10
-  },
-  {
-   "text": "This pattern uses two steps each time. 4, 9, 24, 69. What comes next? Tap it.",
+   "text": "This pattern uses two steps each time. 1, 5, 13, 29. What comes next? Tap it.",
    "rate": -10
   },
   {

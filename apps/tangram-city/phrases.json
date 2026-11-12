@@ -1,20 +1,20 @@
 {
- "source": "51296c3fd9cb17d2c2ebb31a759fdfd81372de68d3b2ac5e6f8a4c38f82da132",
+ "source": "b73cd948ad077f3b17377410662f4de37712d77064d01bd749d3b23aa5a27566",
  "lines": [
   {
-   "text": "Build a shape so its corner at the yellow dot is 135 degrees. You can use more than one piece. Then tap Check.",
+   "text": "Build a shape so its corner at the yellow dot is 45 degrees. You can use more than one piece. Then tap Check.",
    "rate": -10
   },
   {
-   "text": "Fill the shadow to build a bus. Drag pieces. Tap a piece to turn it.",
+   "text": "Fill the shadow to build a castle. Drag pieces. Tap a piece to turn it.",
    "rate": -10
   },
   {
-   "text": "Fill the shadow to build a museum. Drag pieces. Tap a piece to turn it.",
+   "text": "Fill the shadow to build a lighthouse. Drag pieces. Tap a piece to turn it.",
    "rate": -10
   },
   {
-   "text": "Fill the shadow to build a ramp. Drag pieces. Tap a piece to turn it.",
+   "text": "Fill the shadow to build a zoo. Drag pieces. Tap a piece to turn it.",
    "rate": -10
   },
   {
@@ -34,7 +34,7 @@
    "rate": -10
   },
   {
-   "text": "Put the square so its lower left corner is at (5,0). Count across first, then up. Then tap Check.",
+   "text": "Put the small triangle so its square corner, the right angle, is at (4,1). Count across first, then up. Then tap Check.",
    "rate": -10
   },
   {
@@ -42,11 +42,11 @@
    "rate": -10
   },
   {
-   "text": "This right triangle has legs 7 and 4. How long is the long side, the hypotenuse? Round to tenths. Type it and tap OK.",
+   "text": "This right triangle has legs 4 and 3. How long is the long side, the hypotenuse? Type it and tap OK.",
    "rate": -10
   },
   {
-   "text": "This shadow is a mailbox, turned around. Fill it with all seven pieces. Drag pieces. Tap a piece to turn it. Tap Flip to flip it.",
+   "text": "This shadow is a tent, turned around. Fill it with all seven pieces. Drag pieces. Tap a piece to turn it. Tap Flip to flip it.",
    "rate": -10
   }
  ]
