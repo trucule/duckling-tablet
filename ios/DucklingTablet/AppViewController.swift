@@ -150,6 +150,6 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         <p>Tap Home and try again. If it happens again, a parent can send this line to support:</p>
         <p style="font:15px ui-monospace,monospace;opacity:.8">\(esc(appId)) \(esc(e.domain)) \(e.code) \(esc(e.localizedDescription))</p></div></body>
         """
-        webView.loadHTMLString(html, baseURL: nil)
+        web.loadHTMLString(html, baseURL: nil)
     }
 }
