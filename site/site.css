@@ -60,9 +60,14 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; 
 .site-header .wrap { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
 .brand { display: inline-flex; align-items: center; gap: 0.6rem; color: var(--ink); text-decoration: none; font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; letter-spacing: -0.01em; }
 .brand img { width: 40px; height: 40px; flex: none; }
-.site-nav { margin-left: auto; display: flex; gap: 1.4rem; font-family: var(--font-display); font-weight: 600; font-size: 1rem; }
+.site-nav { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.4rem; font-family: var(--font-display); font-weight: 600; font-size: 1rem; }
 .site-nav a { color: var(--ink); text-decoration: none; padding: 0.3rem 0; border-bottom: 2px solid transparent; }
 .site-nav a:hover, .site-nav a[aria-current="page"] { border-bottom-color: var(--yellow); }
+.site-nav a.nav-downloads { background: var(--yellow); border: 0; border-radius: 999px; padding: 0.3rem 0.9rem; }
+.site-nav a.nav-downloads:hover { filter: brightness(0.95); }
+.platforms .get { margin-top: 0.6rem; }
+.platforms .get .button { font-size: 0.95rem; padding: 0.5rem 1rem; }
+.platforms .soon { font-size: 0.95rem; color: var(--ink-soft); margin-top: 0.6rem; }
 
 .site-footer { border-top: 1px solid var(--line); margin-top: 5rem; padding: 2.5rem 0 3rem; color: var(--ink-soft); font-size: 0.95rem; }
 .site-footer .wrap { display: grid; gap: 1.5rem 3rem; grid-template-columns: 1fr; }
