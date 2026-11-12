@@ -40,15 +40,21 @@ final class AppSchemeHandlerTests: XCTestCase {
 
     func testPackageLoadsWithStorageAndSecureContext() async throws {
         try await load("index.html")
-        XCTAssertEqual(try await js("await window.ready; return document.getElementById('h').textContent") as? String, "Hello from the package")
-        XCTAssertEqual(try await js("await window.ready; return document.getElementById('h').dataset.word") as? String, "duck")
-        XCTAssertEqual(try await js("return location.origin") as? String, AppSchemeHandler.origin)
-        XCTAssertEqual(try await js("return window.isSecureContext") as? Bool, true, "getUserMedia needs a secure context")
-        XCTAssertEqual(try await js("return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)") as? Bool, true)
+        let v1 = try await js("await window.ready; return document.getElementById('h').textContent") as? String
+        XCTAssertEqual(v1, "Hello from the package")
+        let v2 = try await js("await window.ready; return document.getElementById('h').dataset.word") as? String
+        XCTAssertEqual(v2, "duck")
+        let v3 = try await js("return location.origin") as? String
+        XCTAssertEqual(v3, AppSchemeHandler.origin)
+        let v4 = try await js("return window.isSecureContext") as? Bool
+        XCTAssertEqual(v4, true, "getUserMedia needs a secure context")
+        let v5 = try await js("return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)") as? Bool
+        XCTAssertEqual(v5, true)
         _ = try await js("localStorage.setItem('k', 'kept'); return 1")
         _ = try await js("await new Promise((ok, no) => { const r = indexedDB.open('t', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => ok(); r.onerror = () => no(r.error); }); return 1")
         try await load("index.html")
-        XCTAssertEqual(try await js("return localStorage.getItem('k')") as? String, "kept")
+        let v6 = try await js("return localStorage.getItem('k')") as? String
+        XCTAssertEqual(v6, "kept")
     }
 
     func testRangesAndRefusals() async throws {
@@ -58,7 +64,8 @@ final class AppSchemeHandlerTests: XCTestCase {
         XCTAssertNil(AppSchemeHandler.file(for: URL(string: "\(AppSchemeHandler.origin)/apps/\(id)/../../Preferences/x")!))
         XCTAssertNil(AppSchemeHandler.file(for: URL(string: "\(AppSchemeHandler.origin)/other/\(id)/index.html")!))
         XCTAssertNil(AppSchemeHandler.file(for: URL(string: "\(AppSchemeHandler.scheme)://elsewhere/apps/\(id)/index.html")!))
-        XCTAssertEqual(try await js("return (await fetch('missing.js')).status") as? Int, 404)
+        let v7 = try await js("return (await fetch('missing.js')).status") as? Int
+        XCTAssertEqual(v7, 404)
     }
 }
 
