@@ -159,3 +159,7 @@ th { font-family: var(--font-display); font-weight: 600; }
 
 .notice { background: var(--white); border: 1px solid var(--line); border-left: 6px solid var(--yellow); border-radius: 8px; padding: 1rem 1.2rem; max-width: var(--measure); margin: 1.5rem 0; }
 .notice p:last-child { margin-bottom: 0; }
+
+.to-top { position: fixed; right: 16px; bottom: 16px; z-index: 20; background: var(--ink); color: #fff; font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; text-decoration: none; padding: 0.6rem 1rem; border-radius: 999px; box-shadow: 0 2px 8px rgba(30, 42, 51, 0.25); opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s; }
+.to-top.shown { opacity: 1; pointer-events: auto; transform: none; }
+.to-top:hover { background: #2c3c48; }
