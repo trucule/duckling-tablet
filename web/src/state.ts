@@ -248,6 +248,7 @@ export function refreshSetup() {
   setupNeeded.value = !(s.homeRole && s.lockdownOn);
 }
 window.addEventListener('duckling:resume', refreshSetup);
+window.addEventListener('duckling:state', refreshSetup);
 refreshSetup();
 
 // A tile the child taps before its download finished, or after a failed one: try again.

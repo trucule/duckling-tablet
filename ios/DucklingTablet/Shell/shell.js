@@ -8,7 +8,9 @@
   'use strict';
   if (window.DucklingShell) return;
   var S = window.__ducklingState || {};
-  window.__ducklingSetState = function (s) { S = s || {}; window.__ducklingState = S; };
+  // A new snapshot also tells the page, so a screen that shows shell state (the parent area's lockdown steps) re-reads
+  // it at once: Guided Access starting, Screen Time approved, the network changing.
+  window.__ducklingSetState = function (s) { S = s || {}; window.__ducklingState = S; try { window.dispatchEvent(new Event('duckling:state')); } catch (e) {} };
   function post(cmd, args) { try { window.webkit.messageHandlers.duckling.postMessage({ cmd: cmd, args: args || [] }); } catch (e) {} }
 
   var K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,

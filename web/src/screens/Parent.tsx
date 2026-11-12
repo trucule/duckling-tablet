@@ -8,7 +8,14 @@ export function Parent() {
   const [status, setStatus] = useState<LockdownStatus>(shell.lockdownStatus());
   const [busy, setBusy] = useState(false);
   const refresh = () => { setStatus(shell.lockdownStatus()); refreshSetup(); };
-  useEffect(() => { window.addEventListener('duckling:resume', refresh); return () => window.removeEventListener('duckling:resume', refresh); }, []);
+  // The steps are re-read when the app comes back to the front, when the shell pushes a new state (the iPad does that
+  // the moment Guided Access or Screen Time changes, with no resume), and every two seconds while this screen is open,
+  // so a step turns to a check mark on its own.
+  useEffect(() => {
+    window.addEventListener('duckling:resume', refresh); window.addEventListener('duckling:state', refresh);
+    const t = setInterval(() => setStatus(shell.lockdownStatus()), 2000);
+    return () => { window.removeEventListener('duckling:resume', refresh); window.removeEventListener('duckling:state', refresh); clearInterval(t); };
+  }, []);
   const c = config.value;
   const android = shell.platform === 'android';
   const ios = shell.platform === 'ios';
@@ -144,20 +151,18 @@ export function Parent() {
       {ios && (
         <div class="card">
           <h2>Lockdown</h2>
-          <p>Each step is checked when you come back to this screen. Steps 1 to 3 keep other apps and websites closed; step 4 keeps the child inside Duckling.</p>
+          <p>Each step gets a check mark as soon as it is done. Steps 1 to 3 keep other apps and websites closed; step 4 keeps the child inside Duckling. Steps 2 and 4 are iPad settings, so they are done in the Settings app, not here.</p>
           <ul class="steps">
             <li><span class={`dot ${status.homeRole ? 'done' : ''}`}>{status.homeRole ? '✓' : '1'}</span>
               <span><span class="what">Allow Screen Time for Duckling</span><br /><span class="why">iPadOS asks for this iPad's passcode or Face ID. It lets Duckling close other apps and websites.</span></span>
               <button class="pill quiet" onClick={() => { shell.requestHomeRole(); setTimeout(refresh, 2500); }}>Allow</button></li>
             <li><span class={`dot ${status.deviceSecure ? 'done' : ''}`}>{status.deviceSecure ? '✓' : '2'}</span>
-              <span><span class="what">A passcode the child does not know</span><br /><span class="why">Settings, then Face ID and Passcode (or Touch ID and Passcode).</span></span>
-              <button class="pill quiet" onClick={() => { shell.openSecuritySettings(); setTimeout(refresh, 1500); }}>Open Settings</button></li>
+              <span><span class="what">A passcode the child does not know</span><br /><span class="why">Open the Settings app, then Face ID and Passcode (or Touch ID and Passcode), and turn the passcode on.</span></span></li>
             <li><span class={`dot ${status.lockdownOn ? 'done' : ''}`}>{status.lockdownOn ? '✓' : '3'}</span>
               <span><span class="what">Close other apps and websites</span><br /><span class="why">Other apps are shielded, only the websites you allow open, and Duckling cannot be deleted.</span></span>
               <button class="pill quiet" disabled={!status.homeRole} onClick={() => { shell.setLockdown(!status.lockdownOn); setTimeout(refresh, 800); }}>{status.lockdownOn ? 'Turn off' : 'Turn on'}</button></li>
             <li><span class={`dot ${status.pinned ? 'done' : ''}`}>{status.pinned ? '✓' : '4'}</span>
-              <span><span class="what">Guided Access</span><br /><span class="why">In Settings, then Accessibility, turn on Guided Access and set its passcode. Back in Duckling, press the top button three times and tap Start. To leave it, press three times and type that passcode.</span></span>
-              <button class="pill quiet" onClick={() => { shell.openSecuritySettings(); setTimeout(refresh, 1500); }}>Open Settings</button></li>
+              <span><span class="what">Guided Access</span><br /><span class="why">Open the Settings app, then Accessibility, and scroll to Guided Access (under General). Turn it on, open Passcode Settings and set a passcode the child does not know. Back in Duckling, triple-click the top button (or the Home button) and tap Start. To leave, triple-click again and type that passcode.</span></span></li>
           </ul>
         </div>
       )}
