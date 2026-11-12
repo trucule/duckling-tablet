@@ -239,7 +239,8 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByRole('button', { name: 'Make a pairing code' }).click();
     let code3 = '';
     await expect.poll(async () => (code3 = (await p.locator('.code').textContent())!.trim())).not.toBe(code2);
-    await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: code3, platform: 'ios', name: 'Third tablet' }) });
+    const paired3 = await (await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: code3, platform: 'ios', name: 'Third tablet' }) })).json();
+    await fetch(`${api}/device/apps-installed`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Device ${paired3.deviceToken}` }, body: JSON.stringify({ apps: [{ package: 'com.example.atlas', label: 'Atlas Kids' }] }) });
     await p.getByRole('button', { name: 'Refresh' }).click();
     await p.locator('#devices li', { hasText: 'Third tablet' }).waitFor();
     const music2 = p.locator('.list.apps li', { hasText: 'Music Box' });
@@ -256,6 +257,14 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.locator('#websites li', { hasText: 'starfall.com' }).waitFor();
     await p.locator('#websites').getByRole('button', { name: 'Every tablet' }).click();
     await p.locator('#websites li', { hasText: 'starfall.com · Second tablet' }).waitFor();
+    // Other apps: a tab per tablet, each with that tablet's own list.
+    const other = p.locator('#other-apps');
+    await other.getByRole('tab', { name: 'Second tablet' }).waitFor();
+    await other.getByText('Second tablet has not reported its apps yet', { exact: false }).waitFor();
+    await other.getByRole('tab', { name: 'Third tablet' }).click();
+    await other.locator('li', { hasText: 'Atlas Kids' }).getByRole('button', { name: 'Allow' }).click();
+    await other.locator('li', { hasText: 'Atlas Kids' }).getByText('0 of 30 min used today').waitFor();
+    expect((await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired3.deviceToken}` } })).json()).otherApps[0]).toMatchObject({ package: 'com.example.atlas', allowed: true, dailyMinutes: 30 });
     await p.getByRole('button', { name: 'Back to top' }).click();
 
     // A second parent gets an invite link.

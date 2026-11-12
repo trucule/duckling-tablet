@@ -335,34 +335,34 @@ function SitesCard({ devices, details, onAct }: { devices: Device[]; details: Re
 
 const MINUTES: [number | null, string][] = [[15, '15 min a day'], [30, '30 min a day'], [45, '45 min a day'], [60, '1 hour a day'], [90, '1.5 hours a day'], [120, '2 hours a day'], [null, 'No daily limit']];
 
-// Apps installed outside Duckling, as the tablets report them, grouped by app with the tablets that have it. Allow
-// puts the app on a tablet's home screen; its minutes, hours and sites are set per tablet.
+// Apps installed outside Duckling, as each tablet reports them: a tab per tablet, since tablets have different apps.
+// Allow puts an app on that tablet's home screen; its minutes, hours and sites are set under it.
 function OtherAppsCard({ devices, details, onAct }: { devices: Device[]; details: Record<string, DeviceDetail>; onAct: (fn: () => Promise<unknown>) => Promise<void> }) {
-  const [picker, setPicker] = useState<string | null>(null);
-  const groups = new Map<string, { label: string; icon: string | null; on: { device: Device; a: OtherApp }[] }>();
-  for (const d of devices) for (const a of details[d.id].otherApps) { const g = groups.get(a.package) ?? { label: a.label, icon: a.icon, on: [] }; g.on.push({ device: d, a }); if (!g.icon && a.icon) g.icon = a.icon; groups.set(a.package, g); }
-  const allow = (pkg: string, ids: string[]) => { setPicker(null); const g = groups.get(pkg)!; return onAct(() => Promise.all(ids.map((id) => { const cur = g.on.find((x) => x.device.id === id)!.a; return api.otherApp(id, pkg, { allowed: true, dailyMinutes: cur.dailyMinutes ?? 30 }); }))); };
+  const [chosen, setChosen] = useState<string>('');
+  const device = devices.find((d) => d.id === chosen) ?? devices[0];
+  const apps = device ? details[device.id].otherApps : [];
   return (
     <div class="card" id="other-apps">
       <h2>Other apps</h2>
-      <p>Apps installed outside Duckling. Allow one and it appears on the tablet's home screen in its own section, for the minutes a day and the hours you set; the websites you list open only while the app has time. While another app is open the lockdown is lifted, and Duckling comes back when the time ends.</p>
-      {groups.size === 0 && <p class="muted">{devices.length ? 'No tablet has reported its apps yet; each does at its next sync.' : 'Pair a tablet to see its apps.'}</p>}
+      <p>Apps installed outside Duckling, as each tablet reports them. Allow one and it appears on that tablet's home screen in its own section, for the minutes a day and the hours you set; the websites you list open only while the app has time. While another app is open the lockdown is lifted, and Duckling comes back when the time ends.</p>
+      {devices.length > 1 && (
+        <div class="chips" role="tablist" aria-label="Which tablet">
+          {devices.map((d) => <button key={d.id} role="tab" aria-selected={device?.id === d.id} class={`chip ${device?.id === d.id ? 'on' : ''}`} onClick={() => setChosen(d.id)}>{d.name}</button>)}
+        </div>
+      )}
+      {!device && <p class="muted">Pair a tablet to see its apps.</p>}
+      {device && apps.length === 0 && <p class="muted">{device.name} has not reported its apps yet; it does at its next sync.</p>}
       <ul class="list">
-        {[...groups.entries()].map(([pkg, g]) => {
-          const allowed = g.on.filter((x) => x.a.allowed), rest = g.on.filter((x) => !x.a.allowed);
-          return (
-            <li key={pkg} style={{ alignItems: 'flex-start' }}>
-              {g.icon ? <img src={g.icon} alt="" style={{ width: 40, height: 40, borderRadius: 10 }} /> : <span class="swatch" />}
-              <span class="grow">
-                <strong>{g.label}</strong> <span class="muted">{devices.length > 1 ? `on ${g.on.map((x) => x.device.name).join(', ')} · ` : ''}{allowed.length ? `allowed on ${allowed.length === g.on.length && g.on.length > 1 ? 'every tablet' : allowed.map((x) => x.device.name).join(', ')}` : 'not shown on the tablet'}</span>
-                {allowed.map((x) => <OtherAppSettings key={x.device.id} name={devices.length > 1 ? x.device.name : ''} a={x.a} onSave={(b) => onAct(() => api.otherApp(x.device.id, pkg, b))} />)}
-              </span>
-              {picker === pkg
-                ? <TargetPicker devices={rest.map((x) => x.device)} label="Allow on" onPick={(ids) => allow(pkg, ids)} onClose={() => setPicker(null)} />
-                : <button class={`btn ${allowed.length ? 'quiet' : 'primary'}`} disabled={rest.length === 0} onClick={() => rest.length === 1 ? allow(pkg, [rest[0].device.id]) : setPicker(pkg)}>Allow</button>}
-            </li>
-          );
-        })}
+        {apps.map((a) => (
+          <li key={a.package} style={{ alignItems: 'flex-start' }}>
+            {a.icon ? <img src={a.icon} alt="" style={{ width: 40, height: 40, borderRadius: 10 }} /> : <span class="swatch" />}
+            <span class="grow">
+              <strong>{a.label}</strong> <span class="muted">{a.allowed ? 'on the home screen' : 'not shown on the tablet'}</span>
+              {a.allowed && <OtherAppSettings name="" a={a} onSave={(b) => onAct(() => api.otherApp(device.id, a.package, b))} />}
+            </span>
+            {!a.allowed && <button class="btn primary" onClick={() => onAct(() => api.otherApp(device.id, a.package, { allowed: true, dailyMinutes: a.dailyMinutes ?? 30 }))}>Allow</button>}
+          </li>
+        ))}
       </ul>
     </div>
   );
