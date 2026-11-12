@@ -109,12 +109,16 @@ public class Worker : BackgroundService
                     // Duckling is the child's whole screen. If it ran in her session and then stopped (closed by an update,
                     // or it crashed) and is still gone 45 seconds later, she is signed out and automatic sign-in starts it
                     // again. Only after it has run: a first sign-in can take minutes before the kiosk starts Duckling.
-                    if (session is { Active: true } && store.Read(s => s.LockdownOn))
+                    // Duckling opens whenever the child's account signs in, lockdown on or off: Windows' own start at
+                    // sign-in (the Run entry) and a start from the Start menu do not open it reliably on every device.
+                    // Signing her out when Duckling closes happens only with the lockdown on.
+                    var lockdownOn = store.Read(s => s.LockdownOn);
+                    if (session is { Active: true })
                     {
                         if (key != watchedSession) { watchedSession = key; seenRunning = false; missing = 0; notStarted = 0; }
                         var running = System.Diagnostics.Process.GetProcessesByName("Duckling").Any(p => { try { return p.SessionId == session.Id; } catch (Exception) { return false; } });
                         if (running) { if (!seenRunning) Log.Info("Duckling is running in the child's session"); seenRunning = true; missing = 0; notStarted = 0; }
-                        else if (seenRunning && ++missing >= 15) { Log.Info("Duckling stopped in the child's session: signing her out to start it again"); Sessions.Logoff(session.Id); missing = 0; seenRunning = false; }
+                        else if (seenRunning && lockdownOn && ++missing >= 15) { Log.Info("Duckling stopped in the child's session: signing her out to start it again"); Sessions.Logoff(session.Id); missing = 0; seenRunning = false; }
                         // On the Surface neither the kiosk's AutoLaunch nor the Run entry starts Duckling, so the service
                         // starts it in her session itself 6 seconds after she signs in, and again every 30 seconds until it
                         // runs. Duckling is single-instance, so a start that races another opens nothing twice.
