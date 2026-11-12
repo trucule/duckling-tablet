@@ -118,7 +118,8 @@ Stop-Process -Id $shell.Id -Force -ErrorAction SilentlyContinue
 Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
 # release uninstalls the MSI by itself after a few seconds
 $deadline = (Get-Date).AddSeconds(120)
-while ((Get-Service DucklingTablet -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 3 }
+# Windows Installer deletes the service before it removes the files, so wait for both.
+while (((Get-Service DucklingTablet -ErrorAction SilentlyContinue) -or (Test-Path (Join-Path $dir 'Duckling.exe'))) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 3 }
 Assert (-not (Get-Service DucklingTablet -ErrorAction SilentlyContinue)) 'release uninstalled Duckling (service gone)'
 Assert (-not (Test-Path (Join-Path $dir 'Duckling.exe'))) 'program files removed'
 Copy-Item "$env:ProgramData\Duckling\logs\*" $Out -ErrorAction SilentlyContinue
