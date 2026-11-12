@@ -282,6 +282,7 @@ function SitesCard({ devices, details, onAct }: { devices: Device[]; details: Re
   const [scope, setScope] = useState('all');
   const [host, setHost] = useState('');
   const [siteName, setSiteName] = useState('');
+  const [tile, setTile] = useState(true);
   const [custom, setCustom] = useState('');
   const [unit, setUnit] = useState<'minutes' | 'hours'>('hours');
   const chosen = scope === 'all' ? devices : devices.filter((d) => d.id === scope);
@@ -291,8 +292,8 @@ function SitesCard({ devices, details, onAct }: { devices: Device[]; details: Re
   const remove = (h: string) => onAct(() => Promise.all(chosen.filter((d) => details[d.id].allowlist.some((w) => w.host === h)).map((d) => api.settings(d.id, { allowlist: details[d.id].allowlist.filter((w) => w.host !== h) }))));
   const add = (e: Event) => {
     e.preventDefault();
-    const h = host.trim().toLowerCase(), entry = { host: h, tile: { name: siteName.trim() || host.trim(), url: `https://${h}` } };
-    onAct(() => Promise.all(chosen.filter((d) => !details[d.id].allowlist.some((w) => w.host === h)).map((d) => api.settings(d.id, { allowlist: [...details[d.id].allowlist, entry] })))).then(() => { setHost(''); setSiteName(''); });
+    const h = host.trim().toLowerCase(), entry = tile ? { host: h, tile: { name: siteName.trim() || host.trim(), url: `https://${h}` } } : { host: h };
+    onAct(() => Promise.all(chosen.filter((d) => !details[d.id].allowlist.some((w) => w.host === h)).map((d) => api.settings(d.id, { allowlist: [...details[d.id].allowlist, entry] })))).then(() => { setHost(''); setSiteName(''); setTile(true); });
   };
   const travel = (minutes: number) => onAct(() => Promise.all(chosen.map((d) => api.travel(d.id, minutes))));
   const travelling = chosen.filter((d) => details[d.id].travel.active);
@@ -300,17 +301,18 @@ function SitesCard({ devices, details, onAct }: { devices: Device[]; details: Re
   return (
     <div class="card" id="websites">
       <h2>Websites</h2>
-      <p>Sites the child may open from the home screen. A site name like pbskids.org covers its subpages.{devices.length === 0 ? ' Pair a tablet to allow sites.' : ''}</p>
+      <p>Sites the child may open from the home screen. A site name like pbskids.org covers its subpages and subdomains. A site that loads its videos or pictures from another address needs that address allowed too, without a tile.{devices.length === 0 ? ' Pair a tablet to allow sites.' : ''}</p>
       <DevicePicker devices={devices} value={scope} onChange={setScope} />
       <ul class="list">
         {[...sites.values()].map((w) => (
-          <li key={w.host}><span class="grow">{w.tile?.name ? <strong>{w.tile.name} </strong> : null}<span class="muted">{w.host}{chosen.length > 1 ? ` · ${w.on.length === chosen.length ? 'every tablet' : w.on.map((d) => d.name).join(', ')}` : ''}</span></span>
+          <li key={w.host}><span class="grow">{w.tile?.name ? <strong>{w.tile.name} </strong> : null}<span class="muted">{w.host}{w.tile ? '' : ' · no tile, used by other sites'}{chosen.length > 1 ? ` · ${w.on.length === chosen.length ? 'every tablet' : w.on.map((d) => d.name).join(', ')}` : ''}</span></span>
             <button class="btn quiet" onClick={() => remove(w.host)}>Remove</button></li>
         ))}
       </ul>
       <form class="row" onSubmit={add} style={{ marginTop: sites.size ? 10 : 0 }}>
         <input placeholder="pbskids.org" value={host} onInput={(e) => setHost((e.target as HTMLInputElement).value)} style={{ maxWidth: 220 }} />
-        <input placeholder="Name on the tile" value={siteName} onInput={(e) => setSiteName((e.target as HTMLInputElement).value)} style={{ maxWidth: 200 }} />
+        {tile && <input placeholder="Name on the tile" value={siteName} onInput={(e) => setSiteName((e.target as HTMLInputElement).value)} style={{ maxWidth: 200 }} />}
+        <label class="row" style={{ alignItems: 'center', gap: 6 }}><input type="checkbox" checked={tile} onChange={(e) => setTile((e.target as HTMLInputElement).checked)} style={{ width: 'auto' }} />Tile on the home screen</label>
         <button class="btn" disabled={!host.trim() || chosen.length === 0}>Allow site</button>
       </form>
       <div style={{ marginTop: 14 }}>

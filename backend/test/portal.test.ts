@@ -147,6 +147,17 @@ describe.skipIf(!ready)('parent portal', () => {
     cfg = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
     expect(cfg.allowlist[0]).toMatchObject({ host: 'pbskids.org', tile: { name: 'PBS Kids', url: 'https://pbskids.org' } });
 
+    // A host a site loads its videos from is allowed without a tile.
+    await p.locator('#websites').getByLabel('Tile on the home screen').uncheck();
+    await expect.poll(() => p.getByPlaceholder('Name on the tile').count()).toBe(0);
+    await p.getByPlaceholder('pbskids.org').fill('kids.pbs-video.pbs.org');
+    await p.getByRole('button', { name: 'Allow site' }).click();
+    await p.getByText('no tile, used by other sites', { exact: false }).waitFor();
+    if (process.env.SHOT_DIR) await p.locator('#websites').screenshot({ path: join(process.env.SHOT_DIR, 'portal-sites.png') });
+    cfg = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
+    expect(cfg.allowlist[1]).toEqual({ host: 'kids.pbs-video.pbs.org' });
+    expect(await p.locator('#websites').getByLabel('Tile on the home screen').isChecked()).toBe(true);
+
     // Every site for a custom time: 90 minutes.
     await p.getByPlaceholder('3').fill('90');
     await p.locator('#websites select').selectOption('minutes');
