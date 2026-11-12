@@ -4,15 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Windows download | Duckling Tablet</title>
-<meta name="description" content="The Duckling Tablet installer for Windows 10 and 11.">
+<meta name="description" content="The signed Duckling Tablet installer for Windows 10 and 11, for x64 and ARM64.">
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta property="og:title" content="Windows download | Duckling Tablet">
-<meta property="og:description" content="The Duckling Tablet installer for Windows 10 and 11.">
+<meta property="og:description" content="The signed Duckling Tablet installer for Windows 10 and 11, for x64 and ARM64.">
 <meta property="og:image" content="https://ducklingtablet.com/og.png">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="site.css">
+<style>#dl-details code { word-break: break-all; } #dl-buttons { flex-wrap: wrap; }</style>
 </head>
 <body>
 <header class="site-header"><div class="wrap">
@@ -24,12 +25,62 @@
 <div class="wrap page">
 <header>
 <h1>Duckling Tablet for Windows</h1>
-<p>The Windows installer is not published yet. This page will carry the signed installer, its version and its checksum when it is.</p>
+<p>A signed installer for Windows 10 and 11. Duckling on Windows uses the same subscription and parent portal as the Android and iPad apps.</p>
 </header>
-<h2>What the installer does</h2>
-<p>It creates a child account with automatic sign-in, sets up a kiosk that opens only Duckling, limits the browser to the websites you allow, and installs a small service that keeps the device in step with the parent portal. Removing Duckling from the portal or from the parent area on the device undoes all of it.</p>
-<p>Windows 10 or 11. Windows Pro and Education use the built-in kiosk mode; Windows Home uses a guided setup with the same result for the child.</p>
+
+<div id="downloads">
+<p id="dl-status">Looking up the current version.</p>
+<div class="hero-actions" id="dl-buttons" hidden></div>
+<p id="dl-details" class="small" hidden></p>
 </div>
+
+<h2>Which one</h2>
+<p><strong>x64</strong> is for most Windows PCs (Intel and AMD processors). <strong>ARM64</strong> is for Windows on ARM devices, such as the Surface Pro X, Surface Pro 11 and Surface Laptop 7 with Snapdragon processors. In Settings, System, About, the line System type says which one a PC has.</p>
+
+<h2>Setting it up</h2>
+<ol>
+<li>Run the installer from an administrator account. It installs the Duckling app and the Duckling service.</li>
+<li>Open Duckling from the Start menu. Type a parent's email, then the six-digit code Duckling sends to it, and the child's first name. A new family starts with a 7-day free trial, with no card. Choose a four-digit parent PIN. A family with a pairing code from the parent portal can choose I have a code from the website instead.</li>
+<li>In the parent area, under Lockdown: choose or make the child's Windows account, lock that account to Duckling, and restart into it.</li>
+</ol>
+<p>After the restart the device signs in to the child's account by itself and shows Duckling full screen, with no taskbar. Other programs and websites open only when you allow them in the parent portal. Your own account is unchanged; to use it, press Ctrl+Alt+Delete, choose Sign out, and hold the Shift key while the sign-in screen appears.</p>
+<p>The lockdown uses Windows' kiosk mode, which needs Windows 11 Pro, Education or Enterprise. On Windows 10 and on Windows 11 Home the apps work and the device is not locked down.</p>
+
+<h2>What the installer changes</h2>
+<p>The Duckling service runs as a Windows service so that the parent PIN, the settings and the lockdown stay out of the child's reach. It installs the learning apps, applies the parent portal's settings, installs newer signed versions of Duckling, and opens Duckling when the child signs in. The child's account, automatic sign-in and the kiosk are set up only when a parent chooses them in the parent area.</p>
+
+<h2>Removing it</h2>
+<p>In the parent area, Remove Duckling from this device turns off the lockdown and the automatic sign-in and uninstalls Duckling. Uninstalling Duckling Tablet in Settings, Apps does the same. The child's Windows account is kept.</p>
+</div>
+
+<script>
+(function () {
+  var status = document.getElementById('dl-status'), buttons = document.getElementById('dl-buttons'), details = document.getElementById('dl-details');
+  function mb(n) { return (n / 1048576).toFixed(0) + ' MB'; }
+  function show(rel, arm) {
+    var order = arm ? ['arm64', 'x64'] : ['x64', 'arm64'];
+    var lines = [];
+    order.forEach(function (a, i) {
+      var r = rel[a]; if (!r) return;
+      var link = document.createElement('a');
+      link.className = i === 0 ? 'button' : 'button quiet';
+      link.href = r.url;
+      link.textContent = 'Download for ' + (a === 'x64' ? 'x64' : 'ARM64') + ' (' + mb(r.size) + ')';
+      buttons.appendChild(link);
+      lines.push((a === 'x64' ? 'x64' : 'ARM64') + ' ' + r.version + ', SHA-256 <code>' + r.sha256 + '</code>');
+    });
+    if (!buttons.children.length) { status.textContent = 'The installer is not available right now. Write to admin@etducky.com and we will send it.'; return; }
+    status.textContent = arm ? 'This PC looks like a Windows on ARM device, so ARM64 is first.' : 'Version ' + (rel.x64 || rel.arm64).version + '. Signed by ET Ducky LLC.';
+    details.innerHTML = lines.join('<br>');
+    buttons.hidden = false; details.hidden = false;
+  }
+  fetch('https://api.ducklingtablet.com/windows/release').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (rel) {
+    var ua = navigator.userAgentData;
+    if (ua && ua.getHighEntropyValues) ua.getHighEntropyValues(['architecture']).then(function (v) { show(rel, v.architecture === 'arm'); }, function () { show(rel, false); });
+    else show(rel, false);
+  }).catch(function () { status.textContent = 'The download list could not be loaded. Try again in a moment, or write to admin@etducky.com.'; });
+})();
+</script>
 
 </main>
 <footer class="site-footer"><div class="wrap">

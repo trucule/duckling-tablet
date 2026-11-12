@@ -56,9 +56,9 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
 
   await app.register(cookie, { secret: cfg.SESSION_SECRET });
   // The portal, the child web app, and the origins the shells give installed packages: Android's asset loader, the
-  // iPad's local server, and the Windows shell's WebView2 virtual host.
+  // iPad's local server, and the Windows shell's WebView2 virtual host. The public site reads the Windows release.
   // The portal and the web app call every verb the API has; @fastify/cors allows only GET, HEAD and POST unless told.
-  await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL, 'https://appassets.androidplatform.net', 'http://127.0.0.1:47900', 'https://apps.duckling.example'], credentials: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
+  await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL, cfg.SITE_URL, 'https://appassets.androidplatform.net', 'http://127.0.0.1:47900', 'https://apps.duckling.example'], credentials: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
   await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
 
   app.setErrorHandler((err, req, reply) => {
