@@ -1,28 +1,28 @@
 {
- "source": "597dac99aa5d0db06f0ad99dce08d3dd39cecdb6f11cebaeea74a12b387f4dce",
+ "source": "07cabcc7043423df7a6053d3c32161f64b393a0bed91ccfb314f0c1030e6c4c7",
  "lines": [
   {
-   "text": "Balance the whole tank! Keep 5 fish, 2 snails and the plants healthy for 5 days.",
+   "text": "Balance the whole tank! Keep 6 fish, 3 snails and the plants healthy for 5 days.",
    "rate": -8
   },
   {
-   "text": "Carrying capacity is the most fish a tank can hold over time. Room here is 3 fish plus 2 for every plant. This tank has 6 plants. What is its carrying capacity?",
+   "text": "Carrying capacity is the most fish a tank can hold over time. Room here is 3 fish plus 2 for every plant. This tank has 4 plants. What is its carrying capacity?",
    "rate": -8
   },
   {
-   "text": "Feed the 2 fish so they stay healthy for 2 days. Each pinch feeds 2 fish.",
+   "text": "Eli wants to know if more food makes more algae. Which plan is a fair test?",
    "rate": -8
   },
   {
-   "text": "Keep 5 fish healthy for 3 days. Fish need air!",
+   "text": "Feed the 3 fish so they stay healthy for 2 days. Each pinch feeds 2 fish.",
    "rate": -8
   },
   {
-   "text": "Keep 7 fish healthy for 3 days. Give them room to hide!",
+   "text": "Keep 10 fish healthy for 3 days. Give them room to hide!",
    "rate": -8
   },
   {
-   "text": "Noor wants to know if more plants make more air. Which plan is a fair test?",
+   "text": "Keep 6 fish healthy for 3 days. Fish need air!",
    "rate": -8
   },
   {
@@ -34,7 +34,7 @@
    "rate": -8
   },
   {
-   "text": "This tank sits by a sunny window. Keep 5 fish healthy for 4 days with clear water!",
+   "text": "This tank sits by a sunny window. Keep 3 fish healthy for 4 days with clear water!",
    "rate": -8
   },
   {

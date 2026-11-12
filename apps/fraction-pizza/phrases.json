@@ -1,16 +1,8 @@
 {
- "source": "1c237170082998f6bf3124457bbd025601a831225a87256362319b4060db4fe2",
+ "source": "7c555910a3236f9bc3a06812ed8f8c66c7541abcded8c8c0fd30f1472460892c",
  "lines": [
   {
-   "text": "0.25 of the pizza. What percent is that?",
-   "rate": -10
-  },
-  {
-   "text": "Ava wants one half of the pizza. Tap slices to put them on the plate.",
-   "rate": -10
-  },
-  {
-   "text": "Ben wants two thirds of the pie. Tap slices to put them on the plate.",
+   "text": "Ava wants three fourths of the pizza. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
@@ -18,23 +10,19 @@
    "rate": -10
   },
   {
-   "text": "Lulu takes a slice without looking. What is the chance it is cheese? Write the fraction in simplest form.",
+   "text": "Ivy says: cut my pizza into thirds. That means three equal pieces.",
    "rate": -10
   },
   {
-   "text": "Lulu wants one third plus two sixths. Tap slices to put them on the plate.",
+   "text": "Mia wants one third of the pie. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
-   "text": "Max says: cut my pizza into halves. That means two equal pieces.",
+   "text": "One half plus one third. Both pizzas are re-sliced into sixths. Add the slices.",
    "rate": -10
   },
   {
-   "text": "Mia wants one half of the pizza. Tap slices to put them on the plate.",
-   "rate": -10
-  },
-  {
-   "text": "Two fifths plus one tenth. Both pizzas are re-sliced into tenths. Add the slices.",
+   "text": "Theo wants three fourths of the pizza. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
@@ -42,11 +30,23 @@
    "rate": -10
   },
   {
-   "text": "What is two fourths of one half of a pizza? A slice of a slice.",
+   "text": "What is the greatest common factor of three and nine?",
    "rate": -10
   },
   {
-   "text": "Zoe wants two thirds of the pizza. Tap slices to put them on the plate.",
+   "text": "What is three fourths of four sixths of a pizza? A slice of a slice.",
+   "rate": -10
+  },
+  {
+   "text": "Write one half as a decimal.",
+   "rate": -10
+  },
+  {
+   "text": "Zoe wants one half of the pizza. Tap slices to put them on the plate.",
+   "rate": -10
+  },
+  {
+   "text": "Zoe wants one half plus two eighths. Tap slices to put them on the plate.",
    "rate": -10
   }
  ]

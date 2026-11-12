@@ -1,5 +1,5 @@
 {
- "source": "c8a1fa17196ba6aa64d834d13b72e2a0e02ec315372374bce28c282b89f005f4",
+ "source": "db13beae0a8c3294a70b9fec1cba575199d40a17ff4a1be30a401a771c266af2",
  "lines": [
   {
    "text": "3 amps flow through 5 ohms. How many volts push them?",
@@ -26,15 +26,11 @@
    "rate": -8
   },
   {
-   "text": "Light 2 bulbs. Then one of them comes out.",
+   "text": "Light both bulbs. Then we test the wiring.",
    "rate": -8
   },
   {
    "text": "Light both rooms bright. Give each room its own switch!",
-   "rate": -8
-  },
-  {
-   "text": "Look at the batteries. Which house glows brighter?",
    "rate": -8
   },
   {
