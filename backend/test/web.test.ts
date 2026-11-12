@@ -59,7 +59,7 @@ beforeAll(async () => {
 afterAll(async () => {
   webServer?.close(); await app?.close(); await db?.close(); await cluster?.stop();
   // Keep the screenshots when asked (WEB_SHOTS=/some/dir), otherwise clean up.
-  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['home.png', 'site-tile.png', 'library.png', 'parent.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
+  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['home.png', 'site-tile.png', 'library.png', 'parent.png', 'ask.png', 'ask-sent.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
   if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -211,6 +211,23 @@ describe.skipIf(!ready)('child web app', () => {
     await expect.poll(() => qr.evaluate((i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 0)).toBe(true);
     await p.getByRole('button', { name: 'Sync with the website' }).waitFor();
     await p.screenshot({ path: join(dir, 'parent.png') });
+    // Ask for an app from the tablet: sent with the child's grade, shown while it is in progress, withdrawn here.
+    const ask = p.locator('.card.ask');
+    await ask.getByLabel('Name for the app').fill('Dinosaur counting');
+    await ask.getByLabel('What it should do').fill('Dinosaurs hatch from eggs and she counts them up to twenty.');
+    await ask.scrollIntoViewIfNeeded();
+    await p.screenshot({ path: join(dir, 'ask.png') });
+    await ask.getByRole('button', { name: 'Send the request' }).click();
+    await ask.getByText('Dinosaur counting', { exact: false }).first().waitFor();
+    await ask.getByText(': Received.', { exact: false }).waitFor();
+    const sent = await db.system((q) => q.one("SELECT title, child_grade, status FROM app_request WHERE title = 'Dinosaur counting'"));
+    expect(sent).toEqual({ title: 'Dinosaur counting', child_grade: '1', status: 'requested' });
+    await ask.scrollIntoViewIfNeeded();
+    await p.screenshot({ path: join(dir, 'ask-sent.png') });
+    await ask.getByRole('button', { name: 'Withdraw this request' }).click();
+    await ask.getByRole('button', { name: 'Withdraw it' }).click();
+    await ask.getByRole('button', { name: 'Send the request' }).waitFor();
+    await ask.getByText('Last request: Dinosaur counting, withdrawn.').waitFor();
     // The PIN typed on the tablet became the family PIN; a change on the website reaches the tablet at its next check-in.
     expect((await (await fetch(`${api}/family`, { headers: auth })).json()).pinSet).toBe(true);
     await fetch(`${api}/family/pin`, { method: 'PUT', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ pin: '1357' }) });

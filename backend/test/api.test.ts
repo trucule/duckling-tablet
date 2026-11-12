@@ -263,6 +263,26 @@ describe('voice cache', () => {
 });
 
 describe('app requests', () => {
+  it('a tablet asks for an app in the same queue as the portal, with its child\'s grade, and can withdraw it', async () => {
+    const p = await signIn('p@example.com');
+    const child = (await app.inject({ method: 'POST', url: '/children', headers: p.auth, payload: { firstName: 'Ada', grade: '2' } })).json();
+    const d = await pair(p.auth, child.id);
+    expect((await app.inject({ method: 'POST', url: '/device/requests', payload: { title: 'Dino', description: 'Counting dinosaurs to twenty.' } })).statusCode).toBe(401);
+    const r = await app.inject({ method: 'POST', url: '/device/requests', headers: d.dev, payload: { title: 'Dino', description: 'Counting dinosaurs to twenty.', childGrade: '8' } });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toMatchObject({ title: 'Dino', childGrade: '2', status: 'requested' });
+    expect(tickets.at(-1)).toMatchObject({ title: 'Dino', childGrade: '2' });
+    // The family's one open request: the portal and the tablet both see it, and neither can add a second.
+    expect((await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title: 'Another', description: 'Another app for the queue.' } })).statusCode).toBe(409);
+    expect((await app.inject({ method: 'GET', url: '/device/requests', headers: d.dev })).json().requests.map((x: any) => x.title)).toEqual(['Dino']);
+    // Another family's tablet sees none of it and cannot withdraw it.
+    const o = await signIn('o@example.com'); const od = await pair(o.auth);
+    expect((await app.inject({ method: 'GET', url: '/device/requests', headers: od.dev })).json().requests).toEqual([]);
+    expect((await app.inject({ method: 'POST', url: `/device/requests/${r.json().id}/withdraw`, headers: od.dev })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'POST', url: `/device/requests/${r.json().id}/withdraw`, headers: d.dev })).json().status).toBe('withdrawn');
+    expect((await app.inject({ method: 'GET', url: '/requests', headers: p.auth })).json().requests[0].status).toBe('withdrawn');
+  });
+
   it('lets a parent withdraw a request in progress: the slot frees, the ticket no longer moves it, no ticket is sent later', async () => {
     const p = await signIn('wd@example.com'); await pair(p.auth);
     const first = (await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title: 'Test one', description: 'Just trying the form' } })).json();

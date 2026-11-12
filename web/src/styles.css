@@ -57,6 +57,7 @@ button { font: inherit; color: inherit; }
 @media (max-width: 520px) { .card.manage { flex-direction: column; align-items: center; text-align: center; } .card.manage .row { justify-content: center; } }
 .field { display: block; margin: 14px 0; }
 .field span { display: block; font-weight: 700; margin-bottom: 6px; }
+.field textarea { font: inherit; font-size: 18px; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); width: 100%; background: white; resize: vertical; }
 .field input { font: inherit; font-size: 24px; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); width: 100%; background: white; letter-spacing: 0.1em; }
 .code input { font-size: 40px; text-align: center; letter-spacing: 0.4em; font-weight: 800; }
 .error { background: #fdecea; color: var(--danger); border-radius: 12px; padding: 10px 14px; margin: 10px 0; font-weight: 600; }
@@ -107,3 +108,4 @@ button.link { background: none; border: none; padding: 0; font: inherit; font-we
 button.link:disabled { text-decoration: none; cursor: default; }
 .steps li .row { margin-top: 8px; }
 .steps input, .card form.row input { font: inherit; font-size: 16px; padding: 8px 12px; border: 2px solid var(--line); border-radius: 12px; background: white; }
+.ask .field input { font-size: 18px; letter-spacing: normal; }

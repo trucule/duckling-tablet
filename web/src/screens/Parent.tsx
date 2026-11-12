@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink, entitlement } from '../state';
 import { shell, type LockdownStatus, type BillingResult, type WifiNetwork } from '../shell';
-import { api } from '../api';
+import { api, type AppRequest } from '../api';
 
 // Behind the PIN: lockdown steps for this platform, a check-in button, and Remove from this device.
 export function Parent() {
@@ -140,13 +140,15 @@ export function Parent() {
         {shell.storeBilling && !subscribed && <p class="why">{ios ? 'Billed through your Apple ID. It renews each month until cancelled in the App Store settings at least a day before the renewal date.' : 'Billed through your Google Play account. It renews each month until cancelled in Google Play under Payments and subscriptions.'} <a href="https://ducklingtablet.com/terms">Terms</a> · <a href="https://ducklingtablet.com/privacy">Privacy</a></p>}
         {billingNote && <p>{billingNote}</p>}
         <ul class="included">
-          <li><strong>Ask for an app, at no extra cost.</strong> Describe an app you wish existed; the ET Ducky team builds it for every family. Ask from the parent portal.</li>
+          <li><strong>Ask for an app, at no extra cost.</strong> Describe an app you wish existed; the ET Ducky team builds it for every family. Ask below or from the parent portal.</li>
           <li>Every learning app, and every new one, with the narrator voice.</li>
           <li>The child's avatar, stars and progress on every tablet she uses.</li>
           <li>The parent portal: apps, websites, a second parent, and this tablet from your phone.</li>
         </ul>
       </div>
       )}
+
+      {!unlinked.value && <AskForApp />}
 
       {ios && (
         <div class="card">
@@ -342,5 +344,65 @@ function WindowsWifi() {
       )}
       {note && <p>{note}</p>}
     </>
+  );
+}
+
+const REQUEST_STATUS: Record<AppRequest['status'], string> = { requested: 'Received', planned: 'Planned', building: 'Being built', declined: 'Not taken on', shipped: 'In the Library', withdrawn: 'Withdrawn' };
+const OPEN_REQUEST = ['requested', 'planned', 'building'];
+
+// Ask for an app: the portal's request form on the tablet. One request is in progress at a time for the family;
+// while one is, the card shows it and offers to withdraw it. Pictures are added in the portal.
+function AskForApp() {
+  const [list, setList] = useState<AppRequest[] | null>(null);
+  const [title, setTitle] = useState(''); const [desc, setDesc] = useState('');
+  const [busy, setBusy] = useState(''); const [error, setError] = useState(''); const [confirming, setConfirming] = useState(false);
+  const load = () => api.requests().then((r) => setList(r.requests)).catch((e) => setError((e as Error).message));
+  useEffect(() => { load(); }, []);
+  const open = list?.find((r) => OPEN_REQUEST.includes(r.status));
+  const last = list?.find((r) => !OPEN_REQUEST.includes(r.status));
+  const send = async (e: Event) => {
+    e.preventDefault(); setBusy('Sending'); setError('');
+    try { await api.createRequest(title.trim(), desc.trim()); setTitle(''); setDesc(''); await load(); }
+    catch (err) { setError((err as Error).message); } finally { setBusy(''); }
+  };
+  const withdraw = async (id: string) => {
+    setBusy('Withdrawing'); setError('');
+    try { await api.withdrawRequest(id); setConfirming(false); await load(); }
+    catch (err) { setError((err as Error).message); } finally { setBusy(''); }
+  };
+  return (
+    <div class="card ask">
+      <h2>Ask for an app</h2>
+      {list === null && !error && <p>Loading.</p>}
+      {open && (
+        <>
+          <p><strong>{open.title}</strong>: {REQUEST_STATUS[open.status]}. The ET Ducky team works on one request per family at a time; the next one can be sent when this one is finished. Pictures can be added in the parent portal.</p>
+          <p class="why">{open.description}</p>
+          <div class="row">
+            {!confirming && <button class="pill quiet" disabled={!!busy} onClick={() => setConfirming(true)}>Withdraw this request</button>}
+            {confirming && <>
+              <button class="pill" disabled={!!busy} onClick={() => withdraw(open.id)}>{busy || 'Withdraw it'}</button>
+              <button class="pill quiet" disabled={!!busy} onClick={() => setConfirming(false)}>Keep it</button>
+            </>}
+          </div>
+        </>
+      )}
+      {list && !open && (
+        <form onSubmit={send}>
+          <p>Describe an app you wish existed: what the child would do in it and what it should teach. The ET Ducky team builds it, and it arrives in the Library for every family.</p>
+          {last && <p class="why">Last request: {last.title}, {REQUEST_STATUS[last.status].toLowerCase()}.</p>}
+          <label class="field"><span>Name for the app</span>
+            <input maxLength={80} placeholder="A dinosaur counting game" value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} />
+          </label>
+          <label class="field"><span>What it should do</span>
+            <textarea maxLength={2000} rows={4} placeholder="She loves dinosaurs and is learning to count to 20. Dinosaurs hatch from eggs and she counts them..." value={desc} onInput={(e) => setDesc((e.target as HTMLTextAreaElement).value)} />
+          </label>
+          <div class="row">
+            <button class="pill primary" disabled={!!busy || title.trim().length < 3 || desc.trim().length < 10}>{busy || 'Send the request'}</button>
+          </div>
+        </form>
+      )}
+      {error && <div class="error">{error}</div>}
+    </div>
   );
 }

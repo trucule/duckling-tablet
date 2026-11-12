@@ -26,6 +26,8 @@ export interface CatalogApp {
   latest: { version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[] };
 }
 
+export interface AppRequest { id: string; title: string; description: string; status: 'requested' | 'planned' | 'building' | 'declined' | 'shipped' | 'withdrawn'; appId: string | null; createdAt: string }
+
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 export class ReleasedError extends Error {}
 
@@ -66,4 +68,8 @@ export const api = {
   stripeCheckout: () => call<{ url: string; trialEnd: string | null }>('POST', '/billing/stripe/checkout', {}),
   stripePortal: () => call<{ url: string }>('POST', '/billing/stripe/portal', {}),
   setPin: (pin: string) => call<{ set: boolean }>('PUT', '/device/pin', { pin }),
+  // App requests from the parent area: the same queue as the portal's, one in progress per family.
+  requests: () => call<{ requests: AppRequest[] }>('GET', '/device/requests'),
+  createRequest: (title: string, description: string) => call<AppRequest>('POST', '/device/requests', { title, description }),
+  withdrawRequest: (id: string) => call<AppRequest>('POST', `/device/requests/${id}/withdraw`, {}),
 };

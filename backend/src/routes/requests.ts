@@ -4,7 +4,7 @@ import { requireSubscribed } from '../entitlement.js';
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
-import { parentAuth } from '../auth.js';
+import { deviceAuth, parentAuth } from '../auth.js';
 import { HttpError, hashToken, newId, notFound, safeEqual, sha256 } from '../util.js';
 import { firstDelivery } from '../webhooks.js';
 
@@ -102,40 +102,67 @@ export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx
   // status change on it later no longer moves the request, and a request with no ticket yet never gets one.
   app.post<{ Params: { id: string } }>('/requests/:id/withdraw', async (req) => {
     const a = await parentAuth(ctx, req);
-    return ctx.db.family(a.familyId, async (q) => {
-      const r = await q.one<{ status: string }>('SELECT status FROM app_request WHERE id = $1', [req.params.id]);
-      if (!r) throw notFound('No such request');
-      if (!OPEN.includes(r.status)) throw new HttpError(409, 'This request is already finished.');
-      await q.run("UPDATE app_request SET status = 'withdrawn', updated_at = now() WHERE id = $1", [req.params.id]);
-      await audit(q, a.familyId, `parent:${a.parentId}`, 'request.withdrawn', { id: req.params.id });
-      return requestRow(await q.one('SELECT * FROM app_request WHERE id = $1', [req.params.id]));
-    });
+    return withdrawRequest(a.familyId, `parent:${a.parentId}`, req.params.id);
   });
 
-  app.post('/requests', async (req) => {
-    const a = await parentAuth(ctx, req);
-    await ctx.db.family(a.familyId, (q) => requireSubscribed(q, a.familyId));
-    const b = z.object({
-      title: z.string().trim().min(3).max(80),
-      description: z.string().trim().min(10).max(2000),
-      childGrade: z.string().max(10).nullable().optional(),
-      installWhenReady: z.boolean().default(true),
-    }).parse(req.body);
+  const requestBody = z.object({
+    title: z.string().trim().min(3).max(80),
+    description: z.string().trim().min(10).max(2000),
+    childGrade: z.string().max(10).nullable().optional(),
+    installWhenReady: z.boolean().default(true),
+  });
+
+  // One request, from the portal or a tablet's parent area: one open request per family, then the ET Ducky ticket.
+  async function createRequest(familyId: string, actor: string, b: z.infer<typeof requestBody>) {
+    await ctx.db.family(familyId, (q) => requireSubscribed(q, familyId));
     const id = newId('req');
-    await ctx.db.family(a.familyId, async (q) => {
+    await ctx.db.family(familyId, async (q) => {
       // One open request per family keeps the queue fair.
       if (await q.one('SELECT 1 FROM app_request WHERE status = ANY($1)', [OPEN])) {
         throw new HttpError(409, 'You already have a request in progress. You can make another once it is finished.');
       }
       await q.run(`INSERT INTO app_request (id, family_id, title, description, child_grade, install_when_ready) VALUES ($1, $2, $3, $4, $5, $6)`,
-        [id, a.familyId, b.title, b.description, b.childGrade ?? null, b.installWhenReady]);
-      await audit(q, a.familyId, `parent:${a.parentId}`, 'request.created', { id });
+        [id, familyId, b.title, b.description, b.childGrade ?? null, b.installWhenReady]);
+      await audit(q, familyId, actor, 'request.created', { id });
     });
-    const ticket = await ctx.createTicket({ requestId: id, familyId: a.familyId, title: b.title, description: b.description, childGrade: b.childGrade ?? null });
-    return ctx.db.family(a.familyId, async (q) => {
+    const ticket = await ctx.createTicket({ requestId: id, familyId, title: b.title, description: b.description, childGrade: b.childGrade ?? null });
+    return ctx.db.family(familyId, async (q) => {
       if (ticket) await q.run('UPDATE app_request SET etducky_ticket_id = $1 WHERE id = $2', [ticket, id]);
       return requestRow(await q.one('SELECT * FROM app_request WHERE id = $1', [id]));
     });
+  }
+
+  async function withdrawRequest(familyId: string, actor: string, id: string) {
+    return ctx.db.family(familyId, async (q) => {
+      const r = await q.one<{ status: string }>('SELECT status FROM app_request WHERE id = $1', [id]);
+      if (!r) throw notFound('No such request');
+      if (!OPEN.includes(r.status)) throw new HttpError(409, 'This request is already finished.');
+      await q.run("UPDATE app_request SET status = 'withdrawn', updated_at = now() WHERE id = $1", [id]);
+      await audit(q, familyId, actor, 'request.withdrawn', { id });
+      return requestRow(await q.one('SELECT * FROM app_request WHERE id = $1', [id]));
+    });
+  }
+
+  app.post('/requests', async (req) => {
+    const a = await parentAuth(ctx, req);
+    return createRequest(a.familyId, `parent:${a.parentId}`, requestBody.parse(req.body));
+  });
+
+  // The same from a tablet's parent area (behind the parent PIN on the tablet). The grade is the tablet's child's;
+  // pictures are added on the website.
+  app.get('/device/requests', async (req) => {
+    const d = await deviceAuth(ctx, req);
+    return ctx.db.family(d.familyId, async (q) => ({ requests: (await q.all('SELECT * FROM app_request ORDER BY created_at DESC LIMIT 10')).map(requestRow) }));
+  });
+  app.post('/device/requests', async (req) => {
+    const d = await deviceAuth(ctx, req);
+    const b = requestBody.omit({ childGrade: true }).parse(req.body);
+    const grade = d.childId ? (await ctx.db.family(d.familyId, (q) => q.one<{ grade: string | null }>('SELECT grade FROM child WHERE id = $1', [d.childId])))?.grade ?? null : null;
+    return createRequest(d.familyId, `device:${d.deviceId}`, { ...b, childGrade: grade });
+  });
+  app.post<{ Params: { id: string } }>('/device/requests/:id/withdraw', async (req) => {
+    const d = await deviceAuth(ctx, req);
+    return withdrawRequest(d.familyId, `device:${d.deviceId}`, req.params.id);
   });
 
   // ET Ducky webhook: { eventId, ticketId, status } signed with HMAC-SHA256 of the raw body (x-etducky-signature,
