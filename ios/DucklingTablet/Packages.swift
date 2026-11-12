@@ -2,7 +2,7 @@ import Foundation
 import CryptoKit
 import ZIPFoundation
 
-/// Installed app packages live in Application Support/apps/<id>/ and are served to the app runner by LocalServer.
+/// Installed app packages live in Application Support/apps/<id>/ and are served to the app runner by AppSchemeHandler.
 /// A package is unpacked only after its SHA-256 matches the catalog and its Ed25519 signature verifies against the
 /// public key compiled in here (the same key as the Android shell's Signing.kt).
 final class Packages {

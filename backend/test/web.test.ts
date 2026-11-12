@@ -45,7 +45,10 @@ beforeAll(async () => {
   const apiPort = await freePort(), webPort = await freePort();
   api = `http://127.0.0.1:${apiPort}`; web = `http://127.0.0.1:${webPort}`;
   const cfg = loadConfig({ NODE_ENV: 'test', STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), ADMIN_TOKEN: ADMIN, PUBLIC_URL: api, APP_URL: web });
-  ({ app } = await buildServer(cfg, { db, logger: false, mailer: { async send(_to, _s, text) { mails.push(text); } }, synth: async () => null, createTicket: async () => null }));
+  ({ app } = await buildServer(cfg, { db, logger: false, mailer: { async send(_to, _s, text) { mails.push(text); } }, synth: async () => null, createTicket: async () => null,
+    // A website that publishes a touch icon, for the website tile.
+    fetchUrl: async (url) => url === 'https://pbskids.org/' ? { status: 200, type: 'text/html', body: Buffer.from('<link rel="apple-touch-icon" href="/t.png">') }
+      : url === 'https://pbskids.org/t.png' ? { status: 200, type: 'image/png', body: readFileSync(join(TOOLS, '..', 'site', 'logo.png')) } : { status: 404, type: '', body: Buffer.alloc(0) } }));
   await app.listen({ port: apiPort, host: '127.0.0.1' });
   webServer = serveDist(webPort);
   // The catalog: starter apps, published by the tool with a throwaway key.
@@ -56,7 +59,7 @@ beforeAll(async () => {
 afterAll(async () => {
   webServer?.close(); await app?.close(); await db?.close(); await cluster?.stop();
   // Keep the screenshots when asked (WEB_SHOTS=/some/dir), otherwise clean up.
-  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['home.png', 'library.png', 'parent.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
+  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['home.png', 'site-tile.png', 'library.png', 'parent.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
   if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -152,6 +155,13 @@ describe.skipIf(!ready)('child web app', () => {
     await p.waitForFunction((n) => Object.keys(JSON.parse(localStorage.getItem('duckling.installed') || '{}')).length === n, STARTERS.length);
     const theme = await p.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--c1').trim());
     expect(theme).toBe('#ffb3c6');
+    // A website tile shows the site's own icon.
+    const [{ id: adaDevice }] = await db.system((q) => q.all("SELECT d.id FROM device d JOIN child c ON c.id = d.child_id WHERE c.first_name = 'Ada'"));
+    await fetch(`${api}/devices/${adaDevice}/settings`, { method: 'PUT', headers: { 'content-type': 'application/json', ...auth }, body: JSON.stringify({ allowlist: [{ host: 'pbskids.org', tile: { name: 'PBS KIDS', url: 'https://pbskids.org/' } }] }) });
+    await p.evaluate(() => (window as any).DucklingWeb.onPush()); // what a push does: check in now
+    await p.getByRole('button', { name: 'PBS KIDS' }).waitFor();
+    await p.waitForFunction(() => { const i = document.querySelector('.art.site img') as HTMLImageElement | null; return !!i && i.complete && i.naturalWidth > 0; });
+    await p.getByRole('button', { name: 'PBS KIDS' }).screenshot({ path: join(dir, 'site-tile.png') });
     await p.screenshot({ path: join(dir, 'home.png') });
     // The child's own character sits in a circle at the top (her first letter until My Avatar saves a portrait), and
     // tapping it opens My Avatar (the browser shell says apps run on the tablet).

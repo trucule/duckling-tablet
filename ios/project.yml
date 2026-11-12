@@ -63,3 +63,22 @@ targets:
         SWIFT_VERSION: "5.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: NO
+  DucklingTabletTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [DucklingTabletTests]
+    dependencies:
+      - target: DucklingTablet
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.ducklingtablet.app.tests
+        TARGETED_DEVICE_FAMILY: "2"
+        SWIFT_VERSION: "5.0"
+schemes:
+  DucklingTablet:
+    build:
+      targets:
+        DucklingTablet: all
+    test:
+      targets: [DucklingTabletTests]

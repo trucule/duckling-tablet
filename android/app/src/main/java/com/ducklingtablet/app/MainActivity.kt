@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     lateinit var web: WebView
+    private lateinit var homePill: View
     private lateinit var prefs: Prefs
     var allowedHosts: Set<String> = emptySet()
     lateinit var billing: Billing
@@ -59,8 +60,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
-        web = WebView(this)
-        setContentView(web)
+        setContentView(R.layout.activity_main)
+        web = findViewById(R.id.web)
+        homePill = findViewById(R.id.home)
+        homePill.setOnClickListener { goHome() }
         hideSystemBars()
         LocalBroadcastManager.getInstance(this).registerReceiver(pushReceiver, IntentFilter().apply { addAction(PushService.ACTION_PUSH); addAction(PushService.ACTION_TOKEN) })
         fetchPushToken()
@@ -90,6 +93,10 @@ class MainActivity : AppCompatActivity() {
                 val host = request.url.host?.lowercase() ?: return blocked()
                 return if (host in OWN_HOSTS || isAllowed(host)) null else blocked()
             }
+            // A website from a tile opens in this view in place of the home screen; the Home pill shows over it.
+            override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                homePill.visibility = if (onWebsite(url)) View.VISIBLE else View.GONE
+            }
         }
         web.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) { request.deny() } // apps run in AppActivity
@@ -98,10 +105,21 @@ class MainActivity : AppCompatActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // Back inside the web app goes to its home screen; it never leaves Duckling.
-                web.evaluateJavascript("location.hash = '#/home'", null)
+                // Back on a website goes to the home screen; inside the web app it goes to its home screen. It never
+                // leaves Duckling.
+                if (onWebsite(web.url)) goHome() else web.evaluateJavascript("location.hash = '#/home'", null)
             }
         })
+    }
+
+    private fun onWebsite(url: String?): Boolean {
+        val host = url?.let { Uri.parse(it).host?.lowercase() } ?: return false
+        return host != Uri.parse(WEB_APP).host
+    }
+
+    private fun goHome() {
+        homePill.visibility = View.GONE
+        web.loadUrl(WEB_APP)
     }
 
     private fun isAllowed(host: String): Boolean = "*" in allowedHosts || allowedHosts.any { host == it || host.endsWith(".$it") }

@@ -2,7 +2,7 @@ import UIKit
 import WebKit
 import AVFoundation
 
-/// Runs one installed app full screen from the local server, with window.DucklingApp (what duckling-compat.js inside
+/// Runs one installed app full screen from its files (AppSchemeHandler), with window.DucklingApp (what duckling-compat.js inside
 /// the package reads) and a Home pill at the top right. Apps reach only their own files, the API and the CDN, and get
 /// the microphone or camera only when their manifest asked for it.
 final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, AVSpeechSynthesizerDelegate {
@@ -42,6 +42,7 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
+        config.setURLSchemeHandler(AppSchemeHandler(), forURLScheme: AppSchemeHandler.scheme)
         config.userContentController.add(WeakHandler(self), name: "duckling")
         config.userContentController.addUserScript(WKUserScript(source: bridgeScript(), injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = WKWebView(frame: .zero, configuration: config)
@@ -71,8 +72,7 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             home.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
         ])
 
-        LocalServer.shared.ensureRunning()
-        if let u = URL(string: "\(LocalServer.origin)/apps/\(appId)/index.html") { web.load(URLRequest(url: u)) }
+        if let u = URL(string: "\(AppSchemeHandler.origin)/apps/\(appId)/index.html") { web.load(URLRequest(url: u)) }
     }
 
     @objc private func goHome() {
@@ -113,7 +113,7 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = action.request.url else { return decisionHandler(.cancel) }
-        let local = url.host == "127.0.0.1" && url.port == Int(LocalServer.port) && url.path.hasPrefix("/apps/\(appId)/")
+        let local = url.scheme == AppSchemeHandler.scheme && url.host == AppSchemeHandler.host && url.path.hasPrefix("/apps/\(appId)/")
         let ok = local || (action.targetFrame?.isMainFrame == false && Self.reachable.contains(url.host ?? "")) || url.scheme == "about" || url.scheme == "blob" || url.scheme == "data"
         decisionHandler(ok ? .allow : .cancel)
     }
@@ -122,7 +122,7 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
 
     func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
         let perms = Set(prefs.permissions[appId] ?? [])
-        let fromApp = origin.host == "127.0.0.1" && origin.port == Int(LocalServer.port)
+        let fromApp = origin.protocol == AppSchemeHandler.scheme && origin.host == AppSchemeHandler.host
         let ok: Bool
         switch type {
         case .microphone: ok = perms.contains("microphone")
@@ -134,4 +134,22 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }
+
+    // A load that fails says why on screen, under the Home pill, where a blank page would say nothing.
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { showFailure(error) }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { showFailure(error) }
+
+    private func showFailure(_ error: Error) {
+        let e = error as NSError
+        if e.domain == NSURLErrorDomain && e.code == NSURLErrorCancelled { return }
+        let esc = { (s: String) in s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;") }
+        let html = """
+        <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+        <body style="margin:0;background:#1e2a33;color:#fff;font:20px -apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center">
+        <div style="max-width:560px;padding:24px"><p style="font-size:28px;font-weight:700">This app did not open.</p>
+        <p>Tap Home and try again. If it happens again, a parent can send this line to support:</p>
+        <p style="font:15px ui-monospace,monospace;opacity:.8">\(esc(appId)) \(esc(e.domain)) \(e.code) \(esc(e.localizedDescription))</p></div></body>
+        """
+        webView.loadHTMLString(html, baseURL: nil)
+    }
 }

@@ -17,13 +17,24 @@ const aiCalls: any[] = []; const pushes: { tokens: string[]; data: Record<string
 const ADMIN = 'admin-test-token-123456';
 const HOOK = 'hook-secret-123';
 
+// A fake web for the site icon fetcher: pbskids.org links a touch icon behind a redirect; nothing else answers.
+const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 7)]);
+const siteFetches: string[] = [];
+function fakeSite(url: string) {
+  const html = (b: string) => ({ status: 200, type: 'text/html', body: Buffer.from(b) });
+  if (url === 'https://pbskids.org/') return { status: 301, type: '', body: Buffer.alloc(0), location: 'https://pbskids.org/home' };
+  if (url === 'https://pbskids.org/home') return html('<head><link rel="icon" href="/fav-16.png" sizes="16x16"><link rel=apple-touch-icon href="/touch.png?v=2&amp;x=1"></head>');
+  if (url === 'https://pbskids.org/touch.png?v=2&x=1') return { status: 200, type: 'image/png', body: PNG };
+  return { status: 404, type: 'text/html', body: Buffer.from('no') };
+}
+
 beforeAll(async () => { cluster = await startCluster(); });
 afterAll(async () => { await cluster?.stop(); });
 
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'duck-'));
   ({ db } = await cluster.newDb());
-  mails.length = 0; tickets.length = 0; attached.length = 0; synthCalls = 0; azureUp = true; etduckyUp = true; aiCalls.length = 0; aiUp = 'ok'; pushes.length = 0; deadTokens = [];
+  mails.length = 0; tickets.length = 0; attached.length = 0; synthCalls = 0; azureUp = true; etduckyUp = true; aiCalls.length = 0; siteFetches.length = 0; aiUp = 'ok'; pushes.length = 0; deadTokens = [];
   const cfg = loadConfig({
     NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local',
     ADMIN_TOKEN: ADMIN, ETDUCKY_WEBHOOK_SECRET: HOOK, TTS_DAILY_CHARS_PER_DEVICE: 200, PUBLIC_URL: 'https://api.test', AI_DAILY_CALLS: 'draw-with-me:3,*:1', AI_MAX_PROMPT_CHARS: 500,
@@ -34,6 +45,7 @@ beforeEach(async () => {
     synth: async (text) => { synthCalls++; await new Promise((r) => setTimeout(r, 20)); return azureUp ? Buffer.from(`mp3:${text}`) : null; },
     createTicket: async (t) => { if (!etduckyUp) return null; tickets.push(t); return `T-${tickets.length}`; },
     attachToTicket: async (ticketId, url, contentType) => { attached.push({ ticketId, url, contentType }); return true; },
+    fetchUrl: async (url) => { siteFetches.push(url); return fakeSite(url); },
     push: async (tokens, data) => { pushes.push({ tokens, data }); return { sent: tokens.length, dead: tokens.filter((t) => deadTokens.includes(t)) }; },
     complete: async (r) => {
       aiCalls.push(r);
@@ -116,6 +128,26 @@ describe('children, devices and apps', () => {
     expect((await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json().state).toBe('release');
     await app.inject({ method: 'POST', url: '/device/released', headers: d.dev });
     expect((await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json().state).toBe('released');
+  });
+
+  it('a website tile gets the site\'s own icon, fetched once, and only for allowed sites', async () => {
+    expect((await app.inject({ method: 'GET', url: '/site-icon/pbskids.org' })).statusCode).toBe(404);
+    expect(siteFetches).toEqual([]); // no family allows it yet, so nothing is fetched
+    const p = await signIn('p@example.com'); const d = await pair(p.auth);
+    await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth,
+      payload: { allowlist: [{ host: 'pbskids.org', tile: { name: 'PBS KIDS', url: 'https://pbskids.org/games' } }, { host: 'example.org', tile: { name: 'E', url: 'https://example.org' } }] } });
+    const r = await app.inject({ method: 'GET', url: '/site-icon/pbskids.org' });
+    expect(r.statusCode).toBe(200);
+    expect(r.headers['content-type']).toBe('image/png');
+    expect(r.rawPayload.equals(PNG)).toBe(true);
+    const n = siteFetches.length;
+    expect((await app.inject({ method: 'GET', url: '/site-icon/pbskids.org' })).statusCode).toBe(200);
+    expect(siteFetches.length).toBe(n); // the stored copy, no second fetch
+    expect((await app.inject({ method: 'GET', url: '/site-icon/example.org' })).statusCode).toBe(404);
+    const m = siteFetches.length;
+    expect((await app.inject({ method: 'GET', url: '/site-icon/example.org' })).statusCode).toBe(404);
+    expect(siteFetches.length).toBe(m); // a miss is remembered
+    expect((await app.inject({ method: 'GET', url: '/site-icon/127.0.0.1' })).statusCode).toBe(404);
   });
 
   it('one family cannot touch another family\'s device or child', async () => {

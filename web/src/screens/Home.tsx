@@ -1,7 +1,18 @@
 import { useState } from 'preact/hooks';
 import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked, unlinked, entitlement, restartNeeded } from '../state';
 import { shell } from '../shell';
-import type { Entitlement, InstalledApp } from '../api';
+import { API, type Entitlement, type InstalledApp } from '../api';
+
+// A website's tile shows the site's own icon (fetched once by the API), or a globe when the site has none.
+function SiteArt({ host, color }: { host: string; color?: string }) {
+  const [failed, setFailed] = useState(false);
+  const h = host.replace(/^\*\./, '');
+  return (
+    <span class="art site" style={{ background: color ?? '#fff' }}>
+      {failed ? <span>&#127760;</span> : <img src={`${API}/site-icon/${encodeURIComponent(h)}`} alt="" onError={() => setFailed(true)} />}
+    </span>
+  );
+}
 
 // The child's home: installed apps alphabetically, website tiles from the allowlist, the Library, a small parent button.
 const AVATAR = 'my-avatar';
@@ -84,7 +95,7 @@ export function Home() {
         })}
         {!locked.value && (c?.allowlist ?? []).filter((w) => w.tile).map((w) => (
           <button class="tile" key={w.host} onClick={() => (location.href = w.tile!.url)} aria-label={w.tile!.name}>
-            <span class="art" style={{ background: w.tile!.color ?? '#fff' }}>&#127760;</span>
+            <SiteArt host={w.host} color={w.tile!.color} />
             <span class="name">{w.tile!.name}</span>
           </button>
         ))}

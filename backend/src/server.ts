@@ -31,8 +31,9 @@ import { makeFcm, type Push } from './push.js';
 import { makeStripe, type Stripe } from './stripe.js';
 import stripeRoutes from './routes/stripe.js';
 import windowsRoutes from './routes/windows.js';
+import siteIconRoutes, { type FetchUrl } from './routes/siteicon.js';
 
-export interface BuildOptions { stripe?: Stripe | null; apple?: AppleVerifier | null; google?: GooglePlay | null; googlePushAuth?: PushAuth; db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; push?: Push; logger?: boolean | Record<string, unknown> }
+export interface BuildOptions { stripe?: Stripe | null; apple?: AppleVerifier | null; google?: GooglePlay | null; googlePushAuth?: PushAuth; db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; push?: Push; fetchUrl?: FetchUrl; logger?: boolean | Record<string, unknown> }
 
 export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise<{ app: FastifyInstance; ctx: Ctx }> {
   const wantLog = opts.logger ?? cfg.NODE_ENV !== 'test';
@@ -58,7 +59,7 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
   // The portal, the child web app, and the origins the shells give installed packages: Android's asset loader, the
   // iPad's local server, and the Windows shell's WebView2 virtual host. The public site reads the Windows release.
   // The portal and the web app call every verb the API has; @fastify/cors allows only GET, HEAD and POST unless told.
-  await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL, cfg.SITE_URL, 'https://appassets.androidplatform.net', 'http://127.0.0.1:47900', 'https://apps.duckling.example'], credentials: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
+  await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL, cfg.SITE_URL, 'https://appassets.androidplatform.net', 'duckling-app://local', 'https://apps.duckling.example'], credentials: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
   await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
 
   app.setErrorHandler((err, req, reply) => {
@@ -93,6 +94,7 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
   });
   await app.register(stripeRoutes, { ctx });
   await app.register(windowsRoutes, { ctx });
+  await app.register(siteIconRoutes, { ctx, fetchUrl: opts.fetchUrl });
   await app.register(adminRoutes, { ctx, voice });
 
   // Development only: serve files from local storage at /files/... (production uses the Spaces CDN).

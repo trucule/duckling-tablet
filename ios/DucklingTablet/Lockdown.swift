@@ -13,7 +13,7 @@ final class Lockdown {
     private let store = ManagedSettingsStore()
 
     /// Hosts the shell itself needs, always let through the web filter.
-    static let ownHosts: Set<String> = ["127.0.0.1", "app.ducklingtablet.com", "api.ducklingtablet.com", "parents.ducklingtablet.com", "ducklingtablet.com", "duckling.nyc3.cdn.digitaloceanspaces.com"]
+    static let ownHosts: Set<String> = ["app.ducklingtablet.com", "api.ducklingtablet.com", "parents.ducklingtablet.com", "ducklingtablet.com", "duckling.nyc3.cdn.digitaloceanspaces.com"]
 
     var screenTimeApproved: Bool { AuthorizationCenter.shared.authorizationStatus == .approved }
     var guidedAccess: Bool { UIAccessibility.isGuidedAccessEnabled }

@@ -7,6 +7,8 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     static let webApp = URL(string: "https://app.ducklingtablet.com/")!
     private var web: WKWebView!
     private let prefs = Prefs.shared
+    private let homePill = UIButton(configuration: .filled())
+    private var urlWatch: NSKeyValueObservation?
     private lazy var shellScript: String = {
         guard let u = Bundle.main.url(forResource: "shell", withExtension: "js"), let s = try? String(contentsOf: u) else { return "" }
         return s
@@ -30,11 +32,46 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         view = web
         installScripts()
         web.load(URLRequest(url: Self.webApp))
+        addHomePill()
 
         NetworkStatus.shared.onChange = { [weak self] in self?.pushState() }
         Billing.shared.onChange = { [weak self] in self?.pushState() }
         NotificationCenter.default.addObserver(self, selector: #selector(resumed), name: UIApplication.didBecomeActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(stateChanged), name: UIAccessibility.guidedAccessStatusDidChangeNotification, object: nil)
+    }
+
+    // ---- A website from a tile opens in this view in place of the home screen; the Home pill shows over it ---------
+
+    private func addHomePill() {
+        var look = UIButton.Configuration.filled()
+        look.title = "\u{2302} Home"
+        look.baseBackgroundColor = UIColor(white: 0.1, alpha: 0.55)
+        look.baseForegroundColor = .white
+        look.cornerStyle = .capsule
+        look.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 18, bottom: 10, trailing: 18)
+        look.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { a in var b = a; b.font = .systemFont(ofSize: 18, weight: .bold); return b }
+        homePill.configuration = look
+        homePill.translatesAutoresizingMaskIntoConstraints = false
+        homePill.isHidden = true
+        homePill.addTarget(self, action: #selector(goHome), for: .touchUpInside)
+        view.addSubview(homePill)
+        NSLayoutConstraint.activate([
+            homePill.topAnchor.constraint(equalTo: view.topAnchor, constant: 14),
+            homePill.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+        ])
+        urlWatch = web.observe(\.url, options: [.initial, .new]) { [weak self] w, _ in
+            DispatchQueue.main.async { self?.homePill.isHidden = !Self.isWebsite(w.url) }
+        }
+    }
+
+    static func isWebsite(_ url: URL?) -> Bool {
+        guard let host = url?.host?.lowercased() else { return false }
+        return host != webApp.host
+    }
+
+    @objc private func goHome() {
+        homePill.isHidden = true
+        web.load(URLRequest(url: Self.webApp))
     }
 
     // ---- State the page reads synchronously ----------------------------------------------------------------------
@@ -73,7 +110,6 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     @objc private func stateChanged() { pushState() }
 
     @objc private func resumed() {
-        LocalServer.shared.ensureRunning()
         Lockdown.shared.apply(on: prefs.lockdownOn, allowedHosts: prefs.allowedHosts)
         pushState()
         js("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()")
