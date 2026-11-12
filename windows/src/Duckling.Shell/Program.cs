@@ -9,9 +9,21 @@ static class Program
     [STAThread]
     static int Main(string[] args)
     {
+        var me = System.Diagnostics.Process.GetCurrentProcess();
+        ShellLog.Write($"start {Paths.ShellExe} pid {me.Id} session {me.SessionId}");
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => ShellLog.Write($"crash: {e.ExceptionObject}");
+        Application.ThreadException += (_, e) => ShellLog.Write($"error: {e.Exception}");
         using var mutex = new Mutex(true, @"Local\DucklingTabletShell", out var created);
         using var show = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\DucklingTabletShellShow");
-        if (!created) { show.Set(); return 0; }
+        if (!created)
+        {
+            // Another Duckling in this session has the window: bring it to the front. With no other Duckling running the
+            // marker is stale (abandoned, or held by something that outlived it), and this copy opens anyway, so a
+            // stale marker can never leave the child with no Duckling.
+            var other = System.Diagnostics.Process.GetProcessesByName("Duckling").Any(p => p.Id != me.Id && p.SessionId == me.SessionId);
+            if (other) { ShellLog.Write("already open in this session: brought it to the front"); show.Set(); return 0; }
+            ShellLog.Write("the open-window marker was held with no Duckling running: opening anyway");
+        }
 
         ApplicationConfiguration.Initialize();
         // --web-app=<url> points the shell at another copy of the web app (tests); production uses app.ducklingtablet.com.
@@ -20,6 +32,7 @@ static class Program
         var waiter = new Thread(() => { while (show.WaitOne()) { try { form.BeginInvoke(form.ComeToFront); } catch (Exception) { return; } } }) { IsBackground = true };
         waiter.Start();
         Application.Run(form);
+        ShellLog.Write("closed");
         return 0;
     }
 

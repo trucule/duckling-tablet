@@ -255,6 +255,7 @@ public class MainForm : Form
     {
         // In the child's account Duckling stays open; Windows shutting down or signing out still closes it.
         if (ChildSession && e.CloseReason == CloseReason.UserClosing && !allowClose) { e.Cancel = true; return; }
+        ShellLog.Write($"closing: {e.CloseReason}{(allowClose ? " (Close Duckling)" : "")}");
         base.OnFormClosing(e);
     }
     bool allowClose;
