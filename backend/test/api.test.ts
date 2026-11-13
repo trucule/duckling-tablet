@@ -281,6 +281,29 @@ describe('app requests', () => {
     expect((await app.inject({ method: 'GET', url: '/requests', headers: p.auth })).json().requests[0].status).toBe('withdrawn');
   });
 
+  it('ET Ducky Resolved or Closed finishes the request: no Withdraw, the slot frees; other spellings map too', async () => {
+    const p = await signIn('done@example.com'); await pair(p.auth);
+    const hook = (ticketId: string, status: string) => app.inject({ method: 'POST', url: '/hooks/etducky', headers: { 'content-type': 'application/json', authorization: `Bearer ${HOOK}` }, payload: { ticketId, status } });
+    const make = async (title: string) => {
+      const r = (await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title, description: 'An app for the queue test' } })).json();
+      const [{ etducky_ticket_id: t }] = await db.system((q) => q.all('SELECT etducky_ticket_id FROM app_request WHERE id = $1', [r.id]));
+      return { id: r.id as string, ticket: String(t) };
+    };
+    const statusOf = async (id: string) => (await app.inject({ method: 'GET', url: '/requests', headers: p.auth })).json().requests.find((x: any) => x.id === id).status;
+    const a = await make('First app');
+    expect((await hook(a.ticket, 'in_progress')).json().updated).toBe(1);
+    expect(await statusOf(a.id)).toBe('building');
+    expect((await hook(a.ticket, 'Resolved')).json().updated).toBe(1);
+    expect(await statusOf(a.id)).toBe('done');
+    expect((await app.inject({ method: 'POST', url: `/requests/${a.id}/withdraw`, headers: p.auth })).statusCode).toBe(409);
+    const b = await make('Second app'); // the slot is free again
+    expect((await hook(b.ticket, 'OnHold')).json().updated).toBe(1);
+    expect(await statusOf(b.id)).toBe('planned');
+    expect((await hook(b.ticket, 'CLOSED')).json().updated).toBe(1);
+    expect(await statusOf(b.id)).toBe('done');
+    expect((await hook(b.ticket, 'Escalated to vendor')).json()).toEqual({ ignored: true });
+  });
+
   it('lets a parent withdraw a request in progress: the slot frees, the ticket no longer moves it, no ticket is sent later', async () => {
     const p = await signIn('wd@example.com'); await pair(p.auth);
     const first = (await app.inject({ method: 'POST', url: '/requests', headers: p.auth, payload: { title: 'Test one', description: 'Just trying the form' } })).json();

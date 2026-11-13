@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, type AppRequest, type Attachment } from '../api';
 
-const STATUS: Record<string, string> = { requested: 'Received', planned: 'Planned', building: 'Being built', declined: 'Not taken on', shipped: 'In the Store', withdrawn: 'Withdrawn' };
+const STATUS: Record<string, string> = { requested: 'Received', planned: 'Planned', building: 'Being built', declined: 'Not taken on', shipped: 'In the Store', withdrawn: 'Withdrawn', done: 'Finished' };
 const OPEN = ['requested', 'planned', 'building'];
 
 export const ASK_ID = 'ask-for-an-app';

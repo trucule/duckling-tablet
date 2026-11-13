@@ -187,9 +187,18 @@ export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx
         ticketId: z.union([z.string(), z.number()]).transform(String), status: z.string(),
       }).parse(JSON.parse(raw));
       const eventId = b.eventId ?? (req.headers['x-etducky-delivery'] ? String(req.headers['x-etducky-delivery']) : null);
-      const map: Record<string, string> = { new: 'requested', open: 'requested', planned: 'planned', 'in progress': 'building', building: 'building', declined: 'declined', closed: 'declined', rejected: 'declined' };
-      const status = map[b.status.trim().toLowerCase()];
-      if (!status) return { ignored: true };
+      // ET Ducky's ticket statuses are free text (Open, In Progress, Pending, Waiting, Resolved, Closed, ...); spacing,
+      // case, underscores and dashes are ignored. Resolved and Closed finish the request; Declined turns it down.
+      const map: Record<string, string> = {
+        new: 'requested', open: 'requested', reopened: 'requested',
+        planned: 'planned', pending: 'planned', waiting: 'planned', 'on hold': 'planned',
+        'in progress': 'building', building: 'building',
+        resolved: 'done', closed: 'done', done: 'done', completed: 'done', complete: 'done',
+        declined: 'declined', rejected: 'declined', 'wont do': 'declined', "won't do": 'declined', cancelled: 'declined', canceled: 'declined',
+      };
+      const key = b.status.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+      const status = map[key];
+      if (!status) { req.log.warn({ etduckyStatus: key.slice(0, 40) }, 'ET Ducky status not mapped; request unchanged'); return { ignored: true }; }
       return ctx.db.system(async (q) => {
         if (eventId && !(await firstDelivery(q, 'etducky', eventId))) return { duplicate: true, updated: 0 };
         const updated = await q.run("UPDATE app_request SET status = $1, updated_at = now() WHERE etducky_ticket_id = $2 AND status NOT IN ('shipped', 'withdrawn')", [status, b.ticketId]);

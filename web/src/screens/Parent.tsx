@@ -349,7 +349,7 @@ function WindowsWifi() {
   );
 }
 
-const REQUEST_STATUS: Record<AppRequest['status'], string> = { requested: 'Received', planned: 'Planned', building: 'Being built', declined: 'Not taken on', shipped: 'In the Library', withdrawn: 'Withdrawn' };
+const REQUEST_STATUS: Record<AppRequest['status'], string> = { requested: 'Received', planned: 'Planned', building: 'Being built', declined: 'Not taken on', shipped: 'In the Library', withdrawn: 'Withdrawn', done: 'Finished' };
 const OPEN_REQUEST = ['requested', 'planned', 'building'];
 
 // Ask for an app: the portal's request form on the tablet. One request is in progress at a time for the family;

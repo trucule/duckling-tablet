@@ -26,7 +26,7 @@ export interface CatalogApp {
   latest: { version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[] };
 }
 
-export interface AppRequest { id: string; title: string; description: string; status: 'requested' | 'planned' | 'building' | 'declined' | 'shipped' | 'withdrawn'; appId: string | null; createdAt: string }
+export interface AppRequest { id: string; title: string; description: string; status: 'requested' | 'planned' | 'building' | 'declined' | 'shipped' | 'withdrawn' | 'done'; appId: string | null; createdAt: string }
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 export class ReleasedError extends Error {}
