@@ -153,18 +153,20 @@ export function Parent() {
       {ios && (
         <div class="card">
           <h2>Lockdown</h2>
-          <p>Each step gets a check mark as soon as it is done. Steps 1 to 3 keep other apps and websites closed; step 4 keeps the child inside Duckling. Steps 2 and 4 are iPad settings, so they are done in the Settings app, not here.</p>
+          <p>Do the steps in order. Each one gets a check mark when it is done.</p>
           <ul class="steps">
-            <li><span class={`dot ${status.homeRole ? 'done' : ''}`}>{status.homeRole ? '✓' : '1'}</span>
-              <span><span class="what">Allow Screen Time for Duckling</span><br /><span class="why">iPadOS asks for this iPad's passcode or Face ID. It lets Duckling close other apps and websites.</span></span>
+            <li><span class={`dot ${status.deviceSecure ? 'done' : ''}`}>{status.deviceSecure ? '✓' : '1'}</span>
+              <span><span class="what">Set an iPad passcode</span><br /><span class="why">In Settings, tap Face ID &amp; Passcode (or Touch ID &amp; Passcode) and turn the passcode on. Use one the child does not know.</span></span>
+              <button class="pill quiet" onClick={() => shell.openSecuritySettings()}>Open Settings</button></li>
+            <li><span class={`dot ${status.homeRole ? 'done' : ''}`}>{status.homeRole ? '✓' : '2'}</span>
+              <span><span class="what">Allow Screen Time</span><br /><span class="why">Tap Allow and confirm with the passcode or Face ID.</span></span>
               <button class="pill quiet" onClick={() => { shell.requestHomeRole(); setTimeout(refresh, 2500); }}>Allow</button></li>
-            <li><span class={`dot ${status.deviceSecure ? 'done' : ''}`}>{status.deviceSecure ? '✓' : '2'}</span>
-              <span><span class="what">A passcode the child does not know</span><br /><span class="why">Open the Settings app, then Face ID and Passcode (or Touch ID and Passcode), and turn the passcode on.</span></span></li>
             <li><span class={`dot ${status.lockdownOn ? 'done' : ''}`}>{status.lockdownOn ? '✓' : '3'}</span>
-              <span><span class="what">Close other apps and websites</span><br /><span class="why">Other apps are shielded, only the websites you allow open, and Duckling cannot be deleted.</span></span>
+              <span><span class="what">Close other apps and websites</span><br /><span class="why">Tap Turn on. Only Duckling and the websites you allow will open.</span></span>
               <button class="pill quiet" disabled={!status.homeRole} onClick={() => { shell.setLockdown(!status.lockdownOn); setTimeout(refresh, 800); }}>{status.lockdownOn ? 'Turn off' : 'Turn on'}</button></li>
             <li><span class={`dot ${status.pinned ? 'done' : ''}`}>{status.pinned ? '✓' : '4'}</span>
-              <span><span class="what">Guided Access</span><br /><span class="why">Open the Settings app, then Accessibility, and scroll to Guided Access (under General). Turn it on, open Passcode Settings and set a passcode the child does not know. Back in Duckling, triple-click the top button (or the Home button) and tap Start. To leave, triple-click again and type that passcode.</span></span></li>
+              <span><span class="what">Keep the child in Duckling</span><br /><span class="why">In Settings, tap Accessibility, then Guided Access. Turn it on and set a passcode under Passcode Settings. Come back here, triple-click the top button (or the Home button) and tap Start. To leave, triple-click and enter that passcode.</span></span>
+              <button class="pill quiet" onClick={() => shell.openSecuritySettings()}>Open Settings</button></li>
           </ul>
         </div>
       )}
