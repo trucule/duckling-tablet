@@ -869,6 +869,35 @@ describe('logs', () => {
     expect(out).not.toContain('token=');
   });
 
+  it('a sign-in from the portal on an iPhone home screen gets a code that signs in once; a browser gets the link', async () => {
+    await app.inject({ method: 'POST', url: '/auth/email-link', payload: { email: 'browser@example.com' } });
+    expect(mails.at(-1)!.subject).toBe('Your Duckling Tablet sign-in link');
+    expect(mails.at(-1)!.text).toMatch(/signin\?token=/);
+    const sent = await app.inject({ method: 'POST', url: '/auth/email-link', payload: { email: 'Phone@Example.com', delivery: 'code' } });
+    expect(sent.json()).toEqual({ sent: true, delivery: 'code' });
+    const mail = mails.at(-1)!;
+    const code = mail.subject!.match(/^(\d{3}) (\d{3}) is your Duckling Tablet sign-in code$/)!.slice(1).join('');
+    expect(mail.text).toContain(`${code.slice(0, 3)} ${code.slice(3)}`);
+    expect(mail.text).not.toContain('token=');
+    const verify = (c: string, email = 'phone@example.com') => app.inject({ method: 'POST', url: '/auth/code/verify', payload: { email, code: c } });
+    expect((await verify(code === '000000' ? '111111' : '000000')).statusCode).toBe(401);
+    expect((await verify(code, 'other@example.com')).statusCode).toBe(401);
+    const r = await verify(code);
+    expect(r.statusCode).toBe(200);
+    expect(r.json().newFamily).toBe(true);
+    expect((await app.inject({ method: 'GET', url: '/family', headers: { authorization: `Bearer ${r.json().sessionToken}` } })).statusCode).toBe(200);
+    expect((await verify(code)).statusCode).toBe(401); // used up
+    // Five wrong guesses end a code.
+    await app.inject({ method: 'POST', url: '/auth/email-link', payload: { email: 'phone@example.com', delivery: 'code' } });
+    const c2 = mails.at(-1)!.subject!.match(/^(\d{3}) (\d{3})/)!.slice(1).join('');
+    const wrong = c2 === '000000' ? '111111' : '000000';
+    for (let k = 0; k < 5; k++) await verify(wrong);
+    expect((await verify(c2)).statusCode).toBe(401);
+    // A tablet-started email stays a link for another device.
+    await app.inject({ method: 'POST', url: '/auth/email-link', payload: { email: 'tab@example.com', source: 'tablet', delivery: 'code' } });
+    expect(mails.at(-1)!.subject).toBe('Set up your Duckling Tablet family');
+  });
+
   it('production settings refuse to run without SMTP, so sign-in links never go to the log', () => {
     const prod = { NODE_ENV: 'production', SESSION_SECRET: 'x'.repeat(40), ADMIN_TOKEN: 'y'.repeat(40), DATABASE_URL_APP: 'postgresql://a:b@db.internal:25060/duckling', DATABASE_URL_SYSTEM: 'postgresql://c:d@db.internal:25060/duckling' };
     expect(() => loadConfig({ ...prod, SMTP_HOST: '' })).toThrow(/SMTP_HOST/);

@@ -32,7 +32,8 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 }
 
 export const api = {
-  emailLink: (email: string) => call<{ sent: boolean }>('POST', '/auth/email-link', { email }),
+  emailLink: (email: string, delivery: 'link' | 'code' = 'link') => call<{ sent: boolean; delivery: 'link' | 'code' }>('POST', '/auth/email-link', { email, delivery }),
+  verifyCode: (email: string, code: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/code/verify', { email, code }),
   verify: (token: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/verify', { token }),
   logout: () => call('POST', '/auth/logout', {}),
   family: () => call<Family>('GET', '/family'),

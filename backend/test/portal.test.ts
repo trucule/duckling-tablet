@@ -55,7 +55,7 @@ afterAll(async () => {
 });
 
 describe.skipIf(!ready)('parent portal', () => {
-  it('signs in by email link, adds a child, pairs a device by code, manages and releases it', async () => {
+  it('signs in by email link (or code on an iPhone home screen), adds a child, pairs a device by code, manages and releases it', async () => {
     const { chromium } = await import('playwright');
     const browser = await chromium.launch();
     const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
@@ -78,9 +78,39 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByText('Check your email').waitFor();
     const link = mails.at(-1)!.match(/(http\S+signin\?token=[\w-]+)/)![1];
     expect(link.startsWith(portal)).toBe(true);
+    expect(mails.at(-1)).not.toMatch(/\d{3} \d{3}/);
+
+    // The browser signs in with the link.
     await p.goto(link);
     await p.getByRole('heading', { name: 'Children' }).waitFor();
     expect(p.url()).not.toContain('token=');
+
+    // The same portal as an iPhone home-screen app (navigator.standalone): the email has a code to type in there,
+    // since iOS opens a mail link in Safari, which keeps its own sign-in.
+    // Its own context: a home-screen app keeps its own storage, apart from the browser.
+    const phoneCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await phoneCtx.route('https://api.ducklingtablet.com/**', async (route) => {
+      const req = route.request();
+      const r = await fetch(req.url().replace('https://api.ducklingtablet.com', api), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() ?? undefined });
+      await route.fulfill({ status: r.status, headers: Object.fromEntries(r.headers), body: Buffer.from(await r.arrayBuffer()) });
+    });
+    const phone = await phoneCtx.newPage();
+    await phone.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
+    await phone.goto(portal);
+    await phone.getByLabel('Email').fill('mom@example.com');
+    await phone.getByRole('button', { name: 'Send me a code' }).click();
+    await phone.getByLabel('Code').waitFor();
+    expect(mails.at(-1)).not.toContain('token=');
+    const signInCode = mails.at(-1)!.match(/^ {4}(\d{3}) (\d{3})$/m)!.slice(1).join(' ');
+    await phone.getByLabel('Code').fill('000 000');
+    await phone.getByRole('button', { name: 'Sign in' }).click();
+    await phone.getByText('That code is not right', { exact: false }).waitFor();
+    if (process.env.SHOT_DIR) await phone.screenshot({ path: join(process.env.SHOT_DIR, 'signin-code.png') });
+    await phone.getByLabel('Code').fill(signInCode);
+    await phone.getByRole('button', { name: 'Sign in' }).click();
+    await phone.getByRole('heading', { name: 'Children' }).waitFor();
+    await phoneCtx.close();
+
 
     await p.getByPlaceholder('First name').fill('Ada');
     await p.getByPlaceholder('Age').fill('7');
