@@ -244,11 +244,37 @@ public class MainForm : Form
             if (g == displayState)
             {
                 int state = Marshal.ReadInt32(m.LParam, 20);
-                if (state == 0) GoHome();
-                if (state == 1) { ComeToFront(); Js("window.DucklingWeb && DucklingWeb.onPush && DucklingWeb.onPush()"); }
+                if (state == 0)
+                {
+                    ShellLog.Write("screen off");
+                    GoHome();
+                    // The service installs a waiting update now, while nobody is using the tablet.
+                    _ = Task.Run(() => { try { Service.Call("screen", new { on = false }); } catch (Exception) { } });
+                }
+                if (state == 1)
+                {
+                    ShellLog.Write("screen on");
+                    ComeToFront();
+                    ResetInput();
+                    Js("window.DucklingWeb && DucklingWeb.onPush && DucklingWeb.onPush()");
+                }
             }
         }
         base.WndProc(ref m);
+    }
+
+    // After the screen turned off and on, the page could scroll under a finger but took no taps, though nothing was
+    // busy. Hiding and showing the browser control makes WebView2 set up its input again, and the page gets focus.
+    void ResetInput()
+    {
+        try
+        {
+            if (Web.CoreWebView2 == null) return;
+            Web.Visible = false;
+            Web.Visible = true;
+            Web.Focus();
+        }
+        catch (Exception e) { ShellLog.Write($"input reset: {e.Message}"); }
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)

@@ -6,9 +6,12 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace Duckling.Service;
 
-/// <summary>Keeps Duckling current: once a day it asks the API for the newest installer for this device's
+/// <summary>Keeps Duckling current: every 4 hours it asks the API for the newest installer for this device's
 /// architecture, downloads it, checks its SHA-256 and that it carries a valid Authenticode signature from ET Ducky LLC,
-/// and installs it with msiexec when nobody is using the device (no one signed in, or between 2 and 5 at night).</summary>
+/// and installs it with msiexec when nobody is using the device: the screen just turned off (the shell reports it), no
+/// one is signed in, or between 2 and 5 at night. A kiosk tablet is always signed in and asleep at night, so the
+/// screen turning off is the moment that actually comes. A verified installer is kept on disk, so a restart does not
+/// lose it.</summary>
 public class Updater(Store store, HttpClient http)
 {
     public const string Publisher = "ET Ducky LLC";
@@ -22,20 +25,50 @@ public class Updater(Store store, HttpClient http)
     {
         try
         {
+            ready ??= Waiting();
             if (ready == null)
             {
                 var last = store.Read(s => s.LastUpdateCheck);
-                if (DateTime.TryParse(last, out var at) && DateTime.UtcNow - at.ToUniversalTime() < TimeSpan.FromHours(20)) return;
-                store.Update(s => s.LastUpdateCheck = DateTime.UtcNow.ToString("o"));
+                if (DateTime.TryParse(last, out var at) && DateTime.UtcNow - at.ToUniversalTime() < TimeSpan.FromHours(4)) return;
                 var r = await http.GetFromJsonAsync<Release>($"{Duckling.Paths.Api}/windows/release?arch={Arch}", ct);
+                store.Update(s => s.LastUpdateCheck = DateTime.UtcNow.ToString("o"));
                 if (r == null || Versions.Compare(r.Version, Current) <= 0) return;
                 ready = await Download(r, ct);
                 Log.Info($"update {r.Version} downloaded and verified");
             }
-            if (ready != null && Quiet()) { Install(ready); ready = null; }
+            if (ready != null && Quiet()) InstallReady("quiet");
         }
         catch (HttpRequestException) { }
         catch (Exception e) { Log.Error($"update: {e.GetType().Name}: {e.Message}"); ready = null; }
+    }
+
+    /// <summary>The screen turned off in the child's session: the moment to install a waiting update.</summary>
+    public void ScreenOff()
+    {
+        try { ready ??= Waiting(); if (ready != null) InstallReady("screen off"); }
+        catch (Exception e) { Log.Error($"update at screen off: {e.GetType().Name}: {e.Message}"); }
+    }
+
+    void InstallReady(string why)
+    {
+        var msi = ready!; ready = null;
+        Log.Info($"installing {Path.GetFileName(msi)} ({why})");
+        Install(msi);
+    }
+
+    /// <summary>An installer downloaded earlier and still on disk: newer than this version and signed by the publisher.</summary>
+    static string? Waiting()
+    {
+        if (!Directory.Exists(Duckling.Paths.UpdatesDir)) return null;
+        string? best = null, bestVersion = null;
+        foreach (var f in Directory.GetFiles(Duckling.Paths.UpdatesDir, $"DucklingTablet-*-{Arch}.msi"))
+        {
+            var v = Path.GetFileName(f)["DucklingTablet-".Length..^($"-{Arch}.msi".Length)];
+            if (Versions.Compare(v, Current) <= 0 || (bestVersion != null && Versions.Compare(v, bestVersion) <= 0)) continue;
+            if (!Authenticode.IsSignedBy(f, Publisher)) continue;
+            best = f; bestVersion = v;
+        }
+        return best;
     }
 
     static bool Quiet()
@@ -59,7 +92,10 @@ public class Updater(Store store, HttpClient http)
 
     static void Install(string msi)
     {
-        Log.Info($"installing {Path.GetFileName(msi)}");
+        // Duckling may be open in the child's session (the screen is off, nobody is using it). Its files must be free for
+        // the upgrade to replace them now rather than at the next restart; the new service opens it again when the
+        // child's session is in use.
+        foreach (var p in Process.GetProcessesByName("Duckling")) { try { p.Kill(true); p.WaitForExit(5000); } catch (Exception) { } finally { p.Dispose(); } }
         var log = Path.Combine(Duckling.Paths.LogsDir, "update-msi.log");
         // msiexec stops this service as part of the upgrade, so it runs on its own.
         Process.Start(new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "msiexec.exe"), $"/i \"{msi}\" /qn /norestart /l*v \"{log}\"") { UseShellExecute = false, CreateNoWindow = true });

@@ -80,6 +80,7 @@ public class Worker : BackgroundService
         var lockdown = new Lockdown(store, Duckling.Paths.LockdownScript);
         var handlers = new Handlers(store, packages, lockdown) { OnReleased = account => _ = Task.Run(() => Uninstall(account)) };
         var updater = new Updater(store, http);
+        handlers.OnScreenOff = () => _ = Task.Run(updater.ScreenOff);
         var pipe = new PipeServer(handlers);
         var pipeTask = pipe.Run(ct);
 

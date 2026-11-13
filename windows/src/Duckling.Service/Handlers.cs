@@ -14,6 +14,8 @@ public class Handlers(Store store, Packages packages, Lockdown lockdown, Func<Da
     public static readonly TimeSpan ParentWindow = TimeSpan.FromMinutes(30);
     /// <summary>Set by the worker: what to do once the parent confirmed a removal (lockdown off, uninstall).</summary>
     public Action<string>? OnReleased;
+    /// <summary>Set by the worker: the screen in the child's session turned off (an update can install then).</summary>
+    public Action? OnScreenOff;
 
     bool ParentPresent => store.Read(s => s.PinHash == "") || now() < parentUntil;
     void NeedParent() { if (!ParentPresent) throw new ServiceError("Enter the parent PIN first."); }
@@ -154,6 +156,10 @@ public class Handlers(Store store, Packages packages, Lockdown lockdown, Func<Da
             }
 
             // ---- Lockdown
+            case "screen":
+                if (a?["on"]?.GetValue<bool>() == false) { Log.Info("screen off in the child's session"); OnScreenOff?.Invoke(); }
+                return null;
+
             case "lockdownStatus":
             {
                 var st = lockdown.Status();

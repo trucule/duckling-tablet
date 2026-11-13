@@ -231,6 +231,20 @@ public class HandlerTests : IDisposable
     }
 
     [Fact]
+    public void Screen_off_reported_by_the_shell_is_passed_on_and_screen_on_is_not()
+    {
+        var (h, _) = Make();
+        int offs = 0;
+        h.OnScreenOff = () => offs++;
+        h.Handle("screen", Args(new { on = true }));
+        Assert.Equal(0, offs);
+        h.Handle("screen", Args(new { on = false }));
+        Assert.Equal(1, offs);
+        h.OnScreenOff = null;
+        h.Handle("screen", Args(new { on = false })); // nothing set: no error
+    }
+
+    [Fact]
     public void Installs_record_versions_and_permissions_and_state_reports_only_apps_on_disk()
     {
         var zip = TestKey.Zip(("index.html", "<p>app</p>"));
