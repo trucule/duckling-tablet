@@ -9,6 +9,10 @@
 //   node tools/publish.mjs voice all|<id>...                       ask the voice cache to make every line in the apps'
 //                                                                 phrases.json now (publishing a version does this too)
 //
+// "starter": true in a manifest means the app is installed on a tablet when it is paired. Publishing never installs
+// anything on tablets already paired: a new app appears in their Library until the child or a parent installs it.
+// New apps get "starter": false, so the default set stays the apps a tablet started with.
+//
 // Needs ADMIN_TOKEN, PACKAGE_SIGNING_KEY (base64 PKCS8) and optionally API_URL in the environment or the env file
 // named by DOTENV_CONFIG_PATH. A version already in the catalog is skipped, so a rerun is harmless.
 //

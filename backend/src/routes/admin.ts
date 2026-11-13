@@ -29,22 +29,14 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
       // The About page: the cognitive concept, how the app grows with the child, the life skills it serves.
       about: z.object({ concept: z.string().min(1).max(1200), progression: z.string().min(1).max(1200), lifeSkills: z.array(z.string().min(1).max(80)).min(1).max(8) }).nullable().default(null),
     }).parse(req.body);
-    const added = await ctx.db.system(async (q) => {
-      const before = await q.one<{ starter: boolean }>('SELECT starter FROM app WHERE id = $1', [id]);
-      await q.run(`INSERT INTO app (id, name, description, subjects, age_min, age_max, starter, about) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8::jsonb)
-        ON CONFLICT (id) DO UPDATE SET name = excluded.name, description = excluded.description, subjects = excluded.subjects,
-        age_min = excluded.age_min, age_max = excluded.age_max, starter = excluded.starter, about = excluded.about`,
-        [id, b.name, b.description, JSON.stringify(b.subjects), b.ageMin, b.ageMax, b.starter, b.about ? JSON.stringify(b.about) : null]);
-      // A starter app is on every tablet, not only the ones paired after it was published: the moment an app becomes
-      // a starter it is installed on every active device. Republishing an app that already was a starter adds nothing,
-      // so a child who removed it does not get it back on each publish.
-      if (b.starter && !before?.starter) {
-        return q.run(`INSERT INTO device_app (family_id, device_id, app_id)
-          SELECT family_id, id, $1 FROM device WHERE state = 'active' ON CONFLICT DO NOTHING`, [id]);
-      }
-      return 0;
-    });
-    return { id, addedToDevices: added };
+    // A starter is installed on a tablet when it is paired, and only then. Publishing never installs an app on a tablet
+    // that is already paired: a new app, or an app newly marked as a starter, shows in those tablets' Library until the
+    // child or a parent installs it. (A requested app that ships goes onto the requesting family's tablets; requests.ts.)
+    await ctx.db.system((q) => q.run(`INSERT INTO app (id, name, description, subjects, age_min, age_max, starter, about) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8::jsonb)
+      ON CONFLICT (id) DO UPDATE SET name = excluded.name, description = excluded.description, subjects = excluded.subjects,
+      age_min = excluded.age_min, age_max = excluded.age_max, starter = excluded.starter, about = excluded.about`,
+      [id, b.name, b.description, JSON.stringify(b.subjects), b.ageMin, b.ageMax, b.starter, b.about ? JSON.stringify(b.about) : null]));
+    return { id };
   });
 
   // Body: the app's tile, a PNG (image/png), 512 by 512. Stored under a content-hashed key (the CDN caches files as

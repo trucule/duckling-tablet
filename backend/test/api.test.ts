@@ -187,28 +187,26 @@ describe('catalog and publishing', () => {
     expect((await app.inject({ method: 'GET', url: '/files/packages/circuit-lab/1.2.0.zip' })).statusCode).toBe(200);
   });
 
-  it('installs an app on every active tablet the moment it becomes a starter, and not again on later publishes', async () => {
+  it('installs starters only at pairing: a later publish never adds an app to a paired tablet, it waits in the Library', async () => {
     await publish('music-box', '1.0.0', { starter: true });
     const p = await signIn('starter@example.com');
     const child = (await app.inject({ method: 'POST', url: '/family/children', headers: p.auth, payload: { firstName: 'Ada', age: 6 } })).json();
     const t = await pair(p.auth, child.id);
     const installed = async () => (await app.inject({ method: 'GET', url: '/device/config', headers: t.dev })).json().apps.map((a: any) => a.id).sort();
     expect(await installed()).toEqual(['music-box']);
-    // Published after the tablet was paired, not a starter: nothing changes on the tablet.
+    // A new app published after the tablet was paired, starter or not, stays out of its tiles and is in the catalog.
     await publish('my-avatar', '1.0.0');
-    expect(await installed()).toEqual(['music-box']);
-    // It becomes a starter: it lands on the tablet.
-    expect((await publish('my-avatar', '1.0.1', { starter: true })).statusCode).toBe(200);
-    expect(await installed()).toEqual(['music-box', 'my-avatar']);
-    // The child removes it; a later publish of the same starter does not put it back.
-    expect((await app.inject({ method: 'DELETE', url: '/device/apps/my-avatar', headers: t.dev })).statusCode).toBe(200);
-    await publish('my-avatar', '1.0.2', { starter: true });
-    expect(await installed()).toEqual(['music-box']);
-    // A released tablet is left alone.
-    await app.inject({ method: 'POST', url: '/device/released', headers: t.dev });
     await publish('word-wizard', '1.0.0', { starter: true });
-    const onDevice = (await app.inject({ method: 'GET', url: `/devices/${t.deviceId}`, headers: p.auth })).json();
-    expect((onDevice.apps ?? onDevice.config?.apps ?? []).map((a: any) => a.id)).not.toContain('word-wizard');
+    expect(await installed()).toEqual(['music-box']);
+    expect((await app.inject({ method: 'GET', url: '/catalog' })).json().apps.map((a: any) => a.id).sort()).toEqual(['music-box', 'my-avatar', 'word-wizard']);
+    // Installing it from the Library puts the tile on; a later publish does not remove or re-add anything.
+    expect((await app.inject({ method: 'PUT', url: '/device/apps/my-avatar', headers: t.dev })).statusCode).toBe(200);
+    expect(await installed()).toEqual(['music-box', 'my-avatar']);
+    await publish('my-avatar', '1.0.1', { starter: true });
+    expect(await installed()).toEqual(['music-box', 'my-avatar']);
+    // A tablet paired now gets every starter, including the ones published since.
+    const t2 = await pair(p.auth, child.id);
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: t2.dev })).json().apps.map((a: any) => a.id).sort()).toEqual(['music-box', 'my-avatar', 'word-wizard']);
   });
 });
 
