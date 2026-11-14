@@ -49,11 +49,15 @@ export function Home() {
     const fromLibrary = catalog.value.find((a) => a.id === AVATAR);
     if (fromLibrary) void installFromStore(fromLibrary); else go('store');
   };
-  // Her home background: a picture she chose in an app (Paint Studio, Draw With Me). Tile names get a light label
-  // so they read over any picture.
+  // Her home background: a picture she chose in an app (Paint Studio, Draw With Me). It sits in a layer fixed to the
+  // screen, so it is sized to the display and not to the scrolling page of tiles. The whole picture shows, centered;
+  // where its shape differs from the screen's, a blurred copy fills the edges. Tile names get a light label so they
+  // read over any picture.
   const bg = c?.child?.backgroundUrl;
+  const bgUrl = bg ? `url("${bg.replace(/"/g, '%22')}")` : '';
   return (
-    <div class={`screen${bg ? ' with-bg' : ''}`} style={bg ? { backgroundImage: `url("${bg.replace(/"/g, '%22')}")` } : undefined}>
+    <div class={`screen${bg ? ' with-bg' : ''}`}>
+      {bg && <div class="home-bg" aria-hidden="true"><div class="fill" style={{ backgroundImage: bgUrl }} /><div class="pic" style={{ backgroundImage: bgUrl }} /></div>}
       <div class="topbar">
         <span class="who">
           <button class="avatar" onClick={openAvatar} aria-label="Your avatar" style={{ background: themeColors.value[0] ?? undefined }}>

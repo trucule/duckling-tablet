@@ -176,14 +176,14 @@ describe.skipIf(!ready)('child web app', () => {
     await p.getByRole('button', { name: 'PBS KIDS' }).waitFor();
     // A picture she saved in an app becomes the home background (what KidTablet.setHomeBackground sends).
     const picture = await p.evaluate(() => {
-      const c = document.createElement('canvas'); c.width = 1280; c.height = 800; const g = c.getContext('2d')!;
-      const sky = g.createLinearGradient(0, 0, 0, 800); sky.addColorStop(0, '#7cc8ff'); sky.addColorStop(1, '#ffe6a8'); g.fillStyle = sky; g.fillRect(0, 0, 1280, 800);
-      g.fillStyle = '#ffcc33'; g.beginPath(); g.arc(1000, 180, 90, 0, 7); g.fill(); g.fillStyle = '#4caf50'; g.fillRect(0, 600, 1280, 200);
+      const c = document.createElement('canvas'); c.width = 1000; c.height = 1000; const g = c.getContext('2d')!;
+      const sky = g.createLinearGradient(0, 0, 0, 1000); sky.addColorStop(0, '#7cc8ff'); sky.addColorStop(1, '#ffe6a8'); g.fillStyle = sky; g.fillRect(0, 0, 1000, 1000);
+      g.fillStyle = '#ffcc33'; g.beginPath(); g.arc(780, 200, 110, 0, 7); g.fill(); g.fillStyle = '#4caf50'; g.fillRect(0, 760, 1000, 240);
       return c.toDataURL('image/jpeg', 0.85);
     });
     const devToken = await p.evaluate(() => localStorage.getItem('duckling.token'));
     const setBg = async () => expect((await fetch(`${api}/device/child/background`, { method: 'PUT', headers: { authorization: `Device ${devToken}`, 'content-type': 'text/plain' }, body: picture })).status).toBe(200);
-    const bgShown = () => p.waitForFunction(() => /background\?exp=/.test((document.querySelector('.screen.with-bg') as HTMLElement | null)?.style.backgroundImage ?? ''));
+    const bgShown = () => p.waitForFunction(() => /background\?exp=/.test((document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? ''));
     // Back from the app seconds after the last check-in (the onResume above): the home screen checks in again.
     await setBg();
     await p.evaluate(() => (window as any).DucklingWeb.onResume());
@@ -199,6 +199,12 @@ describe.skipIf(!ready)('child web app', () => {
     await setBg();
     await becomeVisible();
     await bgShown();
+    // The picture is sized to the screen, not to the page of tiles: the layer stays the viewport's size and place
+    // when the page scrolls, and the whole picture shows (contain).
+    await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const box = await p.evaluate(() => { const r = document.querySelector('.home-bg .pic')!.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, vw: innerWidth, vh: innerHeight, size: getComputedStyle(document.querySelector('.home-bg .pic')!).backgroundSize }; });
+    expect(box).toEqual({ x: 0, y: 0, w: box.vw, h: box.vh, vw: box.vw, vh: box.vh, size: 'contain' });
+    await p.evaluate(() => window.scrollTo(0, 0));
     await p.waitForTimeout(400);
     await p.screenshot({ path: join(dir, 'home-bg.png') });
     // The child's own character sits in a circle at the top (her first letter until My Avatar saves a portrait), and

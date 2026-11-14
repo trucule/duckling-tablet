@@ -20,7 +20,11 @@ button { font: inherit; color: inherit; }
 #app { min-height: 100%; }
 
 .screen { min-height: 100vh; padding: max(20px, env(safe-area-inset-top)) 28px 100px; }
-.screen.with-bg { background-size: cover; background-position: center; background-attachment: fixed; }
+.screen.with-bg { position: relative; isolation: isolate; }
+.home-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: #fff; }
+.home-bg .fill, .home-bg .pic { position: absolute; background-repeat: no-repeat; background-position: center; }
+.home-bg .fill { inset: -60px; background-size: cover; filter: blur(30px); opacity: 0.85; }
+.home-bg .pic { inset: 0; background-size: contain; }
 .with-bg .tile .name { background: rgba(255, 255, 255, 0.88); border-radius: 10px; padding: 2px 8px; }
 .with-bg .topbar h1 { background: rgba(255, 255, 255, 0.88); border-radius: 14px; padding: 2px 12px; }
 .with-bg .section { display: inline-block; background: rgba(255, 255, 255, 0.88); border-radius: 12px; padding: 2px 12px; }
