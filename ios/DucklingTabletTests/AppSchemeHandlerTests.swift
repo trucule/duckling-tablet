@@ -78,7 +78,7 @@ extension AppSchemeHandlerTests {
         web.uiDelegate = ui
         try await load("index.html")
         let result = try await js("""
-            try { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); s.getTracks().forEach(t => t.stop()); return 'ok'; }
+            try { const s = await Promise.race([navigator.mediaDevices.getUserMedia({ audio: true }), new Promise((_, no) => setTimeout(() => no(Object.assign(new Error('no answer in 10 s'), { name: 'Timeout' })), 10000))]); s.getTracks().forEach(t => t.stop()); return 'ok'; }
             catch (e) { return e.name + ': ' + e.message; }
             """) as? String
         print("MIC-PROBE getUserMedia=\(result ?? "nil") asked=\(ui.asked)")
