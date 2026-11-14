@@ -26,6 +26,7 @@ const ready = existsSync(join(DIST, 'index.html')) && existsSync(join(TOOLS, 'no
 
 let cluster: Cluster, app: FastifyInstance, db: Db, dir: string, api: string, web: string, webServer: Server;
 const mails: string[] = [];
+let swVersion = '';
 
 function serveDist(port: number): Server {
   const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -33,6 +34,8 @@ function serveDist(port: number): Server {
     let p = join(DIST, decodeURIComponent((req.url ?? '/').split('?')[0]));
     if (!existsSync(p) || statSync(p).isDirectory()) p = join(DIST, 'index.html');
     res.writeHead(200, { 'content-type': types[extname(p)] ?? (p.endsWith('.webmanifest') ? 'application/manifest+json' : 'application/octet-stream') });
+    // A deploy of a new home screen version: the service worker's bytes change.
+    if (p.endsWith('sw.js') && swVersion) return res.end(readFileSync(p, 'utf8') + `\n// ${swVersion}\n`);
     createReadStream(p).pipe(res);
   }).listen(port, '127.0.0.1');
 }
@@ -163,6 +166,14 @@ describe.skipIf(!ready)('child web app', () => {
     await p.waitForFunction(() => { const i = document.querySelector('.art.site img') as HTMLImageElement | null; return !!i && i.complete && i.naturalWidth > 0; });
     await p.getByRole('button', { name: 'PBS KIDS' }).screenshot({ path: join(dir, 'site-tile.png') });
     await p.screenshot({ path: join(dir, 'home.png') });
+    // A new home screen version is deployed while the tablet is on: coming back from an app finds it, and the page
+    // reloads into it without anyone restarting Duckling.
+    await p.waitForFunction(() => !!navigator.serviceWorker.controller);
+    await p.evaluate(() => { (window as any).oldVersion = true; });
+    swVersion = 'v2';
+    await p.evaluate(() => (window as any).DucklingWeb.onResume());
+    await p.waitForFunction(() => !(window as any).oldVersion, null, { timeout: 20000 });
+    await p.getByRole('button', { name: 'PBS KIDS' }).waitFor();
     // A picture she saved in an app becomes the home background (what KidTablet.setHomeBackground sends).
     const picture = await p.evaluate(() => {
       const c = document.createElement('canvas'); c.width = 1280; c.height = 800; const g = c.getContext('2d')!;
