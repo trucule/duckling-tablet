@@ -115,6 +115,8 @@ export const travelActive = (c: DeviceConfig | null) => !!c?.travel.active && !!
 function applyHosts(c: DeviceConfig) {
   if (travelActive(c)) { shell.setAllowedHosts(['*']); return; }
   const hosts = new Set(c.allowlist.map((w) => w.host.replace(/^\*\./, '')));
+  // What the allowed websites need for their own videos, from the server's checked list (backend/src/sitehosts.ts).
+  for (const h of c.mediaHosts ?? []) hosts.add(h);
   for (const a of c.otherApps ?? []) if (otherAppState(a).ok) for (const h of a.hosts) hosts.add(h.replace(/^\*\./, ''));
   shell.setAllowedHosts([...hosts]);
 }

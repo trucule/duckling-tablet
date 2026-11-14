@@ -204,6 +204,11 @@ describe.skipIf(!ready)('web app on Windows', () => {
     await post(`/devices/${id}/other-apps/win.app.h0123456789abcdef`, { allowed: true, dailyMinutes: 30 }, auth, 'PUT');
     await p.getByRole('button', { name: 'Sync with the website' }).click();
     await expect.poll(async () => (await calls()).filter((c) => c[0] === 'setOtherApps').map((c) => c[1]).at(-1)).toBe('win.app.h0123456789abcdef');
+    // A parent allows PBS KIDS: the shell is told the site and the hosts its videos come from, and no tile shows for those.
+    await post(`/devices/${id}/settings`, { allowlist: [{ host: 'pbskids.org', tile: { name: 'PBS KIDS', url: 'https://pbskids.org/' } }] }, auth, 'PUT');
+    await p.getByRole('button', { name: 'Sync with the website' }).click();
+    await expect.poll(async () => String((await calls()).filter((c) => c[0] === 'setAllowedHosts').map((c) => c[1]).at(-1)).split(',').sort())
+      .toEqual(['kids.pbs-video.pbs.org', 'pbskids.org', 'proxy.drm.pbs.org', 'urs-anonymous-detect.pbs.org', 'urs.pbs.org']);
     await p.getByRole('button', { name: 'Done' }).click();
     expect((await calls()).map((c) => c[0])).toContain('endParent');
     await p.getByRole('button', { name: 'Tux Paint' }).click();

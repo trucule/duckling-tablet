@@ -17,7 +17,7 @@ export interface DeviceConfig {
   locked?: boolean;
   otherApps?: OtherApp[];
   deviceId: string; state: 'active' | 'release' | 'released'; child: Child | null; apps: InstalledApp[]; hidden: string[];
-  allowlist: AllowEntry[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string; appAccountToken?: string | null;
+  allowlist: AllowEntry[]; mediaHosts?: string[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string; appAccountToken?: string | null;
   // Card payments through Stripe are offered (how a Windows tablet subscribes).
   cardPayments?: boolean;
 }

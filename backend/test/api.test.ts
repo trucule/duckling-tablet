@@ -122,6 +122,10 @@ describe('children, devices and apps', () => {
     const ok = await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth,
       payload: { allowlist: [{ host: 'pbskids.org', tile: { name: 'PBS KIDS', url: 'https://pbskids.org/games' } }], limits: { dailyMinutes: 90 } } });
     expect(ok.json().allowlist[0].host).toBe('pbskids.org');
+    // The tablet gets the hosts PBS KIDS plays its videos from, and nothing else outside the site.
+    const media = (await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json().mediaHosts;
+    expect(media).toEqual(['kids.pbs-video.pbs.org', 'proxy.drm.pbs.org', 'urs-anonymous-detect.pbs.org', 'urs.pbs.org']);
+    expect(media.some((h: string) => h === 'pbs.org' || /google|2mdn|sentry/.test(h))).toBe(false);
     expect((await app.inject({ method: 'POST', url: `/devices/${d.deviceId}/travel`, headers: p.auth, payload: {} })).json().active).toBe(true);
     expect((await app.inject({ method: 'POST', url: `/devices/${d.deviceId}/travel`, headers: p.auth, payload: { hours: 0 } })).json().active).toBe(false);
     await app.inject({ method: 'POST', url: `/devices/${d.deviceId}/release`, headers: p.auth });

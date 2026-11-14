@@ -1,5 +1,6 @@
 // Devices: pairing, parent controls per device, and the device's own check-in, config and installs.
 // Every handler runs inside one family-scoped transaction, so a query that forgets a WHERE still sees one family.
+import { mediaHostsFor } from '../sitehosts.js';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
@@ -56,6 +57,7 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
   const travelUntil = await getSetting<string | null>(q, deviceId, 'travel_until', null);
   const fam = await q.one<{ pin_sync: string | null; app_account_token: string }>('SELECT pin_sync, app_account_token::text AS app_account_token FROM family WHERE id = $1', [d.family_id]);
   const ent = await entitlementOf(q, d.family_id);
+  const allowlist = await getSetting(q, deviceId, 'allowlist', [] as { host: string }[]);
   return {
     deviceId, state: d.state, child,
     // SHA-256 of "duckling:<pin>", the form the shells keep; null until a parent sets a PIN.
@@ -69,7 +71,9 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
     cardPayments: !!ctx.stripe,
     apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, tileUrl: a.tileUrl, permissions: a.latest!.permissions, ...a.latest })),
     hidden: [...hidden],
-    allowlist: await getSetting(q, deviceId, 'allowlist', [] as unknown[]),
+    allowlist,
+    // Hosts the allowed websites need for their videos (sitehosts.ts); the tablet allows them with no tile.
+    mediaHosts: mediaHostsFor(allowlist.map((w) => w.host)),
     travel: { active: !!travelUntil && travelUntil > now(), until: travelUntil },
     limits: await getSetting(q, deviceId, 'limits', {}),
     // Apps installed outside Duckling that a parent allowed, with today's use (the tablet's local day).
