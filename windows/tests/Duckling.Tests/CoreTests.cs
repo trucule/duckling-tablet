@@ -48,6 +48,19 @@ public class CoreTests : IDisposable
     public void Dispose() { try { Directory.Delete(dir, true); } catch (Exception) { } }
 
     [Fact]
+    public void UpdateChecksAreDueHourlyAndAtScreenOnAfterTenMinutes()
+    {
+        var now = new DateTime(2026, 11, 14, 20, 0, 0, DateTimeKind.Utc);
+        string Ago(int minutes) => now.AddMinutes(-minutes).ToString("o");
+        Assert.True(Updater.Due("", now, Updater.CheckEvery));            // never checked
+        Assert.True(Updater.Due("not a time", now, Updater.CheckEvery));  // unreadable counts as never
+        Assert.False(Updater.Due(Ago(30), now, Updater.CheckEvery));
+        Assert.True(Updater.Due(Ago(61), now, Updater.CheckEvery));
+        Assert.False(Updater.Due(Ago(5), now, Updater.ScreenOnGap));      // the screen came back on right after a check
+        Assert.True(Updater.Due(Ago(12), now, Updater.ScreenOnGap));
+    }
+
+    [Fact]
     public void Hosts_allow_own_listed_and_subdomains_only()
     {
         var allowed = Hosts.Normalize(new[] { "*.pbskids.org", " Epic.com ", "" });

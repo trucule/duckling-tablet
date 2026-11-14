@@ -16,6 +16,7 @@ public class Handlers(Store store, Packages packages, Lockdown lockdown, Func<Da
     public Action<string>? OnReleased;
     /// <summary>Set by the worker: the screen in the child's session turned off (an update can install then).</summary>
     public Action? OnScreenOff;
+    public Action? OnScreenOn;
 
     bool ParentPresent => store.Read(s => s.PinHash == "") || now() < parentUntil;
     void NeedParent() { if (!ParentPresent) throw new ServiceError("Enter the parent PIN first."); }
@@ -158,6 +159,7 @@ public class Handlers(Store store, Packages packages, Lockdown lockdown, Func<Da
             // ---- Lockdown
             case "screen":
                 if (a?["on"]?.GetValue<bool>() == false) { Log.Info("screen off in the child's session"); OnScreenOff?.Invoke(); }
+                else if (a?["on"]?.GetValue<bool>() == true) OnScreenOn?.Invoke();
                 return null;
 
             case "lockdownStatus":

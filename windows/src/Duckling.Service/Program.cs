@@ -81,6 +81,7 @@ public class Worker : BackgroundService
         var handlers = new Handlers(store, packages, lockdown) { OnReleased = account => _ = Task.Run(() => Uninstall(account)) };
         var updater = new Updater(store, http);
         handlers.OnScreenOff = () => _ = Task.Run(updater.ScreenOff);
+        handlers.OnScreenOn = () => _ = Task.Run(updater.ScreenOn);
         var pipe = new PipeServer(handlers);
         var pipeTask = pipe.Run(ct);
 

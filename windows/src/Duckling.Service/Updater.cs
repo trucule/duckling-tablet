@@ -20,26 +20,47 @@ public class Updater(Store store, HttpClient http)
 
     record Release(string Version, string Url, string Sha256, long Size);
     string? ready; // a verified installer waiting for a quiet moment
+    readonly SemaphoreSlim busy = new(1, 1); // one check or download at a time (the worker and screen-on both ask)
 
-    public async Task Tick(CancellationToken ct)
+    /// <summary>How long after a completed check the next one waits. A failed check or download is not counted, so it
+    /// is tried again at the next tick (every 5 minutes while the device is awake).</summary>
+    public static readonly TimeSpan CheckEvery = TimeSpan.FromHours(1);
+    /// <summary>At screen on the check runs early, unless one completed this recently.</summary>
+    public static readonly TimeSpan ScreenOnGap = TimeSpan.FromMinutes(10);
+
+    public static bool Due(string last, DateTime now, TimeSpan gap) =>
+        !DateTime.TryParse(last, null, System.Globalization.DateTimeStyles.RoundtripKind, out var at) || now - at.ToUniversalTime() >= gap;
+
+    public Task Tick(CancellationToken ct) => Check(CheckEvery, ct);
+
+    /// <summary>The screen turned on: a tablet used for an hour at a time looks for an update at the start of each
+    /// use, so it is downloaded during that use and installed when the screen turns off.</summary>
+    public Task ScreenOn() => Check(ScreenOnGap, CancellationToken.None);
+
+    async Task Check(TimeSpan gap, CancellationToken ct)
     {
+        if (!await busy.WaitAsync(0, ct)) return;
         try
         {
             ready ??= Waiting();
             if (ready == null)
             {
-                var last = store.Read(s => s.LastUpdateCheck);
-                if (DateTime.TryParse(last, out var at) && DateTime.UtcNow - at.ToUniversalTime() < TimeSpan.FromHours(4)) return;
+                if (!Due(store.Read(s => s.LastUpdateCheck), DateTime.UtcNow, gap)) return;
                 var r = await http.GetFromJsonAsync<Release>($"{Duckling.Paths.Api}/windows/release?arch={Arch}", ct);
+                if (r != null && Versions.Compare(r.Version, Current) > 0)
+                {
+                    ready = await Download(r, ct);
+                    Log.Info($"update {r.Version} downloaded and verified");
+                }
+                // Counted only once the check and any download finished: a tablet that slept mid-download tries again.
                 store.Update(s => s.LastUpdateCheck = DateTime.UtcNow.ToString("o"));
-                if (r == null || Versions.Compare(r.Version, Current) <= 0) return;
-                ready = await Download(r, ct);
-                Log.Info($"update {r.Version} downloaded and verified");
             }
             if (ready != null && Quiet()) InstallReady("quiet");
         }
         catch (HttpRequestException) { }
+        catch (OperationCanceledException) { }
         catch (Exception e) { Log.Error($"update: {e.GetType().Name}: {e.Message}"); ready = null; }
+        finally { busy.Release(); }
     }
 
     /// <summary>The screen turned off in the child's session: the moment to install a waiting update.</summary>

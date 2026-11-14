@@ -257,6 +257,8 @@ public class MainForm : Form
                     ComeToFront();
                     ResetInput();
                     Js("window.DucklingWeb && DucklingWeb.onPush && DucklingWeb.onPush()");
+                    // The service looks for an update now, so it downloads while the tablet is in use.
+                    _ = Task.Run(() => { try { Service.Call("screen", new { on = true }); } catch (Exception) { } });
                 }
             }
         }
