@@ -99,7 +99,7 @@ export function Family() {
           <select value={newColor} onChange={(e) => setNewColor((e.target as HTMLSelectElement).value)} style={{ maxWidth: 140 }}>{COLORS.map((c) => <option key={c} value={c}>{c}</option>)}</select>
           <button class="btn" disabled={!newName.trim()}>Add child</button>
         </form>
-        <p class="muted" style={{ marginTop: 8 }}>Every app starts two years below the child's age (a 7-year-old starts at kindergarten level) and moves up as she gets things right. Change the start here, or one subject at a time on her row.</p>
+        <p class="muted" style={{ marginTop: 8 }}>Every app starts two years below the child's age (a 7-year-old starts at kindergarten level) and moves up with each right answer. Change the start here, or one subject at a time on her row.</p>
       </div>
 
       <div class="card" id="devices">

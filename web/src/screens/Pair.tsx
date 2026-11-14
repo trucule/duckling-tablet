@@ -36,7 +36,7 @@ export function Pair() {
             <button class="pill primary" disabled={busy || !email.includes('@')}>{busy ? 'Sending' : 'Send the code'}</button>
             <button type="button" class="pill" onClick={() => { setError(''); setStep('website'); }}>I have a code from the website</button>
           </div>
-          <p class="muted" style={{ marginTop: 14 }}>What a family gets: 24 learning apps with a narrator who reads everything aloud, a 3D avatar the child builds with stars earned in the apps, a parent portal on your phone, and the right to ask for new apps at no extra cost. Free for 7 days, then $5 a month for every tablet in the family. No card now.</p>
+          <p class="muted" style={{ marginTop: 14 }}>What a family gets: every learning app in the library, with a narrator who reads everything aloud, a 3D avatar the child builds with stars earned in the apps, a parent portal on your phone, and the right to ask for new apps at no extra cost. Free for 7 days, then $5 a month for every tablet in the family. No card now.</p>
         </form>
       )}
 
@@ -57,7 +57,7 @@ export function Pair() {
       {step === 'child' && (
         <form class="card" onSubmit={finish}>
           <h2>Who is this tablet for?</h2>
-          <p>The child's first name and age. The narrator uses the name; the age sets where every app starts (two years below her age, so a 7-year-old starts at kindergarten level and moves up as she gets things right). You can change levels and add more children on the website.</p>
+          <p>The child's first name and age. The narrator uses the name; the age sets where every app starts (two years below the child's age, so a 7-year-old starts at kindergarten level and moves up with each right answer). You can change levels and add more children on the website.</p>
           <label class="field"><span>Child's first name</span>
             <input autoFocus maxLength={40} value={child} onInput={(e) => setChild((e.target as HTMLInputElement).value)} placeholder="Ada" />
           </label>
