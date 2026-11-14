@@ -50,6 +50,10 @@ export interface Shell {
   openSecuritySettings(): void;
   openWifiSettings(): void;
   networkStatus(): 'wifi' | 'cellular' | 'other' | 'none';
+  // The device's own permission for Duckling to use the microphone and camera; null where the shell cannot tell.
+  mediaAccess(): MediaAccess | null;
+  requestMediaAccess(): void; // ask the system, or open Duckling's page in its settings when it no longer asks
+  openAppSettings(): void;
   setLockdown(on: boolean): void;
   setAllowedHosts(hosts: string[]): void;
   setChildInfo(name: string, voice: string): void;
@@ -73,6 +77,11 @@ export interface Shell {
   readonly windows: WindowsShell | null;
 }
 
+// on: allowed; off: not allowed (declined, switched off, or not asked yet on Android); blocked: a restriction set
+// elsewhere (iPad Screen Time); ask: the iPad has not asked yet.
+export type MediaState = 'on' | 'off' | 'blocked' | 'ask';
+export interface MediaAccess { microphone: MediaState; camera: MediaState }
+
 export interface BillingResult { status: 'purchased' | 'pending' | 'cancelled' | 'unavailable' | 'failed' | 'none' | string; message: string }
 
 // The Android side exposes synchronous string-returning methods; async work calls back into window.DucklingWeb.
@@ -95,6 +104,9 @@ interface NativeShell {
   openSecuritySettings(): void;
   openWifiSettings?(): void;
   networkStatus?(): string;
+  mediaAccess?(): string;
+  requestMediaAccess?(): void;
+  openAppSettings?(): void;
   setLockdown(on: boolean): void;
   setAllowedHosts(csv: string): void;
   setChildInfo(name: string, voice: string): void;
@@ -195,6 +207,9 @@ function native(n: NativeShell): Shell {
     requestHomeRole: () => n.requestHomeRole(),
     openSecuritySettings: () => n.openSecuritySettings(),
     openWifiSettings: () => { try { n.openWifiSettings?.(); } catch { /* older shell */ } },
+    mediaAccess: () => { try { const j = n.mediaAccess?.(); return j ? JSON.parse(j) as MediaAccess | null : null; } catch { return null; } },
+    requestMediaAccess: () => { try { n.requestMediaAccess?.(); } catch { /* older shell */ } },
+    openAppSettings: () => { try { n.openAppSettings?.(); } catch { /* older shell */ } },
     networkStatus: () => { try { return (n.networkStatus?.() as ReturnType<Shell['networkStatus']>) || (navigator.onLine ? 'other' : 'none'); } catch { return navigator.onLine ? 'other' : 'none'; } },
     setLockdown: (on) => n.setLockdown(on),
     setAllowedHosts: (hosts) => n.setAllowedHosts(hosts.join(',')),
@@ -239,6 +254,9 @@ function browser(): Shell {
     requestHomeRole() { alert('On the tablet this opens the home app chooser.'); },
     openSecuritySettings() { alert('On the tablet this opens the security settings.'); },
     openWifiSettings() { alert('On the tablet this opens the Wi-Fi settings.'); },
+    mediaAccess: () => null,
+    requestMediaAccess() {},
+    openAppSettings() {},
     networkStatus: () => (navigator.onLine ? 'other' : 'none'),
     setLockdown() {},
     setAllowedHosts() {},

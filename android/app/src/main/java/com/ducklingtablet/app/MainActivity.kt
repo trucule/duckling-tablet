@@ -32,6 +32,7 @@ import java.io.ByteArrayInputStream
 class MainActivity : AppCompatActivity() {
     companion object {
         const val WEB_APP = "https://app.ducklingtablet.com/"
+        const val MEDIA_REQUEST = 3
         val OWN_HOSTS = setOf("app.ducklingtablet.com", "api.ducklingtablet.com", "duckling.nyc3.cdn.digitaloceanspaces.com", "appassets.androidplatform.net")
     }
 
@@ -171,6 +172,30 @@ class MainActivity : AppCompatActivity() {
     /** Screen pinning. Without device-owner rights Android asks the person to confirm the first time. */
     fun pin() { try { startLockTask() } catch (_: Exception) {} }
     fun unpin() { try { stopLockTask() } catch (_: Exception) {} }
+
+    fun hasPermission(p: String) = androidx.core.content.ContextCompat.checkSelfPermission(this, p) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    private val mediaPermissions = arrayOf(android.Manifest.permission.RECORD_AUDIO, android.Manifest.permission.CAMERA)
+
+    fun requestMedia() {
+        val missing = mediaPermissions.filter { !hasPermission(it) }
+        if (missing.isNotEmpty()) androidx.core.app.ActivityCompat.requestPermissions(this, missing.toTypedArray(), MEDIA_REQUEST)
+    }
+
+    /** Duckling's page in Android's settings, with the lockdown lifted for the visit as for Wi-Fi; onResume restores it. */
+    fun openAppSettings() {
+        unpin()
+        try { startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))) } catch (_: Exception) {}
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != MEDIA_REQUEST) return
+        // Android answers at once, with no dialog, for a permission it will no longer ask about: settings is the only way.
+        val refused = permissions.filterIndexed { i, _ -> grantResults.getOrNull(i) != android.content.pm.PackageManager.PERMISSION_GRANTED }
+        if (refused.any { !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(this, it) }) openAppSettings()
+        web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()", null)
+    }
 
     private fun hideSystemBars() {
         @Suppress("DEPRECATION")

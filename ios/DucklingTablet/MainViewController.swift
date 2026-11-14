@@ -1,3 +1,4 @@
+import AVFoundation
 import UIKit
 import WebKit
 
@@ -85,9 +86,36 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
             "lockdown": Lockdown.shared.status(lockdownOn: prefs.lockdownOn),
             "network": NetworkStatus.shared.current,
             "price": Billing.shared.displayPrice,
+            "media": ["microphone": Self.access(.audio), "camera": Self.access(.video)],
         ]
         if let h = prefs.pinHash { s["pinHash"] = h }
         return s
+    }
+
+    /// iOS's permission for Duckling to use the microphone or camera: on, off (declined, or switched off in Settings),
+    /// blocked (a Screen Time restriction) or ask (iOS has not asked yet).
+    static func access(_ media: AVMediaType) -> String {
+        switch AVCaptureDevice.authorizationStatus(for: media) {
+        case .authorized: return "on"
+        case .denied: return "off"
+        case .restricted: return "blocked"
+        case .notDetermined: return "ask"
+        @unknown default: return "off"
+        }
+    }
+
+    /// Asks iOS for what it has not asked about yet; anything already declined can only be turned on in Settings, so
+    /// Duckling's page in Settings opens.
+    private func requestMedia() {
+        Task {
+            for media in [AVMediaType.audio, .video] where AVCaptureDevice.authorizationStatus(for: media) == .notDetermined {
+                _ = await AVCaptureDevice.requestAccess(for: media)
+            }
+            await MainActor.run {
+                self.pushState()
+                if [Self.access(.audio), Self.access(.video)].contains("off"), let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
+            }
+        }
     }
 
     private func stateJSON() -> String {
@@ -138,6 +166,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         case "openApp": openApp(str(0))
         case "requestScreenTime":
             Task { _ = await Lockdown.shared.requestScreenTime(); await MainActor.run { self.pushState() } }
+        case "requestMedia": requestMedia()
         case "openSettings":
             if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
         case "setLockdown":

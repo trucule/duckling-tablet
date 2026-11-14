@@ -97,6 +97,19 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     @JavascriptInterface fun openSecuritySettings() { main.post { activity.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) } }
 
     /**
+     * Android's permission for Duckling to use the microphone and camera, as JSON {microphone, camera}: on, or off
+     * (not granted yet, or declined). Apps that listen or take pictures need them.
+     */
+    @JavascriptInterface fun mediaAccess(): String = JSONObject()
+        .put("microphone", if (activity.hasPermission(android.Manifest.permission.RECORD_AUDIO)) "on" else "off")
+        .put("camera", if (activity.hasPermission(android.Manifest.permission.CAMERA)) "on" else "off").toString()
+
+    /** Asks Android for both; one Android will no longer ask about opens Duckling's page in Android's settings. */
+    @JavascriptInterface fun requestMediaAccess() { main.post { activity.requestMedia() } }
+
+    @JavascriptInterface fun openAppSettings() { main.post { activity.openAppSettings() } }
+
+    /**
      * Android's Wi-Fi settings, from the parent area: a parent picks a network (and signs in on a captive portal if
      * the network has one), then comes back with Back. The lockdown is lifted for that visit and comes back in
      * onResume. An app cannot join networks itself without device-owner provisioning.

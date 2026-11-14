@@ -116,6 +116,26 @@ public class ShellBridge(MainForm main)
     public void requestHomeRole() { }
     public void openSecuritySettings() { }
     public void openWifiSettings() { }
+
+    /// <summary>Windows' privacy switches for the microphone and camera, as JSON {microphone, camera}: on, or off when
+    /// any of them denies it (a group policy, the device-wide switch, this account's switch, or "Let desktop apps
+    /// access", which covers Duckling).</summary>
+    public string mediaAccess() => new JsonObject { ["microphone"] = MediaSwitch("microphone", "LetAppsAccessMicrophone"), ["camera"] = MediaSwitch("webcam", "LetAppsAccessCamera") }.ToJsonString();
+
+    internal static string MediaSwitch(string store, string policy)
+    {
+        const string consent = @"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\";
+        try
+        {
+            using (var p = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Policies\Microsoft\Windows\AppPrivacy"))
+                if (p?.GetValue(policy) is int forced && forced == 2) return "off";
+            foreach (var (root, path) in new[] { (Microsoft.Win32.Registry.LocalMachine, consent + store), (Microsoft.Win32.Registry.CurrentUser, consent + store), (Microsoft.Win32.Registry.CurrentUser, consent + store + @"\NonPackaged") })
+                using (var k = root.OpenSubKey(path))
+                    if (string.Equals(k?.GetValue("Value") as string, "Deny", StringComparison.OrdinalIgnoreCase)) return "off";
+            return "on";
+        }
+        catch { return "on"; }
+    }
     public string networkStatus() => main.NetworkStatus();
 
     public void setLockdown(bool on) { Guard(); Background("lockdown", () => { Call("setLockdown", new { on }); StatusChanged(); return on ? "on" : "off"; }); }

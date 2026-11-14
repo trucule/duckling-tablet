@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink, entitlement } from '../state';
-import { shell, type LockdownStatus, type BillingResult, type WifiNetwork } from '../shell';
+import { shell, type LockdownStatus, type BillingResult, type WifiNetwork, type MediaAccess, type MediaState } from '../shell';
 import { api, type AppRequest } from '../api';
 
 // Behind the PIN: lockdown steps for this platform, a check-in button, and Remove from this device.
@@ -208,6 +208,8 @@ export function Parent() {
           {!shell.canDrawOverlays() && <div class="row"><button class="pill" onClick={() => shell.openOverlaySettings()}>Allow Duckling to appear over other apps</button></div>}
         </div>
       )}
+
+      <MediaAccessCard device={device} />
 
       <div class="card">
         <h2>Wi-Fi</h2>
@@ -430,6 +432,42 @@ function HomeBackground() {
         </>
       ) : <p>None. Your child can pick one from a saved picture in Paint Studio or Draw With Me: open the saved pictures and tap Use as home background.</p>}
       {error && <div class="error">{error}</div>}
+    </div>
+  );
+}
+
+// The device's own permission for Duckling to use the microphone and camera. Without it every app that listens or takes
+// pictures fails, and the app cannot tell the child why; this card shows it and leads to the switch.
+function MediaAccessCard({ device }: { device: string }) {
+  const [m, setM] = useState<MediaAccess | null>(shell.mediaAccess());
+  useEffect(() => {
+    const read = () => setM(shell.mediaAccess());
+    window.addEventListener('duckling:resume', read); window.addEventListener('duckling:state', read);
+    const t = setInterval(read, 2000);
+    return () => { window.removeEventListener('duckling:resume', read); window.removeEventListener('duckling:state', read); clearInterval(t); };
+  }, []);
+  if (!m) return null;
+  const ios = shell.platform === 'ios', win = shell.platform === 'windows';
+  const rows: [string, MediaState][] = [['Microphone', m.microphone], ['Camera', m.camera]];
+  const off = rows.filter(([, s]) => s !== 'on');
+  const blocked = off.some(([, s]) => s === 'blocked');
+  const asks = off.some(([, s]) => s === 'ask');
+  const how = win
+    ? 'Windows has it turned off. Turn the lockdown off, open Windows Settings, then Privacy & security, then Microphone or Camera, and turn on access and Let desktop apps access it.'
+    : blocked
+      ? 'Screen Time blocks it. In Settings, tap Screen Time, then Content & Privacy Restrictions, then Microphone or Camera, and choose Allow Changes. Then come back and tap Turn on.'
+      : ios && asks ? 'Tap Allow, then Allow again when the iPad asks.'
+      : ios ? 'Tap Open Settings and turn on Microphone and Camera for Duckling Tablet.'
+      : 'Tap Turn on and allow both. If Android no longer asks, its settings for Duckling open: turn on Microphone and Camera under Permissions.';
+  return (
+    <div class="card">
+      <h2>Microphone and camera</h2>
+      <p>Apps that listen or take pictures need these. Sound and pictures stay on this {device}.</p>
+      <ul class="steps">
+        {rows.map(([name, s]) => <li key={name}><span class={`dot ${s === 'on' ? 'done' : ''}`}>{s === 'on' ? '✓' : '!'}</span><span><span class="what">{name}</span><br /><span class="why">{s === 'on' ? 'On.' : s === 'blocked' ? 'Blocked by Screen Time.' : s === 'ask' ? 'Not allowed yet.' : 'Off.'}</span></span></li>)}
+      </ul>
+      {off.length > 0 && <p>{how}</p>}
+      {off.length > 0 && !win && <div class="row"><button class="pill" onClick={() => (blocked ? shell.openAppSettings() : shell.requestMediaAccess())}>{blocked || (ios && !asks) ? 'Open Settings' : ios ? 'Allow' : 'Turn on'}</button></div>}
     </div>
   );
 }

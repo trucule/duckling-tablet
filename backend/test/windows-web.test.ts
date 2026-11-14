@@ -48,7 +48,8 @@ function serveDist(port: number): Server {
 const FAKE_SHELL = `(() => {
   const calls = window.__calls = [];
   const st = { token: localStorage.getItem('w.token') || '', pin: localStorage.getItem('w.pin') || '', installed: JSON.parse(localStorage.getItem('w.inst') || '{}'),
-    childAccount: '', lockdownOn: false, pinned: false };
+    childAccount: '', lockdownOn: false, pinned: false, mic: 'off' };
+  window.__setMic = (v) => { st.mic = v; };
   const save = () => { localStorage.setItem('w.token', st.token); localStorage.setItem('w.pin', st.pin); localStorage.setItem('w.inst', JSON.stringify(st.installed)); };
   const later = (f, ms = 60) => setTimeout(f, ms);
   const cb = (kind, ok, msg) => later(() => window.DucklingWeb.onWindows(kind, ok, msg));
@@ -65,6 +66,7 @@ const FAKE_SHELL = `(() => {
     hasPin: () => !!st.pin, setPin: rec('setPin', (p) => { st.pin = p; save(); }), verifyPin: (p) => p === st.pin, setPinHash: rec('setPinHash'),
     lockdownStatus: () => JSON.stringify(status()), requestHomeRole: () => {}, openSecuritySettings: () => {}, openWifiSettings: () => {},
     networkStatus: () => 'wifi',
+    mediaAccess: () => JSON.stringify({ microphone: st.mic, camera: 'on' }),
     setLockdown: rec('setLockdown', (on) => { st.lockdownOn = on; cb('lockdown', true, on ? 'on' : 'off'); }),
     setAllowedHosts: rec('setAllowedHosts'), setChildInfo: rec('setChildInfo'), setChildLevels: () => {}, setChildId: () => {},
     release: rec('release'),
@@ -168,6 +170,15 @@ describe.skipIf(!ready)('web app on Windows', () => {
     await p.getByRole('heading', { name: 'Parent area' }).waitFor();
     if (store) { await p.getByRole('heading', { name: 'Lockdown' }).evaluate((h) => h.scrollIntoView({ block: 'start' })); await p.screenshot({ path: join(store, 'win-lockdown.png') }); }
 
+    // Microphone and camera: Windows' switch is off for the microphone, so the card says where to turn it on, and the
+    // row turns to a check mark once the switch is on.
+    const media = p.locator('.card', { has: p.getByRole('heading', { name: 'Microphone and camera' }) });
+    await media.getByText('Let desktop apps access it').waitFor();
+    expect(await media.locator('.dot').allTextContents()).toEqual(['!', '✓']);
+    if (process.env.WEB_SHOTS) await media.screenshot({ path: join(process.env.WEB_SHOTS, 'win-media.png') });
+    await p.evaluate(() => (window as any).__setMic('on'));
+    await p.waitForFunction(() => [...document.querySelectorAll('.card')].some((c) => /Microphone and camera/.test(c.textContent ?? '') && c.querySelectorAll('.dot.done').length === 2));
+    expect(await media.getByText('Let desktop apps access it').count()).toBe(0);
     // Wi-Fi: pick a network, type its password, join.
     await p.getByRole('button', { name: 'Choose a Wi-Fi network' }).click();
     await p.getByRole('button', { name: 'Hotel Guest' }).click();
