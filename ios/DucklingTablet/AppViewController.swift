@@ -125,16 +125,20 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? { nil }
 
     func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-        let perms = Set(prefs.permissions[appId] ?? [])
-        let fromApp = origin.protocol == AppSchemeHandler.scheme && origin.host == AppSchemeHandler.host
-        let ok: Bool
+        let ok = Self.allowsCapture(type, scheme: origin.protocol, host: origin.host, permissions: prefs.permissions[appId] ?? [])
+        decisionHandler(ok ? .grant : .deny)
+    }
+
+    /// The microphone and camera go only to the app's own pages, and only when its manifest asks for them.
+    static func allowsCapture(_ type: WKMediaCaptureType, scheme: String, host: String, permissions: [String]) -> Bool {
+        guard scheme == AppSchemeHandler.scheme, host == AppSchemeHandler.host else { return false }
+        let perms = Set(permissions)
         switch type {
-        case .microphone: ok = perms.contains("microphone")
-        case .camera: ok = perms.contains("camera")
-        case .cameraAndMicrophone: ok = perms.contains("camera") && perms.contains("microphone")
-        @unknown default: ok = false
+        case .microphone: return perms.contains("microphone")
+        case .camera: return perms.contains("camera")
+        case .cameraAndMicrophone: return perms.contains("camera") && perms.contains("microphone")
+        @unknown default: return false
         }
-        decisionHandler(fromApp && ok ? .grant : .deny)
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }

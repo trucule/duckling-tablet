@@ -40,9 +40,13 @@ jobs:
         working-directory: ios
         run: |
           SIM=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in sorted(d.items(), reverse=True) if 'iOS' in k for x in v if 'iPad' in x['name']))")
+          # The microphone test needs the simulator's microphone granted to the app, as a parent would on the iPad.
+          xcrun simctl boot "$SIM" || true
+          xcrun simctl privacy "$SIM" grant microphone com.ducklingtablet.app || true
           xcodebuild -project DucklingTablet.xcodeproj -scheme DucklingTablet -destination "id=$SIM" \
             CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/test.log" 2>&1 \
-            || { grep -E "error:|failed|XCTAssert" "$RUNNER_TEMP/test.log" | sort -u | head -60; tail -n 40 "$RUNNER_TEMP/test.log"; exit 1; }
+            || { grep -E "error:|failed|XCTAssert|MIC-PROBE" "$RUNNER_TEMP/test.log" | sort -u | head -60; tail -n 40 "$RUNNER_TEMP/test.log"; exit 1; }
+          grep -E "MIC-PROBE" "$RUNNER_TEMP/test.log" | head -3 || true
           grep -E "Test Case .*(passed|failed)|Executed" "$RUNNER_TEMP/test.log" | tail -n 12
       - name: Archive and upload to App Store Connect
         if: env.ASC_KEY_ID != '' && env.ASC_ISSUER_ID != '' && env.ASC_KEY_P8 != ''
