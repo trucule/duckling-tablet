@@ -187,6 +187,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         guard Packages.shared.exists(id), presentedViewController == nil else { return }
         let vc = AppViewController(appId: id)
         vc.modalPresentationStyle = .fullScreen
+        vc.onClose = { [weak self] in self?.js("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()") }
         present(vc, animated: false)
     }
 

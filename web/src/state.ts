@@ -262,16 +262,26 @@ export async function retryInstall(id: string) {
 // Whether the shell can receive pushes (parent changes arrive within seconds instead of at the next sync).
 export const instantUpdates = () => !!shell.pushToken();
 
-// Check in on load and every 3 hours, and whenever the page comes back to the foreground after a while.
-let last = 0;
+// Check in on load and every 3 hours, on a push, and every time the home screen comes back into view.
+let lastCatalog = 0, running: Promise<void> | null = null, again = false;
+// One check-in at a time. A request while one is running runs once more after it, so a change saved just before the
+// home screen came back (a new background, portrait or stars) is never answered by a check-in that started earlier.
+function checkinNow(): void {
+  if (running) { again = true; return; }
+  running = checkin().finally(() => { running = null; if (again) { again = false; checkinNow(); } });
+}
+function refresh(catalogGap: number) {
+  checkinNow();
+  if (Date.now() - lastCatalog > catalogGap) { lastCatalog = Date.now(); void loadCatalog(); }
+}
 export function startCheckins() {
-  const tick = () => { last = Date.now(); void checkin(); void loadCatalog(); };
-  tick();
-  setInterval(tick, 3 * 3600 * 1000);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - last > 10 * 60 * 1000) tick(); });
+  refresh(0);
+  setInterval(() => refresh(0), 3 * 3600 * 1000);
   // A push from the server: a parent changed something, or the shell has a new push token to report.
-  window.addEventListener('duckling:push', tick);
-  // Back from an app: My Avatar may have saved a new portrait, and an app may have earned stars. A short gap keeps a
-  // child flicking in and out of apps from checking in every few seconds.
-  window.addEventListener('duckling:resume', () => { if (Date.now() - last > 20 * 1000) tick(); });
+  window.addEventListener('duckling:push', () => refresh(0));
+  // Back from an app or another screen: My Avatar may have saved a portrait, Paint Studio a background, and any app
+  // stars. Every return checks in; only the catalog waits between returns. The shells say so with onResume, and the
+  // page itself sees it as visibilitychange (the iPad shell sends onResume only when Duckling comes to the front).
+  window.addEventListener('duckling:resume', () => refresh(20 * 1000));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(10 * 60 * 1000); });
 }

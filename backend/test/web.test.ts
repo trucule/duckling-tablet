@@ -182,9 +182,23 @@ describe.skipIf(!ready)('child web app', () => {
       return c.toDataURL('image/jpeg', 0.85);
     });
     const devToken = await p.evaluate(() => localStorage.getItem('duckling.token'));
-    expect((await fetch(`${api}/device/child/background`, { method: 'PUT', headers: { authorization: `Device ${devToken}`, 'content-type': 'text/plain' }, body: picture })).status).toBe(200);
-    await p.evaluate(() => (window as any).DucklingWeb.onPush());
-    await p.waitForFunction(() => /background\?exp=/.test((document.querySelector('.screen.with-bg') as HTMLElement | null)?.style.backgroundImage ?? ''));
+    const setBg = async () => expect((await fetch(`${api}/device/child/background`, { method: 'PUT', headers: { authorization: `Device ${devToken}`, 'content-type': 'text/plain' }, body: picture })).status).toBe(200);
+    const bgShown = () => p.waitForFunction(() => /background\?exp=/.test((document.querySelector('.screen.with-bg') as HTMLElement | null)?.style.backgroundImage ?? ''));
+    // Back from the app seconds after the last check-in (the onResume above): the home screen checks in again.
+    await setBg();
+    await p.evaluate(() => (window as any).DucklingWeb.onResume());
+    await bgShown();
+    // The page coming back into view does the same, for a shell that sends no onResume when an app closes.
+    expect((await fetch(`${api}/device/child/background`, { method: 'DELETE', headers: { authorization: `Device ${devToken}` } })).status).toBe(200);
+    const becomeVisible = () => p.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange'));
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await becomeVisible();
+    await p.waitForFunction(() => !document.querySelector('.with-bg'));
+    await setBg();
+    await becomeVisible();
+    await bgShown();
     await p.waitForTimeout(400);
     await p.screenshot({ path: join(dir, 'home-bg.png') });
     // The child's own character sits in a circle at the top (her first letter until My Avatar saves a portrait), and

@@ -12,6 +12,9 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     private let speech = AVSpeechSynthesizer()
     private var spoken: [ObjectIdentifier: String] = [:]
 
+    /// Called once the app is closed, so the home screen checks in for what the app saved (portrait, background, stars).
+    var onClose: (() -> Void)?
+
     init(appId: String) { self.appId = appId; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError("not used") }
 
@@ -78,7 +81,8 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     @objc private func goHome() {
         speech.stopSpeaking(at: .immediate)
         web.stopLoading()
-        dismiss(animated: false)
+        let done = onClose
+        dismiss(animated: false) { done?() }
     }
 
     // ---- The tablet's own voice for lines the narrator cannot play (duckling-compat.js calls speak) -------------

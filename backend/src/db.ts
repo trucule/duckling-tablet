@@ -38,6 +38,11 @@ export class Db {
     const base: PoolConfig = { idleTimeoutMillis: 30_000, connectionTimeoutMillis: 10_000 };
     this.appPool = new pg.Pool({ ...base, ...pgConfig(opts.appUrl, opts.caCert), max: opts.appPoolSize ?? 8 });
     this.systemPool = new pg.Pool({ ...base, ...pgConfig(opts.systemUrl, opts.caCert), max: opts.systemPoolSize ?? 3 });
+    // The server may close an idle connection (maintenance, failover, a restart). pg reports that as an 'error' on
+    // the pool, which with no listener ends the process; the pool already drops the client and opens a new one.
+    for (const [name, pool] of [['app', this.appPool], ['system', this.systemPool]] as const) {
+      pool.on('error', (e) => console.warn(`database ${name} pool: idle connection closed (${(e as { code?: string }).code ?? e.message})`));
+    }
   }
 
   // A single statement as duckling_app with no family set: health checks, catalog reads, SECURITY DEFINER lookups.
