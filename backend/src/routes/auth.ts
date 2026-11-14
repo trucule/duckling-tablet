@@ -19,6 +19,9 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
       // mail link in Safari, which keeps its own sign-in, so that app gets a six-digit code to type in instead.
       delivery: z.enum(['link', 'code']).default('link'),
     }).parse(req.body);
+    // The store review family has no real inbox: on the website, in any browser, it gets the code box and signs in
+    // with the fixed review code (POST /auth/code/verify), and no email goes out.
+    if (isReviewer(email)) return { sent: true, delivery: 'code' };
     try {
       if (source === 'portal' && delivery === 'code') {
         const code = String(randomInt(0, 1_000_000)).padStart(6, '0');

@@ -564,6 +564,18 @@ describe('one-device signup', () => {
       // The fixed code keeps working for that address (a reviewer may pair more than once).
       expect((await app2.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'review@example.com', code: '246810', ...tablet, name: 'Second' } })).statusCode).toBe(200);
       expect((await app2.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'someone@example.com', code: '246810', ...tablet } })).statusCode).toBe(401);
+      // The parents' website, in a browser (which would get a link) and as a home-screen app: no email, the code box,
+      // and the fixed code signs in to the same family the tablet made.
+      const sent = mails.length;
+      for (const delivery of ['link', 'code']) {
+        expect((await app2.inject({ method: 'POST', url: '/auth/email-link', payload: { email: 'Review@example.com', delivery } })).json()).toEqual({ sent: true, delivery: 'code' });
+      }
+      expect(mails.length).toBe(sent);
+      expect((await app2.inject({ method: 'POST', url: '/auth/code/verify', payload: { email: 'review@example.com', code: '000000' } })).statusCode).toBe(401);
+      const web = await app2.inject({ method: 'POST', url: '/auth/code/verify', payload: { email: 'review@example.com', code: '246810' } });
+      expect(web.statusCode).toBe(200);
+      const fam = (await app2.inject({ method: 'GET', url: '/family', headers: { authorization: `Bearer ${web.json().sessionToken}` } })).json();
+      expect(fam.children.map((c: any) => c.firstName)).toContain('Sam');
     } finally { await app2.close(); }
   });
 });
