@@ -1,8 +1,16 @@
 {
- "source": "8eea1c30b06f3c74c125f55075a0c9d5be6ce32e46458bcd25772f3152bf65d0",
+ "source": "0a09dda97a44fb1d99a393d8f1a9222720d4ee0bb24b008c2efda91eee1a2a0f",
  "lines": [
   {
    "text": "A blank page",
+   "rate": -5
+  },
+  {
+   "text": "Kept",
+   "rate": -5
+  },
+  {
+   "text": "Mirrors and patterns",
    "rate": -5
   },
   {
@@ -11,6 +19,10 @@
   },
   {
    "text": "Nice work",
+   "rate": -5
+  },
+  {
+   "text": "Now it is your home screen picture",
    "rate": -5
   },
   {
@@ -27,6 +39,14 @@
   },
   {
    "text": "Tap again for a blank page",
+   "rate": -5
+  },
+  {
+   "text": "That did not work. Try again in a moment.",
+   "rate": -5
+  },
+  {
+   "text": "The whole page",
    "rate": -5
   },
   {

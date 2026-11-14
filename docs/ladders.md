@@ -42,6 +42,8 @@ Write content a teacher at that grade would recognize. Bigger numbers alone do n
 3. The screen still fits a landscape tablet at 1024 x 640 and 1280 x 800. Longer words, bigger numbers and more
    tiles need the layout to adapt (wrap, scale, scroll inside a panel). Typed answers get a number pad or keyboard
    inside the app, never the system keyboard alone.
+   Nothing tappable sits within 210 px of the right edge and 72 px of the top on any screen of the app: every
+   shell draws Duckling's Home button there. `node tools/pill-check.mjs <app-id>` checks the screen an app opens on.
 4. Spoken prompts go through the app's existing narration helper. Text for the child is short, warm and declarative,
    with no em-dashes.
 5. The level-up logic stays as it is, but the child must be able to climb to the top rung, and the top rung keeps

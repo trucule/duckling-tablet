@@ -1,8 +1,12 @@
 {
- "source": "a37f5f3bd2874f2ba1c317c0bd9eebb4ab429ccc0108b69831270fd76ec670ce",
+ "source": "b50552d35698fcfba4d64e5dcd173f76a687058107914d13eb6af217e30025df",
  "lines": [
   {
    "text": "Draw first, then tap Check.",
+   "rate": -5
+  },
+  {
+   "text": "Now it is your home screen picture!",
    "rate": -5
   },
   {
@@ -11,6 +15,10 @@
   },
   {
    "text": "Sketch lines erased. Nice and clean!",
+   "rate": -5
+  },
+  {
+   "text": "That did not work. Try again in a moment.",
    "rate": -5
   },
   {

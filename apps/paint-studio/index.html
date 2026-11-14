@@ -8,10 +8,15 @@
   :root { --bar: #2b2f3a; --bar2: #363b49; --ink: #f4f6fb; --dim: #aab1c4; --acc: #ffd36b; --acc2: #8fd6ff; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; background: #1e212a; color: var(--ink); font-family: "Segoe UI", system-ui, -apple-system, sans-serif; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
-  #app { display: grid; grid-template-columns: 76px 1fr; grid-template-rows: 60px 1fr; height: 100%; }
-  #top { grid-column: 1 / 3; background: var(--bar); display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid #0007; overflow: hidden; }
-  #tools { background: var(--bar); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; overflow-y: auto; border-right: 1px solid #0007; }
-  #stage { position: relative; background: #3a3f4e; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  /* The top right corner (210 by 72 px) stays clear for Duckling's Home button: the top bar stops short of it and the
+     page actions sit in a column on the right, below it (tools/pill-check.mjs). */
+  #app { display: grid; grid-template-columns: 76px 1fr 68px; grid-template-rows: 60px 1fr; height: 100%; }
+  #top { grid-column: 1 / 4; background: var(--bar); display: flex; align-items: center; gap: 8px; padding: 0 214px 0 10px; border-bottom: 1px solid #0007; overflow: hidden; }
+  #side { grid-column: 3; grid-row: 2; background: var(--bar); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 4px 8px; overflow-y: auto; border-left: 1px solid #0007; }
+  #side .btn { width: 56px; height: 48px; padding: 0; justify-content: center; }
+  #side .sep { width: 40px; height: 1px; margin: 2px 0; }
+  #tools { grid-column: 1; grid-row: 2; background: var(--bar); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; overflow-y: auto; border-right: 1px solid #0007; }
+  #stage { grid-column: 2; grid-row: 2; position: relative; background: #3a3f4e; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   #view { background: #fff; box-shadow: 0 6px 30px #0008; touch-action: none; cursor: crosshair; }
   .tool { width: 64px; height: 52px; border: 0; border-radius: 12px; background: transparent; color: var(--ink); font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; }
   .tool svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -35,10 +40,23 @@
   #panel { position: absolute; left: 12px; top: 12px; background: var(--bar); border-radius: 14px; padding: 12px; box-shadow: 0 10px 30px #0008; display: none; z-index: 5; max-width: 420px; }
   #panel.open { display: block; }
   #panel h3 { margin: 0 0 8px; font-size: 14px; color: var(--dim); font-weight: 600; }
-  .mix { display: grid; grid-template-columns: 56px 1fr; gap: 6px 10px; align-items: center; font-size: 13px; margin-top: 8px; }
-  .mix input { width: 220px; }
-  #recent { display: flex; gap: 4px; margin-top: 8px; }
-  #recent i { display: block; width: 24px; height: 24px; border-radius: 6px; border: 1px solid #0004; cursor: pointer; }
+  #wheel { display: block; width: 260px; height: 260px; touch-action: none; cursor: crosshair; }
+  .wheelrow { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 13px; color: var(--dim); }
+  #mixswatch { width: 44px; height: 44px; border-radius: 10px; border: 2px solid #fff4; flex: none; }
+  #hex { width: 96px; height: 36px; border-radius: 8px; border: 1px solid #0006; background: #1e212a; color: var(--ink); font: 600 15px ui-monospace, monospace; padding: 0 8px; text-transform: uppercase; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; max-width: 260px; min-height: 24px; }
+  .chips i { display: block; width: 24px; height: 24px; border-radius: 6px; border: 1px solid #0004; cursor: pointer; }
+  .chips .label { width: 100%; font-size: 11px; color: var(--dim); }
+  .adv[hidden] { display: none !important; }
+  #zoomfit { position: absolute; right: 12px; bottom: 12px; z-index: 3; display: none; }
+  #zoomfit.show { display: inline-flex; }
+  #lock.on { background: var(--acc); color: #222; }
+  #mirrors { position: absolute; right: 12px; top: 12px; background: var(--bar); border-radius: 14px; padding: 12px; box-shadow: 0 10px 30px #0008; display: none; z-index: 5; width: 360px; }
+  #mirrors.open { display: block; }
+  #mirrors h3 { margin: 8px 0 6px; font-size: 13px; color: var(--dim); font-weight: 600; }
+  #mirrors .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  #mirrors .btn { flex-direction: column; height: 62px; font-size: 11px; padding: 4px; gap: 2px; justify-content: center; }
+  #mirrors .btn svg { width: 26px; height: 26px; }
   #prompt { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); background: #fff; color: #222; border-radius: 14px; padding: 10px 16px; font-size: 17px; box-shadow: 0 8px 24px #0006; display: none; align-items: center; gap: 12px; max-width: 90%; z-index: 4; }
   #prompt.open { display: flex; }
   #prompt .btn { background: var(--acc); color: #222; }
@@ -52,10 +70,12 @@
   #shots .shot { background: #fff; border-radius: 10px; overflow: hidden; cursor: pointer; position: relative; }
   #shots img { width: 100%; display: block; aspect-ratio: 8 / 5; object-fit: cover; }
   #shots .del { position: absolute; right: 6px; top: 6px; background: #0008; color: #fff; border: 0; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+  #shots .del.bg { top: auto; bottom: 6px; left: 6px; right: auto; background: #ffd36bee; color: #222; font-weight: 700; }
   #toast { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: #fff; color: #222; padding: 8px 16px; border-radius: 12px; font-weight: 600; display: none; z-index: 7; box-shadow: 0 6px 20px #0006; }
-  #stars { font-size: 14px; color: var(--acc); white-space: nowrap; }
+  #stars { font-size: 14px; color: var(--acc); white-space: nowrap; font-weight: 700; padding: 4px 0; }
   #promptLevel { font-size: 12px; color: #667; display: block; }
-  @media (max-width: 900px) { #palette { width: 165px; } #palette i { height: 14px; } .slider { width: 56px; } .slider input { width: 56px; } #stars { display: none; } }
+  @media (max-width: 1300px) { #palette { width: 165px; } #palette i { width: 24px; height: 14px; } .slider { width: 56px; } .slider input { width: 56px; } }
+  @media (max-height: 720px) { .tool { height: 44px; font-size: 10px; } .tool svg { width: 22px; height: 22px; } }
 </style>
 </head>
 <body>
@@ -66,32 +86,36 @@
     <div class="sep"></div>
     <label class="slider">size <input id="size" type="range" min="1" max="90" value="12"></label>
     <label class="slider">strength <input id="alpha" type="range" min="5" max="100" value="100"></label>
+    <label class="slider adv">soft <input id="soft" type="range" min="0" max="100" value="0"></label>
+    <label class="slider adv">steady <input id="steady" type="range" min="0" max="100" value="0"></label>
     <div class="sep"></div>
     <button class="btn" id="mirror" title="Mirror"><svg viewBox="0 0 24 24"><path d="M12 3v18M4 7l5 5-5 5M20 7l-5 5 5 5"/></svg></button>
     <div class="layers" id="layers"></div>
-    <div class="sep"></div>
-    <button class="btn" id="undo" title="Undo"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
-    <button class="btn" id="redo" title="Redo"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
-    <div class="grow"></div>
-    <span id="stars">★ 0</span>
-    <button class="btn" id="challenge" title="Challenge"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></button>
-    <button class="btn" id="newPage" title="New page"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 11v6M9 14h6"/></svg></button>
-    <button class="btn" id="save" title="Save to gallery"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h7V3"/><path d="M8 21v-7h8v7"/></svg></button>
-    <button class="btn" id="open" title="Gallery"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg></button>
+    <button class="btn adv" id="lock" title="Lock transparency: paint only where this layer already has paint"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button>
   </div>
   <div id="tools"></div>
+  <div id="side">
+    <span id="stars">★ 0</span>
+    <button class="btn" id="undo" title="Undo" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+    <button class="btn" id="redo" title="Redo" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
+    <div class="sep"></div>
+    <button class="btn" id="challenge" title="Challenge" aria-label="Challenge"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></button>
+    <button class="btn" id="newPage" title="New page" aria-label="New page"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 11v6M9 14h6"/></svg></button>
+    <button class="btn" id="save" title="Save to gallery" aria-label="Save to gallery"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h7V3"/><path d="M8 21v-7h8v7"/></svg></button>
+    <button class="btn" id="open" title="Gallery" aria-label="Gallery"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg></button>
+  </div>
   <div id="stage">
     <canvas id="view" width="1280" height="800"></canvas>
     <div id="panel">
       <h3>Mix a color</h3>
-      <div class="mix">
-        <span>hue</span><input id="hue" type="range" min="0" max="360" value="200">
-        <span>bright</span><input id="sat" type="range" min="0" max="100" value="80">
-        <span>light</span><input id="lig" type="range" min="0" max="100" value="50">
-      </div>
-      <div id="recent"></div>
-      <div style="margin-top:10px;text-align:right"><button class="btn" id="mixDone">Done</button></div>
+      <canvas id="wheel" width="520" height="520"></canvas>
+      <div class="wheelrow"><div id="mixswatch"></div><span class="adv">#</span><input id="hex" class="adv" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Color code"></div>
+      <div class="chips" id="recent"><span class="label">Recent</span></div>
+      <div class="chips adv" id="saved"><span class="label">My colors</span></div>
+      <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end"><button class="btn adv" id="keepColor">Keep this color</button><button class="btn" id="mixDone">Done</button></div>
     </div>
+    <button class="btn" id="zoomfit">Fit the page</button>
+    <div id="mirrors"></div>
     <div id="prompt"><span><span id="promptLevel"></span><span id="promptText"></span></span><button class="btn quiet" id="promptSkip">Another</button><button class="btn" id="promptDone">Done!</button></div>
     <div id="gallery">
       <div class="head"><h2>My paintings</h2><button class="btn" id="galleryClose">Back to painting</button></div>
@@ -114,13 +138,17 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const toast = (t) => { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.display = 'none'; }, 1800); };
 
 // ---- Layers ---------------------------------------------------------------------------------------------------------
-const layers = [0, 1, 2].map(() => { const c = document.createElement('canvas'); c.width = W; c.height = H; return { c, ctx: c.getContext('2d', { willReadFrequently: true }), on: true }; });
+const layers = [0, 1, 2].map(() => { const c = document.createElement('canvas'); c.width = W; c.height = H; return { c, ctx: c.getContext('2d', { willReadFrequently: true }), on: true, lock: false }; });
 let active = 0;
-function composite() {
-  vctx.globalCompositeOperation = 'source-over'; vctx.globalAlpha = 1;
-  vctx.fillStyle = '#fff'; vctx.fillRect(0, 0, W, H);
-  for (const l of layers) if (l.on) vctx.drawImage(l.c, 0, 0);
+// The painting itself: white paper and the layers that are showing. The screen adds the mirror guides on top.
+function flatten(into) {
+  const c = into || document.createElement('canvas'); if (!into) { c.width = W; c.height = H; }
+  const g = c.getContext('2d'); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  for (const l of layers) if (l.on) g.drawImage(l.c, 0, 0);
+  return c;
 }
+function composite() { flatten(view); if (typeof guides === 'function') guides(vctx); }
 function renderLayers() {
   const box = $('layers'); box.innerHTML = '';
   layers.forEach((l, i) => {
@@ -128,7 +156,13 @@ function renderLayers() {
     b.onclick = () => { if (active === i) { l.on = !l.on; say(l.on ? 'Layer ' + (i + 1) + ' is showing' : 'Layer ' + (i + 1) + ' is hidden'); } else { active = i; say('Layer ' + (i + 1)); } renderLayers(); composite(); };
     box.appendChild(b);
   });
+  $('lock').classList.toggle('on', layers[active].lock);
 }
+$('lock').onclick = () => {
+  const l = layers[active]; l.lock = !l.lock; renderLayers();
+  const t = l.lock ? 'Layer ' + (active + 1) + ': paint stays inside what is already painted' : 'Layer ' + (active + 1) + ': paint anywhere';
+  toast(t); say(l.lock ? 'Paint stays inside' : 'Paint anywhere');
+};
 
 // ---- Undo -----------------------------------------------------------------------------------------------------------
 const undoStack = [], redoStack = [], UNDO_MAX = 16;
@@ -142,11 +176,24 @@ $('redo').onclick = () => restore(redoStack, undoStack);
 // ---- Colors ---------------------------------------------------------------------------------------------------------
 const PALETTE = ['#000000', '#5b5b5b', '#9e9e9e', '#ffffff', '#7a3b12', '#c47a3a', '#f3c7a0', '#e63946', '#ff7a00', '#ffd400', '#8bd346', '#1f8f3a', '#1fbfb8', '#3aa0ff', '#2b4fd6', '#7b3fe4', '#e46bd9', '#ff9ec4'];
 let color = '#2b4fd6', recent = [];
-const hsl = { h: 225, s: 66, l: 50 };
-const hslToHex = (h, s, l) => { s /= 100; l /= 100; const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)); return '#' + [f(0), f(8), f(4)].map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join(''); };
+// Advanced controls (the color code, kept colors, softness, steadiness, lock transparency) appear from 3rd grade art.
+const ADV = !(window.KidTablet && KidTablet.grade) || (KidTablet.grade('art') ?? 2) >= 3;
+for (const el of document.querySelectorAll('.adv')) el.hidden = !ADV;
+const hex2 = (n) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0');
+const rgbHex = (r, g, b) => '#' + hex2(r) + hex2(g) + hex2(b);
+const hexRgb = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+// Hue in degrees, saturation and value 0 to 1, as fractions so every one of the 16.7 million colors is reachable.
+function hsvHex(h, s, v) { const f = (n) => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); }; return rgbHex(f(5) * 255, f(3) * 255, f(1) * 255); }
+function hexHsv(c) {
+  const [r, g, b] = hexRgb(c).map((x) => x / 255), max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0; if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s: max ? d / max : 0, v: max };
+}
+const hsv = hexHsv(color);
 function setColor(c, speakIt) {
-  color = c; $('swatch').style.background = c;
-  if (!recent.includes(c)) { recent.unshift(c); recent = recent.slice(0, 8); renderRecent(); }
+  color = c; $('swatch').style.background = c; $('mixswatch').style.background = c;
+  if (document.activeElement !== $('hex')) $('hex').value = c.slice(1).toUpperCase();
+  if (!recent.includes(c)) { recent.unshift(c); recent = recent.slice(0, 10); renderChips('recent', recent); }
   if (speakIt) say(colorName(c));
 }
 function colorName(c) {
@@ -160,21 +207,71 @@ function colorName(c) {
   if (name === 'orange' && l < 0.4) return 'brown';
   return (l < 0.3 ? 'dark ' : l > 0.75 ? 'light ' : '') + name;
 }
-function renderRecent() { const box = $('recent'); box.innerHTML = ''; for (const c of recent) { const i = document.createElement('i'); i.style.background = c; i.onclick = () => setColor(c, true); box.appendChild(i); } }
+function renderChips(id, list) {
+  const box = $(id); for (const i of [...box.querySelectorAll('i')]) i.remove();
+  for (const c of list) { const i = document.createElement('i'); i.style.background = c; i.title = c; i.onclick = () => { Object.assign(hsv, hexHsv(c)); drawWheel(); setColor(c, true); }; box.appendChild(i); }
+}
+let saved = store0('colors', []);
+function store0(k, d) { try { const v = localStorage.getItem('paint-studio-' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+
+// The wheel: a hue ring around a square of saturation (left to right) and brightness (bottom to top) for that hue.
+const wheel = $('wheel'), wctx = wheel.getContext('2d'), WS = wheel.width, RO = WS / 2 - 4, RI = RO - 46, SQ = Math.floor(RI * Math.SQRT2) - 12;
+const sq0 = (WS - SQ) / 2;
+const ringImg = (() => {
+  const img = wctx.createImageData(WS, WS), d = img.data;
+  for (let y = 0; y < WS; y++) for (let x = 0; x < WS; x++) {
+    const dx = x - WS / 2, dy = y - WS / 2, r = Math.hypot(dx, dy);
+    if (r > RO + 1 || r < RI - 1) continue;
+    const [cr, cg, cb] = hexRgb(hsvHex((Math.atan2(dy, dx) * 180 / Math.PI + 450) % 360, 1, 1)), k = (y * WS + x) * 4;
+    const edge = Math.min(1, RO + 1 - r, r - RI + 1);
+    d[k] = cr; d[k + 1] = cg; d[k + 2] = cb; d[k + 3] = Math.round(255 * Math.max(0, edge));
+  }
+  return img;
+})();
+function drawWheel() {
+  wctx.clearRect(0, 0, WS, WS); wctx.putImageData(ringImg, 0, 0);
+  const g1 = wctx.createLinearGradient(sq0, 0, sq0 + SQ, 0); g1.addColorStop(0, '#fff'); g1.addColorStop(1, hsvHex(hsv.h, 1, 1));
+  wctx.fillStyle = g1; wctx.fillRect(sq0, sq0, SQ, SQ);
+  const g2 = wctx.createLinearGradient(0, sq0, 0, sq0 + SQ); g2.addColorStop(0, '#0000'); g2.addColorStop(1, '#000');
+  wctx.fillStyle = g2; wctx.fillRect(sq0, sq0, SQ, SQ);
+  const a = (hsv.h - 90) * Math.PI / 180, rm = (RO + RI) / 2;
+  ring(WS / 2 + Math.cos(a) * rm, WS / 2 + Math.sin(a) * rm, 18, hsvHex(hsv.h, 1, 1));
+  ring(sq0 + hsv.s * SQ, sq0 + (1 - hsv.v) * SQ, 14, color);
+}
+function ring(x, y, r, fill) { wctx.beginPath(); wctx.arc(x, y, r, 0, 7); wctx.fillStyle = fill; wctx.fill(); wctx.lineWidth = 5; wctx.strokeStyle = '#fff'; wctx.stroke(); wctx.lineWidth = 2; wctx.strokeStyle = '#000a'; wctx.stroke(); }
+let wheelPart = null;
+function wheelAt(e) {
+  const b = wheel.getBoundingClientRect(), x = (e.clientX - b.left) * WS / b.width, y = (e.clientY - b.top) * WS / b.height;
+  if (!wheelPart) { const r = Math.hypot(x - WS / 2, y - WS / 2); wheelPart = r >= RI - 10 ? 'ring' : 'square'; }
+  if (wheelPart === 'ring') hsv.h = (Math.atan2(y - WS / 2, x - WS / 2) * 180 / Math.PI + 450) % 360;
+  else { hsv.s = Math.max(0, Math.min(1, (x - sq0) / SQ)); hsv.v = Math.max(0, Math.min(1, 1 - (y - sq0) / SQ)); }
+  setColor(hsvHex(hsv.h, hsv.s, hsv.v), false); drawWheel();
+}
+wheel.addEventListener('pointerdown', (e) => { wheel.setPointerCapture(e.pointerId); wheelPart = null; wheelAt(e); });
+wheel.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') { if (wheelPart) wheelAt(e); } });
+wheel.addEventListener('pointerup', () => { if (wheelPart) say(colorName(color)); wheelPart = null; });
+$('hex').addEventListener('input', () => {
+  const v = $('hex').value.replace(/[^0-9a-f]/gi, '').slice(0, 6);
+  if (v.length === 6) { const c = '#' + v.toLowerCase(); Object.assign(hsv, hexHsv(c)); drawWheel(); setColor(c, false); }
+});
+$('keepColor').onclick = () => { if (!saved.includes(color)) { saved.unshift(color); saved = saved.slice(0, 20); try { localStorage.setItem('paint-studio-colors', JSON.stringify(saved)); } catch (e) {} renderChips('saved', saved); } say('Kept'); };
 (function paletteUi() {
   const box = $('palette');
-  for (const c of PALETTE) { const i = document.createElement('i'); i.style.background = c; i.onclick = () => { setColor(c, true); if (tool === 'eraser') selectTool('pen'); }; box.appendChild(i); }
-  $('swatch').onclick = () => { $('panel').classList.toggle('open'); if ($('panel').classList.contains('open')) say('Mix a color'); };
-  $('mixDone').onclick = () => { $('panel').classList.remove('open'); setColor(color, true); };
-  const mix = () => { hsl.h = +$('hue').value; hsl.s = +$('sat').value; hsl.l = +$('lig').value; color = hslToHex(hsl.h, hsl.s, hsl.l); $('swatch').style.background = color; };
-  for (const id of ['hue', 'sat', 'lig']) $(id).oninput = mix;
-  setColor(color, false);
+  for (const c of PALETTE) { const i = document.createElement('i'); i.style.background = c; i.onclick = () => { Object.assign(hsv, hexHsv(c)); drawWheel(); setColor(c, true); if (tool === 'eraser' || tool === 'pick') selectTool('pen'); }; box.appendChild(i); }
+  $('swatch').onclick = () => { $('panel').classList.toggle('open'); if ($('panel').classList.contains('open')) { Object.assign(hsv, hexHsv(color)); drawWheel(); say('Mix a color'); } };
+  $('mixDone').onclick = () => { $('panel').classList.remove('open'); if (tool === 'eraser' || tool === 'pick') selectTool('brush'); };
+  renderChips('saved', saved);
+  setColor(color, false); drawWheel();
 })();
 
 // ---- Tools ----------------------------------------------------------------------------------------------------------
 // Each brush stamps along the stroke. spacing is the gap between stamps as a fraction of the size. draw(ctx, x, y, r,
-// pressure) paints one stamp; the stroke sets the layer's alpha and color before it.
+// pressure) paints one stamp; the stroke sets the layer's alpha and color before it. soft: the tool takes a softness.
+// The paint brushes (Brush, Flat) are bristles that carry paint (bristleStep). Each tool keeps its own size, strength,
+// softness and steadiness.
 const I = {
+  brush: '<path d="M14 4l6 6-7 7-6-6z"/><path d="M7 11c-3 1-4 4-4 9 5 0 8-1 9-4"/>',
+  flat: '<path d="M9 3h6v8H9z"/><path d="M8 11h8l-1 4H9z"/><path d="M10 15v6M14 15v6M12 15v6"/>',
   pen: '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M13 7l3 3"/>',
   marker: '<path d="M6 20h12"/><path d="M8 17V8a4 4 0 0 1 8 0v9"/>',
   pencil: '<path d="M3 21l3-1 12-12-2-2L4 18z"/><path d="M14 6l2 2"/><path d="M3 21l1-3"/>',
@@ -185,27 +282,41 @@ const I = {
   shade: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
   smudge: '<path d="M8 4v8"/><path d="M12 3v9"/><path d="M16 5v7"/><path d="M6 12c0 5 3 8 6 8s6-3 6-8"/>',
   fill: '<path d="M5 12l7-7 7 7-7 7z"/><path d="M19 14s2 2.5 2 4a2 2 0 0 1-4 0c0-1.5 2-4 2-4z"/>',
+  pick: '<path d="M14 4l6 6"/><path d="M17 7l-9 9-3 1 1-3 9-9"/><path d="M4 20l2-2"/>',
   eraser: '<path d="M4 15l9-9 6 6-6 6H7z"/><path d="M10 21h10"/>',
 };
+const dab = (c, x, y, r, soft) => {
+  if (soft > 0.02) { const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, c.fillStyle); g.addColorStop(Math.max(0, 1 - soft), c.fillStyle); g.addColorStop(1, c.fillStyle + '00'); const f = c.fillStyle; c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.fillStyle = f; }
+  else { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
+};
 const TOOLS = {
-  pen: { name: 'Pen', spacing: 0.12, draw: (c, x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); } },
-  marker: { name: 'Marker', spacing: 0.15, alpha: 0.45, draw: (c, x, y, r) => { c.beginPath(); c.arc(x, y, r * 1.3, 0, 7); c.fill(); } },
-  pencil: { name: 'Pencil', spacing: 0.3, alpha: 0.7, draw: (c, x, y, r) => { const n = 6 + r; for (let i = 0; i < n; i++) { const a = Math.random() * 7, d = Math.random() * r * 0.5; c.beginPath(); c.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, Math.max(0.6, r * 0.18), 0, 7); c.fill(); } } },
+  brush: { name: 'Brush', spacing: 0.08, bristles: 'round', size: 22 },
+  flat: { name: 'Flat brush', spacing: 0.08, bristles: 'flat', size: 30 },
+  pen: { name: 'Pen', spacing: 0.12, soft: true, draw: (c, x, y, r, p, soft) => dab(c, x, y, r, soft) },
+  marker: { name: 'Marker', spacing: 0.15, alpha: 0.45, soft: true, draw: (c, x, y, r, p, soft) => dab(c, x, y, r * 1.3, soft) },
+  pencil: { name: 'Pencil', spacing: 0.3, alpha: 0.7, size: 4, draw: (c, x, y, r) => { const n = 6 + r; for (let i = 0; i < n; i++) { const a = Math.random() * 7, d = Math.random() * r * 0.5; c.beginPath(); c.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, Math.max(0.6, r * 0.18), 0, 7); c.fill(); } } },
   chalk: { name: 'Chalk', spacing: 0.25, alpha: 0.35, draw: (c, x, y, r) => { const n = 10 + r * 2; for (let i = 0; i < n; i++) { const a = Math.random() * 7, d = Math.sqrt(Math.random()) * r; c.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.6, 1.6); } } },
   crayon: { name: 'Crayon', spacing: 0.2, alpha: 0.8, draw: (c, x, y, r) => { const n = 8 + r; for (let i = 0; i < n; i++) { const a = Math.random() * 7, d = Math.sqrt(Math.random()) * r; c.beginPath(); c.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 1 + Math.random() * r * 0.25, 0, 7); c.fill(); } } },
-  water: { name: 'Watercolor', spacing: 0.35, alpha: 0.12, draw: (c, x, y, r) => { const g = c.createRadialGradient(x, y, 0, x, y, r * 1.8); g.addColorStop(0, color); g.addColorStop(1, color + '00'); c.fillStyle = g; c.beginPath(); c.arc(x, y, r * 1.8, 0, 7); c.fill(); c.fillStyle = color; } },
+  water: { name: 'Watercolor', spacing: 0.35, alpha: 0.12, size: 30, draw: (c, x, y, r) => { const g = c.createRadialGradient(x, y, 0, x, y, r * 1.8); g.addColorStop(0, color); g.addColorStop(1, color + '00'); c.fillStyle = g; c.beginPath(); c.arc(x, y, r * 1.8, 0, 7); c.fill(); c.fillStyle = color; } },
   spray: { name: 'Spray', spacing: 0.1, alpha: 0.5, draw: (c, x, y, r) => { for (let i = 0; i < 14; i++) { const a = Math.random() * 7, d = Math.random() * r * 2; c.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.4, 1.4); } } },
-  shade: { name: 'Shade', spacing: 0.3, alpha: 0.06, draw: (c, x, y, r) => { const g = c.createRadialGradient(x, y, 0, x, y, r * 2.2); g.addColorStop(0, color); g.addColorStop(1, color + '00'); c.fillStyle = g; c.beginPath(); c.arc(x, y, r * 2.2, 0, 7); c.fill(); c.fillStyle = color; } },
-  smudge: { name: 'Smudge', spacing: 0.2, smudge: true },
+  shade: { name: 'Shade', spacing: 0.3, alpha: 0.06, size: 40, draw: (c, x, y, r) => { const g = c.createRadialGradient(x, y, 0, x, y, r * 2.2); g.addColorStop(0, color); g.addColorStop(1, color + '00'); c.fillStyle = g; c.beginPath(); c.arc(x, y, r * 2.2, 0, 7); c.fill(); c.fillStyle = color; } },
+  smudge: { name: 'Smudge', spacing: 0.2, smudge: true, size: 24 },
   fill: { name: 'Fill', fill: true },
-  eraser: { name: 'Eraser', spacing: 0.12, erase: true, draw: (c, x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); } },
+  pick: { name: 'Pick a color', pick: true },
+  eraser: { name: 'Eraser', spacing: 0.12, erase: true, soft: true, size: 24, draw: (c, x, y, r, p, soft) => dab(c, x, y, r, soft) },
 };
-let tool = 'pen';
+// Each tool's own settings, kept on the tablet.
+const settings = store0('settings', {});
+const setOf = (id) => (settings[id] = Object.assign({ size: TOOLS[id].size ?? 12, alpha: 100, soft: 0, steady: 0 }, settings[id] || {}));
+let tool = 'brush';
 function selectTool(id, speakIt) {
   tool = id;
   for (const b of document.querySelectorAll('#tools .tool')) b.classList.toggle('on', b.dataset.id === id);
+  const st = setOf(id); $('size').value = st.size; $('alpha').value = st.alpha; $('soft').value = st.soft; $('steady').value = st.steady;
+  $('soft').disabled = !TOOLS[id].soft;
   if (speakIt) say(TOOLS[id].name);
 }
+for (const k of ['size', 'alpha', 'soft', 'steady']) $(k).addEventListener('input', () => { setOf(tool)[k] = +$(k).value; try { localStorage.setItem('paint-studio-settings', JSON.stringify(settings)); } catch (e) {} });
 (function toolsUi() {
   const box = $('tools');
   for (const id of Object.keys(TOOLS)) {
@@ -214,35 +325,141 @@ function selectTool(id, speakIt) {
     b.onclick = () => selectTool(id, true);
     box.appendChild(b);
   }
-  selectTool('pen', false);
+  selectTool('brush', false);
 })();
 
-// ---- Mirror ---------------------------------------------------------------------------------------------------------
-const MIRRORS = [['off', 'Mirror off'], ['lr', 'Left and right'], ['ud', 'Up and down'], ['four', 'Four ways'], ['kal6', 'Kaleidoscope 6'], ['kal8', 'Kaleidoscope 8']];
+// ---- Mirrors, kaleidoscopes, spins and tiles -------------------------------------------------------------------------
+// Every stroke is painted at each point images() returns. Guides show the lines of the current mode on screen only.
+const MIRROR_ICON = {
+  off: '<rect x="4" y="4" width="16" height="16" rx="2"/>',
+  lr: '<path d="M12 3v18M4 7l5 5-5 5M20 7l-5 5 5 5"/>', ud: '<path d="M3 12h18M7 4l5 5 5-5M7 20l5-5 5 5"/>',
+  four: '<path d="M12 3v18M3 12h18"/><circle cx="7" cy="7" r="1.5"/><circle cx="17" cy="7" r="1.5"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/>',
+  diag: '<path d="M4 4l16 16M20 4L4 20"/>',
+  kal: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M5 8l14 8M19 8 5 16"/>',
+  spin: '<path d="M12 12c0-5 3-8 7-8M12 12c5 0 8 3 8 7M12 12c0 5-3 8-7 8M12 12c-5 0-8-3-8-7"/>',
+  tile: '<rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/>',
+};
+const MIRRORS = [
+  { id: 'off', name: 'Off', group: 'Mirror', icon: 'off' },
+  { id: 'lr', name: 'Left and right', group: 'Mirror', icon: 'lr' },
+  { id: 'ud', name: 'Up and down', group: 'Mirror', icon: 'ud' },
+  { id: 'four', name: 'Four ways', group: 'Mirror', icon: 'four' },
+  { id: 'diag', name: 'Corners', group: 'Mirror', icon: 'diag' },
+  { id: 'kal6', name: '6 slices', group: 'Kaleidoscope', icon: 'kal', n: 6 },
+  { id: 'kal8', name: '8 slices', group: 'Kaleidoscope', icon: 'kal', n: 8 },
+  { id: 'kal12', name: '12 slices', group: 'Kaleidoscope', icon: 'kal', n: 12 },
+  { id: 'kal16', name: '16 slices', group: 'Kaleidoscope', icon: 'kal', n: 16 },
+  { id: 'spin3', name: 'Spin 3', group: 'Spin', icon: 'spin', n: 3 },
+  { id: 'spin4', name: 'Spin 4', group: 'Spin', icon: 'spin', n: 4 },
+  { id: 'spin5', name: 'Spin 5', group: 'Spin', icon: 'spin', n: 5 },
+  { id: 'spin8', name: 'Spin 8', group: 'Spin', icon: 'spin', n: 8 },
+  { id: 'tile', name: 'Tiles', group: 'Pattern', icon: 'tile' },
+  { id: 'tilemirror', name: 'Mirror tiles', group: 'Pattern', icon: 'tile' },
+];
 let mirror = 0;
-$('mirror').onclick = () => { mirror = (mirror + 1) % MIRRORS.length; $('mirror').classList.toggle('on', mirror > 0); toast(MIRRORS[mirror][1]); say(MIRRORS[mirror][1]); };
-// Every point a stamp lands on, for the current mirror mode.
+const TILE_X = 4, TILE_Y = 3, TW = W / TILE_X, TH = H / TILE_Y;
 function images(x, y) {
-  const m = MIRRORS[mirror][0], cx = W / 2, cy = H / 2;
-  if (m === 'off') return [[x, y]];
-  if (m === 'lr') return [[x, y], [W - x, y]];
-  if (m === 'ud') return [[x, y], [x, H - y]];
-  if (m === 'four') return [[x, y], [W - x, y], [x, H - y], [W - x, H - y]];
-  const n = m === 'kal6' ? 6 : 8, out = [], dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy), a0 = Math.atan2(dy, dx);
-  for (let i = 0; i < n; i++) { const a = a0 + (i * 2 * Math.PI) / n; out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)], [cx + r * Math.cos(-a), cy + r * Math.sin(-a)]); }
+  const m = MIRRORS[mirror], cx = W / 2, cy = H / 2;
+  if (m.id === 'off') return [[x, y]];
+  if (m.id === 'lr') return [[x, y], [W - x, y]];
+  if (m.id === 'ud') return [[x, y], [x, H - y]];
+  if (m.id === 'four') return [[x, y], [W - x, y], [x, H - y], [W - x, H - y]];
+  if (m.id === 'diag') { const dx = x - cx, dy = y - cy, k = H / W; return [[x, y], [cx + dy / k, cy + dx * k], [cx - dy / k, cy - dx * k], [W - x, H - y]]; }
+  if (m.id.startsWith('tile')) {
+    const out = [], u = ((x % TW) + TW) % TW, v = ((y % TH) + TH) % TH, flip = m.id === 'tilemirror';
+    const ti = Math.floor(x / TW), tj = Math.floor(y / TH);
+    for (let i = 0; i < TILE_X; i++) for (let j = 0; j < TILE_Y; j++) {
+      const fx = flip && ((i - ti) & 1), fy = flip && ((j - tj) & 1);
+      out.push([i * TW + (fx ? TW - u : u), j * TH + (fy ? TH - v : v)]);
+    }
+    return out;
+  }
+  const n = m.n, out = [], dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy), a0 = Math.atan2(dy, dx);
+  for (let i = 0; i < n; i++) {
+    const a = a0 + (i * 2 * Math.PI) / n;
+    out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    if (m.id.startsWith('kal')) { const b = -a0 + (i * 2 * Math.PI) / n; out.push([cx + r * Math.cos(b), cy + r * Math.sin(b)]); }
+  }
   return out;
 }
+function guides(c) {
+  const m = MIRRORS[mirror], cx = W / 2, cy = H / 2;
+  if (m.id === 'off') return;
+  c.save(); c.globalAlpha = 1; c.strokeStyle = '#4a8cff55'; c.lineWidth = 2; c.setLineDash([10, 10]); c.beginPath();
+  if (m.id === 'lr' || m.id === 'four') { c.moveTo(cx, 0); c.lineTo(cx, H); }
+  if (m.id === 'ud' || m.id === 'four') { c.moveTo(0, cy); c.lineTo(W, cy); }
+  if (m.id === 'diag') { c.moveTo(0, 0); c.lineTo(W, H); c.moveTo(W, 0); c.lineTo(0, H); }
+  if (m.id.startsWith('tile')) { for (let i = 1; i < TILE_X; i++) { c.moveTo(i * TW, 0); c.lineTo(i * TW, H); } for (let j = 1; j < TILE_Y; j++) { c.moveTo(0, j * TH); c.lineTo(W, j * TH); } }
+  if (m.n) { const lines = m.id.startsWith('kal') ? m.n : m.n; for (let i = 0; i < lines; i++) { const a = (i * 2 * Math.PI) / lines; c.moveTo(cx, cy); c.lineTo(cx + Math.cos(a) * W, cy + Math.sin(a) * W); } }
+  c.stroke(); c.restore();
+}
+(function mirrorsUi() {
+  const box = $('mirrors');
+  let group = '';
+  let grid;
+  MIRRORS.forEach((m, i) => {
+    if (m.group !== group) { group = m.group; const h = document.createElement('h3'); h.textContent = group; box.appendChild(h); grid = document.createElement('div'); grid.className = 'grid'; box.appendChild(grid); }
+    const b = document.createElement('button'); b.className = 'btn'; b.dataset.i = i;
+    b.innerHTML = '<svg viewBox="0 0 24 24">' + MIRROR_ICON[m.icon] + '</svg>' + m.name;
+    b.onclick = () => { mirror = i; mark(); box.classList.remove('open'); const t = m.id === 'off' ? 'Mirror off' : m.group === 'Mirror' ? m.name : m.group + ' ' + m.name; toast(t); say(t); composite(); };
+    grid.appendChild(b);
+  });
+  const mark = () => { for (const b of box.querySelectorAll('.btn')) b.classList.toggle('on', +b.dataset.i === mirror); $('mirror').classList.toggle('on', mirror > 0); };
+  mark();
+  $('mirror').onclick = () => { box.classList.toggle('open'); if (box.classList.contains('open')) say('Mirrors and patterns'); };
+})();
 
 // ---- Strokes --------------------------------------------------------------------------------------------------------
-let drawing = false, last = null, carry = 0, sprayTimer = null, strokeCount = 0;
-const size = () => +$('size').value, strength = () => +$('alpha').value / 100;
-function canvasPoint(e) { const b = view.getBoundingClientRect(); return { x: ((e.clientX - b.left) / b.width) * W, y: ((e.clientY - b.top) / b.height) * H, p: e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.6 }; }
+let drawing = false, last = null, carry = 0, sprayTimer = null, strokeCount = 0, smooth = null, travelled = 0, dir = 0;
+const st = () => setOf(tool);
+const size = () => st().size, strength = () => st().alpha / 100;
+function canvasPoint(e) { const b = view.getBoundingClientRect(); return { x: ((e.clientX - b.left) / b.width) * W, y: ((e.clientY - b.top) / b.height) * H, p: e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.6, t: e.timeStamp || performance.now() }; }
+const paintMode = (t) => t.erase ? 'destination-out' : layers[active].lock ? 'source-atop' : 'source-over';
 function stampAt(x, y, p) {
   const t = TOOLS[tool], l = layers[active], c = l.ctx, r = Math.max(0.8, (size() / 2) * (0.5 + p));
-  c.globalCompositeOperation = t.erase ? 'destination-out' : 'source-over';
+  c.globalCompositeOperation = paintMode(t);
   c.globalAlpha = (t.alpha ?? 1) * strength();
   c.fillStyle = color;
-  for (const [ix, iy] of images(x, y)) t.draw(c, ix, iy, r, p);
+  const soft = t.soft ? st().soft / 100 : 0;
+  for (const [ix, iy] of images(x, y)) t.draw(c, ix, iy, r, p, soft);
+}
+
+// The paint brushes: bristles in a round tuft or a flat row. Each bristle carries paint that runs out along the stroke
+// at its own rate (a long stroke breaks into dry streaks) and picks up the wet color it passes over, so colors blend on
+// the page. The stroke starts thin and swells, and gets
+// thinner when it moves fast (or follows pen pressure). A new stroke dips the brush in the color again.
+let bristles = [], strokeBase = null;
+function loadBrush() {
+  // The page as it was when the stroke began: bristles pick up that wet paint, not the paint this stroke just laid.
+  strokeBase = layers[active].ctx.getImageData(0, 0, W, H);
+  const t = TOOLS[tool], n = Math.round(Math.min(48, 14 + size() * 0.8)), [r, g, b] = hexRgb(color);
+  bristles = [];
+  for (let i = 0; i < n; i++) {
+    const off = t.bristles === 'flat' ? { u: (i / (n - 1)) * 2 - 1 + (Math.random() - 0.5) * 0.06, v: (Math.random() - 0.5) * 0.18 } : (() => { const a = Math.random() * 7, d = Math.sqrt(Math.random()); return { u: Math.cos(a) * d, v: Math.sin(a) * d }; })();
+    bristles.push({ ...off, w: 0.55 + Math.random() * 0.6, load: 0.9 + Math.random() * 0.6, thirst: 0.6 + Math.random() * 0.9, cut: Math.random() * 0.4, rgb: [r, g, b] });
+  }
+}
+function bristleStep(x, y, p, speed) {
+  const t = TOOLS[tool], l = layers[active], c = l.ctx, R = size() / 2;
+  const swell = Math.min(1, 0.45 + travelled / (R * 2.5)), slow = 1 / (1 + speed * 0.12), press = p === 0.6 ? 1 : 0.4 + p;
+  const reach = R * swell * (0.7 + 0.3 * slow) * press;
+  const d = strokeBase ? strokeBase.data : null;
+  // The flat brush is held at a fixed slant, like a calligraphy brush: wide across that line, thin along it.
+  const ca = Math.cos(-Math.PI / 4), sa = Math.sin(-Math.PI / 4);
+  c.globalCompositeOperation = paintMode(t);
+  const a0 = strength();
+  for (const br of bristles) {
+    if (br.load < br.cut) continue; // this bristle has run dry: a streak opens in the stroke
+    const bx = t.bristles === 'flat' ? x + (br.u * ca - br.v * sa) * reach : x + br.u * reach, by = t.bristles === 'flat' ? y + (br.u * sa + br.v * ca) * reach : y + br.v * reach;
+    // Pick up the wet paint under the bristle.
+    const px = Math.round(bx), py = Math.round(by);
+    if (d && px >= 0 && py >= 0 && px < W && py < H) { const k = (py * W + px) * 4, wa = d[k + 3] / 255 * 0.07 * br.thirst; if (wa > 0) for (let q = 0; q < 3; q++) br.rgb[q] += (d[k + q] - br.rgb[q]) * wa; }
+    c.globalAlpha = Math.min(1, a0 * 0.7 * Math.min(1, (br.load - br.cut) * 3));
+    c.fillStyle = rgbHex(br.rgb[0], br.rgb[1], br.rgb[2]);
+    const rr = Math.max(0.8, reach * 0.3 * br.w);
+    for (const [ix, iy] of images(bx, by)) { c.beginPath(); c.arc(ix, iy, rr, 0, 7); c.fill(); }
+    br.load -= 0.005 * br.thirst * br.thirst * (1 + R / 60);
+  }
 }
 // Smudge drags the paint under the brush along the stroke: the pixels at the last point are copied a little ahead.
 function smudgeStep(from, to) {
@@ -255,46 +472,116 @@ function smudgeStep(from, to) {
     const tmp = smudgeStep.tmp || (smudgeStep.tmp = document.createElement('canvas')); tmp.width = s; tmp.height = s;
     const tc = tmp.getContext('2d'); tc.putImageData(img, 0, 0);
     tc.globalCompositeOperation = 'destination-in'; const g = tc.createRadialGradient(r, r, 0, r, r, r); g.addColorStop(0, '#fff'); g.addColorStop(1, '#fff0'); tc.fillStyle = g; tc.fillRect(0, 0, s, s);
-    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 0.5 * strength();
+    c.globalCompositeOperation = layers[active].lock ? 'source-atop' : 'source-over'; c.globalAlpha = 0.5 * strength();
     c.drawImage(tmp, Math.round(tx - r), Math.round(ty - r));
   }
 }
-function strokeTo(pt) {
+function strokeTo(raw) {
   const t = TOOLS[tool];
+  // Steady: the stroke follows the finger with a lag, which takes out the wobble.
+  const k = (st().steady / 100) * 0.88;
+  smooth = smooth && k > 0 ? { x: smooth.x + (raw.x - smooth.x) * (1 - k), y: smooth.y + (raw.y - smooth.y) * (1 - k), p: raw.p, t: raw.t } : raw;
+  const pt = smooth;
   if (t.smudge) { if (last) smudgeStep(last, pt); last = pt; return; }
   const step = Math.max(1, size() * t.spacing);
-  if (!last) { stampAt(pt.x, pt.y, pt.p); last = pt; return; }
+  if (!last) { if (t.bristles) bristleStep(pt.x, pt.y, pt.p, 0); else stampAt(pt.x, pt.y, pt.p); last = pt; return; }
   const dx = pt.x - last.x, dy = pt.y - last.y, dist = Math.hypot(dx, dy);
+  if (dist > 0.5) dir = Math.atan2(dy, dx);
+  const speed = dist / Math.max(1, pt.t - last.t);
   let d = carry;
-  while (d <= dist) { const f = dist ? d / dist : 0; stampAt(last.x + dx * f, last.y + dy * f, last.p + (pt.p - last.p) * f); d += step; }
+  while (d <= dist) {
+    const f = dist ? d / dist : 0, x = last.x + dx * f, y = last.y + dy * f, p = last.p + (pt.p - last.p) * f;
+    if (t.bristles) { bristleStep(x, y, p, speed); travelled += step; } else stampAt(x, y, p);
+    d += step;
+  }
   carry = d - dist; last = pt;
+}
+
+// Pick a color: the Pick tool, or holding a finger still for a moment with any brush, takes the color under it.
+function colorAt(pt) {
+  const flat = flatten(), d = flat.getContext('2d').getImageData(Math.max(0, Math.min(W - 1, Math.round(pt.x))), Math.max(0, Math.min(H - 1, Math.round(pt.y))), 1, 1).data;
+  return rgbHex(d[0], d[1], d[2]);
+}
+function pickAt(pt) { const c = colorAt(pt); Object.assign(hsv, hexHsv(c)); drawWheel(); setColor(c, true); toast('Picked ' + colorName(c)); }
+let holdTimer = null, holdStart = null;
+
+// ---- Two fingers: zoom and move the page ------------------------------------------------------------------------------
+const stage = $('stage'), fingers = new Map();
+let zoom = { k: 1, x: 0, y: 0 }, gesture = null;
+function applyZoom() {
+  zoom.k = Math.max(1, Math.min(8, zoom.k));
+  if (zoom.k === 1) { zoom.x = 0; zoom.y = 0; }
+  view.style.transform = `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.k})`;
+  $('zoomfit').classList.toggle('show', zoom.k > 1.02);
+}
+view.style.transformOrigin = '50% 50%';
+const mid = () => { const [a, b] = [...fingers.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; };
+stage.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch') return;
+  fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (fingers.size === 2) {
+    // A second finger: whatever the first one started is not a stroke. Take it back and zoom instead.
+    if (drawing) { cancelStroke(); }
+    const m = mid(); gesture = { m, k: zoom.k, x: zoom.x, y: zoom.y };
+  }
+}, true);
+stage.addEventListener('pointermove', (e) => {
+  if (!fingers.has(e.pointerId)) return;
+  fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (gesture && fingers.size >= 2) {
+    const m = mid(), b = stage.getBoundingClientRect(), ox = b.left + b.width / 2, oy = b.top + b.height / 2;
+    const k = gesture.k * (m.d / Math.max(10, gesture.m.d)), f = k / gesture.k;
+    zoom.k = k;
+    zoom.x = (gesture.m.x - ox) - (gesture.m.x - ox - gesture.x) * f + (m.x - gesture.m.x);
+    zoom.y = (gesture.m.y - oy) - (gesture.m.y - oy - gesture.y) * f + (m.y - gesture.m.y);
+    applyZoom();
+  }
+}, true);
+const lift = (e) => { fingers.delete(e.pointerId); if (fingers.size < 2) gesture = null; };
+stage.addEventListener('pointerup', lift, true); stage.addEventListener('pointercancel', lift, true);
+stage.addEventListener('wheel', (e) => { if (!e.ctrlKey) return; e.preventDefault(); zoom.k *= Math.exp(-e.deltaY * 0.01); applyZoom(); }, { passive: false });
+$('zoomfit').onclick = () => { zoom = { k: 1, x: 0, y: 0 }; applyZoom(); say('The whole page'); };
+
+function cancelStroke() {
+  drawing = false; clearTimeout(holdTimer); clearInterval(sprayTimer); sprayTimer = null; last = null;
+  const s0 = undoStack.pop(); if (s0) { const l = layers[s0.layer]; l.ctx.globalCompositeOperation = 'source-over'; l.ctx.globalAlpha = 1; l.ctx.clearRect(0, 0, W, H); l.ctx.drawImage(s0.c, 0, 0); }
+  strokeCount = Math.max(0, strokeCount - 1); composite(); buttons();
 }
 view.addEventListener('pointerdown', (e) => {
   if (e.button !== undefined && e.button !== 0) return;
+  if (gesture || fingers.size > 1) return;
   view.setPointerCapture(e.pointerId);
-  const pt = canvasPoint(e);
-  if (TOOLS[tool].fill) { remember(); for (const [x, y] of images(pt.x, pt.y)) floodFill(layers[active], Math.round(x), Math.round(y), color); composite(); strokeCount++; return; }
-  remember(); drawing = true; last = null; carry = 0; strokeTo(pt); composite(); strokeCount++;
+  const pt = canvasPoint(e), t = TOOLS[tool];
+  if (t.pick) { pickAt(pt); return; }
+  if (t.fill) { remember(); for (const [x, y] of images(pt.x, pt.y)) floodFill(layers[active], Math.round(x), Math.round(y), color); composite(); strokeCount++; return; }
+  remember(); drawing = true; last = null; carry = 0; smooth = null; travelled = 0;
+  if (t.bristles) loadBrush();
+  strokeTo(pt); composite(); strokeCount++;
   if (tool === 'spray') sprayTimer = setInterval(() => { if (last) { stampAt(last.x, last.y, last.p); composite(); } }, 40);
+  // Holding still picks the color under the finger (not for spray, which paints while held).
+  holdStart = pt; clearTimeout(holdTimer);
+  if (tool !== 'spray') holdTimer = setTimeout(() => { if (drawing && holdStart) { cancelStroke(); pickAt(holdStart); } }, 650);
 });
 view.addEventListener('pointermove', (e) => {
-  if (!drawing) return;
+  if (!drawing || gesture) return;
   const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-  for (const ev of events.length ? events : [e]) strokeTo(canvasPoint(ev));
+  for (const ev of events.length ? events : [e]) { const pt = canvasPoint(ev); if (holdStart && Math.hypot(pt.x - holdStart.x, pt.y - holdStart.y) > 8) { holdStart = null; clearTimeout(holdTimer); } strokeTo(pt); }
   composite();
 });
-const end = () => { drawing = false; last = null; clearInterval(sprayTimer); sprayTimer = null; };
+const end = () => { drawing = false; last = null; smooth = null; holdStart = null; clearTimeout(holdTimer); clearInterval(sprayTimer); sprayTimer = null; };
 view.addEventListener('pointerup', end); view.addEventListener('pointercancel', end); view.addEventListener('lostpointercapture', end);
 
 // Flood fill on one layer: every connected pixel close in color to the tapped one, through the transparent background
-// too, so tapping the white of an empty layer fills the whole outline the child drew on it.
+// too, so tapping the white of an empty layer fills the whole outline the child drew on it. With the layer's
+// transparency locked, only painted pixels change and keep their own transparency.
 function floodFill(layer, x0, y0, hex) {
   if (x0 < 0 || y0 < 0 || x0 >= W || y0 >= H) return;
-  const img = layer.ctx.getImageData(0, 0, W, H), d = img.data;
+  const img = layer.ctx.getImageData(0, 0, W, H), d = img.data, lock = layer.lock;
   const i0 = (y0 * W + x0) * 4, r0 = d[i0], g0 = d[i0 + 1], b0 = d[i0 + 2], a0 = d[i0 + 3];
+  if (lock && a0 === 0) return;
   const nr = parseInt(hex.slice(1, 3), 16), ng = parseInt(hex.slice(3, 5), 16), nb = parseInt(hex.slice(5, 7), 16);
   if (a0 > 200 && Math.abs(r0 - nr) + Math.abs(g0 - ng) + Math.abs(b0 - nb) < 6) return;
-  const near = (i) => Math.abs(d[i] - r0) + Math.abs(d[i + 1] - g0) + Math.abs(d[i + 2] - b0) + Math.abs(d[i + 3] - a0) < 90;
+  const near = (i) => (!lock || d[i + 3] > 0) && Math.abs(d[i] - r0) + Math.abs(d[i + 1] - g0) + Math.abs(d[i + 2] - b0) + Math.abs(d[i + 3] - a0) < 90;
   const seen = new Uint8Array(W * H), stack = [y0 * W + x0];
   while (stack.length) {
     let p = stack.pop(); if (seen[p]) continue;
@@ -302,7 +589,7 @@ function floodFill(layer, x0, y0, hex) {
     while (lx > 0 && !seen[p - 1] && near((p - 1) * 4)) { p--; lx--; }
     let up = false, down = false;
     for (; lx < W && !seen[p] && near(p * 4); lx++, p++) {
-      seen[p] = 1; d[p * 4] = nr; d[p * 4 + 1] = ng; d[p * 4 + 2] = nb; d[p * 4 + 3] = 255;
+      seen[p] = 1; d[p * 4] = nr; d[p * 4 + 1] = ng; d[p * 4 + 2] = nb; if (!lock) d[p * 4 + 3] = 255;
       if (y > 0) { const q = p - W; if (!seen[q] && near(q * 4)) { if (!up) { stack.push(q); up = true; } } else up = false; }
       if (y < H - 1) { const q = p + W; if (!seen[q] && near(q * 4)) { if (!down) { stack.push(q); down = true; } } else down = false; }
     }
@@ -315,15 +602,15 @@ const store = { get: (k, d) => { try { const v = localStorage.getItem(STORE + '-
 let stars = store.get('stars', 0);
 const renderStars = () => { $('stars').textContent = '★ ' + stars; };
 function award(n, why) { stars += n; store.set('stars', stars); renderStars(); toast('★ ' + (n === 1 ? 'A star' : n + ' stars') + ' for ' + why); }
-function painted() { const d = vctx.getImageData(0, 0, W, H).data; let n = 0; for (let i = 0; i < d.length; i += 64) if (d[i] < 250 || d[i + 1] < 250 || d[i + 2] < 250) n++; return n; }
+function painted() { const d = flatten().getContext('2d').getImageData(0, 0, W, H).data; let n = 0; for (let i = 0; i < d.length; i += 64) if (d[i] < 250 || d[i + 1] < 250 || d[i + 2] < 250) n++; return n; }
 let savedThisPainting = false;
 $('save').onclick = () => {
   if (painted() < 40) { say('Paint something first'); toast('Paint something first'); return; }
-  const c = document.createElement('canvas'); c.width = 640; c.height = 400; c.getContext('2d').drawImage(view, 0, 0, 640, 400);
+  // The whole painting at full size (it can become the home screen background), without the mirror guides. When the
+  // tablet's storage for this app is full, the oldest paintings make room.
   const shots = store.get('gallery', []);
-  shots.unshift({ id: Date.now(), data: c.toDataURL('image/jpeg', 0.8) });
-  while (shots.length > 24) shots.pop();
-  store.set('gallery', shots);
+  shots.unshift({ id: Date.now(), data: flatten().toDataURL('image/jpeg', 0.82) });
+  for (let n = Math.min(shots.length, 24); n > 0; n--) { try { localStorage.setItem(STORE + '-gallery', JSON.stringify(shots.slice(0, n))); break; } catch (e) {} }
   if (!savedThisPainting) { savedThisPainting = true; const today = new Date().toISOString().slice(0, 10), day = store.get('day', { d: today, n: 0 }); if (day.d !== today) { day.d = today; day.n = 0; } if (day.n < 5) { day.n++; store.set('day', day); award(1, 'a finished painting'); } else toast('Saved'); }
   else toast('Saved');
   say('Saved to your gallery');
@@ -337,6 +624,18 @@ function renderGallery() {
     const img = document.createElement('img'); img.src = s.data; img.alt = ''; div.appendChild(img);
     const del = document.createElement('button'); del.className = 'del'; del.textContent = 'Remove'; del.onclick = (e) => { e.stopPropagation(); store.set('gallery', store.get('gallery', []).filter((x) => x.id !== s.id)); renderGallery(); };
     div.appendChild(del);
+    // On a Duckling tablet a painting can become the home screen background.
+    const kt = window.KidTablet;
+    if (kt && kt.platform === 'duckling' && kt.setHomeBackground) {
+      const bg = document.createElement('button'); bg.className = 'del bg'; bg.textContent = 'Use as home background';
+      bg.onclick = (e) => {
+        e.stopPropagation(); bg.disabled = true; bg.textContent = 'Saving';
+        kt.setHomeBackground(s.data).then(() => { bg.textContent = 'Home background'; say('Now it is your home screen picture'); toast('Your home screen picture'); })
+          .catch(() => { bg.textContent = 'Use as home background'; say('That did not work. Try again in a moment.'); })
+          .finally(() => { bg.disabled = false; });
+      };
+      div.appendChild(bg);
+    }
     div.onclick = () => { remember(); const l = layers[active]; const im = new Image(); im.onload = () => { l.ctx.globalCompositeOperation = 'source-over'; l.ctx.globalAlpha = 1; l.ctx.drawImage(im, 0, 0, W, H); composite(); }; im.src = s.data; $('gallery').classList.remove('open'); say('Here it is. Keep painting on layer ' + (active + 1)); };
     box.appendChild(div);
   }
@@ -380,6 +679,7 @@ $('promptDone').onclick = () => {
 function fit() {
   const s = $('stage'), aw = s.clientWidth - 24, ah = s.clientHeight - 24, k = Math.min(aw / W, ah / H);
   view.style.width = Math.floor(W * k) + 'px'; view.style.height = Math.floor(H * k) + 'px';
+  if (typeof applyZoom === 'function') { zoom = { k: 1, x: 0, y: 0 }; applyZoom(); }
 }
 window.addEventListener('resize', fit);
 fit(); renderLayers(); renderStars(); buttons(); badge(); composite();
@@ -387,7 +687,7 @@ let newArmed = 0;
 $('newPage').onclick = () => {
   if (Date.now() - newArmed > 3000) { newArmed = Date.now(); toast('Tap again for a blank page'); say('Tap again for a blank page'); return; }
   newArmed = 0;
-  for (const l of layers) { l.ctx.globalCompositeOperation = 'source-over'; l.ctx.globalAlpha = 1; l.ctx.clearRect(0, 0, W, H); l.on = true; }
+  for (const l of layers) { l.ctx.globalCompositeOperation = 'source-over'; l.ctx.globalAlpha = 1; l.ctx.clearRect(0, 0, W, H); l.on = true; l.lock = false; }
   undoStack.length = 0; redoStack.length = 0; active = 0; savedThisPainting = false;
   renderLayers(); buttons(); composite(); say('A blank page');
 };

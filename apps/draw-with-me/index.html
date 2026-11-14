@@ -252,7 +252,8 @@
   button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
   .round { width: 72px; height: 72px; border-radius: 50%; border: 4px solid var(--ink); background: #FFFFFF; font-size: 34px; display: grid; place-items: center; flex: none; padding: 0; }
   .round:active, .pick:active, .filt:active, .sw:active { transform: scale(0.94); }
-  .bar { display: flex; align-items: center; gap: 14px; }
+  /* Every bar keeps the top right corner clear for Duckling's Home button (tools/pill-check.mjs). */
+  .bar { display: flex; align-items: center; gap: 14px; padding-right: 210px; }
   .bar h1, .bar h2 { flex: 1; margin: 0; text-align: center; font-weight: 900; }
   h1 { font-size: 44px; } h2 { font-size: 32px; }
   /* home */
@@ -358,7 +359,6 @@
   /* challenges */
   #chalbtn { flex: none; border: 4px solid var(--ink); border-radius: 999px; background: #FFC93C; font-size: 24px; font-weight: 900; padding: 10px 20px; box-shadow: 0 5px 0 rgba(43,33,64,0.18); }
   #chalbtn:active, .cb:active, #chalcheck:active { transform: scale(0.95); }
-  #chal .bar { padding-right: 210px; }
   #chalhead { flex: 1; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; min-width: 0; }
   #chalrung { font-size: 28px; font-weight: 900; }
   #chalhead span { font-size: 18px; font-weight: 800; color: #6A5A86; }
@@ -466,7 +466,7 @@
   </div>
 </section>
 <section id="view" hidden>
-  <div class="bar"><button class="round" id="viewclose" aria-label="Back">⬅️</button><h2>My picture</h2><button class="round" id="viewdel" aria-label="Delete this picture">🗑️</button></div>
+  <div class="bar"><button class="round" id="viewclose" aria-label="Back">⬅️</button><h2>My picture</h2><button class="round" id="viewbg" aria-label="Use as home background" hidden>🖼️</button><button class="round" id="viewdel" aria-label="Delete this picture">🗑️</button></div>
   <canvas id="viewcanvas"></canvas>
 </section>
 <div id="builder" hidden>
@@ -1597,7 +1597,20 @@ function renderGallery() {
     const b = document.createElement('button'); b.className = 'gal'; b.setAttribute('aria-label', item.name);
     const c = document.createElement('canvas'); b.appendChild(c); el.appendChild(b);
     jpgToCanvas(item.jpg, c).catch(() => {});
-    b.addEventListener('click', () => { $('galsheet').hidden = true; show('view'); jpgToCanvas(item.jpg, $('viewcanvas')); $('viewdel').onclick = () => { saveGallery(loadGallery().filter(x => x.id !== item.id)); renderGallery(); show('home'); }; });
+    b.addEventListener('click', () => {
+      $('galsheet').hidden = true; show('view'); jpgToCanvas(item.jpg, $('viewcanvas'));
+      $('viewdel').onclick = () => { saveGallery(loadGallery().filter(x => x.id !== item.id)); renderGallery(); show('home'); };
+      // On a Duckling tablet a saved picture can become the home screen background.
+      const kt = window.KidTablet, bgb = $('viewbg');
+      bgb.hidden = !(kt && kt.platform === 'duckling' && kt.setHomeBackground);
+      bgb.onclick = () => {
+        bgb.disabled = true;
+        kt.setHomeBackground('data:image/jpeg;base64,' + item.jpg)
+          .then(() => { say('Now it is your home screen picture!'); confetti(); })
+          .catch(() => say('That did not work. Try again in a moment.'))
+          .finally(() => { bgb.disabled = false; });
+      };
+    });
   }
 }
 function confetti() {
