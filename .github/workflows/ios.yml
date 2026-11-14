@@ -1,12 +1,11 @@
-# Builds the iPad app on every push that touches ios/. Without the App Store Connect key it compiles for the
+# Builds the iPad app. Without the App Store Connect key it compiles for the
 # simulator only (no signing), which checks every change. With the key in the repository secrets (ASC_KEY_ID,
 # ASC_ISSUER_ID, ASC_KEY_P8), the same run archives a signed build and uploads it to App Store Connect, where it
 # appears in TestFlight. The export signs with the team's cloud-managed distribution certificate through the key.
+# Runs only when started by hand (Actions tab > the workflow > Run workflow, or gh workflow run), so no push spends Actions minutes. macOS minutes count ten times.
 name: iOS
 
 on:
-  push:
-    paths: ["ios/**", ".github/workflows/ios.yml"]
   workflow_dispatch:
 
 jobs:

@@ -1,14 +1,12 @@
-# Builds the Android debug APK on every push that touches android/ and keeps it as a workflow artifact
+# Builds the Android debug APK and keeps it as a workflow artifact
 # (Actions tab > the run > Artifacts > duckling-tablet-debug). The debug keystore is committed, so each build
 # installs over the previous one. With the upload key in the repository secrets (ANDROID_UPLOAD_KEYSTORE as base64,
 # ANDROID_UPLOAD_PASSWORD), the same run builds the release bundle for Google Play (artifact duckling-tablet-release,
 # a signed .aab whose version code is the run number).
+# Runs only when started by hand (Actions tab > the workflow > Run workflow, or gh workflow run), so no push spends Actions minutes.
 name: Android APK
 
 on:
-  push:
-    branches: [main]
-    paths: ["android/**", ".github/workflows/android.yml"]
   workflow_dispatch:
 
 jobs:

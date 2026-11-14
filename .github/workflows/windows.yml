@@ -3,9 +3,8 @@ name: Windows
 # Unit tests, both MSIs (unsigned here; Build-Release.ps1 signs real ones with the EV certificate), then the x64 MSI
 # installed on the runner and driven end to end: service, pipe, shell bridge, a signed package from the production
 # catalog, the app runner, removal and uninstall. Screenshots and logs are kept as artifacts.
+# Runs only when started by hand (Actions tab > the workflow > Run workflow, or gh workflow run), so no push spends Actions minutes. Windows minutes count twice.
 on:
-  push:
-    paths: ['windows/**', '.github/workflows/windows.yml']
   workflow_dispatch:
 
 jobs:
