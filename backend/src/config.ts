@@ -40,6 +40,9 @@ const schema = z.object({
 
   // The free trial a new family gets, in days, with no card. Subscriptions (A3) take over at its end.
   TRIAL_DAYS: z.coerce.number().int().min(1).max(3650).default(7),
+  // Requests per minute from one address, for every route without its own limit. The browser tests drive a whole
+  // family from one address, so they raise it.
+  RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(10).max(100000).default(300),
 
   // The store review family. App Store and Play reviewers cannot read our email, so when both values are set the
   // tablet signup accepts this fixed six-digit code for this one address and sends it no mail. The parent website

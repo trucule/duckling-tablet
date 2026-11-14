@@ -91,7 +91,10 @@
   // ---- 3. The small bridge for apps that look for it -----------------------------------------------------------------
   window.KidTablet = {
     platform: bridge ? 'duckling' : 'browser', appId: APP_ID, childName: CHILD, narratorVoice: VOICE, levels: LEVELS, grade: grade, levelFor: levelFor, rungFor: rungFor,
-    say: function (text, opts) { var u = new SpeechSynthesisUtterance(String(text)); if (opts && opts.rate) u.rate = opts.rate; window.speechSynthesis.speak(u); return u; }
+    say: function (text, opts) { var u = new SpeechSynthesisUtterance(String(text)); if (opts && opts.rate) u.rate = opts.rate; window.speechSynthesis.speak(u); return u; },
+    // Replaced below on a paired tablet; in a plain browser there is no home screen to change.
+    setHomeBackground: function () { return Promise.reject(new Error('Only on a Duckling tablet.')); },
+    clearHomeBackground: function () { return Promise.reject(new Error('Only on a Duckling tablet.')); }
   };
 
   // ---- 4. Services the Surface apps expected, served by the Duckling API ------------------------------------------
@@ -149,6 +152,35 @@
       return realFetch(input, init);
     };
     window.KidTablet.ai = 'duckling';
+
+    // A picture she saved becomes her home screen background, on every tablet of hers. It is resized to fit a screen
+    // (at most 1920 pixels on the long side) and sent as JPEG; transparent parts become white.
+    var toJpeg = function (src) {
+      return new Promise(function (resolve, reject) {
+        var draw = function (img, w, h) {
+          var k = Math.min(1, 1920 / Math.max(w, h)), c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+          var g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+          var d = c.toDataURL('image/jpeg', 0.86);
+          if (d.length > 1900000) d = c.toDataURL('image/jpeg', 0.7);
+          resolve(d);
+        };
+        if (src && src.getContext) return draw(src, src.width, src.height);
+        var img = new Image();
+        img.onload = function () { draw(img, img.naturalWidth, img.naturalHeight); };
+        img.onerror = function () { reject(new Error('That picture could not be read.')); };
+        img.src = String(src);
+      });
+    };
+    window.KidTablet.setHomeBackground = function (src) {
+      return toJpeg(src).then(function (d) { return api('PUT', '/device/child/background', d, 'text/plain'); }).then(function (r) {
+        if (!r.ok) throw new Error(r.status === 409 ? 'This tablet has no child yet.' : 'The background could not be saved. Try again in a moment.');
+        return r.json();
+      });
+    };
+    window.KidTablet.clearHomeBackground = function () {
+      return api('DELETE', '/device/child/background').then(function (r) { if (!r.ok) throw new Error('The background could not be removed.'); return r.json(); });
+    };
 
     // ---- 5. Stars: this app's earned stars from its own saved progress, the rest from the server --------------------
     // The Surface version read every app's progress from one shared storage; here each app sees only its own, so each

@@ -4,7 +4,7 @@ import { shell } from './shell';
 
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
 
-export interface Child { id: string; firstName: string; grade: string | null; age?: number | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; portraitUrl?: string | null; stars?: { earned: number; spent: number; balance: number } }
+export interface Child { id: string; firstName: string; grade: string | null; age?: number | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; portraitUrl?: string | null; backgroundUrl?: string | null; stars?: { earned: number; spent: number; balance: number } }
 export interface InstalledApp { id: string; name: string; version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[]; tileUrl: string | null }
 export interface AllowEntry { host: string; tile?: { name: string; url: string; color?: string } }
 export interface Entitlement { status: 'trial' | 'active' | 'grace' | 'ended' | 'none'; source: string | null; periodEnd: string | null; daysLeft: number | null }
@@ -71,5 +71,6 @@ export const api = {
   // App requests from the parent area: the same queue as the portal's, one in progress per family.
   requests: () => call<{ requests: AppRequest[] }>('GET', '/device/requests'),
   createRequest: (title: string, description: string) => call<AppRequest>('POST', '/device/requests', { title, description }),
+  clearBackground: () => call<{ backgroundUrl: null }>('DELETE', '/device/child/background'),
   withdrawRequest: (id: string) => call<AppRequest>('POST', `/device/requests/${id}/withdraw`, {}),
 };

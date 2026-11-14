@@ -34,7 +34,7 @@ beforeAll(async () => {
   ({ db } = await cluster.newDb());
   const apiPort = await freePort(), portalPort = await freePort();
   api = `http://127.0.0.1:${apiPort}`; portal = `http://127.0.0.1:${portalPort}`;
-  const cfg = loadConfig({ NODE_ENV: 'test', STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), ADMIN_TOKEN: ADMIN, PUBLIC_URL: api, PORTAL_URL: portal });
+  const cfg = loadConfig({ NODE_ENV: 'test', RATE_LIMIT_PER_MINUTE: 5000, STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), ADMIN_TOKEN: ADMIN, PUBLIC_URL: api, PORTAL_URL: portal });
   ({ app } = await buildServer(cfg, { db, logger: false, mailer: { async send(_to, _s, text) { mails.push(text); } }, synth: async () => null, createTicket: async () => null }));
   await app.listen({ port: apiPort, host: '127.0.0.1' });
   const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -65,6 +65,7 @@ describe.skipIf(!ready)('parent portal', () => {
       await route.fulfill({ status: r.status, headers: Object.fromEntries(r.headers), body: Buffer.from(await r.arrayBuffer()) });
     });
     const p = await ctx.newPage();
+    p.on('response', (r) => { if (r.status() >= 400 && process.env.LOG_HTTP) console.log('HTTP', r.status(), r.request().method(), r.url().replace(/^https?:\/\/[^/]+/, '')); });
     const errors: string[] = [];
     p.on('pageerror', (e) => errors.push(e.message));
 

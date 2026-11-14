@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createHash, createHmac } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
@@ -668,6 +668,52 @@ describe('child avatar and stars', () => {
     const up2 = await app.inject({ method: 'PUT', url: '/device/child/portrait', headers: { ...t1.dev, 'content-type': 'text/plain' }, payload: `data:image/png;base64,${png2.toString('base64')}` });
     expect((await app.inject({ method: 'GET', url: up2.json().portraitUrl.replace('https://api.test', '') })).rawPayload.equals(png2)).toBe(true);
     expect((await app.inject({ method: 'GET', url: link.replace('https://api.test', '') })).statusCode).toBe(404);
+  });
+
+  it('keeps her home background on her profile: set from a tablet, on every tablet of hers, cleared, and deleted with her', async () => {
+    const p = await signIn('bg@example.com');
+    const ada = (await app.inject({ method: 'POST', url: '/children', headers: p.auth, payload: { firstName: 'Ada' } })).json();
+    const t1 = await pair(p.auth, ada.id), t2 = await pair(p.auth, ada.id), none = await pair(p.auth);
+    const files = () => readdirSync(join(dir, 'files', 'backgrounds')).length;
+    const put = (dev: any, body: string) => app.inject({ method: 'PUT', url: '/device/child/background', headers: { ...dev, 'content-type': 'text/plain' }, payload: body });
+    const jpg = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), Buffer.alloc(400_000, 3)]); // a large painting
+    const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(300, 5)]);
+    // Refused: no child on the tablet, a type that does not match its bytes, something that is not an image, too large.
+    expect((await put(none.dev, `data:image/png;base64,${png.toString('base64')}`)).statusCode).toBe(409);
+    expect((await put(t1.dev, `data:image/png;base64,${jpg.toString('base64')}`)).statusCode).toBe(400);
+    expect((await put(t1.dev, 'data:image/gif;base64,R0lGODlh')).statusCode).toBe(415);
+    expect((await put(t1.dev, `data:image/jpeg;base64,${Buffer.concat([jpg, Buffer.alloc(1_200_000)]).toString('base64')}`)).statusCode).toBe(400);
+    // Set on one tablet: a signed link, in the config of both of her tablets, served as JPEG.
+    const up = await put(t1.dev, `data:image/jpeg;base64,${jpg.toString('base64')}`);
+    expect(up.statusCode).toBe(200);
+    const link: string = up.json().backgroundUrl;
+    expect(link).toMatch(new RegExp(`^https://api.test/children/${ada.id}/background\\?exp=\\d+&sig=[0-9a-f]{32}$`));
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: t2.dev })).json().child.backgroundUrl).toMatch(/\/background\?exp=/);
+    const got = await app.inject({ method: 'GET', url: link.replace('https://api.test', '') });
+    expect(got.headers['content-type']).toBe('image/jpeg'); expect(got.rawPayload.equals(jpg)).toBe(true);
+    expect((await app.inject({ method: 'GET', url: `/children/${ada.id}/background`, headers: (await signIn('else2@example.com')).auth })).statusCode).toBe(404);
+    // A new one replaces the old file; clearing removes it and the link stops working.
+    const up2 = await put(t2.dev, `data:image/png;base64,${png.toString('base64')}`);
+    expect(files()).toBe(1);
+    expect((await app.inject({ method: 'GET', url: link.replace('https://api.test', '') })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'DELETE', url: '/device/child/background', headers: t1.dev })).json()).toEqual({ backgroundUrl: null });
+    expect(files()).toBe(0);
+    expect((await app.inject({ method: 'GET', url: up2.json().backgroundUrl.replace('https://api.test', '') })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: t1.dev })).json().child.backgroundUrl).toBeNull();
+    // Deleting the child, and deleting the account, remove her pictures from storage too.
+    await put(t1.dev, `data:image/png;base64,${png.toString('base64')}`);
+    await app.inject({ method: 'PUT', url: '/device/child/portrait', headers: { ...t1.dev, 'content-type': 'text/plain' }, payload: `data:image/png;base64,${png.toString('base64')}` });
+    const portraits = () => readdirSync(join(dir, 'files', 'portraits')).filter((f) => f.startsWith(ada.id)).length;
+    expect([files(), portraits()]).toEqual([1, 1]);
+    expect((await app.inject({ method: 'DELETE', url: `/children/${ada.id}`, headers: p.auth })).statusCode).toBe(200);
+    expect([files(), portraits()]).toEqual([0, 0]);
+    const q = await signIn('bg2@example.com');
+    const bea = (await app.inject({ method: 'POST', url: '/children', headers: q.auth, payload: { firstName: 'Bea' } })).json();
+    const tb = await pair(q.auth, bea.id);
+    await put(tb.dev, `data:image/png;base64,${png.toString('base64')}`);
+    expect(files()).toBe(1);
+    expect((await app.inject({ method: 'DELETE', url: '/family', headers: q.auth, payload: { confirm: 'DELETE' } })).statusCode).toBe(200);
+    expect(files()).toBe(0);
   });
 });
 

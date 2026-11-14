@@ -88,7 +88,7 @@ beforeAll(async () => {
   ({ db } = await cluster.newDb());
   const apiPort = await freePort(), webPort = await freePort();
   api = `http://127.0.0.1:${apiPort}`; web = `http://127.0.0.1:${webPort}`;
-  const cfg = loadConfig({ NODE_ENV: 'test', STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), ADMIN_TOKEN: ADMIN, PUBLIC_URL: api, APP_URL: web });
+  const cfg = loadConfig({ NODE_ENV: 'test', RATE_LIMIT_PER_MINUTE: 5000, STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), ADMIN_TOKEN: ADMIN, PUBLIC_URL: api, APP_URL: web });
   ({ app } = await buildServer(cfg, { db, logger: false, stripe, mailer: { async send(_to, _s, text) { mails.push(text); } }, synth: async () => null, createTicket: async () => null }));
   await app.listen({ port: apiPort, host: '127.0.0.1' });
   webServer = serveDist(webPort);

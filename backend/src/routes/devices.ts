@@ -3,9 +3,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
+import { notifyDevices } from '../notify.js';
 import type { Q } from '../db.js';
 import { deviceAuth, parentAuth } from '../auth.js';
-import { childRow, portraitUrl, starsOf } from './family.js';
+import { backgroundUrl, childRow, portraitUrl, starsOf } from './family.js';
 import { entitlementOf, isLocked, requireSubscribed } from '../entitlement.js';
 import { listCatalog } from '../catalog.js';
 import { after } from '../notify.js';
@@ -48,7 +49,7 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
   const d = await q.one('SELECT * FROM device WHERE id = $1', [deviceId]);
   if (!d) throw notFound('No such device');
   const childRaw = d.child_id ? await q.one('SELECT * FROM child WHERE id = $1', [d.child_id]) : null;
-  const child = childRaw ? { ...childRow(childRaw), portraitUrl: portraitUrl(ctx.cfg, childRaw.id, childRaw.portrait_key), stars: await starsOf(q, childRaw.id, childRaw.avatar) } : null;
+  const child = childRaw ? { ...childRow(childRaw), portraitUrl: portraitUrl(ctx.cfg, childRaw.id, childRaw.portrait_key), backgroundUrl: backgroundUrl(ctx.cfg, childRaw.id, childRaw.background_key), stars: await starsOf(q, childRaw.id, childRaw.avatar) } : null;
   const installed = new Set((await q.all('SELECT app_id FROM device_app WHERE device_id = $1', [deviceId])).map((r) => r.app_id as string));
   const hidden = new Set((await q.all('SELECT app_id FROM device_hidden_app WHERE device_id = $1', [deviceId])).map((r) => r.app_id as string));
   const catalog = (await listCatalog(ctx, q)).filter((a) => !hidden.has(a.id));
@@ -388,6 +389,46 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
       return { portraitUrl: portraitUrl(ctx.cfg, childId, key) };
     });
   });
+
+  app.register(async (pics) => {
+    pics.addContentTypeParser('text/plain', { parseAs: 'string', bodyLimit: 2_200_000 }, (_req, body, done) => done(null, body));
+    // The home background: a picture she saved in an app, as a PNG or JPEG data URL up to 1.5 MB. Every tablet of hers
+    // shows it at its next check-in (a push tells them now). DELETE goes back to the plain home screen.
+    pics.put('/device/child/background', async (req) => {
+      const dv = await deviceAuth(ctx, req);
+      const childId = await withChild(dv);
+      const raw = typeof req.body === 'string' ? req.body : '';
+      const m = raw.match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=\s]+)$/);
+      if (!m) throw new HttpError(415, 'Send a PNG or JPEG data URL');
+      const img = Buffer.from(m[2].replace(/\s/g, ''), 'base64');
+      const png = img.subarray(0, 8).toString('hex') === '89504e470d0a1a0a', jpg = img.subarray(0, 3).toString('hex') === 'ffd8ff';
+      if (img.length < 100 || img.length > 1_500_000 || !(m[1] === 'png' ? png : jpg)) throw new HttpError(400, 'Not a PNG or JPEG, or too large');
+      const key = `backgrounds/${childId}-${sha256(img).slice(0, 12)}.${png ? 'png' : 'jpg'}`;
+      await ctx.storage.put(key, img, png ? 'image/png' : 'image/jpeg', false);
+      const old = await setBackground(dv.familyId, childId, key, `device:${dv.deviceId}`);
+      if (old && old !== key) { try { await ctx.storage.delete(old); } catch { /* a stale file costs little */ } }
+      void notifyDevices(ctx, dv.familyId);
+      return { backgroundUrl: backgroundUrl(ctx.cfg, childId, key) };
+    });
+  });
+
+  app.delete('/device/child/background', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const childId = await withChild(dv);
+    const old = await setBackground(dv.familyId, childId, null, `device:${dv.deviceId}`);
+    if (old) { try { await ctx.storage.delete(old); } catch { /* a stale file costs little */ } }
+    void notifyDevices(ctx, dv.familyId);
+    return { backgroundUrl: null };
+  });
+
+  async function setBackground(familyId: string, childId: string, key: string | null, actor: string) {
+    return ctx.db.family(familyId, async (q) => {
+      const prev = await q.one<{ background_key: string | null }>('SELECT background_key FROM child WHERE id = $1', [childId]);
+      await q.run('UPDATE child SET background_key = $2 WHERE id = $1', [childId, key]);
+      await audit(q, familyId, actor, key ? 'child.background.set' : 'child.background.cleared', { childId });
+      return prev?.background_key ?? null;
+    });
+  }
 
   // The first tablet sets the family PIN when none exists yet; after that the website owns it.
   app.put('/device/pin', async (req) => {

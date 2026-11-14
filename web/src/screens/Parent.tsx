@@ -148,6 +148,8 @@ export function Parent() {
       </div>
       )}
 
+      {!unlinked.value && <HomeBackground />}
+
       {!unlinked.value && <AskForApp />}
 
       {ios && (
@@ -397,13 +399,36 @@ function AskForApp() {
             <input maxLength={80} placeholder="A dinosaur counting game" value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} />
           </label>
           <label class="field"><span>What it should do</span>
-            <textarea maxLength={2000} rows={4} placeholder="She loves dinosaurs and is learning to count to 20. Dinosaurs hatch from eggs and she counts them..." value={desc} onInput={(e) => setDesc((e.target as HTMLTextAreaElement).value)} />
+            <textarea maxLength={2000} rows={4} placeholder="Loves dinosaurs and is learning to count to 20. Dinosaurs hatch from eggs and the child counts them..." value={desc} onInput={(e) => setDesc((e.target as HTMLTextAreaElement).value)} />
           </label>
           <div class="row">
             <button class="pill primary" disabled={!!busy || title.trim().length < 3 || desc.trim().length < 10}>{busy || 'Send the request'}</button>
           </div>
         </form>
       )}
+      {error && <div class="error">{error}</div>}
+    </div>
+  );
+}
+
+// The home background she chose from a saved picture. It follows her to every tablet; a parent can remove it here.
+function HomeBackground() {
+  const url = config.value?.child?.backgroundUrl;
+  const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const remove = async () => {
+    setBusy(true); setError('');
+    try { await api.clearBackground(); await checkin(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <div class="card">
+      <h2>Home background</h2>
+      {url ? (
+        <>
+          <img class="bg-preview" src={url} alt="The home background" />
+          <p>Your child chose this picture. It shows on all of their tablets.</p>
+          <div class="row"><button class="pill quiet" disabled={busy} onClick={remove}>{busy ? 'Removing' : 'Remove it'}</button></div>
+        </>
+      ) : <p>None. Your child can pick one from a saved picture in Paint Studio or Draw With Me: open the saved pictures and tap Use as home background.</p>}
       {error && <div class="error">{error}</div>}
     </div>
   );

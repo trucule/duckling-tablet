@@ -49,8 +49,11 @@ export function Home() {
     const fromLibrary = catalog.value.find((a) => a.id === AVATAR);
     if (fromLibrary) void installFromStore(fromLibrary); else go('store');
   };
+  // Her home background: a picture she chose in an app (Paint Studio, Draw With Me). Tile names get a light label
+  // so they read over any picture.
+  const bg = c?.child?.backgroundUrl;
   return (
-    <div class="screen">
+    <div class={`screen${bg ? ' with-bg' : ''}`} style={bg ? { backgroundImage: `url("${bg.replace(/"/g, '%22')}")` } : undefined}>
       <div class="topbar">
         <span class="who">
           <button class="avatar" onClick={openAvatar} aria-label="Your avatar" style={{ background: themeColors.value[0] ?? undefined }}>

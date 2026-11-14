@@ -44,7 +44,7 @@ beforeAll(async () => {
   ({ db } = await cluster.newDb());
   const apiPort = await freePort(), webPort = await freePort();
   api = `http://127.0.0.1:${apiPort}`; web = `http://127.0.0.1:${webPort}`;
-  const cfg = loadConfig({ NODE_ENV: 'test', STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), ADMIN_TOKEN: ADMIN, PUBLIC_URL: api, APP_URL: web });
+  const cfg = loadConfig({ NODE_ENV: 'test', RATE_LIMIT_PER_MINUTE: 5000, STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), ADMIN_TOKEN: ADMIN, PUBLIC_URL: api, APP_URL: web });
   ({ app } = await buildServer(cfg, { db, logger: false, mailer: { async send(_to, _s, text) { mails.push(text); } }, synth: async () => null, createTicket: async () => null,
     // A website that publishes a touch icon, for the website tile.
     fetchUrl: async (url) => url === 'https://pbskids.org/' ? { status: 200, type: 'text/html', body: Buffer.from('<link rel="apple-touch-icon" href="/t.png">') }
@@ -59,7 +59,7 @@ beforeAll(async () => {
 afterAll(async () => {
   webServer?.close(); await app?.close(); await db?.close(); await cluster?.stop();
   // Keep the screenshots when asked (WEB_SHOTS=/some/dir), otherwise clean up.
-  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['home.png', 'site-tile.png', 'library.png', 'parent.png', 'ask.png', 'ask-sent.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
+  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['home.png', 'home-bg.png', 'bg-card.png', 'site-tile.png', 'library.png', 'parent.png', 'ask.png', 'ask-sent.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
   if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -163,6 +163,19 @@ describe.skipIf(!ready)('child web app', () => {
     await p.waitForFunction(() => { const i = document.querySelector('.art.site img') as HTMLImageElement | null; return !!i && i.complete && i.naturalWidth > 0; });
     await p.getByRole('button', { name: 'PBS KIDS' }).screenshot({ path: join(dir, 'site-tile.png') });
     await p.screenshot({ path: join(dir, 'home.png') });
+    // A picture she saved in an app becomes the home background (what KidTablet.setHomeBackground sends).
+    const picture = await p.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 1280; c.height = 800; const g = c.getContext('2d')!;
+      const sky = g.createLinearGradient(0, 0, 0, 800); sky.addColorStop(0, '#7cc8ff'); sky.addColorStop(1, '#ffe6a8'); g.fillStyle = sky; g.fillRect(0, 0, 1280, 800);
+      g.fillStyle = '#ffcc33'; g.beginPath(); g.arc(1000, 180, 90, 0, 7); g.fill(); g.fillStyle = '#4caf50'; g.fillRect(0, 600, 1280, 200);
+      return c.toDataURL('image/jpeg', 0.85);
+    });
+    const devToken = await p.evaluate(() => localStorage.getItem('duckling.token'));
+    expect((await fetch(`${api}/device/child/background`, { method: 'PUT', headers: { authorization: `Device ${devToken}`, 'content-type': 'text/plain' }, body: picture })).status).toBe(200);
+    await p.evaluate(() => (window as any).DucklingWeb.onPush());
+    await p.waitForFunction(() => /background\?exp=/.test((document.querySelector('.screen.with-bg') as HTMLElement | null)?.style.backgroundImage ?? ''));
+    await p.waitForTimeout(400);
+    await p.screenshot({ path: join(dir, 'home-bg.png') });
     // The child's own character sits in a circle at the top (her first letter until My Avatar saves a portrait), and
     // tapping it opens My Avatar (the browser shell says apps run on the tablet).
     const avatar = p.getByRole('button', { name: 'Your avatar', exact: true });
@@ -228,6 +241,14 @@ describe.skipIf(!ready)('child web app', () => {
     await ask.getByRole('button', { name: 'Withdraw it' }).click();
     await ask.getByRole('button', { name: 'Send the request' }).waitFor();
     await ask.getByText('Last request: Dinosaur counting, withdrawn.').waitFor();
+    // The parent area shows the home background and removes it; the home screen goes back to plain.
+    const bgCard = p.locator('.card', { has: p.getByRole('heading', { name: 'Home background' }) });
+    await bgCard.locator('img.bg-preview').waitFor();
+    await bgCard.scrollIntoViewIfNeeded();
+    await p.screenshot({ path: join(dir, 'bg-card.png') });
+    await bgCard.getByRole('button', { name: 'Remove it' }).click();
+    await bgCard.getByText('None. Your child can pick one', { exact: false }).waitFor();
+    expect(await p.evaluate(() => document.querySelector('.with-bg'))).toBeNull();
     // The PIN typed on the tablet became the family PIN; a change on the website reaches the tablet at its next check-in.
     expect((await (await fetch(`${api}/family`, { headers: auth })).json()).pinSet).toBe(true);
     await fetch(`${api}/family/pin`, { method: 'PUT', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ pin: '1357' }) });

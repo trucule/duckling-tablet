@@ -60,7 +60,7 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
   // iPad's local server, and the Windows shell's WebView2 virtual host. The public site reads the Windows release.
   // The portal and the web app call every verb the API has; @fastify/cors allows only GET, HEAD and POST unless told.
   await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL, cfg.SITE_URL, 'https://appassets.androidplatform.net', 'duckling-app://local', 'https://apps.duckling.example'], credentials: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
-  await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
+  await app.register(rateLimit, { global: true, max: cfg.RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute' });
 
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof ZodError) return reply.code(400).send({ error: 'Invalid request', issues: err.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });

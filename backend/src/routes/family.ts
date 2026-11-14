@@ -35,17 +35,34 @@ export const starsOf = async (q: Q, childId: string, avatar: { spent?: number } 
   return { earned, spent: Math.max(0, Number(avatar?.spent ?? 0) | 0), balance: Math.max(0, earned - (Number(avatar?.spent ?? 0) | 0)) };
 };
 
-// The portrait is private in storage. Signed links (30 days) go into device configs and portal rows.
+// The child's pictures (her portrait from My Avatar, her home background) are private in storage. Signed links
+// (30 days) go into device configs and portal rows. The key is part of the signature, so a new picture gets a new link.
+export type ChildImage = 'portrait' | 'background';
+const IMAGE_COLUMN: Record<ChildImage, 'portrait_key' | 'background_key'> = { portrait: 'portrait_key', background: 'background_key' };
 export const portraitPath = (childId: string) => `/children/${childId}/portrait`;
 export const portraitSign = (secret: string, childId: string, key: string, exp: number) => hashToken(`${childId}/${key}/${exp}`, secret).slice(0, 32);
-export const portraitUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, key: string | null) => {
+export const childImageUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, kind: ChildImage, key: string | null) => {
   if (!key) return null;
   const exp = Date.now() + 30 * 86_400_000;
-  return `${cfg.PUBLIC_URL}${portraitPath(childId)}?exp=${exp}&sig=${portraitSign(cfg.SESSION_SECRET, childId, key, exp)}`;
+  return `${cfg.PUBLIC_URL}/children/${childId}/${kind}?exp=${exp}&sig=${portraitSign(cfg.SESSION_SECRET, childId, key, exp)}`;
 };
+export const portraitUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, key: string | null) => childImageUrl(cfg, childId, 'portrait', key);
+export const backgroundUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, key: string | null) => childImageUrl(cfg, childId, 'background', key);
+
+/** Every stored file that belongs to the family or one child: pictures and request attachments, for deletion. */
+export async function storedFilesOf(q: Q, where: { familyId?: string; childId?: string }): Promise<string[]> {
+  const rows = where.childId
+    ? await q.all<{ k: string | null }>('SELECT unnest(ARRAY[portrait_key, background_key]) AS k FROM child WHERE id = $1', [where.childId])
+    : await q.all<{ k: string | null }>(`SELECT unnest(ARRAY[portrait_key, background_key]) AS k FROM child WHERE family_id = $1
+        UNION ALL SELECT storage_key FROM request_attachment WHERE family_id = $1`, [where.familyId]);
+  return rows.map((r) => r.k).filter((k): k is string => !!k);
+}
+async function removeStored(ctx: Ctx, keys: string[]) {
+  for (const k of keys) { try { await ctx.storage.delete(k); } catch { /* the rows are gone; a stray file is retried by nothing and costs little */ } }
+}
 
 // A child row for parents: profile, stars, portrait link.
-export const childWithExtras = async (ctx: Ctx, q: Q, r: any) => ({ ...childRow(r), stars: await starsOf(q, r.id, r.avatar), portraitUrl: portraitUrl(ctx.cfg, r.id, r.portrait_key), avatarSavedAt: r.avatar_saved_at ?? null });
+export const childWithExtras = async (ctx: Ctx, q: Q, r: any) => ({ ...childRow(r), stars: await starsOf(q, r.id, r.avatar), portraitUrl: portraitUrl(ctx.cfg, r.id, r.portrait_key), backgroundUrl: backgroundUrl(ctx.cfg, r.id, r.background_key), avatarSavedAt: r.avatar_saved_at ?? null });
 
 const DEVICE_COLUMNS = `id, child_id AS "childId", platform, name, state, shell_version AS "shellVersion", battery, last_seen_at AS "lastSeenAt"`;
 
@@ -112,24 +129,27 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
     });
   });
 
-  // The child's portrait, drawn in My Avatar: parents with a session, and signed links from configs and portal rows.
-  app.get<{ Params: { id: string }; Querystring: { exp?: string; sig?: string } }>('/children/:id/portrait', async (req, reply) => {
-    const { id } = req.params;
-    const exp = Number(req.query.exp), sig = String(req.query.sig ?? '');
-    let row: { portrait_key: string | null } | null | undefined;
-    if (Number.isFinite(exp) && exp > Date.now() && sig.length === 32) {
-      row = await ctx.db.system((q) => q.one('SELECT portrait_key FROM child WHERE id = $1', [id]));
-      if (!row?.portrait_key || !safeEqual(sig, portraitSign(ctx.cfg.SESSION_SECRET, id, row.portrait_key, exp))) throw notFound('No portrait');
-    } else {
-      const a = await parentAuth(ctx, req);
-      row = await ctx.db.family(a.familyId, (q) => q.one('SELECT portrait_key FROM child WHERE id = $1', [id]));
-    }
-    if (!row?.portrait_key) throw notFound('No portrait');
-    const bytes = await ctx.storage.get(row.portrait_key);
-    if (!bytes) throw notFound('No portrait');
-    reply.header('Cache-Control', 'private, max-age=3600').type('image/png');
-    return reply.send(bytes);
-  });
+  // The child's pictures (portrait, home background): parents with a session, and signed links from configs and portal rows.
+  for (const kind of ['portrait', 'background'] as const) {
+    const col = IMAGE_COLUMN[kind];
+    app.get<{ Params: { id: string }; Querystring: { exp?: string; sig?: string } }>(`/children/:id/${kind}`, async (req, reply) => {
+      const { id } = req.params;
+      const exp = Number(req.query.exp), sig = String(req.query.sig ?? '');
+      let key: string | null | undefined;
+      if (Number.isFinite(exp) && exp > Date.now() && sig.length === 32) {
+        key = (await ctx.db.system((q) => q.one<Record<string, string | null>>(`SELECT ${col} AS k FROM child WHERE id = $1`, [id])))?.k;
+        if (!key || !safeEqual(sig, portraitSign(ctx.cfg.SESSION_SECRET, id, key, exp))) throw notFound(`No ${kind}`);
+      } else {
+        const a = await parentAuth(ctx, req);
+        key = (await ctx.db.family(a.familyId, (q) => q.one<Record<string, string | null>>(`SELECT ${col} AS k FROM child WHERE id = $1`, [id])))?.k;
+      }
+      if (!key) throw notFound(`No ${kind}`);
+      const bytes = await ctx.storage.get(key);
+      if (!bytes) throw notFound(`No ${kind}`);
+      reply.header('Cache-Control', 'private, max-age=3600').type(key.endsWith('.jpg') ? 'image/jpeg' : 'image/png');
+      return reply.send(bytes);
+    });
+  }
 
   app.post('/children', async (req) => {
     const a = await parentAuth(ctx, req);
@@ -163,12 +183,15 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
 
   app.delete<{ Params: { id: string } }>('/children/:id', async (req) => {
     const a = await parentAuth(ctx, req);
-    return ctx.db.family(a.familyId, async (q) => {
+    const files = await ctx.db.family(a.familyId, async (q) => {
+      const keys = await storedFilesOf(q, { childId: req.params.id });
       const n = await q.run('DELETE FROM child WHERE id = $1', [req.params.id]);
       if (!n) throw notFound('No such child');
       await audit(q, a.familyId, `parent:${a.parentId}`, 'child.deleted', { id: req.params.id });
-      return { ok: true };
+      return keys;
     });
+    await removeStored(ctx, files);
+    return { ok: true };
   });
 
   // Delete account and all data: every device is told to release itself on its next check-in, then the family's
@@ -185,12 +208,16 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
         for (const s of await ctx.stripe.subscriptionsOf(customer)) if (!['canceled', 'incomplete_expired'].includes(s.status)) await ctx.stripe.cancel(s.id);
       } catch { throw new HttpError(503, 'The card subscription could not be cancelled right now. Try again later.'); }
     }
-    await ctx.db.system(async (q) => {
+    const files = await ctx.db.system(async (q) => {
+      const keys = await storedFilesOf(q, { familyId: a.familyId });
       await q.run('INSERT INTO device_tombstone (token_hash) SELECT token_hash FROM device WHERE family_id = $1 ON CONFLICT DO NOTHING', [a.familyId]);
       await q.run('DELETE FROM family WHERE id = $1', [a.familyId]);
       await q.run('DELETE FROM audit WHERE family_id = $1', [a.familyId]);
       await audit(q, null, 'system', 'family.deleted');
+      return keys;
     });
+    // The pictures and request attachments go after the records, so a failed delete never leaves a record without its file.
+    await removeStored(ctx, files);
     return { deleted: true };
   });
 }
