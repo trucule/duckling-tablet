@@ -163,7 +163,7 @@ describe('Stripe subscriptions', () => {
     expect(report).toContain(`Family ${f.familyId}`);
     expect(report).toMatch(/entitlement: active via stripe/);
     expect(report).toMatch(/purchase stripe stripe:sub_W duckling_monthly: active/);
-    expect(report).toMatch(/device dev_\w+ windows "Surface" active/);
+    expect(report).toMatch(/device dev_[\w-]+ windows "Surface" active/);
     expect(report).toMatch(/Purchases updated in the last day: ?\n.*stripe:sub_W active -> family /);
     expect(fam).toMatchObject({ cardPayments: true, cardCustomer: true, subscription: { status: 'active', source: 'stripe' } });
 
