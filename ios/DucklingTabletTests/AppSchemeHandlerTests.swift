@@ -76,6 +76,10 @@ extension AppSchemeHandlerTests {
     func testMicrophoneRequestFromAPackage() async throws {
         let ui = Capture()
         web.uiDelegate = ui
+        // WebKit holds capture requests from a page that is not on screen, as the app runner's page always is.
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        let host = UIViewController(); host.view.addSubview(web); window.rootViewController = host; window.makeKeyAndVisible()
+        defer { window.isHidden = true }
         try await load("index.html")
         let result = try await js("""
             try { const s = await Promise.race([navigator.mediaDevices.getUserMedia({ audio: true }), new Promise((_, no) => setTimeout(() => no(Object.assign(new Error('no answer in 10 s'), { name: 'Timeout' })), 10000))]); s.getTracks().forEach(t => t.stop()); return 'ok'; }
