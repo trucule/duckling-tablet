@@ -10,3 +10,16 @@ describe('media hosts for allowed websites', () => {
     expect(mediaHostsFor([])).toEqual([]);
   });
 });
+
+describe('linkExpiry', () => {
+  it('stays the same for 15 days and is always 30 to 45 days ahead', async () => {
+    const { linkExpiry } = await import('../src/util.js');
+    const day = 86_400_000, t = Date.UTC(2026, 10, 14, 20);
+    for (let h = 0; h < 15 * 24; h += 7) {
+      const now = t + h * 3_600_000, e = linkExpiry(now);
+      expect(e - now).toBeGreaterThanOrEqual(30 * day);
+      expect(e - now).toBeLessThanOrEqual(45 * day);
+    }
+    expect(linkExpiry(t)).toBe(linkExpiry(t + 1000));
+  });
+});

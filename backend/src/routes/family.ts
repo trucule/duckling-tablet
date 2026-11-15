@@ -5,7 +5,7 @@ import { audit, type Ctx } from '../context.js';
 import type { Q } from '../db.js';
 import { entitlementOf } from '../entitlement.js';
 import { parentAuth } from '../auth.js';
-import { HttpError, hashToken, inDays, newId, newToken, notFound, safeEqual, sha256 } from '../util.js';
+import { HttpError, hashToken, inDays, linkExpiry, newId, newToken, notFound, safeEqual, sha256 } from '../util.js';
 import { redactText } from '../logging.js';
 import { notifyDevices } from '../notify.js';
 
@@ -43,7 +43,7 @@ export const portraitPath = (childId: string) => `/children/${childId}/portrait`
 export const portraitSign = (secret: string, childId: string, key: string, exp: number) => hashToken(`${childId}/${key}/${exp}`, secret).slice(0, 32);
 export const childImageUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, kind: ChildImage, key: string | null) => {
   if (!key) return null;
-  const exp = Date.now() + 30 * 86_400_000;
+  const exp = linkExpiry();
   return `${cfg.PUBLIC_URL}/children/${childId}/${kind}?exp=${exp}&sig=${portraitSign(cfg.SESSION_SECRET, childId, key, exp)}`;
 };
 export const portraitUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, key: string | null) => childImageUrl(cfg, childId, 'portrait', key);
@@ -135,8 +135,9 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
     app.get<{ Params: { id: string }; Querystring: { exp?: string; sig?: string } }>(`/children/:id/${kind}`, async (req, reply) => {
       const { id } = req.params;
       const exp = Number(req.query.exp), sig = String(req.query.sig ?? '');
-      let key: string | null | undefined;
+      let key: string | null | undefined, signed = false;
       if (Number.isFinite(exp) && exp > Date.now() && sig.length === 32) {
+        signed = true;
         key = (await ctx.db.system((q) => q.one<Record<string, string | null>>(`SELECT ${col} AS k FROM child WHERE id = $1`, [id])))?.k;
         if (!key || !safeEqual(sig, portraitSign(ctx.cfg.SESSION_SECRET, id, key, exp))) throw notFound(`No ${kind}`);
       } else {
@@ -146,7 +147,8 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
       if (!key) throw notFound(`No ${kind}`);
       const bytes = await ctx.storage.get(key);
       if (!bytes) throw notFound(`No ${kind}`);
-      reply.header('Cache-Control', 'private, max-age=3600').type(key.endsWith('.jpg') ? 'image/jpeg' : 'image/png');
+      // A signed link names one stored picture (the signature covers its key), so it can be kept for as long as it works.
+      reply.header('Cache-Control', signed ? 'private, max-age=2592000, immutable' : 'private, no-cache').type(key.endsWith('.jpg') ? 'image/jpeg' : 'image/png');
       return reply.send(bytes);
     });
   }

@@ -207,6 +207,30 @@ describe.skipIf(!ready)('child web app', () => {
     await p.evaluate(() => window.scrollTo(0, 0));
     await p.waitForTimeout(400);
     await p.screenshot({ path: join(dir, 'home-bg.png') });
+    // Coming home again (check-ins, a trip to the Library) keeps the same picture link and never downloads the picture
+    // again, and the background is on screen in the first frame back. Only a new picture changes it.
+    const bgOf = () => p.evaluate(() => (document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? '');
+    const firstBg = await bgOf();
+    let bgFetches = 0;
+    const countBg = (r: { url(): string }) => { if (/\/background\?/.test(r.url())) bgFetches++; };
+    p.on('request', countBg);
+    for (let i = 0; i < 2; i++) { await p.evaluate(() => (window as any).DucklingWeb.onResume()); await p.waitForTimeout(600); }
+    await p.getByRole('button', { name: 'Library' }).click();
+    await p.getByRole('heading', { name: 'Library' }).waitFor();
+    const backHome = await p.evaluate(() => new Promise<string>((resolve) => {
+      const home = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Home') as HTMLElement;
+      home.click();
+      requestAnimationFrame(() => resolve((document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? 'none'));
+    }));
+    expect(backHome).toBe(firstBg);
+    await p.waitForTimeout(600);
+    expect(await bgOf()).toBe(firstBg);
+    expect(bgFetches).toBe(0);
+    p.off('request', countBg);
+    const second = await p.evaluate(() => { const c = document.createElement('canvas'); c.width = 400; c.height = 300; const g = c.getContext('2d')!; g.fillStyle = '#8e44ad'; g.fillRect(0, 0, 400, 300); return c.toDataURL('image/png'); });
+    expect((await fetch(`${api}/device/child/background`, { method: 'PUT', headers: { authorization: `Device ${devToken}`, 'content-type': 'text/plain' }, body: second })).status).toBe(200);
+    await p.evaluate(() => (window as any).DucklingWeb.onResume());
+    await p.waitForFunction((old) => { const b = (document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? ''; return /background\?exp=/.test(b) && b !== old; }, firstBg);
     // The child's own character sits in a circle at the top (her first letter until My Avatar saves a portrait), and
     // tapping it opens My Avatar (the browser shell says apps run on the tablet).
     const avatar = p.getByRole('button', { name: 'Your avatar', exact: true });

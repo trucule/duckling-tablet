@@ -705,6 +705,10 @@ describe('child avatar and stars', () => {
     const link: string = up.json().backgroundUrl;
     expect(link).toMatch(new RegExp(`^https://api.test/children/${ada.id}/background\\?exp=\\d+&sig=[0-9a-f]{32}$`));
     expect((await app.inject({ method: 'GET', url: '/device/config', headers: t2.dev })).json().child.backgroundUrl).toMatch(/\/background\?exp=/);
+    // Every check-in hands out the same link for the same picture, and the picture can be kept by the browser.
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: t2.dev })).json().child.backgroundUrl).toBe(link);
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: t1.dev })).json().child.backgroundUrl).toBe(link);
+    expect((await app.inject({ method: 'GET', url: link.replace('https://api.test', '') })).headers['cache-control']).toBe('private, max-age=2592000, immutable');
     const got = await app.inject({ method: 'GET', url: link.replace('https://api.test', '') });
     expect(got.headers['content-type']).toBe('image/jpeg'); expect(got.rawPayload.equals(jpg)).toBe(true);
     expect((await app.inject({ method: 'GET', url: `/children/${ada.id}/background`, headers: (await signIn('else2@example.com')).auth })).statusCode).toBe(404);

@@ -5,7 +5,7 @@ import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
 import { deviceAuth, parentAuth } from '../auth.js';
-import { HttpError, hashToken, newId, notFound, safeEqual, sha256 } from '../util.js';
+import { HttpError, hashToken, newId, linkExpiry, notFound, safeEqual, sha256 } from '../util.js';
 import { firstDelivery } from '../webhooks.js';
 
 const OPEN = ['requested', 'planned', 'building'];
@@ -20,7 +20,7 @@ const MAX_ATTACHMENT = 10 * 1024 * 1024, MAX_PER_REQUEST = 5;
 // Pictures are private in storage. Parents read them with their session; ET Ducky gets a signed link (30 days).
 const attachmentPath = (requestId: string, attId: string) => `/requests/${requestId}/attachments/${attId}`;
 const signFor = (ctx: Ctx, requestId: string, attId: string, exp: number) => hashToken(`${requestId}/${attId}/${exp}`, ctx.cfg.SESSION_SECRET).slice(0, 32);
-const signedUrlFor = (ctx: Ctx, requestId: string, attId: string) => { const exp = Date.now() + 30 * 86_400_000; return `${ctx.cfg.PUBLIC_URL}${attachmentPath(requestId, attId)}?exp=${exp}&sig=${signFor(ctx, requestId, attId, exp)}`; };
+const signedUrlFor = (ctx: Ctx, requestId: string, attId: string) => { const exp = linkExpiry(); return `${ctx.cfg.PUBLIC_URL}${attachmentPath(requestId, attId)}?exp=${exp}&sig=${signFor(ctx, requestId, attId, exp)}`; };
 
 /** Opens the ET Ducky ticket for every open request that has none: a request made while ET Ducky was not configured,
  * unreachable or refusing gets its ticket here, with its pictures. ET Ducky returns the existing ticket for a repeated
