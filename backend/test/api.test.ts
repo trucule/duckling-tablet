@@ -666,7 +666,7 @@ describe('child avatar and stars', () => {
     const up = await app.inject({ method: 'PUT', url: '/device/child/portrait', headers: { ...t1.dev, 'content-type': 'text/plain' }, payload: `data:image/png;base64,${png.toString('base64')}` });
     expect(up.statusCode).toBe(200);
     const link: string = up.json().portraitUrl;
-    expect(link).toMatch(new RegExp(`^https://api.test/children/${ada.id}/portrait\\?exp=\\d+&sig=[0-9a-f]{32}$`));
+    expect(link).toMatch(new RegExp(`^https://api.test/children/${ada.id}/portrait\\?exp=\\d+&sig=[0-9a-f]{32}&v=[0-9a-f]{12}$`));
     const signed = await app.inject({ method: 'GET', url: link.replace('https://api.test', '') });
     expect(signed.statusCode).toBe(200); expect(signed.headers['content-type']).toBe('image/png'); expect(signed.rawPayload.equals(png)).toBe(true);
     expect((await app.inject({ method: 'GET', url: link.replace('https://api.test', '').replace(/sig=[0-9a-f]{4}/, 'sig=0000') })).statusCode).toBe(404);
@@ -703,7 +703,7 @@ describe('child avatar and stars', () => {
     const up = await put(t1.dev, `data:image/jpeg;base64,${jpg.toString('base64')}`);
     expect(up.statusCode).toBe(200);
     const link: string = up.json().backgroundUrl;
-    expect(link).toMatch(new RegExp(`^https://api.test/children/${ada.id}/background\\?exp=\\d+&sig=[0-9a-f]{32}$`));
+    expect(link).toMatch(new RegExp(`^https://api.test/children/${ada.id}/background\\?exp=\\d+&sig=[0-9a-f]{32}&v=[0-9a-f]{12}$`));
     expect((await app.inject({ method: 'GET', url: '/device/config', headers: t2.dev })).json().child.backgroundUrl).toMatch(/\/background\?exp=/);
     // Every check-in hands out the same link for the same picture, and the picture can be kept by the browser.
     expect((await app.inject({ method: 'GET', url: '/device/config', headers: t2.dev })).json().child.backgroundUrl).toBe(link);

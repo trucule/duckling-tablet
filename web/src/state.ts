@@ -1,6 +1,7 @@
 // App state: the device config from the server, the catalog, and what the shell has installed. Installs the server
 // expects (starter apps at pairing, apps a parent added remotely) are downloaded as soon as the config arrives.
 import { signal, computed } from '@preact/signals';
+import { forgetPictures } from './pictures';
 import { api, ReleasedError, type DeviceConfig, type CatalogApp, type OtherApp, type Entitlement } from './api';
 import { shell } from './shell';
 
@@ -205,6 +206,7 @@ export async function releaseDevice(tellServer: boolean) {
   config.value = null; paired.value = false; installed.value = {};
   setUnlinked(false);
   try { localStorage.removeItem(CONFIG_KEY); } catch { /* storage unavailable */ }
+  await forgetPictures();
   go('pair');
 }
 

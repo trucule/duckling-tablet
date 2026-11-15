@@ -183,7 +183,7 @@ describe.skipIf(!ready)('child web app', () => {
     });
     const devToken = await p.evaluate(() => localStorage.getItem('duckling.token'));
     const setBg = async () => expect((await fetch(`${api}/device/child/background`, { method: 'PUT', headers: { authorization: `Device ${devToken}`, 'content-type': 'text/plain' }, body: picture })).status).toBe(200);
-    const bgShown = () => p.waitForFunction(() => /background\?exp=/.test((document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? ''));
+    const bgShown = () => p.waitForFunction(() => /^url\("blob:/.test((document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? ''));
     // Back from the app seconds after the last check-in (the onResume above): the home screen checks in again.
     await setBg();
     await p.evaluate(() => (window as any).DucklingWeb.onResume());
@@ -230,7 +230,7 @@ describe.skipIf(!ready)('child web app', () => {
     const second = await p.evaluate(() => { const c = document.createElement('canvas'); c.width = 400; c.height = 300; const g = c.getContext('2d')!; g.fillStyle = '#8e44ad'; g.fillRect(0, 0, 400, 300); return c.toDataURL('image/png'); });
     expect((await fetch(`${api}/device/child/background`, { method: 'PUT', headers: { authorization: `Device ${devToken}`, 'content-type': 'text/plain' }, body: second })).status).toBe(200);
     await p.evaluate(() => (window as any).DucklingWeb.onResume());
-    await p.waitForFunction((old) => { const b = (document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? ''; return /background\?exp=/.test(b) && b !== old; }, firstBg);
+    await p.waitForFunction((old) => { const b = (document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? ''; return /^url\("blob:/.test(b) && b !== old; }, firstBg);
     // The child's own character sits in a circle at the top (her first letter until My Avatar saves a portrait), and
     // tapping it opens My Avatar (the browser shell says apps run on the tablet).
     const avatar = p.getByRole('button', { name: 'Your avatar', exact: true });
@@ -238,6 +238,23 @@ describe.skipIf(!ready)('child web app', () => {
     const opened = new Promise<string>((resolve) => p.once('dialog', (d) => { resolve(d.message()); void d.accept(); }));
     await avatar.click();
     expect(await opened).toMatch(/Apps run on the tablet/);
+    // Her portrait and background are kept on the tablet: after a restart they show from the tablet's own copies, with
+    // no download, even when the pictures cannot be fetched at all.
+    const face = await p.evaluate(() => { const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d')!; g.fillStyle = '#f4a261'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill(); return c.toDataURL('image/png'); });
+    expect((await fetch(`${api}/device/child/portrait`, { method: 'PUT', headers: { authorization: `Device ${devToken}`, 'content-type': 'text/plain' }, body: face })).status).toBe(200);
+    await p.evaluate(() => (window as any).DucklingWeb.onResume());
+    await p.waitForFunction(() => /^blob:/.test((document.querySelector('.avatar img') as HTMLImageElement | null)?.src ?? ''));
+    let pictureFetches = 0;
+    await p.route(/\/children\/[^/]+\/(portrait|background)/, (route) => { pictureFetches++; return route.abort(); });
+    await p.reload();
+    await p.getByRole('heading', { name: "Ada's tablet" }).waitFor();
+    await p.waitForFunction(() => /^blob:/.test((document.querySelector('.avatar img') as HTMLImageElement | null)?.src ?? '')
+      && /^url\("blob:/.test((document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? ''));
+    expect(await p.evaluate(() => { const i = document.querySelector('.avatar img') as HTMLImageElement; return i.complete && i.naturalWidth; })).toBe(128);
+    await p.waitForTimeout(800);
+    expect(pictureFetches).toBe(0);
+    await p.unroute(/\/children\/[^/]+\/(portrait|background)/);
+    await p.screenshot({ path: join(dir, 'home-local-pictures.png') });
 
     // Library: every starter app shows Open; removing one and installing it again round-trips through the server.
     await p.getByRole('button', { name: 'Library' }).click();
@@ -354,6 +371,9 @@ describe.skipIf(!ready)('child web app', () => {
     await p.getByRole('heading', { name: 'Set up Duckling' }).waitFor();
     cfg = await (await fetch(`${api}/devices`, { headers: auth })).json();
     expect(cfg.devices[0].state).toBe('released');
+    // The tablet's copies of her pictures leave with it.
+    expect(await p.evaluate(() => new Promise<number>((resolve) => { const r = indexedDB.open('duckling-pictures', 1); r.onsuccess = () => { const c = r.result.transaction('pictures').objectStore('pictures').count(); c.onsuccess = () => resolve(c.result); }; }))).toBe(0);
+    expect(await p.locator('.home-bg').count()).toBe(0);
     expect(errors).toEqual([]);
     await b2.close();
   }, 120_000);

@@ -44,7 +44,9 @@ export const portraitSign = (secret: string, childId: string, key: string, exp: 
 export const childImageUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, kind: ChildImage, key: string | null) => {
   if (!key) return null;
   const exp = linkExpiry();
-  return `${cfg.PUBLIC_URL}/children/${childId}/${kind}?exp=${exp}&sig=${portraitSign(cfg.SESSION_SECRET, childId, key, exp)}`;
+  // v names the stored picture: the tablet keeps its own copy of each picture and downloads again only when v changes
+  // (the expiry and signature change every 15 days for the same picture).
+  return `${cfg.PUBLIC_URL}/children/${childId}/${kind}?exp=${exp}&sig=${portraitSign(cfg.SESSION_SECRET, childId, key, exp)}&v=${sha256(key).slice(0, 12)}`;
 };
 export const portraitUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, key: string | null) => childImageUrl(cfg, childId, 'portrait', key);
 export const backgroundUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, key: string | null) => childImageUrl(cfg, childId, 'background', key);

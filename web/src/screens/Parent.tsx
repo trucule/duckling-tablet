@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink, entitlement } from '../state';
+import { usePicture } from '../pictures';
 import { shell, type LockdownStatus, type BillingResult, type WifiNetwork, type MediaAccess, type MediaState } from '../shell';
 import { api, type AppRequest } from '../api';
 
@@ -415,7 +416,7 @@ function AskForApp() {
 
 // The home background she chose from a saved picture. It follows her to every tablet; a parent can remove it here.
 function HomeBackground() {
-  const url = config.value?.child?.backgroundUrl;
+  const url = usePicture('background', config.value?.child?.backgroundUrl);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const remove = async () => {
     setBusy(true); setError('');

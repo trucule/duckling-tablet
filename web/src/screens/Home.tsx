@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { signal } from '@preact/signals';
+import { usePicture } from '../pictures';
 import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked, unlinked, entitlement, restartNeeded } from '../state';
 import { shell } from '../shell';
 import { API, type Entitlement, type InstalledApp } from '../api';
@@ -13,24 +13,6 @@ function SiteArt({ host, color }: { host: string; color?: string }) {
       {failed ? <span>&#127760;</span> : <img src={`${API}/site-icon/${encodeURIComponent(h)}`} alt="" onError={() => setFailed(true)} />}
     </span>
   );
-}
-
-// The background on screen. A new picture replaces it only once it has downloaded and decoded, so the home screen
-// never shows an empty layer while a picture loads; the decoded image is kept so returning home paints it at once.
-const shownBg = signal<string | null>(null);
-let pendingBg: string | null = null, keptBg: HTMLImageElement | null = null;
-function useBackground(url: string | null | undefined): string | null {
-  const want = url ?? null;
-  if (!want) { pendingBg = null; keptBg = null; if (shownBg.value) shownBg.value = null; return null; }
-  if (want !== shownBg.value && want !== pendingBg) {
-    pendingBg = want;
-    const img = new Image();
-    const done = () => { if (pendingBg !== want) return; pendingBg = null; keptBg = img; shownBg.value = want; };
-    img.onload = () => { (img.decode ? img.decode() : Promise.resolve()).then(done, done); };
-    img.onerror = () => { if (pendingBg === want) pendingBg = null; };
-    img.src = want;
-  }
-  return shownBg.value;
 }
 
 // The child's home: installed apps alphabetically, website tiles from the allowlist, the Library, a small parent button.
@@ -72,7 +54,8 @@ export function Home() {
   // screen, so it is sized to the display and not to the scrolling page of tiles. The whole picture shows, centered;
   // where its shape differs from the screen's, a blurred copy fills the edges. Tile names get a light label so they
   // read over any picture.
-  const bg = useBackground(c?.child?.backgroundUrl);
+  const bg = usePicture('background', c?.child?.backgroundUrl);
+  const portrait = usePicture('portrait', c?.child?.portraitUrl);
   const bgUrl = bg ? `url("${bg.replace(/"/g, '%22')}")` : '';
   return (
     <div class={`screen${bg ? ' with-bg' : ''}`}>
@@ -80,7 +63,7 @@ export function Home() {
       <div class="topbar">
         <span class="who">
           <button class="avatar" onClick={openAvatar} aria-label="Your avatar" style={{ background: themeColors.value[0] ?? undefined }}>
-            {c?.child?.portraitUrl ? <img src={c.child.portraitUrl} alt="" /> : <span class="letter">{(childName.value || '?').slice(0, 1).toUpperCase()}</span>}
+            {portrait ? <img src={portrait} alt="" /> : <span class="letter">{(childName.value || '?').slice(0, 1).toUpperCase()}</span>}
             {avatarBusy ? <span class="busy">{avatarBusy}</span> : null}
           </button>
           <h1>{childName.value ? `${childName.value}'s tablet` : 'Duckling'}</h1>
