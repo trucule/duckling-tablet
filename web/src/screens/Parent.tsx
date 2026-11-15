@@ -162,8 +162,8 @@ export function Parent() {
               <span><span class="what">Set an iPad passcode</span><br /><span class="why">In Settings, tap Face ID &amp; Passcode (or Touch ID &amp; Passcode) and turn the passcode on. Use one the child does not know.</span></span>
               <button class="pill quiet" onClick={() => shell.openSecuritySettings()}>Open Settings</button></li>
             <li><span class={`dot ${status.homeRole ? 'done' : ''}`}>{status.homeRole ? '✓' : '2'}</span>
-              <span><span class="what">Allow Screen Time</span><br /><span class="why">Tap Allow and confirm with the passcode or Face ID.</span></span>
-              <button class="pill quiet" onClick={() => { shell.requestHomeRole(); setTimeout(refresh, 2500); }}>Allow</button></li>
+              <span><span class="what">Screen Time</span><br /><span class="why">Duckling uses Screen Time to limit this iPad to Duckling and the websites you choose. Tap Continue to see the iPad's request; it asks for the passcode or Face ID.</span></span>
+              <button class="pill quiet" onClick={() => { shell.requestHomeRole(); setTimeout(refresh, 2500); }}>Continue</button></li>
             <li><span class={`dot ${status.lockdownOn ? 'done' : ''}`}>{status.lockdownOn ? '✓' : '3'}</span>
               <span><span class="what">Close other apps and websites</span><br /><span class="why">Tap Turn on. Only Duckling and the websites you allow will open.</span></span>
               <button class="pill quiet" disabled={!status.homeRole} onClick={() => { shell.setLockdown(!status.lockdownOn); setTimeout(refresh, 800); }}>{status.lockdownOn ? 'Turn off' : 'Turn on'}</button></li>
@@ -195,8 +195,8 @@ export function Parent() {
               <span><span class="what">A screen lock the child does not know</span><br /><span class="why">Needed so unpinning asks for it. Also turn on App pinning in the same settings.</span></span>
               <button class="pill quiet" onClick={() => { shell.openSecuritySettings(); setTimeout(refresh, 1500); }}>Open settings</button></li>
             <li><span class={`dot ${status.homeRole ? 'done' : ''}`}>{status.homeRole ? '✓' : '3'}</span>
-              <span><span class="what">Make Duckling the home screen</span><br /><span class="why">Home and recents then lead back here. Choose Duckling in the list Android shows.</span></span>
-              <button class="pill quiet" onClick={() => { shell.requestHomeRole(); setTimeout(refresh, 1500); }}>Set</button></li>
+              <span><span class="what">Make Duckling the home screen</span><br /><span class="why">Home and recents then lead back here. Tap Continue to see Android's list of home apps.</span></span>
+              <button class="pill quiet" onClick={() => { shell.requestHomeRole(); setTimeout(refresh, 1500); }}>Continue</button></li>
           </ul>
         </div>
       )}
@@ -206,7 +206,7 @@ export function Parent() {
           <h2>Other apps</h2>
           <p>Apps already on this tablet can appear on the home screen with a daily allowance, chosen in the parent portal under this tablet. {c?.otherApps?.length ? `${c.otherApps.length} allowed now.` : 'None allowed yet.'}</p>
           <p>While another app is open the lockdown is lifted; Duckling comes back on its own when the time ends. For that it needs permission to appear over other apps{shell.canDrawOverlays() ? ': granted.' : '.'}</p>
-          {!shell.canDrawOverlays() && <div class="row"><button class="pill" onClick={() => shell.openOverlaySettings()}>Allow Duckling to appear over other apps</button></div>}
+          {!shell.canDrawOverlays() && <div class="row"><button class="pill" onClick={() => shell.openOverlaySettings()}>Open settings</button></div>}
         </div>
       )}
 
@@ -456,10 +456,10 @@ function MediaAccessCard({ device }: { device: string }) {
   const how = win
     ? 'Windows has it turned off. Turn the lockdown off, open Windows Settings, then Privacy & security, then Microphone or Camera, and turn on access and Let desktop apps access it.'
     : blocked
-      ? 'Screen Time blocks it. In Settings, tap Screen Time, then Content & Privacy Restrictions, then Microphone or Camera, and choose Allow Changes. Then come back and tap Turn on.'
-      : ios && asks ? 'Tap Allow, then Allow again when the iPad asks.'
+      ? 'Screen Time blocks it. In Settings, tap Screen Time, then Content & Privacy Restrictions, then Microphone or Camera, and choose Allow Changes. Then come back to this card.'
+      : ios && asks ? "Tap Continue to see the iPad's request for each one."
       : ios ? 'Tap Open Settings and turn on Microphone and Camera for Duckling Tablet.'
-      : 'Tap Turn on and allow both. If Android no longer asks, its settings for Duckling open: turn on Microphone and Camera under Permissions.';
+      : "Tap Continue to see Android's request for each one. If Android no longer asks, its settings for Duckling open, with Microphone and Camera under Permissions.";
   return (
     <div class="card">
       <h2>Microphone and camera</h2>
@@ -468,7 +468,7 @@ function MediaAccessCard({ device }: { device: string }) {
         {rows.map(([name, s]) => <li key={name}><span class={`dot ${s === 'on' ? 'done' : ''}`}>{s === 'on' ? '✓' : '!'}</span><span><span class="what">{name}</span><br /><span class="why">{s === 'on' ? 'On.' : s === 'blocked' ? 'Blocked by Screen Time.' : s === 'ask' ? 'Not allowed yet.' : 'Off.'}</span></span></li>)}
       </ul>
       {off.length > 0 && <p>{how}</p>}
-      {off.length > 0 && !win && <div class="row"><button class="pill" onClick={() => (blocked ? shell.openAppSettings() : shell.requestMediaAccess())}>{blocked || (ios && !asks) ? 'Open Settings' : ios ? 'Allow' : 'Turn on'}</button></div>}
+      {off.length > 0 && !win && <div class="row"><button class="pill" onClick={() => (blocked ? shell.openAppSettings() : shell.requestMediaAccess())}>{blocked || (ios && !asks) ? 'Open Settings' : 'Continue'}</button></div>}
     </div>
   );
 }

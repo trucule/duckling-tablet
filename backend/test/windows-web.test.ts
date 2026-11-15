@@ -48,7 +48,7 @@ function serveDist(port: number): Server {
 const FAKE_SHELL = `(() => {
   const calls = window.__calls = [];
   const st = { token: localStorage.getItem('w.token') || '', pin: localStorage.getItem('w.pin') || '', installed: JSON.parse(localStorage.getItem('w.inst') || '{}'),
-    childAccount: '', lockdownOn: false, pinned: false, mic: 'off' };
+    childAccount: '', lockdownOn: false, pinned: false, mic: window.__platform ? 'ask' : 'off' };
   window.__setMic = (v) => { st.mic = v; };
   const save = () => { localStorage.setItem('w.token', st.token); localStorage.setItem('w.pin', st.pin); localStorage.setItem('w.inst', JSON.stringify(st.installed)); };
   const later = (f, ms = 60) => setTimeout(f, ms);
@@ -58,7 +58,7 @@ const FAKE_SHELL = `(() => {
       childAccount: st.childAccount, autoSignInUser: st.childAccount, kioskApplied: st.lockdownOn, otherKiosk: !st.lockdownOn, oldKidTablet: !st.lockdownOn, currentUser: 'Chris', parentPresent: true } });
   const rec = (name, f) => (...a) => { calls.push([name, ...a]); return f ? f(...a) : undefined; };
   window.DucklingShell = {
-    platform: () => 'windows', shellVersion: () => '1.0.0',
+    platform: () => window.__platform || 'windows', shellVersion: () => '1.0.0',
     getDeviceToken: () => st.token, setDeviceToken: rec('setDeviceToken', (t) => { st.token = t; save(); }), pushToken: () => '',
     installedApps: () => JSON.stringify(st.installed),
     installApp: rec('installApp', (id, v) => later(() => { st.installed[id] = v; save(); window.DucklingWeb.onInstall(id, true, ''); })),
@@ -72,7 +72,7 @@ const FAKE_SHELL = `(() => {
     release: rec('release'),
     installedPackages: () => JSON.stringify([{ package: 'win.app.h0123456789abcdef', label: 'Tux Paint' }]),
     launchPackage: rec('launchPackage', (pkg) => later(() => window.DucklingWeb.onOtherApp(pkg, 0, 'restart'))),
-    canDrawOverlays: () => true, openOverlaySettings: () => {}, setAppAccountToken: () => {},
+    canDrawOverlays: () => !window.__platform, openOverlaySettings: () => {}, setAppAccountToken: () => {},
     setChildAccount: rec('setChildAccount', (name) => { st.childAccount = name; cb('account', true, name); }),
     restartDevice: rec('restartDevice', () => cb('restart', true, '')),
     restartSession: rec('restartSession', () => cb('restartSession', true, '')),
@@ -219,4 +219,44 @@ describe.skipIf(!ready)('web app on Windows', () => {
     expect(errors).toEqual([]);
     await browser.close();
   }, 120_000);
+
+  // App Review guideline 5.1.1(iv): a button that leads to a system permission request says Continue or Next, never
+  // Allow. The iPad and Android parent areas, with Screen Time, the home role, the microphone and the overlay all
+  // still to be granted, are checked here with the same fake shell under their own platform names.
+  for (const platform of ['ios', 'android'] as const) {
+    it(`asks for no permission with an Allow button on ${platform}`, async () => {
+      const { chromium } = await import('playwright');
+      const post = async (path: string, body: unknown, headers: Record<string, string> = {}) =>
+        (await fetch(`${api}${path}`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) })).json();
+      await post('/auth/email-link', { email: `${platform}@example.com` });
+      const { sessionToken } = await post('/auth/verify', { token: mails.at(-1)!.match(/token=([\w-]+)/)![1] });
+      const child = await post('/children', { firstName: 'Ada', age: 7 }, { authorization: `Bearer ${sessionToken}` });
+      const { code } = await post('/devices/pairing-codes', { childId: child.id }, { authorization: `Bearer ${sessionToken}` });
+      const browser = await chromium.launch();
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+      await ctx.route('https://api.ducklingtablet.com/**', async (route) => {
+        const req = route.request();
+        const r = await fetch(req.url().replace('https://api.ducklingtablet.com', api), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() ?? undefined });
+        await route.fulfill({ status: r.status, headers: Object.fromEntries(r.headers), body: Buffer.from(await r.arrayBuffer()) });
+      });
+      await ctx.addInitScript(`window.__platform = '${platform}';`);
+      await ctx.addInitScript(FAKE_SHELL);
+      const p = await ctx.newPage();
+      await p.goto(web);
+      await p.getByRole('button', { name: 'I have a code from the website' }).click();
+      await p.getByPlaceholder('000000').fill(code);
+      await p.getByRole('button', { name: 'Pair' }).click();
+      await p.getByRole('heading', { name: 'Choose a parent PIN' }).waitFor();
+      for (const d of '24682468') await p.getByRole('button', { name: d, exact: true }).click();
+      await p.getByRole('heading', { name: 'Microphone and camera' }).waitFor();
+      const labels = await p.locator('button').allInnerTexts();
+      expect(labels.filter((l) => /^\s*allow\b/i.test(l))).toEqual([]);
+      const media = p.locator('.card', { has: p.getByRole('heading', { name: 'Microphone and camera' }) });
+      expect(await media.getByRole('button').allInnerTexts()).toEqual(['Continue']);
+      const step = p.locator('li', { hasText: platform === 'ios' ? 'Screen Time' : 'Make Duckling the home screen' });
+      expect(await step.getByRole('button').innerText()).toBe('Continue');
+      if (process.env.WEB_SHOTS) await p.screenshot({ path: join(process.env.WEB_SHOTS, `${platform}-permissions.png`), fullPage: true });
+      await browser.close();
+    }, 120_000);
+  }
 });
