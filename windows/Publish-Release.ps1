@@ -14,17 +14,19 @@ param(
     [string]$User = 'root'
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '..\deploy\ssh-agent.ps1')
+Use-DucklingSshKey
 foreach ($f in $Files) {
     $name = Split-Path $f -Leaf
     if ($name -notmatch "^DucklingTablet-$([regex]::Escape($Version))-(arm64|x64)\.msi$") { throw "$name is not DucklingTablet-$Version-<arm64|x64>.msi" }
     $arch = $Matches[1]
     $sig = Get-AuthenticodeSignature $f
     if ($sig.Status -ne 'Valid') { throw "$name is not signed (signature status $($sig.Status)). Build it with Build-Release.ps1 and the YubiKey." }
-    # A version already published for this architecture is left as it is: the server keeps one file per version, and
-    # devices and the Microsoft Store may already have its hash.
+    # A version already published for this architecture is left as it is (the server keeps one file per version, and
+    # devices and the Microsoft Store may already have its hash), and a lower one would never install. Both stop here.
     $live = $null
     try { $live = Invoke-RestMethod "https://api.ducklingtablet.com/windows/release?arch=$arch" -TimeoutSec 20 } catch { }
-    if ($live -and $live.version -eq $Version) { Write-Host "$name : $Version is already published for $arch ($($live.url)); skipped." -ForegroundColor Yellow; continue }
+    if ($live -and [version]$live.version -ge [version]$Version) { throw "$name : $($live.version) is already published for $arch, so tablets would not take $Version. Build again with a higher -Version." }
     Write-Host "Uploading $name ..."
     scp $f "$User@${Server}:/tmp/$name"
     if ($LASTEXITCODE -ne 0) { throw 'scp failed' }

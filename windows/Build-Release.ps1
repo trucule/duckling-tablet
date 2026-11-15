@@ -3,9 +3,10 @@
     Builds the signed Duckling Tablet installers (MSI for ARM64 and x64) on your PC.
 
 .DESCRIPTION
-    For each architecture: publishes Duckling.exe and DucklingService.exe (self-contained .NET), signs them and their
-    own DLLs with the EV code-signing certificate (signtool, by thumbprint, as build-and-sign-agent.ps1 does), builds
-    the MSI with WiX, and signs the MSI. Plug in the YubiKey first; signtool asks for its PIN.
+    Publishes Duckling.exe and DucklingService.exe (self-contained .NET) for each architecture, signs them and their
+    own DLLs with the EV code-signing certificate in one signtool call (by thumbprint, as build-and-sign-agent.ps1
+    does), builds the MSIs with WiX, and signs them in a second call. Plug in the YubiKey first; signtool asks for its
+    PIN twice. With -Publish, a version not above the published one stops the script before it builds anything.
     Output: windows\out\DucklingTablet-<version>-<arch>.msi and their SHA-256.
 
     Needs the .NET 10 SDK (winget install Microsoft.DotNet.SDK.10) and the Windows SDK's signtool. WiX comes from
@@ -67,26 +68,45 @@ Write-Step 'Unit tests'
 & dotnet test (Join-Path $root 'tests\Duckling.Tests\Duckling.Tests.csproj') -c Release --nologo -v quiet
 if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed.' }
 
-$built = @()
+# Publishing: the version must be above the one tablets already have, and the deploy key goes into ssh-agent now, so
+# the build stops before any work for a used version and asks for every credential at the start.
+if ($Publish) {
+    foreach ($a in $Arch) {
+        $live = $null
+        try { $live = Invoke-RestMethod "https://api.ducklingtablet.com/windows/release?arch=$a" -TimeoutSec 20 } catch { }
+        if ($live -and [version]$live.version -ge [version]$Version) {
+            $v = [version]$live.version
+            throw "$($live.version) is already published for $a; tablets update only to a higher version. Run again with -Version $($v.Major).$($v.Minor).$($v.Build + 1)."
+        }
+    }
+    . (Join-Path $root '..\deploy\ssh-agent.ps1')
+    Use-DucklingSshKey
+}
+
+# Both architectures are published first, then signed in one signtool call and their MSIs in a second: two YubiKey
+# PIN prompts for the whole build.
 foreach ($a in $Arch) {
-    $rid = "win-$a"
     $pub = Join-Path $out "$a\publish"
     Write-Step "Publish $a"
     if (Test-Path $pub) { Remove-Item $pub -Recurse -Force }
     foreach ($proj in 'src\Duckling.Shell\Duckling.Shell.csproj', 'src\Duckling.Service\Duckling.Service.csproj') {
-        & dotnet publish (Join-Path $root $proj) -c Release -r $rid --self-contained true -o $pub -p:Version=$Version -p:DebugType=none --nologo -v quiet
+        & dotnet publish (Join-Path $root $proj) -c Release -r "win-$a" --self-contained true -o $pub -p:Version=$Version -p:DebugType=none --nologo -v quiet
         if ($LASTEXITCODE -ne 0) { throw "publish $proj ($a) failed" }
     }
-    if ($tool) {
-        # The Microsoft Store requires every PE file in the package to carry a valid signature. Microsoft's own files
-        # come signed; ours and any third-party file without a signature are signed here, then all are checked.
-        Write-Step "Sign $a binaries"
-        $pe = Get-ChildItem $pub -Recurse -File -Include *.exe, *.dll
-        $unsigned = @($pe | Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne 'Valid' } | ForEach-Object { $_.FullName })
-        if ($unsigned.Count) { Invoke-CodeSign $tool $unsigned }
-        $bad = @($pe | Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne 'Valid' } | ForEach-Object { $_.Name })
-        if ($bad.Count) { throw "Not signed after signing: $($bad -join ', ')" }
-    }
+}
+if ($tool) {
+    # The Microsoft Store requires every PE file in the package to carry a valid signature. Microsoft's own files
+    # come signed; ours and any third-party file without a signature are signed here, then all are checked.
+    Write-Step "Sign binaries ($($Arch -join ', '))"
+    $pe = @(foreach ($a in $Arch) { Get-ChildItem (Join-Path $out "$a\publish") -Recurse -File -Include *.exe, *.dll })
+    $unsigned = @($pe | Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne 'Valid' } | ForEach-Object { $_.FullName })
+    if ($unsigned.Count) { Invoke-CodeSign $tool $unsigned }
+    $bad = @($pe | Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne 'Valid' } | ForEach-Object { $_.FullName })
+    if ($bad.Count) { throw "Not signed after signing: $($bad -join ', ')" }
+}
+$built = @()
+foreach ($a in $Arch) {
+    $pub = Join-Path $out "$a\publish"
     Write-Step "MSI $a"
     & dotnet build (Join-Path $root 'installer\Duckling.Installer.wixproj') -c Release -p:Arch=$a -p:Version=$Version "-p:PublishDir=$pub\" "-p:IntermediateOutputPath=$out\$a\obj\" -o (Join-Path $out $a) --nologo -v quiet
     if ($LASTEXITCODE -ne 0) { throw "MSI ($a) failed" }
@@ -94,9 +114,9 @@ foreach ($a in $Arch) {
     if (-not (Test-Path $msi)) { $msi = Get-ChildItem (Join-Path $out $a) -Filter '*.msi' | Select-Object -First 1 -ExpandProperty FullName }
     $final = Join-Path $out "DucklingTablet-$Version-$a.msi"
     Copy-Item $msi $final -Force
-    if ($tool) { Write-Step "Sign $a MSI"; Invoke-CodeSign $tool @($final) }
     $built += $final
 }
+if ($tool) { Write-Step 'Sign MSIs'; Invoke-CodeSign $tool $built }
 
 Write-Step 'Done'
 foreach ($f in $built) {

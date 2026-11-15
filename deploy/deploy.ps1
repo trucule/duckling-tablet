@@ -15,6 +15,8 @@ param(
     [switch]$Bootstrap
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'ssh-agent.ps1')
+Use-DucklingSshKey
 $flag = if ($Bootstrap) { '--bootstrap' } else { '' }
 # -t gives the bootstrap prompt a terminal; it is harmless otherwise.
 ssh -t "$User@$Server" "bash /opt/duckling/src/deploy/deploy-remote.sh $flag"
