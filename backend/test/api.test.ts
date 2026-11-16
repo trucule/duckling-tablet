@@ -118,6 +118,14 @@ describe('children, devices and apps', () => {
   it('settings, travel mode and release', async () => {
     const p = await signIn('p@example.com'); const d = await pair(p.auth);
     const bad = await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth, payload: { allowlist: [{ host: 'not a host' }] } });
+    // The refusal names the field's own problem, and a pasted address is taken as its site name.
+    expect(bad.json().issues[0]).toMatch(/Use a site name like pbskids.org/);
+    const pasted = await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth,
+      payload: { allowlist: [{ host: 'https://www.Kleki.com/draw?x=1', tile: { name: 'Kleki', url: 'https://www.kleki.com/draw?x=1' } }, { host: '*.Example.org.' }] } });
+    expect(pasted.statusCode).toBe(200);
+    expect(pasted.json().allowlist.map((w: { host: string }) => w.host)).toEqual(['kleki.com', '*.example.org']);
+    expect((await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth,
+      payload: { allowlist: [{ host: 'kleki.com', tile: { name: 'K', url: 'javascript:alert(1)' } }] } })).statusCode).toBe(400);
     expect(bad.statusCode).toBe(400);
     const ok = await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth,
       payload: { allowlist: [{ host: 'pbskids.org', tile: { name: 'PBS KIDS', url: 'https://pbskids.org/games' } }], limits: { dailyMinutes: 90 } } });

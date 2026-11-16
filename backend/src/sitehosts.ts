@@ -23,3 +23,18 @@ export function mediaHostsFor(allowed: string[]): string[] {
   }
   return [...out].sort();
 }
+
+/**
+ * The site name in what a parent typed or pasted: https://www.kleki.com/draw becomes kleki.com, Kleki.com. becomes
+ * kleki.com, and *.example.org keeps its wildcard. Text that is not a site comes back unchanged, so the host check
+ * that follows refuses it with its own message.
+ */
+export function siteHost(input: unknown): unknown {
+  if (typeof input !== 'string') return input;
+  const raw = input.trim(), wild = raw.startsWith('*.');
+  try {
+    const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${wild ? raw.slice(2) : raw}`);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return input;
+    return (wild ? '*.' : '') + u.hostname.toLowerCase().replace(/\.$/, '').replace(/^www\./, '');
+  } catch { return input; }
+}

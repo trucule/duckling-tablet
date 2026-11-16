@@ -19,6 +19,14 @@ export const session = {
   set: (t: string) => { try { t ? localStorage.setItem('duckling.session', t) : localStorage.removeItem('duckling.session'); } catch {} },
 };
 
+// The server's reason for a refusal; for a refused form it is the first field's own message ("Use a site name like
+// pbskids.org") in place of "Invalid request".
+function reason(json: { error?: string; issues?: string[] }): string | undefined {
+  const issue = json.issues?.[0];
+  if (issue) { const msg = issue.slice(issue.indexOf(': ') + 2); if (msg) return msg; }
+  return json.error;
+}
+
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
@@ -27,7 +35,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   const text = await r.text();
   const json = text ? JSON.parse(text) : {};
   if (r.status === 401) session.set('');
-  if (!r.ok) throw new ApiError(r.status, json.error ?? r.statusText);
+  if (!r.ok) throw new ApiError(r.status, reason(json) ?? r.statusText);
   return json as T;
 }
 
@@ -64,7 +72,7 @@ export const api = {
   attach: async (requestId: string, file: File): Promise<Attachment> => {
     const r = await fetch(`${API}/requests/${requestId}/attachments`, { method: 'POST', headers: { 'content-type': file.type || 'image/jpeg', authorization: `Bearer ${session.get()}` }, body: file });
     const json = await r.json().catch(() => ({}));
-    if (!r.ok) throw new ApiError(r.status, json.error ?? r.statusText);
+    if (!r.ok) throw new ApiError(r.status, reason(json) ?? r.statusText);
     return json as Attachment;
   },
   // Pictures are private: fetched with the session and shown from a blob URL.

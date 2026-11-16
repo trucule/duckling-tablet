@@ -3,6 +3,7 @@ import { api, type Family as FamilyT, type Child, type Device, type CatalogApp, 
 import { Requests, NoMatch } from './Requests';
 import { InstallCard } from '../install';
 import { useAppFilter, ageText } from '../appfilter';
+import { siteFromInput, sitesFromList } from '../site';
 
 const COLORS = ['#ffb3c6', '#ffd36b', '#b3e5ff', '#c8f7c5', '#e0c3fc', '#ffcf99'];
 
@@ -290,9 +291,14 @@ function SitesCard({ devices, details, onAct }: { devices: Device[]; details: Re
   const sites = new Map<string, { host: string; tile?: { name: string; url: string }; on: Device[] }>();
   for (const d of chosen) for (const w of details[d.id].allowlist) { const s = sites.get(w.host) ?? { ...w, on: [] }; s.on.push(d); sites.set(w.host, s); }
   const remove = (h: string) => onAct(() => Promise.all(chosen.filter((d) => details[d.id].allowlist.some((w) => w.host === h)).map((d) => api.settings(d.id, { allowlist: details[d.id].allowlist.filter((w) => w.host !== h) }))));
+  const [bad, setBad] = useState('');
+  // A site name or a pasted address: the tile opens the page that was pasted, the allowlist names the site.
   const add = (e: Event) => {
     e.preventDefault();
-    const h = host.trim().toLowerCase(), entry = tile ? { host: h, tile: { name: siteName.trim() || host.trim(), url: `https://${h}` } } : { host: h };
+    const site = siteFromInput(host);
+    if (!site) { setBad(`"${host.trim()}" is not a website. Type a site name like kleki.com or paste the address from the browser.`); return; }
+    setBad('');
+    const h = site.host, entry = tile ? { host: h, tile: { name: (siteName.trim() || h).slice(0, 40), url: site.url } } : { host: h };
     onAct(() => Promise.all(chosen.filter((d) => !details[d.id].allowlist.some((w) => w.host === h)).map((d) => api.settings(d.id, { allowlist: [...details[d.id].allowlist, entry] })))).then(() => { setHost(''); setSiteName(''); setTile(true); });
   };
   const travel = (minutes: number) => onAct(() => Promise.all(chosen.map((d) => api.travel(d.id, minutes))));
@@ -310,11 +316,12 @@ function SitesCard({ devices, details, onAct }: { devices: Device[]; details: Re
         ))}
       </ul>
       <form class="row" onSubmit={add} style={{ marginTop: sites.size ? 10 : 0 }}>
-        <input placeholder="pbskids.org" value={host} onInput={(e) => setHost((e.target as HTMLInputElement).value)} style={{ maxWidth: 220 }} />
-        {tile && <input placeholder="Name on the tile" value={siteName} onInput={(e) => setSiteName((e.target as HTMLInputElement).value)} style={{ maxWidth: 200 }} />}
+        <input placeholder="pbskids.org" aria-label="Website" value={host} onInput={(e) => { setHost((e.target as HTMLInputElement).value); setBad(''); }} style={{ maxWidth: 220 }} />
+        {tile && <input placeholder="Name on the tile" aria-label="Name on the tile" maxLength={40} value={siteName} onInput={(e) => setSiteName((e.target as HTMLInputElement).value)} style={{ maxWidth: 200 }} />}
         <label class="row" style={{ alignItems: 'center', gap: 6 }}><input type="checkbox" checked={tile} onChange={(e) => setTile((e.target as HTMLInputElement).checked)} style={{ width: 'auto' }} />Tile on the home screen</label>
         <button class="btn" disabled={!host.trim() || chosen.length === 0}>Allow site</button>
       </form>
+      {bad && <p class="error" role="alert">{bad}</p>}
       <div style={{ marginTop: 14 }}>
         <strong>Allow every site for a while</strong>
         <p class="muted" style={{ margin: '4px 0 8px' }}>For a flight, a hotel, a school project. {travelling.length ? travelling.map((d) => `On until ${new Date(details[d.id].travel.until!).toLocaleString()}${chosen.length > 1 ? ` on ${d.name}` : ''}.`).join(' ') : 'Off.'}</p>
@@ -372,6 +379,7 @@ function OtherAppSettings({ name, a, onSave }: { name: string; a: OtherApp; onSa
   const [start, setStart] = useState(a.window?.start ?? '');
   const [end, setEnd] = useState(a.window?.end ?? '');
   const [hosts, setHosts] = useState(a.hosts.join(', '));
+  const [badHosts, setBadHosts] = useState<string[]>([]);
   const used = Math.round(a.usedSecondsToday / 60);
   return (
     <div class="other" style={{ marginTop: 8 }}>
@@ -392,8 +400,9 @@ function OtherAppSettings({ name, a, onSave }: { name: string; a: OtherApp; onSa
       </div>
       <div class="row" style={{ alignItems: 'center', marginTop: 8 }}>
         <input placeholder="Websites it needs, like youtubekids.com, ytimg.com" value={hosts} onInput={(e) => setHosts((e.target as HTMLInputElement).value)} style={{ flex: 1, minWidth: 260 }} />
-        <button class="btn quiet" onClick={() => onSave({ hosts: hosts.split(/[,\s]+/).map((h) => h.trim().toLowerCase()).filter(Boolean) })}>Save sites</button>
+        <button class="btn quiet" onClick={() => { const r = sitesFromList(hosts); setBadHosts(r.bad); if (!r.bad.length) { setHosts(r.hosts.join(', ')); onSave({ hosts: r.hosts }); } }}>Save sites</button>
       </div>
+      {badHosts.length > 0 && <p class="error" role="alert">Not websites: {badHosts.join(', ')}. Use site names like youtubekids.com.</p>}
     </div>
   );
 }

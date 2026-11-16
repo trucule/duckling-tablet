@@ -189,6 +189,22 @@ describe.skipIf(!ready)('parent portal', () => {
     expect(cfg.allowlist[1]).toEqual({ host: 'kids.pbs-video.pbs.org' });
     expect(await p.locator('#websites').getByLabel('Tile on the home screen').isChecked()).toBe(true);
 
+    // A pasted address is taken as its site, and the tile opens the page that was pasted; text that is no site says so.
+    await p.getByPlaceholder('pbskids.org').fill('  https://www.Kleki.com/  ');
+    await p.getByPlaceholder('Name on the tile').fill('Kleki');
+    await p.getByRole('button', { name: 'Allow site' }).click();
+    await p.locator('#websites').getByText('kleki.com', { exact: true }).waitFor();
+    await p.getByPlaceholder('pbskids.org').fill('https://pbskids.org/games/art');
+    await p.getByPlaceholder('Name on the tile').fill('');
+    await p.getByRole('button', { name: 'Allow site' }).click();
+    await expect.poll(() => p.getByPlaceholder('pbskids.org').inputValue()).toBe('');
+    await p.getByPlaceholder('pbskids.org').fill('my favorite site');
+    await p.getByRole('button', { name: 'Allow site' }).click();
+    await p.locator('#websites').getByRole('alert').getByText('is not a website', { exact: false }).waitFor();
+    cfg = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
+    expect(cfg.allowlist[2]).toEqual({ host: 'kleki.com', tile: { name: 'Kleki', url: 'https://kleki.com' } });
+    expect(cfg.allowlist).toHaveLength(3);
+
     // Every site for a custom time: 90 minutes.
     await p.getByPlaceholder('3').fill('90');
     await p.locator('#websites select').selectOption('minutes');

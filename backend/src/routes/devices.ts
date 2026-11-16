@@ -1,6 +1,6 @@
 // Devices: pairing, parent controls per device, and the device's own check-in, config and installs.
 // Every handler runs inside one family-scoped transaction, so a query that forgets a WHERE still sees one family.
-import { mediaHostsFor } from '../sitehosts.js';
+import { mediaHostsFor, siteHost } from '../sitehosts.js';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
@@ -14,8 +14,9 @@ import { after } from '../notify.js';
 import { HttpError, badRequest, forbidden, hashToken, inMinutes, newId, newToken, notFound, now, pairingCode, safeEqual, sha256 } from '../util.js';
 
 // A host pattern: example.org (subdomains included) or *.example.org.
-const host = z.string().trim().toLowerCase().regex(/^(\*\.)?([a-z0-9-]+\.)+[a-z]{2,}$/, 'Use a site name like pbskids.org');
-const allowEntry = z.object({ host, tile: z.object({ name: z.string().max(40), url: z.string().url(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional() }).optional() });
+// A pasted address (https://www.kleki.com/) is taken as its site name (kleki.com) before the check.
+const host = z.preprocess(siteHost, z.string().regex(/^(\*\.)?([a-z0-9-]+\.)+[a-z]{2,}$/, 'Use a site name like pbskids.org'));
+const allowEntry = z.object({ host, tile: z.object({ name: z.string().max(40), url: z.string().url().refine((u) => /^https?:\/\//i.test(u), 'A website link starts with https://'), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional() }).optional() });
 const limits = z.object({ dailyMinutes: z.number().int().min(0).max(1440).nullable(), bedtime: z.object({ start: z.string().regex(/^\d\d:\d\d$/), end: z.string().regex(/^\d\d:\d\d$/) }).nullable() }).partial();
 
 const DEVICE_COLUMNS = `id, child_id AS "childId", platform, name, state, shell_version AS "shellVersion", battery, last_seen_at AS "lastSeenAt"`;
