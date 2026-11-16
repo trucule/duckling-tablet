@@ -35,6 +35,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
 
     @JavascriptInterface fun platform(): String = "android"
     @JavascriptInterface fun shellVersion(): String = BuildConfig.VERSION_NAME
+    @JavascriptInterface fun takeLocalBackground(): String = LocalBackground.take()
 
     @JavascriptInterface fun getDeviceToken(): String = prefs.deviceToken
     @JavascriptInterface fun pushToken(): String = prefs.pushToken

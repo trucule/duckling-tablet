@@ -18,7 +18,7 @@ public class ShellBridge(MainForm main)
         "platform", "shellVersion", "getDeviceToken", "setDeviceToken", "pushToken", "installedApps", "installApp", "uninstallApp", "openApp",
         "hasPin", "setPin", "verifyPin", "setPinHash", "lockdownStatus", "requestHomeRole", "openSecuritySettings", "openWifiSettings", "networkStatus",
         "setLockdown", "setAllowedHosts", "setChildInfo", "setChildLevels", "setChildId", "release", "installedPackages", "launchPackage",
-        "canDrawOverlays", "openOverlaySettings", "setAppAccountToken",
+        "canDrawOverlays", "openOverlaySettings", "setAppAccountToken", "takeLocalBackground",
         // Windows only
         "setChildAccount", "restartDevice", "restartSession", "wifiNetworks", "connectWifi", "openParentPage", "setOtherApps", "endParent", "exitShell", "isChildSession",
     };
@@ -46,6 +46,7 @@ public class ShellBridge(MainForm main)
 
     public string platform() => "windows";
     public string shellVersion() => MainForm.Version;
+    public string takeLocalBackground() { Guard(); return LocalBackground.Take(); }
     public string getDeviceToken() { Guard(); return token ??= Call("state")?["deviceToken"]?.GetValue<string>() ?? ""; }
     public void setDeviceToken(string t) { Guard(); Call("setDeviceToken", new { token = t }); token = t; }
     public string pushToken() => "";

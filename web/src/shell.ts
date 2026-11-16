@@ -54,6 +54,9 @@ export interface Shell {
   mediaAccess(): MediaAccess | null;
   requestMediaAccess(): void; // ask the system, or open Duckling's page in its settings when it no longer asks
   openAppSettings(): void;
+  // A picture an app set as this tablet's own background (Camera Fun), as a JPEG data URL, once; 'none' when a painting
+  // set on her profile from this tablet replaces it; '' when there is nothing new or the shell is too old to hold one.
+  takeLocalBackground(): string;
   setLockdown(on: boolean): void;
   setAllowedHosts(hosts: string[]): void;
   setChildInfo(name: string, voice: string): void;
@@ -107,6 +110,7 @@ interface NativeShell {
   mediaAccess?(): string;
   requestMediaAccess?(): void;
   openAppSettings?(): void;
+  takeLocalBackground?(): string;
   setLockdown(on: boolean): void;
   setAllowedHosts(csv: string): void;
   setChildInfo(name: string, voice: string): void;
@@ -210,6 +214,7 @@ function native(n: NativeShell): Shell {
     mediaAccess: () => { try { const j = n.mediaAccess?.(); return j ? JSON.parse(j) as MediaAccess | null : null; } catch { return null; } },
     requestMediaAccess: () => { try { n.requestMediaAccess?.(); } catch { /* older shell */ } },
     openAppSettings: () => { try { n.openAppSettings?.(); } catch { /* older shell */ } },
+    takeLocalBackground: () => { try { return n.takeLocalBackground?.() || ''; } catch { return ''; } },
     networkStatus: () => { try { return (n.networkStatus?.() as ReturnType<Shell['networkStatus']>) || (navigator.onLine ? 'other' : 'none'); } catch { return navigator.onLine ? 'other' : 'none'; } },
     setLockdown: (on) => n.setLockdown(on),
     setAllowedHosts: (hosts) => n.setAllowedHosts(hosts.join(',')),
@@ -257,6 +262,8 @@ function browser(): Shell {
     mediaAccess: () => null,
     requestMediaAccess() {},
     openAppSettings() {},
+    // Tests put a picture under this key to stand in for an app on the tablet.
+    takeLocalBackground() { const d = get('localBackground') || ''; if (d) set('localBackground', null); return d; },
     networkStatus: () => (navigator.onLine ? 'other' : 'none'),
     setLockdown() {},
     setAllowedHosts() {},

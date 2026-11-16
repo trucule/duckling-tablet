@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink, entitlement } from '../state';
-import { usePicture } from '../pictures';
+import { forgetTabletBackground, tabletBackground, useHomeBackground, usePicture } from '../pictures';
 import { shell, type LockdownStatus, type BillingResult, type WifiNetwork, type MediaAccess, type MediaState } from '../shell';
 import { api, type AppRequest } from '../api';
 
@@ -414,13 +414,18 @@ function AskForApp() {
   );
 }
 
-// The home background she chose from a saved picture. It follows her to every tablet; a parent can remove it here.
+// The home background she chose from a saved picture: a painting on her profile, which follows her to every tablet,
+// or a Camera Fun photo kept on this tablet only. A parent can remove either here.
 function HomeBackground() {
-  const url = usePicture('background', config.value?.child?.backgroundUrl);
+  const profileUrl = config.value?.child?.backgroundUrl;
+  const profile = usePicture('background', profileUrl);
+  const url = useHomeBackground(profileUrl);
+  const local = !!tabletBackground.value && url === tabletBackground.value;
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const remove = async () => {
     setBusy(true); setError('');
-    try { await api.clearBackground(); await checkin(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+    try { if (local) await forgetTabletBackground(); else { await api.clearBackground(); await checkin(); } }
+    catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
   return (
     <div class="card">
@@ -428,10 +433,12 @@ function HomeBackground() {
       {url ? (
         <>
           <img class="bg-preview" src={url} alt="The home background" />
-          <p>Your child chose this picture. It shows on all of their tablets.</p>
+          <p>{local
+            ? `Your child chose this photo in Camera Fun. It is the background of this tablet only and stays on this tablet.${profile ? ' Removing it brings back the picture on the child\'s profile.' : ''}`
+            : 'Your child chose this picture. It shows on all of their tablets.'}</p>
           <div class="row"><button class="pill quiet" disabled={busy} onClick={remove}>{busy ? 'Removing' : 'Remove it'}</button></div>
         </>
-      ) : <p>None. Your child can pick a saved painting in Paint Studio or Draw With Me, or a photo in Camera Fun: open the saved pictures and tap Use as home background (Home screen in Camera Fun). A photo is kept with the child's profile until it is removed here.</p>}
+      ) : <p>None. Your child can pick a saved painting in Paint Studio or Draw With Me (open the saved pictures and tap Use as home background), which shows on all of their tablets, or a photo in Camera Fun (Home screen), which stays on this tablet and is its background only.</p>}
       {error && <div class="error">{error}</div>}
     </div>
   );

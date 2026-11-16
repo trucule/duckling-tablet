@@ -98,8 +98,56 @@ export function usePicture(slot: Slot, url: string | null | undefined): string |
   return shown[slot].value;
 }
 
+// ---- This tablet's own background --------------------------------------------------------------------------------
+// A photo from Camera Fun is the background of this tablet only and never leaves it: the app hands it to the shell,
+// the shell hands it to this page (takeLocalBackground), and it is kept here under the key 'tablet'. It shows in place
+// of her profile background until a painting is chosen on this tablet (the shell then hands over 'none') or a parent
+// removes it here. Paintings chosen on her other tablets change her profile background, which shows on any tablet
+// without a photo of its own.
+interface TabletSaved { slot: 'tablet'; blob: Blob }
+export const tabletBackground = signal<string | null>(null);
+const tabletLoaded = (async () => {
+  const s = await tx<TabletSaved | undefined>('readonly', (st) => st.get('tablet') as IDBRequest<TabletSaved | undefined>);
+  if (s?.blob && !tabletBackground.value) { const src = URL.createObjectURL(s.blob); await decoded(src); tabletBackground.value = src; }
+})();
+const showTablet = (src: string | null) => {
+  const old = tabletBackground.value;
+  tabletBackground.value = src;
+  if (old && old !== src) URL.revokeObjectURL(old);
+};
+
+// Only a JPEG from the app (duckling-compat.js makes it) of a sensible size is taken.
+const LOCAL_MAX = 4_000_000;
+export async function adoptTabletBackground(dataUrl: string) {
+  if (!dataUrl.startsWith('data:image/jpeg;base64,') || dataUrl.length > LOCAL_MAX) return;
+  await tabletLoaded;
+  let blob: Blob;
+  try {
+    const bin = atob(dataUrl.slice(dataUrl.indexOf(',') + 1)), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    blob = new Blob([bytes], { type: 'image/jpeg' });
+  } catch { return; }
+  const src = URL.createObjectURL(blob);
+  await decoded(src);
+  showTablet(src);
+  await tx('readwrite', (st) => st.put({ slot: 'tablet', blob } satisfies TabletSaved));
+}
+
+export async function forgetTabletBackground() {
+  await tabletLoaded;
+  showTablet(null);
+  await tx('readwrite', (st) => st.delete('tablet'));
+}
+
+// The home background to show: this tablet's own photo when it has one, otherwise her profile background.
+export function useHomeBackground(profileUrl: string | null | undefined): string | null {
+  const profile = usePicture('background', profileUrl);
+  return tabletBackground.value ?? profile;
+}
+
 // Released from this tablet: its copies of her pictures go with the rest of its data.
 export async function forgetPictures() {
   for (const slot of SLOTS) { pending[slot] = null; lastTry[slot] = null; show(slot, null, null); }
+  showTablet(null);
   await tx('readwrite', (st) => st.clear());
 }

@@ -69,6 +69,8 @@
     mediaAccess: function () { return JSON.stringify(S.media || null); },
     requestMediaAccess: function () { post('requestMedia'); },
     openAppSettings: function () { post('openSettings'); },
+    // A Camera Fun photo for this tablet's background, once: the snapshot carries it until the page says it took it.
+    takeLocalBackground: function () { var d = S.localBackground || ''; if (d) { S.localBackground = ''; post('tookLocalBackground'); } return d; },
     networkStatus: function () { return S.network || (navigator.onLine ? 'other' : 'none'); },
     setLockdown: function (on) { if (S.lockdown) S.lockdown.lockdownOn = !!on; post('setLockdown', [!!on]); },
     setAllowedHosts: function (csv) { post('setAllowedHosts', [String(csv || '')]); },

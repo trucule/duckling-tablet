@@ -62,7 +62,7 @@ beforeAll(async () => {
 afterAll(async () => {
   webServer?.close(); await app?.close(); await db?.close(); await cluster?.stop();
   // Keep the screenshots when asked (WEB_SHOTS=/some/dir), otherwise clean up.
-  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['home.png', 'home-bg.png', 'bg-card.png', 'site-tile.png', 'library.png', 'parent.png', 'ask.png', 'ask-sent.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
+  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['home.png', 'home-bg.png', 'bg-card.png', 'home-tablet-photo.png', 'bg-card-tablet.png', 'site-tile.png', 'library.png', 'parent.png', 'ask.png', 'ask-sent.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
   if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -256,6 +256,56 @@ describe.skipIf(!ready)('child web app', () => {
     await p.unroute(/\/children\/[^/]+\/(portrait|background)/);
     await p.screenshot({ path: join(dir, 'home-local-pictures.png') });
 
+    // A Camera Fun photo is this tablet's background only: the shell hands it over on the way back home (the fake
+    // shell reads it from duckling.localBackground), it shows in place of her profile background, nothing is uploaded,
+    // and it stays after a restart and over a new painting from another tablet. A painting chosen on this tablet
+    // replaces it, even the painting her profile already had.
+    const profileBg = await p.evaluate(() => (document.querySelector('.home-bg .pic') as HTMLElement).style.backgroundImage);
+    const photo = await p.evaluate(() => { const c = document.createElement('canvas'); c.width = 1200; c.height = 800; const g = c.getContext('2d')!; g.fillStyle = '#e63946'; g.fillRect(0, 0, 1200, 800); return c.toDataURL('image/jpeg', 0.85); });
+    const uploads: string[] = [];
+    const watch = (r: { url(): string; method(): string }) => { if (/\/background/.test(r.url()) && r.method() !== 'GET') uploads.push(r.method() + ' ' + r.url()); };
+    p.on('request', watch);
+    const middle = () => p.evaluate(async () => {
+      const b = (document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? '';
+      const m = /^url\("(blob:[^"]+)"\)$/.exec(b); if (!m) return null;
+      const im = new Image(); im.src = m[1]; await im.decode(); const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+      const g = c.getContext('2d')!; g.drawImage(im, 0, 0); return [...g.getImageData(im.width >> 1, im.height >> 1, 1, 1).data].slice(0, 3);
+    });
+    const isRed = (px: number[] | null) => !!px && px[0] > 180 && px[1] < 110 && px[2] < 110;
+    await p.evaluate((d) => { localStorage.setItem('duckling.localBackground', d); (window as any).DucklingWeb.onResume(); }, photo);
+    await p.waitForFunction((old) => { const b = (document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? ''; return /^url\("blob:/.test(b) && b !== old; }, profileBg);
+    expect(isRed(await middle())).toBe(true);
+    expect(await p.evaluate(() => localStorage.getItem('duckling.localBackground'))).toBeNull();
+    await p.screenshot({ path: join(dir, 'home-tablet-photo.png') });
+    // Another check-in with the same profile picture keeps the photo.
+    await p.evaluate(() => (window as any).DucklingWeb.onResume());
+    await p.waitForTimeout(800);
+    expect(isRed(await middle())).toBe(true);
+    await p.reload();
+    await p.getByRole('heading', { name: "Ada's tablet" }).waitFor();
+    await p.waitForFunction(() => /^url\("blob:/.test((document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? ''));
+    expect(isRed(await middle())).toBe(true);
+    expect(uploads).toEqual([]);
+    p.off('request', watch);
+    // The same painting set again from this tablet (KidTablet.setHomeBackground uploads it and tells the shell 'none').
+    await setBg();
+    await p.evaluate(() => { localStorage.setItem('duckling.localBackground', 'none'); (window as any).DucklingWeb.onResume(); });
+    await p.waitForFunction(async () => {
+      const b = (document.querySelector('.home-bg .pic') as HTMLElement | null)?.style.backgroundImage ?? '';
+      const m = /^url\("(blob:[^"]+)"\)$/.exec(b); if (!m) return false;
+      const im = new Image(); im.src = m[1]; await im.decode(); const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+      const g = c.getContext('2d')!; g.drawImage(im, 0, 0); const d = g.getImageData(im.width >> 1, im.height >> 1, 1, 1).data; return !(d[0] > 180 && d[1] < 110 && d[2] < 110);
+    });
+    // The photo again, then a new painting chosen on another tablet (no 'none' here): this tablet keeps its photo.
+    await p.evaluate((d) => { localStorage.setItem('duckling.localBackground', d); (window as any).DucklingWeb.onResume(); }, photo);
+    await expect.poll(async () => isRed(await middle()), { timeout: 10000 }).toBe(true);
+    const green = await p.evaluate(() => { const c = document.createElement('canvas'); c.width = 600; c.height = 400; const g = c.getContext('2d')!; g.fillStyle = '#2a9d8f'; g.fillRect(0, 0, 600, 400); return c.toDataURL('image/png'); });
+    expect((await fetch(`${api}/device/child/background`, { method: 'PUT', headers: { authorization: `Device ${devToken}`, 'content-type': 'text/plain' }, body: green })).status).toBe(200);
+    await p.evaluate(() => (window as any).DucklingWeb.onResume());
+    await p.waitForTimeout(1500);
+    expect(isRed(await middle())).toBe(true);
+    // Removed in the parent area later (below), the photo gives way to that painting.
+
     // Library: every starter app shows Open; removing one and installing it again round-trips through the server.
     await p.getByRole('button', { name: 'Library' }).click();
     await p.getByRole('heading', { name: 'Library' }).waitFor();
@@ -316,6 +366,12 @@ describe.skipIf(!ready)('child web app', () => {
     // The parent area shows the home background and removes it; the home screen goes back to plain.
     const bgCard = p.locator('.card', { has: p.getByRole('heading', { name: 'Home background' }) });
     await bgCard.locator('img.bg-preview').waitFor();
+    // The Camera Fun photo is named as this tablet's own; removing it brings back her profile picture.
+    await bgCard.getByText('It is the background of this tablet only and stays on this tablet.', { exact: false }).waitFor();
+    await bgCard.scrollIntoViewIfNeeded();
+    await p.screenshot({ path: join(dir, 'bg-card-tablet.png') });
+    await bgCard.getByRole('button', { name: 'Remove it' }).click();
+    await bgCard.getByText('It shows on all of their tablets.').waitFor();
     await bgCard.scrollIntoViewIfNeeded();
     await p.screenshot({ path: join(dir, 'bg-card.png') });
     await bgCard.getByRole('button', { name: 'Remove it' }).click();

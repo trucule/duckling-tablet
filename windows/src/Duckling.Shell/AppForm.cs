@@ -79,7 +79,7 @@ public class AppBridge(MainForm main, string id)
   if (location.host !== {{JsonSerializer.Serialize(Paths.AppHost)}} || !window.chrome || !chrome.webview) return;
   const h = chrome.webview.hostObjects.sync.DucklingApp;
   const o = {};
-  for (const n of ["appId", "deviceToken", "apiUrl", "childId", "childName", "voice", "levels"]) o[n] = () => h[n]();
+  for (const n of ["appId", "deviceToken", "apiUrl", "childId", "childName", "voice", "levels", "setLocalBackground"]) o[n] = (...a) => h[n](...a);
   window.DucklingApp = Object.freeze(o);
 })();
 """;
@@ -94,4 +94,27 @@ public class AppBridge(MainForm main, string id)
     public string childName() => State()?["childName"]?.GetValue<string>() ?? "";
     public string voice() => State()?["narratorVoice"]?.GetValue<string>() ?? "en-US-AnaNeural";
     public string levels() => State()?["childLevels"]?.GetValue<string>() ?? "{}";
+    /// <summary>A picture for this device's background only (Camera Fun), held until the home screen takes it.
+    /// Never uploaded.</summary>
+    public bool setLocalBackground(string dataUrl) => LocalBackground.Hold(dataUrl);
+}
+
+/// <summary>A picture an app set as this device's own home background, on its way from the app's WebView to the home
+/// screen's. Held in memory only; the home screen keeps it in its own storage.</summary>
+public static class LocalBackground
+{
+    const string Prefix = "data:image/jpeg;base64,";
+    const int Max = 4_000_000;
+    static readonly object Gate = new();
+    static string? pending;
+
+    public static bool Hold(string dataUrl)
+    {
+        // "none": a picture set on her profile from this device replaces this device's own one.
+        if (dataUrl is null || (dataUrl != "none" && (!dataUrl.StartsWith(Prefix, StringComparison.Ordinal) || dataUrl.Length > Max))) return false;
+        lock (Gate) pending = dataUrl;
+        return true;
+    }
+
+    public static string Take() { lock (Gate) { var d = pending ?? ""; pending = null; return d; } }
 }

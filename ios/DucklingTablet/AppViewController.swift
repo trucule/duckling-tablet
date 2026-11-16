@@ -15,6 +15,15 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     /// Called once the app is closed, so the home screen checks in for what the app saved (portrait, background, stars).
     var onClose: (() -> Void)?
 
+    /// A picture an app set as this tablet's own home background (Camera Fun), held in memory until the home screen
+    /// takes it and keeps it in its own storage. Nothing is uploaded.
+    static var pendingLocalBackground: String?
+    static func holdLocalBackground(_ dataUrl: String) {
+        // "none": a picture set on her profile from this tablet replaces this tablet's own one.
+        guard dataUrl == "none" || (dataUrl.hasPrefix("data:image/jpeg;base64,") && dataUrl.utf8.count <= 4_000_000) else { return }
+        pendingLocalBackground = dataUrl
+    }
+
     init(appId: String) { self.appId = appId; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError("not used") }
 
@@ -36,7 +45,8 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
           voice: function () { return \(lit(prefs.narratorVoice)); },
           levels: function () { return \(lit(prefs.childLevels)); },
           speak: function (id, text, rate) { window.webkit.messageHandlers.duckling.postMessage({ cmd: 'speak', args: [id, text, rate] }); },
-          stopSpeaking: function () { window.webkit.messageHandlers.duckling.postMessage({ cmd: 'stopSpeaking', args: [] }); }
+          stopSpeaking: function () { window.webkit.messageHandlers.duckling.postMessage({ cmd: 'stopSpeaking', args: [] }); },
+          setLocalBackground: function (dataUrl) { window.webkit.messageHandlers.duckling.postMessage({ cmd: 'setLocalBackground', args: [String(dataUrl)] }); return true; }
         };
         """
     }
@@ -99,6 +109,8 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             speech.speak(u)
         } else if cmd == "stopSpeaking" {
             speech.stopSpeaking(at: .immediate)
+        } else if cmd == "setLocalBackground", let d = a.first as? String {
+            Self.holdLocalBackground(d)
         }
     }
 

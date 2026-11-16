@@ -1,7 +1,7 @@
 // App state: the device config from the server, the catalog, and what the shell has installed. Installs the server
 // expects (starter apps at pairing, apps a parent added remotely) are downloaded as soon as the config arrives.
 import { signal, computed } from '@preact/signals';
-import { forgetPictures } from './pictures';
+import { adoptTabletBackground, forgetPictures, forgetTabletBackground } from './pictures';
 import { api, ReleasedError, type DeviceConfig, type CatalogApp, type OtherApp, type Entitlement } from './api';
 import { shell } from './shell';
 
@@ -278,7 +278,14 @@ function refresh(catalogGap: number) {
   checkinNow();
   if (Date.now() - lastCatalog > catalogGap) { lastCatalog = Date.now(); void loadCatalog(); }
 }
+// A Camera Fun photo set as this tablet's background waits in the shell until the home screen is back.
+function takeTabletBackground() {
+  const d = shell.takeLocalBackground();
+  if (d === 'none') void forgetTabletBackground();
+  else if (d) void adoptTabletBackground(d);
+}
 export function startCheckins() {
+  takeTabletBackground();
   refresh(0);
   setInterval(() => refresh(0), 3 * 3600 * 1000);
   // A push from the server: a parent changed something, or the shell has a new push token to report.
@@ -286,6 +293,6 @@ export function startCheckins() {
   // Back from an app or another screen: My Avatar may have saved a portrait, Paint Studio a background, and any app
   // stars. Every return checks in; only the catalog waits between returns. The shells say so with onResume, and the
   // page itself sees it as visibilitychange (the iPad shell sends onResume only when Duckling comes to the front).
-  window.addEventListener('duckling:resume', () => refresh(20 * 1000));
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(10 * 60 * 1000); });
+  window.addEventListener('duckling:resume', () => { takeTabletBackground(); refresh(20 * 1000); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { takeTabletBackground(); refresh(10 * 60 * 1000); } });
 }

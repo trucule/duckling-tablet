@@ -154,7 +154,7 @@
     };
     window.KidTablet.ai = 'duckling';
 
-    // A picture she saved becomes her home screen background, on every tablet of hers. It is resized to fit a screen
+    // A picture she saved becomes her home screen background, on every tablet of hers (Paint Studio, Draw With Me). It is resized to fit a screen
     // (at most 1920 pixels on the long side) and sent as JPEG; transparent parts become white.
     var toJpeg = function (src) {
       return new Promise(function (resolve, reject) {
@@ -176,12 +176,26 @@
     window.KidTablet.setHomeBackground = function (src) {
       return toJpeg(src).then(function (d) { return api('PUT', '/device/child/background', d, 'text/plain'); }).then(function (r) {
         if (!r.ok) throw new Error(r.status === 409 ? 'This tablet has no child yet.' : 'The background could not be saved. Try again in a moment.');
+        // A painting chosen here also replaces this tablet's own Camera Fun photo, even when it is the painting her
+        // profile already had (its version would not change).
+        try { if (typeof bridge.setLocalBackground === 'function') bridge.setLocalBackground('none'); } catch (e) { /* older shell */ }
         return r.json();
       });
     };
     window.KidTablet.clearHomeBackground = function () {
       return api('DELETE', '/device/child/background').then(function (r) { if (!r.ok) throw new Error('The background could not be removed.'); return r.json(); });
     };
+    // A picture that stays on this tablet (Camera Fun's photos): the shell holds it until the home screen takes it,
+    // and the home screen keeps it with its own pictures. Nothing is uploaded. Only shells that can do this offer it.
+    if (typeof bridge.setLocalBackground === 'function') {
+      window.KidTablet.setTabletBackground = function (src) {
+        return toJpeg(src).then(function (d) {
+          var ok = bridge.setLocalBackground(d);
+          if (ok === false) throw new Error('The background could not be saved.');
+          return { ok: true };
+        });
+      };
+    }
 
     // ---- 5. Stars: this app's earned stars from its own saved progress, the rest from the server --------------------
     // The Surface version read every app's progress from one shared storage; here each app sees only its own, so each

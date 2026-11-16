@@ -101,6 +101,8 @@ class AppActivity : AppCompatActivity() {
         // The tablet's own voice, for lines the Duckling narrator cannot play (see DeviceVoice).
         @JavascriptInterface fun speak(id: String, text: String, rate: Float) = voice.speak(id, text, rate)
         @JavascriptInterface fun stopSpeaking() = voice.stopSpeaking()
+        // A picture for this tablet's background only (Camera Fun): held until the home screen takes it. Never uploaded.
+        @JavascriptInterface fun setLocalBackground(dataUrl: String): Boolean = LocalBackground.hold(dataUrl)
     }
 
     private fun granted(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED

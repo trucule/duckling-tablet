@@ -89,6 +89,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
             "media": ["microphone": Self.access(.audio), "camera": Self.access(.video)],
         ]
         if let h = prefs.pinHash { s["pinHash"] = h }
+        if let d = AppViewController.pendingLocalBackground { s["localBackground"] = d }
         return s
     }
 
@@ -167,6 +168,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         case "requestScreenTime":
             Task { _ = await Lockdown.shared.requestScreenTime(); await MainActor.run { self.pushState() } }
         case "requestMedia": requestMedia()
+        case "tookLocalBackground": if AppViewController.pendingLocalBackground != nil { AppViewController.pendingLocalBackground = nil; installScripts() }
         case "openSettings":
             if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
         case "setLockdown":
@@ -216,7 +218,12 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         guard Packages.shared.exists(id), presentedViewController == nil else { return }
         let vc = AppViewController(appId: id)
         vc.modalPresentationStyle = .fullScreen
-        vc.onClose = { [weak self] in self?.js("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()") }
+        // A background the app set for this tablet reaches the page in the state snapshot before onResume.
+        vc.onClose = { [weak self] in
+            guard let self else { return }
+            if AppViewController.pendingLocalBackground != nil { self.pushState() }
+            self.js("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()")
+        }
         present(vc, animated: false)
     }
 

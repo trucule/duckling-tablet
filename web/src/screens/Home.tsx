@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { usePicture } from '../pictures';
+import { useHomeBackground, usePicture } from '../pictures';
 import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked, unlinked, entitlement, restartNeeded } from '../state';
 import { shell } from '../shell';
 import { API, type Entitlement, type InstalledApp } from '../api';
@@ -50,11 +50,12 @@ export function Home() {
     const fromLibrary = catalog.value.find((a) => a.id === AVATAR);
     if (fromLibrary) void installFromStore(fromLibrary); else go('store');
   };
-  // Her home background: a picture she chose in an app (Paint Studio, Draw With Me). It sits in a layer fixed to the
+  // Her home background: a picture she chose in an app (a painting on her profile, or a Camera Fun photo kept on this
+  // tablet only, pictures.ts). It sits in a layer fixed to the
   // screen, so it is sized to the display and not to the scrolling page of tiles. The whole picture shows, centered;
   // where its shape differs from the screen's, a blurred copy fills the edges. Tile names get a light label so they
   // read over any picture.
-  const bg = usePicture('background', c?.child?.backgroundUrl);
+  const bg = useHomeBackground(c?.child?.backgroundUrl);
   const portrait = usePicture('portrait', c?.child?.portraitUrl);
   const bgUrl = bg ? `url("${bg.replace(/"/g, '%22')}")` : '';
   return (

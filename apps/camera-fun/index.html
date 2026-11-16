@@ -246,7 +246,7 @@
 <!--
   Camera Fun. A camera with filters, face stickers and stamps, all offline.
   Filters run as WebGL shaders; face stickers follow her face with MediaPipe Face Mesh (facemesh/, loaded only when
-  something needs a face). Photos are kept in IndexedDB (database camerafun) on the tablet; one the child picks as her home screen background goes to her profile through KidTablet.setHomeBackground.
+  something needs a face). Photos are kept in IndexedDB (database camerafun) on the tablet; one the child picks as her home screen background stays on this tablet too (KidTablet.setTabletBackground: the shell hands it to the home screen, nothing is uploaded).
   New filters, stickers and stamps go in effects.js; that file explains the format.
 -->
 <style>
@@ -744,17 +744,18 @@ async function openGallery() {
 }
 async function openView(i) {
   viewing = i; $('del').classList.remove('armed'); $('del').textContent = '🗑️ Delete'; $('view').classList.add('on');
-  const kt = window.KidTablet; $('homeBg').hidden = !(kt && kt.platform === 'duckling' && kt.setHomeBackground);
+  const kt = window.KidTablet; $('homeBg').hidden = !(kt && kt.platform === 'duckling' && typeof kt.setTabletBackground === 'function');
   $('homeBg').textContent = '🏠 Home screen'; $('homeBg').disabled = false;
   await drawBlob(photos[i].blob, $('big'), 1600);
 }
-// On a Duckling tablet a photo can become the home screen background: it is sent to the child's profile (private, on
-// every tablet of hers, removable in the parent area), the same way as a painting from Paint Studio.
+// On a Duckling tablet a photo can become the home screen background of this tablet only. The photo never leaves the
+// tablet: the shell hands it to the home screen, which keeps it with its own pictures. A shell too old to do that
+// leaves the button hidden.
 $('homeBg').onclick = async () => {
   const b = $('homeBg'), kt = window.KidTablet; b.disabled = true; b.textContent = '🏠 Saving…';
   try {
     const c = document.createElement('canvas'); await drawBlob(photos[viewing].blob, c, 1920);
-    await kt.setHomeBackground(c);
+    await kt.setTabletBackground(c);
     b.textContent = '🏠 Your home screen'; say('Now it is your home screen picture!'); msg('Your home screen picture!', 1800);
   } catch (e) { b.textContent = '🏠 Home screen'; b.disabled = false; say('That did not work. Try again in a moment.'); }
 };
