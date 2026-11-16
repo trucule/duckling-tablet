@@ -431,7 +431,7 @@ function HomeBackground() {
           <p>Your child chose this picture. It shows on all of their tablets.</p>
           <div class="row"><button class="pill quiet" disabled={busy} onClick={remove}>{busy ? 'Removing' : 'Remove it'}</button></div>
         </>
-      ) : <p>None. Your child can pick one from a saved picture in Paint Studio or Draw With Me: open the saved pictures and tap Use as home background.</p>}
+      ) : <p>None. Your child can pick a saved painting in Paint Studio or Draw With Me, or a photo in Camera Fun: open the saved pictures and tap Use as home background (Home screen in Camera Fun). A photo is kept with the child's profile until it is removed here.</p>}
       {error && <div class="error">{error}</div>}
     </div>
   );

@@ -246,7 +246,7 @@
 <!--
   Camera Fun. A camera with filters, face stickers and stamps, all offline.
   Filters run as WebGL shaders; face stickers follow her face with MediaPipe Face Mesh (facemesh/, loaded only when
-  something needs a face). Photos are kept in IndexedDB (database camerafun) and never leave the tablet.
+  something needs a face). Photos are kept in IndexedDB (database camerafun) on the tablet; one the child picks as her home screen background goes to her profile through KidTablet.setHomeBackground.
   New filters, stickers and stamps go in effects.js; that file explains the format.
 -->
 <style>
@@ -330,7 +330,7 @@
   <div id="galHead"><h2>My pictures</h2><button id="galClose">📸 Back to camera</button></div>
   <div id="grid"></div>
 </div>
-<div id="view"><canvas id="big"></canvas><div id="viewBar"><button id="prevPic">◀</button><button id="del">🗑️ Delete</button><button id="viewClose">✖ Close</button><button id="nextPic">▶</button></div></div>
+<div id="view"><canvas id="big"></canvas><div id="viewBar"><button id="prevPic">◀</button><button id="homeBg" hidden>🏠 Home screen</button><button id="del">🗑️ Delete</button><button id="viewClose">✖ Close</button><button id="nextPic">▶</button></div></div>
 
 <script>
 // ---------------------------------------------------------------------------
@@ -742,7 +742,22 @@ async function openGallery() {
   if (!photos.length) { grid.innerHTML = '<div id="empty">No pictures yet. Tap 📸 to take one!</div>'; return; }
   photos.forEach((p, i) => { const c = document.createElement('canvas'); c.onclick = () => openView(i); grid.appendChild(c); drawBlob(p.blob, c, 360).catch(e => errors.push('thumb: ' + e.message)); });
 }
-async function openView(i) { viewing = i; $('del').classList.remove('armed'); $('del').textContent = '🗑️ Delete'; $('view').classList.add('on'); await drawBlob(photos[i].blob, $('big'), 1600); }
+async function openView(i) {
+  viewing = i; $('del').classList.remove('armed'); $('del').textContent = '🗑️ Delete'; $('view').classList.add('on');
+  const kt = window.KidTablet; $('homeBg').hidden = !(kt && kt.platform === 'duckling' && kt.setHomeBackground);
+  $('homeBg').textContent = '🏠 Home screen'; $('homeBg').disabled = false;
+  await drawBlob(photos[i].blob, $('big'), 1600);
+}
+// On a Duckling tablet a photo can become the home screen background: it is sent to the child's profile (private, on
+// every tablet of hers, removable in the parent area), the same way as a painting from Paint Studio.
+$('homeBg').onclick = async () => {
+  const b = $('homeBg'), kt = window.KidTablet; b.disabled = true; b.textContent = '🏠 Saving…';
+  try {
+    const c = document.createElement('canvas'); await drawBlob(photos[viewing].blob, c, 1920);
+    await kt.setHomeBackground(c);
+    b.textContent = '🏠 Your home screen'; say('Now it is your home screen picture!'); msg('Your home screen picture!', 1800);
+  } catch (e) { b.textContent = '🏠 Home screen'; b.disabled = false; say('That did not work. Try again in a moment.'); }
+};
 $('gallery').onclick = openGallery;
 $('galClose').onclick = () => $('gal').classList.remove('on');
 $('viewClose').onclick = () => $('view').classList.remove('on');

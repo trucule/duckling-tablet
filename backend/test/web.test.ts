@@ -319,7 +319,7 @@ describe.skipIf(!ready)('child web app', () => {
     await bgCard.scrollIntoViewIfNeeded();
     await p.screenshot({ path: join(dir, 'bg-card.png') });
     await bgCard.getByRole('button', { name: 'Remove it' }).click();
-    await bgCard.getByText('None. Your child can pick one', { exact: false }).waitFor();
+    await bgCard.getByText('None. Your child can pick a saved painting', { exact: false }).waitFor();
     expect(await p.evaluate(() => document.querySelector('.with-bg'))).toBeNull();
     // The PIN typed on the tablet became the family PIN; a change on the website reaches the tablet at its next check-in.
     expect((await (await fetch(`${api}/family`, { headers: auth })).json()).pinSet).toBe(true);
