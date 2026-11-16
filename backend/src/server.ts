@@ -32,6 +32,7 @@ import { makeStripe, type Stripe } from './stripe.js';
 import stripeRoutes from './routes/stripe.js';
 import windowsRoutes from './routes/windows.js';
 import siteIconRoutes, { type FetchUrl } from './routes/siteicon.js';
+import fontRoutes from './routes/fonts.js';
 
 export interface BuildOptions { stripe?: Stripe | null; apple?: AppleVerifier | null; google?: GooglePlay | null; googlePushAuth?: PushAuth; db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; push?: Push; fetchUrl?: FetchUrl; logger?: boolean | Record<string, unknown> }
 
@@ -95,6 +96,7 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
   await app.register(stripeRoutes, { ctx });
   await app.register(windowsRoutes, { ctx });
   await app.register(siteIconRoutes, { ctx, fetchUrl: opts.fetchUrl });
+  await app.register(fontRoutes, {});
   await app.register(adminRoutes, { ctx, voice });
 
   // Development only: serve files from local storage at /files/... (production uses the Spaces CDN).
