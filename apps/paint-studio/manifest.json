@@ -1,8 +1,8 @@
 {
   "id": "paint-studio",
   "name": "Paint Studio",
-  "version": "1.2.0",
-  "description": "A paint box with a bristle paint brush that blends wet colors, textured brushes, words in nine fonts, a full color wheel, mirror, kaleidoscope, spin and tile drawing, three layers, two-finger zoom, a gallery, and art challenges from pre-K to 8th grade.",
+  "version": "1.3.0",
+  "description": "A paint box with a bristle paint brush that blends wet colors, textured brushes, words in nine fonts and about a thousand more to download, a full color wheel, mirror, kaleidoscope, spin and tile drawing, three layers, two-finger zoom, a gallery, and art challenges from pre-K to 8th grade.",
   "subjects": [
     "art"
   ],
@@ -13,7 +13,7 @@
   "minShell": "1.0.0",
   "about": {
     "concept": "Making marks on purpose. Each brush behaves like its real counterpart (a pencil scratches, chalk crumbles, watercolor pools, and the paint brush runs dry and picks up the wet color it crosses), so the child learns that the tool and the pressure change the mark, and that a picture is built from choices about color, value and placement.",
-    "progression": "Free painting has every brush, the color wheel, words in nine fonts and every mirror, kaleidoscope, spin and tile mode from the start. From 3rd grade art the app adds the controls an older painter uses: a color code, kept colors, softness and steadiness per brush, and locking a layer so paint stays inside what is already painted. The Challenges ladder starts at the child's art grade and climbs from shapes and colors in pre-K through symmetry with the mirror tool, warm and cool palettes, shading with Smudge and Shade, composition and perspective, to value studies, color theory and design principles in 8th grade. Three finished challenges move the child up a rung. A finished painting can become the home screen background.",
+    "progression": "Free painting has every brush, the color wheel, words in nine fonts (about a thousand more download when picked and stay on the tablet) and every mirror, kaleidoscope, spin and tile mode from the start. From 3rd grade art the app adds the controls an older painter uses: a color code, kept colors, softness and steadiness per brush, and locking a layer so paint stays inside what is already painted. The Challenges ladder starts at the child's art grade and climbs from shapes and colors in pre-K through symmetry with the mirror tool, warm and cool palettes, shading with Smudge and Shade, composition and perspective, to value studies, color theory and design principles in 8th grade. Three finished challenges move the child up a rung. A finished painting can become the home screen background.",
     "lifeSkills": [
       "Fine motor control",
       "Seeing light, shadow and form",

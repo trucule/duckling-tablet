@@ -6,10 +6,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join } from 'node:path';
+import Fastify, { type FastifyInstance } from 'fastify';
+import fontRoutes from '../src/routes/fonts.js';
 import { freePort } from './pg.js';
 
 const APP = join(import.meta.dirname, '..', '..', 'apps', 'paint-studio');
-let server: Server, url: string;
+let server: Server, url: string, fontApi: FastifyInstance, api: string;
 beforeAll(async () => {
   const port = await freePort();
   // Fonts go out as application/octet-stream, the type a shell may give a file it does not know.
@@ -21,8 +23,11 @@ beforeAll(async () => {
     createReadStream(p).pipe(res);
   }).listen(port, '127.0.0.1');
   url = `http://127.0.0.1:${port}/index.html`;
+  // The API's font library on its own origin, as on a tablet.
+  fontApi = Fastify(); await fontApi.register(fontRoutes, {});
+  const apiPort = await freePort(); await fontApi.listen({ port: apiPort, host: '127.0.0.1' }); api = `http://127.0.0.1:${apiPort}`;
 });
-afterAll(() => { server?.close(); });
+afterAll(async () => { server?.close(); await fontApi?.close(); });
 
 describe('Paint Studio text', () => {
   it('types, moves, places and undoes words in the bundled fonts', async () => {
@@ -83,4 +88,65 @@ describe('Paint Studio text', () => {
     expect(errors).toEqual([]);
     await browser.close();
   }, 60_000);
+
+  it('picks a font from the library on the server, keeps it, and works offline with the fonts it kept', async () => {
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    await ctx.addInitScript(`window.KidTablet = { apiUrl: ${JSON.stringify(api)} };`);
+    const p = await ctx.newPage();
+    const errors: string[] = [], files: string[] = [];
+    p.on('pageerror', (e) => errors.push(e.message));
+    p.on('request', (r) => { if (r.url().includes('/fonts/files/')) files.push(r.url()); });
+    await p.goto(url);
+    const box = await p.locator('#view').boundingBox();
+    const at = (x: number, y: number) => ({ x: box!.x + (x / 1280) * box!.width, y: box!.y + (y / 800) * box!.height });
+    const page = () => p.evaluate(() => (document.getElementById('view') as HTMLCanvasElement).toDataURL());
+    await p.getByRole('button', { name: 'Text', exact: true }).click();
+    const c = at(400, 500); await p.mouse.click(c.x, c.y);
+    await p.getByLabel('Words').fill('Hello there');
+    const before = await page();
+
+    await p.getByRole('button', { name: 'More fonts' }).click();
+    await p.locator('#fontGroups button', { hasText: 'Handwriting' }).waitFor();
+    await expect.poll(() => p.locator('#fontTiles .ftile').count()).toBeGreaterThan(200);
+    for (const g of ['Fun', 'Book', 'Plain', 'Typewriter', 'Mine']) await p.locator('#fontGroups button', { hasText: g }).waitFor();
+    await p.locator('#fontGroups button', { hasText: 'Fun' }).click();
+    await expect.poll(() => p.locator('#fontTiles .ftile').count()).toBeGreaterThan(300);
+    // The tiles are cut from the preview sheets, with no font downloaded yet.
+    await p.waitForTimeout(500);
+    expect(await p.locator('#fontTiles .ftile.text').count()).toBe(0);
+    expect(files).toEqual([]);
+    if (process.env.WEB_SHOTS) await p.screenshot({ path: join(process.env.WEB_SHOTS, 'paint-fontlib.png') });
+    await p.getByLabel('Find a font').fill('lobst');
+    await expect.poll(() => p.locator('#fontTiles .ftile').count()).toBeGreaterThan(0);
+    await p.getByRole('button', { name: 'Lobster', exact: true }).click();
+    await expect.poll(() => p.locator('#fontlib').isVisible()).toBe(false);
+    expect(files.filter((f) => f.endsWith('/fonts/files/lobster.woff2'))).toHaveLength(1);
+    expect(await p.locator('#fonts button.on').getAttribute('data-font')).toBe('lobster');
+    expect(await p.evaluate(() => document.activeElement?.id)).toBe('textInput');
+    expect(await page()).not.toBe(before);
+    if (process.env.WEB_SHOTS) await p.screenshot({ path: join(process.env.WEB_SHOTS, 'paint-fontlib-picked.png') });
+    await p.getByRole('button', { name: 'Done', exact: true }).click();
+
+    // After a restart the kept font is in the bar and chosen, with nothing downloaded.
+    files.length = 0;
+    await p.reload();
+    await expect.poll(() => p.locator('#fonts button[data-font="lobster"]').count()).toBe(1);
+    expect(await p.evaluate(() => document.fonts.check('20px "PS lobster"'))).toBe(true);
+    expect(files).toEqual([]);
+
+    // Offline: the list comes from the copy kept on the tablet; a kept font is under Mine; another font says why not.
+    await ctx.setOffline(true);
+    await p.getByRole('button', { name: 'Text', exact: true }).click();
+    const c2 = at(300, 300); await p.mouse.click(c2.x, c2.y);
+    await p.getByRole('button', { name: 'More fonts' }).click();
+    await p.locator('#fontGroups button', { hasText: 'Mine' }).click();
+    await expect.poll(() => p.locator('#fontTiles .ftile').count()).toBe(1);
+    await p.locator('#fontGroups button', { hasText: 'Handwriting' }).click();
+    await p.locator('#fontTiles .ftile').first().click();
+    await p.getByText('That font needs the internet', { exact: false }).waitFor();
+    expect(errors).toEqual([]);
+    await browser.close();
+  }, 90_000);
 });

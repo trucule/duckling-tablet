@@ -79,7 +79,27 @@
   #textpanel .row { display: flex; gap: 8px; align-items: stretch; }
   #textInput { flex: 1; height: 52px; resize: none; border-radius: 10px; border: 1px solid #0006; background: #fff; color: #222; font: 22px "Segoe UI", system-ui, sans-serif; padding: 10px 12px; user-select: text; -webkit-user-select: text; touch-action: manipulation; }
   #textpanel .row .btn { height: 52px; }
-  #fonts { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; margin-top: 8px; }
+  #fonts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(92px, 1fr); gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: thin; }
+  #fonts .btn.more { background: var(--acc2); color: #123; }
+  #fonts .btn.more small { color: #234; }
+  #fontlib { position: absolute; inset: 0; background: #1e212af2; display: none; flex-direction: column; padding: 14px 16px; z-index: 6; }
+  #fontlib.open { display: flex; }
+  #fontlib .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #fontlib h2 { margin: 0; font-size: 20px; }
+  #fontSearch { flex: 1; min-width: 160px; max-width: 320px; height: 40px; border-radius: 10px; border: 1px solid #0006; background: #fff; color: #222; font-size: 17px; padding: 0 12px; user-select: text; -webkit-user-select: text; }
+  #fontGroups { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+  #fontGroups .btn.on { background: var(--acc); color: #222; }
+  #fontTiles { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 8px; align-content: start; padding-bottom: 8px; }
+  .ftile { height: 52px; border: 0; border-radius: 10px; background: #fff; cursor: pointer; position: relative; padding: 0; overflow: hidden; }
+  .ftile i { position: absolute; left: 8px; top: 10px; width: 160px; height: 32px; background-repeat: no-repeat; }
+  .ftile span { position: absolute; left: 10px; right: 10px; top: 0; bottom: 0; display: none; align-items: center; color: #222; font-size: 15px; text-align: left; white-space: nowrap; overflow: hidden; }
+  .ftile.text span { display: flex; }
+  .ftile.text i { display: none; }
+  .ftile.on { outline: 4px solid var(--acc); }
+  .ftile.away { opacity: 0.45; }
+  .ftile.busy::after { content: ''; position: absolute; right: 8px; top: 16px; width: 18px; height: 18px; border-radius: 50%; border: 3px solid #3aa0ff; border-right-color: transparent; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #fontNote { color: var(--dim); font-size: 14px; margin: 0 0 8px; min-height: 18px; }
   #fonts .btn { height: 52px; flex-direction: column; gap: 0; justify-content: center; padding: 2px 4px; font-weight: 400; min-width: 0; }
   #fonts .btn b { font-size: 22px; line-height: 1.1; font-weight: 400; }
   #fonts .btn small { font: 10px "Segoe UI", system-ui, sans-serif; color: var(--dim); white-space: nowrap; }
@@ -134,6 +154,12 @@
         <button class="btn" id="textCancel">Cancel</button><button class="btn" id="textDone" style="background:var(--acc);color:#222">Done</button>
       </div>
       <div id="fonts"></div>
+    </div>
+    <div id="fontlib" aria-label="More fonts">
+      <div class="head"><h2>More fonts</h2><input id="fontSearch" type="search" placeholder="Find a font" aria-label="Find a font" autocomplete="off" spellcheck="false"><span class="grow"></span><button class="btn" id="fontlibClose">Back to my words</button></div>
+      <div id="fontGroups"></div>
+      <p id="fontNote" role="status"></p>
+      <div id="fontTiles"></div>
     </div>
     <button class="btn" id="zoomfit">Fit the page</button>
     <div id="mirrors"></div>
@@ -614,20 +640,138 @@ const family = (f) => '"PS ' + f.id + '", "Segoe UI", system-ui, sans-serif';
 var draft = null, textDrag = null;
 let fontId = store0('font', 'fredoka');
 const textPx = () => Math.max(12, size() * 3);
-const fontOf = () => FONTS.find((f) => f.id === fontId) || FONTS[0];
+// Fonts from the library (below) that this tablet has, most recently used first; the bar shows six of them.
+let recentFonts = store0('recentFonts', []);
+const libFonts = new Map();
+const fontOf = () => FONTS.find((f) => f.id === fontId) || libFonts.get(fontId) || FONTS[0];
 const fontsReady = Promise.all(FONTS.map(async (f) => {
   try { const face = new FontFace('PS ' + f.id, await (await fetch('fonts/' + f.id + '.woff2')).arrayBuffer()); await face.load(); document.fonts.add(face); f.ok = true; } catch (e) { f.ok = false; }
 })).then(() => { renderFonts(); composite(); });
 function renderFonts() {
   const box = $('fonts'); box.innerHTML = '';
-  for (const f of FONTS) {
+  const shown = [...FONTS, ...recentFonts.map((r) => libFonts.get(r.id)).filter(Boolean).slice(0, 6)];
+  for (const f of shown) {
     const b = document.createElement('button'); b.className = 'btn' + (f.id === fontId ? ' on' : ''); b.dataset.font = f.id; b.title = f.name;
     b.innerHTML = '<b style=\'font-family:' + family(f).replace(/"/g, '&quot;') + '\'>Aa</b><small>' + f.name + '</small>';
     b.onclick = () => { fontId = f.id; try { localStorage.setItem('paint-studio-font', JSON.stringify(fontId)); } catch (e) {} renderFonts(); composite(); say(f.name); $('textInput').focus(); };
     box.appendChild(b);
   }
+  const more = document.createElement('button'); more.className = 'btn more'; more.id = 'moreFonts';
+  more.innerHTML = '<b>+</b><small>More fonts</small>'; more.onclick = () => openLibrary();
+  box.appendChild(more);
 }
 renderFonts();
+
+// ---- Font library -----------------------------------------------------------------------------------------------------
+// About a thousand more fonts on the Duckling server (GET /fonts/library.json, preview sheets, one .woff2 per font).
+// The list and the previews load when the page opens; a font downloads the first time it is picked and is kept on the
+// tablet (IndexedDB), so it works offline after that. Without the internet the kept fonts still show under Mine.
+const LIB_API = ((window.KidTablet && KidTablet.apiUrl) || 'https://api.ducklingtablet.com').replace(/\/$/, '');
+let library = null, libGroup = 'Handwriting';
+const fontDb = new Promise((resolve) => {
+  try {
+    const r = indexedDB.open('paint-studio-fonts', 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore('files'); r.result.createObjectStore('meta'); };
+    r.onsuccess = () => resolve(r.result); r.onerror = () => resolve(null);
+  } catch (e) { resolve(null); }
+});
+async function idb(store, mode, fn) {
+  const d = await fontDb; if (!d) return undefined;
+  return new Promise((resolve) => { try { const q = fn(d.transaction(store, mode).objectStore(store)); q.onsuccess = () => resolve(q.result); q.onerror = () => resolve(undefined); } catch (e) { resolve(undefined); } });
+}
+async function addFace(f, bytes) { const face = new FontFace('PS ' + f.id, bytes); await face.load(); document.fonts.add(face); libFonts.set(f.id, f); }
+// Fonts kept on this tablet come back at start, so the bar and the chosen font work offline.
+const keptFonts = (async () => {
+  const kept = (await idb('files', 'readonly', (s) => s.getAllKeys())) || [];
+  for (const r of recentFonts.filter((r) => kept.includes(r.id))) {
+    try { await addFace(r, await idb('files', 'readonly', (s) => s.get(r.id))); } catch (e) { /* a damaged copy downloads again */ }
+  }
+  recentFonts = recentFonts.filter((r) => libFonts.has(r.id));
+  renderFonts(); composite();
+  return kept;
+})();
+async function loadLibrary() {
+  try {
+    const r = await fetch(LIB_API + '/fonts/library.json', { mode: 'cors', credentials: 'omit' });
+    if (!r.ok) throw new Error(String(r.status));
+    library = await r.json(); idb('meta', 'readwrite', (s) => s.put(library, 'library'));
+  } catch (e) { library = library || (await idb('meta', 'readonly', (s) => s.get('library'))) || null; }
+  return library;
+}
+async function openLibrary() {
+  $('fontlib').classList.add('open'); $('fontSearch').value = ''; $('fontNote').textContent = 'Getting the fonts…';
+  say('Pick a font');
+  await loadLibrary();
+  const kept = (await idb('files', 'readonly', (s) => s.getAllKeys())) || [];
+  libGroup = library ? libGroup : 'Mine';
+  renderGroups(); renderTiles(kept);
+}
+function closeLibrary() { $('fontlib').classList.remove('open'); if (draft) $('textInput').focus(); }
+$('fontlibClose').onclick = closeLibrary;
+function renderGroups() {
+  const box = $('fontGroups'); box.innerHTML = '';
+  for (const g of [...(library ? library.groups : []), 'Mine']) {
+    const b = document.createElement('button'); b.className = 'btn' + (g === libGroup ? ' on' : ''); b.textContent = g;
+    b.onclick = async () => { libGroup = g; $('fontSearch').value = ''; renderGroups(); renderTiles((await idb('files', 'readonly', (s) => s.getAllKeys())) || []); say(g); };
+    box.appendChild(b);
+  }
+}
+const sheetOk = new Map();
+function sheetLoads(url) {
+  if (!sheetOk.has(url)) sheetOk.set(url, new Promise((resolve) => { const im = new Image(); im.onload = () => resolve(true); im.onerror = () => resolve(false); im.src = url; }));
+  return sheetOk.get(url);
+}
+function renderTiles(kept) {
+  const box = $('fontTiles'); box.innerHTML = '';
+  const q = $('fontSearch').value.trim().toLowerCase();
+  const all = library ? library.fonts : [];
+  const mine = (f) => kept.includes(f.id);
+  let list = q ? all.filter((f) => f.name.toLowerCase().includes(q)) : libGroup === 'Mine' ? all.filter(mine) : all.filter((f) => f.group === libGroup);
+  // Mine without the list (offline before the first visit): the kept fonts by name.
+  if (!library && libGroup === 'Mine') list = recentFonts.filter((r) => kept.includes(r.id));
+  const online = navigator.onLine !== false;
+  $('fontNote').textContent = !library ? 'More fonts need the internet. Fonts already on this tablet are under Mine.'
+    : list.length ? (q ? list.length + ' found' : '') + (online ? '' : ' Fonts not on this tablet need the internet.') : q ? 'No font has that name.' : 'No fonts here yet. Pick one from another group.';
+  const c = library ? library.cell : { w: 320, h: 64, cols: 4 };
+  for (const f of list) {
+    const b = document.createElement('button'); b.className = 'ftile' + (f.id === fontId ? ' on' : '') + (mine(f) || online ? '' : ' away');
+    b.title = f.name; b.setAttribute('aria-label', f.name); b.dataset.font = f.id;
+    b.innerHTML = '<i></i><span></span>'; b.querySelector('span').textContent = f.name;
+    if (f.sheet) {
+      const url = LIB_API + '/fonts/sheets/' + f.sheet, i = b.querySelector('i');
+      i.style.backgroundImage = 'url("' + url + '")';
+      i.style.backgroundSize = (c.w * c.cols / 2) + 'px auto';
+      i.style.backgroundPosition = -((f.cell % c.cols) * c.w / 2) + 'px ' + -(Math.floor(f.cell / c.cols) * c.h / 2) + 'px';
+      sheetLoads(url).then((ok) => { if (!ok) b.classList.add('text'); });
+    } else { b.classList.add('text'); b.querySelector('span').style.fontFamily = family(f); }
+    b.onclick = () => pickLibraryFont(f, b);
+    box.appendChild(b);
+  }
+}
+$('fontSearch').addEventListener('input', async () => renderTiles((await idb('files', 'readonly', (s) => s.getAllKeys())) || []));
+async function pickLibraryFont(f, tile) {
+  if (!libFonts.has(f.id)) {
+    tile.classList.add('busy'); $('fontNote').textContent = 'Getting ' + f.name + '…';
+    try {
+      let bytes = await idb('files', 'readonly', (s) => s.get(f.id));
+      if (!bytes) {
+        const r = await fetch(LIB_API + '/fonts/files/' + f.id + '.woff2', { mode: 'cors', credentials: 'omit' });
+        if (!r.ok) throw new Error(String(r.status));
+        bytes = await r.arrayBuffer();
+      }
+      await addFace(f, bytes);
+      await idb('files', 'readwrite', (s) => s.put(bytes, f.id));
+    } catch (e) {
+      tile.classList.remove('busy'); $('fontNote').textContent = 'That font needs the internet. Try again when the tablet is online.';
+      say('That font needs the internet'); return;
+    }
+    tile.classList.remove('busy');
+  }
+  fontId = f.id;
+  recentFonts = [{ id: f.id, name: f.name, group: f.group }, ...recentFonts.filter((r) => r.id !== f.id)].slice(0, 30);
+  try { localStorage.setItem('paint-studio-font', JSON.stringify(fontId)); localStorage.setItem('paint-studio-recentFonts', JSON.stringify(recentFonts)); } catch (e) {}
+  renderFonts(); composite(); say(f.name); closeLibrary();
+}
 function textLines(g) {
   const px = textPx(), lines = draft.text.split('\n');
   g.font = px + 'px ' + family(fontOf()); g.textBaseline = 'top';
@@ -659,7 +803,7 @@ function textDown(pt) {
   $('textInput').value = ''; $('textpanel').classList.add('open'); $('textInput').focus();
   composite(); say('Type your words');
 }
-function closeText() { draft = null; textDrag = null; $('textpanel').classList.remove('open'); $('textInput').blur(); composite(); }
+function closeText() { $('fontlib').classList.remove('open'); draft = null; textDrag = null; $('textpanel').classList.remove('open'); $('textInput').blur(); composite(); }
 function placeText() {
   if (!draft) return false;
   const placed = !!draft.text.trim();

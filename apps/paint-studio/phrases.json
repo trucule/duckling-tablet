@@ -1,5 +1,5 @@
 {
- "source": "59e17e56f0ffe973290976e8e195ede71f6598bf816f2317d227f1693aba4624",
+ "source": "1df0aba699f595a829d0ea0e3d1b4db4ef6cf4a850da712aa829503561b48b0d",
  "lines": [
   {
    "text": "A blank page",
@@ -34,6 +34,10 @@
    "rate": -5
   },
   {
+   "text": "Pick a font",
+   "rate": -5
+  },
+  {
    "text": "Saved to your gallery",
    "rate": -5
   },
@@ -43,6 +47,10 @@
   },
   {
    "text": "That did not work. Try again in a moment.",
+   "rate": -5
+  },
+  {
+   "text": "That font needs the internet",
    "rate": -5
   },
   {

@@ -90,7 +90,8 @@
 
   // ---- 3. The small bridge for apps that look for it -----------------------------------------------------------------
   window.KidTablet = {
-    platform: bridge ? 'duckling' : 'browser', appId: APP_ID, childName: CHILD, narratorVoice: VOICE, levels: LEVELS, grade: grade, levelFor: levelFor, rungFor: rungFor,
+    // apiUrl: the Duckling API, for public files an app downloads itself (Paint Studio's font library).
+    platform: bridge ? 'duckling' : 'browser', apiUrl: API, appId: APP_ID, childName: CHILD, narratorVoice: VOICE, levels: LEVELS, grade: grade, levelFor: levelFor, rungFor: rungFor,
     say: function (text, opts) { var u = new SpeechSynthesisUtterance(String(text)); if (opts && opts.rate) u.rate = opts.rate; window.speechSynthesis.speak(u); return u; },
     // Replaced below on a paired tablet; in a plain browser there is no home screen to change.
     setHomeBackground: function () { return Promise.reject(new Error('Only on a Duckling tablet.')); },
