@@ -71,6 +71,20 @@
   #shots img { width: 100%; display: block; aspect-ratio: 8 / 5; object-fit: cover; }
   #shots .del { position: absolute; right: 6px; top: 6px; background: #0008; color: #fff; border: 0; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
   #shots .del.bg { top: auto; bottom: 6px; left: 6px; right: auto; background: #ffd36bee; color: #222; font-weight: 700; }
+  /* A bar across the top of the page while words are typed (a tablet keyboard covers the bottom of the screen); it
+     moves to the bottom when the words are near the top, so it never covers them. */
+  #textpanel { position: absolute; left: 12px; right: 12px; top: 12px; background: var(--bar); border-radius: 14px; padding: 10px; box-shadow: 0 10px 30px #0008; display: none; z-index: 5; }
+  #textpanel.open { display: block; }
+  #textpanel.low { top: auto; bottom: 12px; }
+  #textpanel .row { display: flex; gap: 8px; align-items: stretch; }
+  #textInput { flex: 1; height: 52px; resize: none; border-radius: 10px; border: 1px solid #0006; background: #fff; color: #222; font: 22px "Segoe UI", system-ui, sans-serif; padding: 10px 12px; user-select: text; -webkit-user-select: text; touch-action: manipulation; }
+  #textpanel .row .btn { height: 52px; }
+  #fonts { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; margin-top: 8px; }
+  #fonts .btn { height: 52px; flex-direction: column; gap: 0; justify-content: center; padding: 2px 4px; font-weight: 400; min-width: 0; }
+  #fonts .btn b { font-size: 22px; line-height: 1.1; font-weight: 400; }
+  #fonts .btn small { font: 10px "Segoe UI", system-ui, sans-serif; color: var(--dim); white-space: nowrap; }
+  #fonts .btn.on { background: var(--acc); color: #222; }
+  #fonts .btn.on small { color: #444; }
   #toast { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: #fff; color: #222; padding: 8px 16px; border-radius: 12px; font-weight: 600; display: none; z-index: 7; box-shadow: 0 6px 20px #0006; }
   #stars { font-size: 14px; color: var(--acc); white-space: nowrap; font-weight: 700; padding: 4px 0; }
   #promptLevel { font-size: 12px; color: #667; display: block; }
@@ -114,6 +128,13 @@
       <div class="chips adv" id="saved"><span class="label">My colors</span></div>
       <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end"><button class="btn adv" id="keepColor">Keep this color</button><button class="btn" id="mixDone">Done</button></div>
     </div>
+    <div id="textpanel" aria-label="Text">
+      <div class="row">
+        <textarea id="textInput" rows="1" maxlength="120" spellcheck="false" autocomplete="off" aria-label="Words" placeholder="Type your words, then drag them where they go"></textarea>
+        <button class="btn" id="textCancel">Cancel</button><button class="btn" id="textDone" style="background:var(--acc);color:#222">Done</button>
+      </div>
+      <div id="fonts"></div>
+    </div>
     <button class="btn" id="zoomfit">Fit the page</button>
     <div id="mirrors"></div>
     <div id="prompt"><span><span id="promptLevel"></span><span id="promptText"></span></span><button class="btn quiet" id="promptSkip">Another</button><button class="btn" id="promptDone">Done!</button></div>
@@ -148,7 +169,7 @@ function flatten(into) {
   for (const l of layers) if (l.on) g.drawImage(l.c, 0, 0);
   return c;
 }
-function composite() { flatten(view); if (typeof guides === 'function') guides(vctx); }
+function composite() { flatten(view); if (typeof guides === 'function') guides(vctx); if (typeof drawDraft === 'function') drawDraft(vctx); }
 function renderLayers() {
   const box = $('layers'); box.innerHTML = '';
   layers.forEach((l, i) => {
@@ -284,6 +305,7 @@ const I = {
   fill: '<path d="M5 12l7-7 7 7-7 7z"/><path d="M19 14s2 2.5 2 4a2 2 0 0 1-4 0c0-1.5 2-4 2-4z"/>',
   pick: '<path d="M14 4l6 6"/><path d="M17 7l-9 9-3 1 1-3 9-9"/><path d="M4 20l2-2"/>',
   eraser: '<path d="M4 15l9-9 6 6-6 6H7z"/><path d="M10 21h10"/>',
+  text: '<path d="M5 7V4h14v3"/><path d="M12 4v16"/><path d="M9 20h6"/>',
 };
 const dab = (c, x, y, r, soft) => {
   if (soft > 0.02) { const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, c.fillStyle); g.addColorStop(Math.max(0, 1 - soft), c.fillStyle); g.addColorStop(1, c.fillStyle + '00'); const f = c.fillStyle; c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.fillStyle = f; }
@@ -303,6 +325,7 @@ const TOOLS = {
   smudge: { name: 'Smudge', spacing: 0.2, smudge: true, size: 24 },
   fill: { name: 'Fill', fill: true },
   pick: { name: 'Pick a color', pick: true },
+  text: { name: 'Text', text: true, size: 30 },
   eraser: { name: 'Eraser', spacing: 0.12, erase: true, soft: true, size: 24, draw: (c, x, y, r, p, soft) => dab(c, x, y, r, soft) },
 };
 // Each tool's own settings, kept on the tablet.
@@ -310,6 +333,7 @@ const settings = store0('settings', {});
 const setOf = (id) => (settings[id] = Object.assign({ size: TOOLS[id].size ?? 12, alpha: 100, soft: 0, steady: 0 }, settings[id] || {}));
 let tool = 'brush';
 function selectTool(id, speakIt) {
+  if (id !== 'text' && typeof placeText === 'function') placeText();
   tool = id;
   for (const b of document.querySelectorAll('#tools .tool')) b.classList.toggle('on', b.dataset.id === id);
   const st = setOf(id); $('size').value = st.size; $('alpha').value = st.alpha; $('soft').value = st.soft; $('steady').value = st.steady;
@@ -552,6 +576,8 @@ view.addEventListener('pointerdown', (e) => {
   if (gesture || fingers.size > 1) return;
   view.setPointerCapture(e.pointerId);
   const pt = canvasPoint(e), t = TOOLS[tool];
+  // No default: the mouse and touch events that follow would move focus off the words box and close the keyboard.
+  if (t.text) { e.preventDefault(); textDown(pt); return; }
   if (t.pick) { pickAt(pt); return; }
   if (t.fill) { remember(); for (const [x, y] of images(pt.x, pt.y)) floodFill(layers[active], Math.round(x), Math.round(y), color); composite(); strokeCount++; return; }
   remember(); drawing = true; last = null; carry = 0; smooth = null; travelled = 0;
@@ -563,13 +589,94 @@ view.addEventListener('pointerdown', (e) => {
   if (tool !== 'spray') holdTimer = setTimeout(() => { if (drawing && holdStart) { cancelStroke(); pickAt(holdStart); } }, 650);
 });
 view.addEventListener('pointermove', (e) => {
+  if (textDrag && !gesture) { const pt = canvasPoint(e); draft.x = pt.x - textDrag.dx; draft.y = pt.y - textDrag.dy; composite(); return; }
   if (!drawing || gesture) return;
   const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
   for (const ev of events.length ? events : [e]) { const pt = canvasPoint(ev); if (holdStart && Math.hypot(pt.x - holdStart.x, pt.y - holdStart.y) > 8) { holdStart = null; clearTimeout(holdTimer); } strokeTo(pt); }
   composite();
 });
-const end = () => { drawing = false; last = null; smooth = null; holdStart = null; clearTimeout(holdTimer); clearInterval(sprayTimer); sprayTimer = null; };
+const end = () => { textDrag = null; drawing = false; last = null; smooth = null; holdStart = null; clearTimeout(holdTimer); clearInterval(sprayTimer); sprayTimer = null; };
 view.addEventListener('pointerup', end); view.addEventListener('pointercancel', end); view.addEventListener('lostpointercapture', end);
+
+// ---- Text ------------------------------------------------------------------------------------------------------------
+// Tapping the page with Text opens a box for the words and a row of fonts; the words show on the page in the current
+// color, size and strength while they are typed, and dragging moves them. Done (or picking another tool, saving,
+// a new page) paints them onto the current layer as one step that Undo takes back. Mirror modes do not repeat words.
+// The fonts ship in the package (fonts/, licenses in fonts/LICENSES.txt) and load from their bytes, so they work
+// offline and on every tablet whatever type the shell gives a .woff2 file.
+const FONTS = [
+  { id: 'fredoka', name: 'Round' }, { id: 'comic-neue', name: 'Comic' }, { id: 'patrick-hand', name: 'Handwriting' },
+  { id: 'pacifico', name: 'Fancy' }, { id: 'bungee', name: 'Block' }, { id: 'permanent-marker', name: 'Marker' },
+  { id: 'special-elite', name: 'Typewriter' }, { id: 'press-start-2p', name: 'Pixel' }, { id: 'creepster', name: 'Spooky' },
+];
+const family = (f) => '"PS ' + f.id + '", "Segoe UI", system-ui, sans-serif';
+// var, not let: selectTool and composite reach these through placeText and drawDraft before this line has run.
+var draft = null, textDrag = null;
+let fontId = store0('font', 'fredoka');
+const textPx = () => Math.max(12, size() * 3);
+const fontOf = () => FONTS.find((f) => f.id === fontId) || FONTS[0];
+const fontsReady = Promise.all(FONTS.map(async (f) => {
+  try { const face = new FontFace('PS ' + f.id, await (await fetch('fonts/' + f.id + '.woff2')).arrayBuffer()); await face.load(); document.fonts.add(face); f.ok = true; } catch (e) { f.ok = false; }
+})).then(() => { renderFonts(); composite(); });
+function renderFonts() {
+  const box = $('fonts'); box.innerHTML = '';
+  for (const f of FONTS) {
+    const b = document.createElement('button'); b.className = 'btn' + (f.id === fontId ? ' on' : ''); b.dataset.font = f.id; b.title = f.name;
+    b.innerHTML = '<b style=\'font-family:' + family(f).replace(/"/g, '&quot;') + '\'>Aa</b><small>' + f.name + '</small>';
+    b.onclick = () => { fontId = f.id; try { localStorage.setItem('paint-studio-font', JSON.stringify(fontId)); } catch (e) {} renderFonts(); composite(); say(f.name); $('textInput').focus(); };
+    box.appendChild(b);
+  }
+}
+renderFonts();
+function textLines(g) {
+  const px = textPx(), lines = draft.text.split('\n');
+  g.font = px + 'px ' + family(fontOf()); g.textBaseline = 'top';
+  const w = Math.max(px * 0.6, ...lines.map((l) => g.measureText(l).width)), lh = px * 1.25;
+  return { px, lines, w, lh, h: lh * lines.length };
+}
+function paintText(g) {
+  const m = textLines(g);
+  g.fillStyle = color; m.lines.forEach((l, i) => g.fillText(l, draft.x, draft.y + i * m.lh));
+  return m;
+}
+// The bar sits at the top of the page, or at the bottom while the words are in the top third.
+function sidePanel() { if (draft) $('textpanel').classList.toggle('low', draft.y < H / 3); }
+function drawDraft(g) {
+  if (!draft) return;
+  sidePanel();
+  g.save(); g.globalAlpha = strength();
+  const m = draft.text ? paintText(g) : textLines(g);
+  g.globalAlpha = 1; g.setLineDash([8, 6]); g.lineWidth = 2; g.strokeStyle = '#3aa0ff';
+  g.strokeRect(draft.x - 8, draft.y - 6, m.w + 16, (draft.text ? m.h : m.lh) + 12);
+  if (!draft.text) { g.fillStyle = '#3aa0ff'; g.fillRect(draft.x, draft.y, 3, m.px); }
+  g.restore();
+}
+function inDraft(pt) { if (!draft) return false; const m = textLines(vctx); return pt.x > draft.x - 16 && pt.x < draft.x + m.w + 16 && pt.y > draft.y - 16 && pt.y < draft.y + Math.max(m.h, m.lh) + 16; }
+function textDown(pt) {
+  if (draft && inDraft(pt)) { textDrag = { dx: pt.x - draft.x, dy: pt.y - draft.y }; return; }
+  if (draft && draft.text.trim()) { draft.x = pt.x; draft.y = pt.y - textPx() / 2; composite(); return; }
+  draft = { x: pt.x, y: pt.y - textPx() / 2, text: '' };
+  $('textInput').value = ''; $('textpanel').classList.add('open'); $('textInput').focus();
+  composite(); say('Type your words');
+}
+function closeText() { draft = null; textDrag = null; $('textpanel').classList.remove('open'); $('textInput').blur(); composite(); }
+function placeText() {
+  if (!draft) return false;
+  const placed = !!draft.text.trim();
+  if (placed) {
+    remember();
+    const g = layers[active].ctx; g.save(); g.globalCompositeOperation = layers[active].lock ? 'source-atop' : 'source-over'; g.globalAlpha = strength();
+    paintText(g); g.restore(); strokeCount++;
+  }
+  closeText();
+  return placed;
+}
+$('textInput').addEventListener('input', () => { if (draft) { draft.text = $('textInput').value; composite(); } });
+$('textDone').onclick = () => { if (placeText()) say('Your words are on the page'); };
+$('textCancel').onclick = () => closeText();
+for (const k of ['size', 'alpha']) $(k).addEventListener('input', () => { if (draft) composite(); });
+// Saving, the gallery, a new page or a challenge's Done first puts typed words on the page.
+$('side').addEventListener('pointerdown', () => placeText(), true);
 
 // Flood fill on one layer: every connected pixel close in color to the tapped one, through the transparent background
 // too, so tapping the white of an empty layer fills the whole outline the child drew on it. With the layer's
@@ -650,13 +757,13 @@ const LEVELS = [
   { g: -1, name: 'Shapes and colors', prompts: ['Paint a big red circle.', 'Paint a blue square and a yellow triangle.', 'Make three dots: one red, one green, one blue.', 'Paint a long wiggly line with the crayon.', 'Fill the whole page with your favorite color.', 'Paint a sun in the corner.', 'Paint a rainbow with the marker.', 'Paint a tall green line and a short green line.'] },
   { g: 0, name: 'Draw what you see', prompts: ['Paint an apple with a stem and a leaf.', 'Paint a house with a door and two windows.', 'Paint a tree with a brown trunk and a green top.', 'Paint a fish with the watercolor brush.', 'Paint a flower with five petals.', 'Paint the sky with the chalk, then add clouds.', 'Paint a cat face: two ears, two eyes, whiskers.', 'Paint a ball and color it in with Fill.'] },
   { g: 1, name: 'Symmetry', prompts: ['Turn on Left and right mirror and paint a butterfly.', 'With Left and right mirror, paint a face.', 'With Up and down mirror, paint a boat on a lake.', 'With Four ways, paint a snowflake.', 'Paint a heart with Left and right mirror on.', 'With Left and right mirror, paint a vase with flowers.', 'Paint a ladybug with the mirror on, then its spots.', 'With Four ways, paint a window with curtains.'] },
-  { g: 2, name: 'Warm and cool', prompts: ['Paint a sunset using only warm colors: red, orange, yellow.', 'Paint an ocean using only cool colors: blue, green, purple.', 'Paint a campfire with warm colors and a night sky with cool colors.', 'Paint a hot day on the left and a cold day on the right.', 'Paint a big flower in warm colors on a cool background.', 'Paint a desert with warm colors.', 'Paint a snowy hill with cool colors and one warm house.', 'Paint a fruit bowl: warm fruit, cool bowl.'] },
+  { g: 2, name: 'Warm and cool', prompts: ['Paint a sunset using only warm colors: red, orange, yellow.', 'Paint an ocean using only cool colors: blue, green, purple.', 'Paint a campfire with warm colors and a night sky with cool colors.', 'Paint a hot day on the left and a cold day on the right.', 'Paint a big flower in warm colors on a cool background.', 'Paint a desert with warm colors.', 'Paint a snowy hill with cool colors and one warm house.', 'Paint a fruit bowl: warm fruit, cool bowl.', 'Make a card for someone: a warm picture and a few words with Text.'] },
   { g: 3, name: 'Shading', prompts: ['Paint a ball, then use Shade to make one side dark.', 'Paint an apple with a light side and a dark side.', 'Paint a cup and shade the inside.', 'Use Smudge to blend two colors into each other.', 'Paint a moon and shade it so it looks round.', 'Paint an egg and shade it with Smudge.', 'Paint a hill and shade the far side.', 'Paint a banana with a shadow under it.'] },
-  { g: 4, name: 'Composition', prompts: ['Paint a scene with something big in front and something small far away.', 'Paint a picture where the main thing is not in the middle.', 'Paint a road that gets narrower as it goes away.', 'Paint a landscape with a foreground, a middle and a background.', 'Paint a row of trees that get smaller into the distance.', 'Paint a still life of three objects, one overlapping another.', 'Paint a bird and leave space in front of where it flies.', 'Paint a path that leads the eye to a house.'] },
+  { g: 4, name: 'Composition', prompts: ['Paint a scene with something big in front and something small far away.', 'Paint a picture where the main thing is not in the middle.', 'Paint a road that gets narrower as it goes away.', 'Paint a landscape with a foreground, a middle and a background.', 'Paint a row of trees that get smaller into the distance.', 'Paint a still life of three objects, one overlapping another.', 'Paint a bird and leave space in front of where it flies.', 'Paint a path that leads the eye to a house.', 'Make a book cover: a picture, a title in a big font and your name in a small one.'] },
   { g: 5, name: 'Perspective', prompts: ['Paint a box in one-point perspective: lines meet at one dot on the horizon.', 'Paint a hallway in one-point perspective.', 'Paint a street with buildings on both sides meeting at a vanishing point.', 'Paint railroad tracks going to the horizon.', 'Paint a room corner in two-point perspective.', 'Paint a row of fence posts shrinking into the distance.', 'Paint a bridge that goes away from you.', 'Paint a city block in two-point perspective.'] },
   { g: 6, name: 'Value and form', prompts: ['Paint a sphere with a highlight, a mid tone, a core shadow and a cast shadow.', 'Paint a cylinder with five values from light to dark.', 'Paint a cube with each face a different value.', 'Make a value scale: ten steps from white to black with Shade.', 'Paint a cone lit from the left.', 'Paint a crumpled paper bag using only one color and Shade.', 'Paint a glass of water with reflections and shadows.', 'Paint three spheres lit from the same side.'] },
   { g: 7, name: 'Color theory', prompts: ['Paint a picture using only complementary colors: blue and orange.', 'Paint a picture in an analogous scheme: three colors next to each other on the wheel.', 'Paint the same tree twice: once in warm light, once in cool light.', 'Paint a monochrome scene: one hue, many values.', 'Paint a color wheel with the mixer: twelve hues around a circle.', 'Paint a portrait using a split-complementary scheme.', 'Paint a landscape where the colors fade with distance (atmospheric perspective).', 'Mix a tint, a tone and a shade of green and paint a leaf with each.'] },
-  { g: 8, name: 'Design principles', prompts: ['Paint a poster with a clear focal point, using contrast to lead the eye.', 'Paint a composition with rhythm: a repeated shape that changes as it goes.', 'Paint a balanced picture that is not symmetrical.', 'Paint a design with unity: one shape family, one color scheme.', 'Paint an abstract piece with emphasis on a single element.', 'Paint a pattern with the kaleidoscope, then break it in one place on purpose.', 'Paint a logo for an imaginary company using two colors.', 'Paint a scene that uses movement: lines that pull the eye across the page.'] },
+  { g: 8, name: 'Design principles', prompts: ['Paint a poster with a clear focal point, using contrast to lead the eye.', 'Paint a composition with rhythm: a repeated shape that changes as it goes.', 'Paint a balanced picture that is not symmetrical.', 'Paint a design with unity: one shape family, one color scheme.', 'Paint an abstract piece with emphasis on a single element.', 'Paint a pattern with the kaleidoscope, then break it in one place on purpose.', 'Paint a logo for an imaginary company using two colors.', 'Paint a scene that uses movement: lines that pull the eye across the page.', 'Make a poster with a title in a font that fits the picture.'] },
 ];
 const START = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('art', LEVELS.map((l) => l.g)) : (window.KidTablet && KidTablet.levelFor ? KidTablet.levelFor('art', LEVELS.length, 3) : 3));
 let level = Math.max(0, Math.min(LEVELS.length - 1, store.get('level', START))), prompt = null, done = store.get('done', 0);

@@ -1,5 +1,5 @@
 {
- "source": "0a09dda97a44fb1d99a393d8f1a9222720d4ee0bb24b008c2efda91eee1a2a0f",
+ "source": "59e17e56f0ffe973290976e8e195ede71f6598bf816f2317d227f1693aba4624",
  "lines": [
   {
    "text": "A blank page",
@@ -50,11 +50,19 @@
    "rate": -5
   },
   {
+   "text": "Type your words",
+   "rate": -5
+  },
+  {
    "text": "Welcome to Paint Studio. Pick a brush and a color, and paint.",
    "rate": -5
   },
   {
    "text": "Your paintings",
+   "rate": -5
+  },
+  {
+   "text": "Your words are on the page",
    "rate": -5
   }
  ]
