@@ -85,6 +85,11 @@ describe('Story Maker language', () => {
     expect(ai).toHaveLength(1);
     expect(ai[0].system).toContain('write every text value');
     expect(ai[0].system).toContain('Spanish');
+    // The grade words drawn for the story are Spanish ones, never the English bank's.
+    const words = (/spelled exactly: ([^.]+)\./.exec(ai[0].messages[0].content) ?? [])[1]?.split(', ') ?? [];
+    expect(words.length).toBeGreaterThanOrEqual(6);
+    const english = await p.evaluate(() => Object.values((window as any).STORY.RUNGS).flatMap((r: any) => r.bank));
+    expect(words.filter((w) => english.includes(w))).toEqual([]);
     await p.getByText('Un día de sol, Bun llegó a un castillo.').waitFor();
     await p.getByRole('button', { name: /Entrar/ }).waitFor();
     // Every line asked of the narrator service is in a Spanish voice: the narrator, Bun, and the spoken prompts.

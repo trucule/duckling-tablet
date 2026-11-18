@@ -258,6 +258,17 @@ if (LANG === 'es') {
   set('header h1', T('Story Maker')); $('go').textContent = T('Tell the story! 📖'); set('#thinking', T('The story is being written')); $('end').textContent = T('The End ⭐');
   $('back').title = T('Make another'); $('read').title = T('Read this part again'); $('another').title = T('New story, same friends');
 }
+// Spanish grade words, one bank per rung, drawn the same way as the English ones: words a teacher at that grade in a
+// Spanish-language classroom would expect, each one a story can use kindly.
+const BANK_ES = {
+  little: ['grande', 'chico', 'saltar', 'correr', 'mojado', 'seco', 'suave', 'ruido', 'callado', 'rojo', 'azul', 'amarillo', 'verde', 'arriba', 'abajo', 'rápido', 'lento', 'feliz', 'triste', 'sueño', 'hambre', 'chapotear', 'abrazo', 'ayudar', 'mirar', 'buscar', 'esconder', 'calor', 'frío', 'sol', 'luna', 'estrella', 'lodo', 'pastel', 'barco', 'sombrero', 'bicho', 'nido', 'rana', 'pájaro', 'pez', 'caja', 'taza', 'pelota', 'colina', 'charco', 'hoja', 'piedra', 'gato', 'perro', 'oso'],
+  second: ['curioso', 'tembloroso', 'amable', 'valiente', 'risita', 'susurrar', 'temblar', 'brillar', 'lodoso', 'calentito', 'gruñón', 'alegre', 'puntillas', 'gigantesco', 'diminuto', 'listo', 'confundido', 'encantado', 'escabullirse', 'empapado', 'crujiente', 'adormilado', 'esponjoso', 'mareado', 'mordisquear', 'asomarse', 'pasear', 'juntar', 'rescatar', 'sonrisa', 'asustado', 'orgulloso', 'nervioso', 'paciente', 'cuidadoso', 'travieso', 'chirriante', 'saltarín', 'carcajada', 'murmurar', 'acurrucado', 'húmedo', 'tropezar', 'destello', 'silencio', 'rebotar'],
+  third: ['enorme', 'afortunado', 'agotado', 'antiguo', 'misterioso', 'cauteloso', 'ansioso', 'generoso', 'dudar', 'investigar', 'observar', 'peculiar', 'resistente', 'tremendo', 'desvanecerse', 'fatigado', 'inquieto', 'brillante', 'torpe', 'descubrir', 'examinar', 'frágil', 'vistazo', 'sombrío', 'refunfuñar', 'divertidísimo', 'inmenso', 'susurro', 'ordinario', 'suplicar', 'abalanzarse', 'estremecerse', 'hurgar', 'chisporrotear', 'deslizarse', 'planear', 'terco', 'tímido', 'extraño', 'vasto', 'gimotear', 'asombrado', 'desconcertado', 'parlotear', 'banquete'],
+  fourth: ['abandonar', 'lograr', 'acercarse', 'asombrar', 'vergonzoso', 'presumir', 'alboroto', 'concluir', 'confesar', 'convencer', 'astuto', 'delicado', 'espeso', 'desánimo', 'exclamar', 'cansancio', 'florecer', 'frenético', 'helado', 'gratitud', 'izar', 'lanzar', 'impaciente', 'jubiloso', 'demorarse', 'acechar', 'maravillarse', 'serpentear', 'travesura', 'ágil', 'obstáculo', 'burlar', 'perplejo', 'persistir', 'zambullirse', 'valioso', 'merodear', 'perseguir', 'saciar', 'tranquilizar', 'parecerse', 'tramar', 'sensato', 'solemne', 'tartamudear', 'sospechoso', 'prosperar', 'desenredar', 'aventurarse', 'vívido'],
+  fifth: ['abundante', 'adaptarse', 'ambición', 'analizar', 'anticipar', 'aprensivo', 'benévolo', 'enérgico', 'franco', 'colaborar', 'acuerdo', 'consecuencia', 'contemplar', 'cortés', 'deliberado', 'dilema', 'diligente', 'elaborado', 'elocuente', 'emerger', 'soportar', 'evidente', 'exasperado', 'formidable', 'vacilante', 'hipótesis', 'improvisar', 'indignado', 'inevitable', 'ingenioso', 'intrincado', 'meticuloso', 'navegar', 'negociar', 'nostalgia', 'oscuro', 'percibir', 'perseverar', 'aprieto', 'prudente', 'resiliente', 'resolver', 'escudriñar', 'escéptico', 'estrategia', 'sutil'],
+  seventh: ['adversidad', 'aliviar', 'ambiguo', 'articular', 'afirmar', 'audaz', 'cacofonía', 'camaradería', 'catalizador', 'coherente', 'conciso', 'llamativo', 'contradecir', 'creíble', 'críptico', 'deferencia', 'discernir', 'disparidad', 'dudoso', 'esquivo', 'empatía', 'enigma', 'exuberante', 'fachada', 'factible', 'inútil', 'sociable', 'imparcial', 'implicación', 'incesante', 'incrédulo', 'indiferente', 'inferir', 'innovador', 'lúcido', 'despreocupado', 'matiz', 'obstinado', 'paradoja', 'pragmático', 'precario', 'predominante', 'reconciliar', 'renunciar', 'escrutinio', 'superficial', 'connotación'],
+  eighth: ['consentir', 'ambivalente', 'anomalía', 'antítesis', 'apático', 'arbitrario', 'austero', 'benigno', 'franqueza', 'clandestino', 'consciente', 'complaciente', 'conciliador', 'corroborar', 'semblante', 'desconcertante', 'disonancia', 'efímero', 'equívoco', 'erudito', 'eufemismo', 'ejemplar', 'ensalzar', 'presagiar', 'idiosincrasia', 'impetuoso', 'incongruente', 'imborrable', 'inexorable', 'ironía', 'lacónico', 'magnánimo', 'maleable', 'mitigar', 'nebuloso', 'ostentoso', 'primordial', 'apaciguar', 'plausible', 'conmovedor', 'precoz', 'propensión', 'quintaesencia', 'simbolismo', 'perspectiva'],
+};
 // A place as shown, without its article on a tile.
 const placeName = p => T(p[1]);
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -579,7 +590,7 @@ const RUNGS = {
   }
 };
 // Six to ten grade words for one story.
-function drawVocab(id) { const bank = RUNGS[id].bank; return shuffle(bank).slice(0, 6 + Math.floor(Math.random() * 5)); }
+function drawVocab(id) { const bank = LANG === 'es' ? BANK_ES[id] : RUNGS[id].bank; return shuffle(bank).slice(0, 6 + Math.floor(Math.random() * 5)); }
 
 // ---------------------------------------------------------------------------
 // Setup screen
@@ -633,7 +644,7 @@ function buildPrompt(ctx) {
   }
   const user = `Cast: ${castDesc}.${teller}\nPlace: ${ctx.place[1]}. Kind: ${ctx.kind[1]}. Drama level: ${ctx.drama[1]} (${ctx.drama[3]}). Total scenes: ${ctx.total}.\n${vocab}\nSo far:\n${history}\n\nWrite scene ${ctx.sceneNo}${isLast ? ', the LAST scene: resolve everything happily and end with a warm closing line' : ''}.\nJSON shape: {"title": "short scene title", "emoji": ["one", "two", "three emoji for the scene"], "lines": [{"who": "narrator" or a cast id, "text": "${little ? 'one or two sentences' : 'one to three sentences'}", "mood": one of "neutral","cheerful","excited","sad","whispering","shouting","friendly"}], "summary": "one sentence of what happened", "choices": [{"label": "3-6 words, what happens next", "emoji": "one emoji"}, ...]}. Choices: ${R.choices}.${words} ${R.lines}. ${isLast ? 'For the last scene: "choices": [] and "end": true.' : ''}${ending}`;
   // Spanish: every word the child sees or hears is written in Spanish; the JSON keys, ids and moods stay as given.
-  const system = LANG === 'es' ? R.system + `\nLanguage: write every text value (titles, lines, choices, summaries, questions, answers, word meanings) in Spanish, the neutral Latin American Spanish a child in the United States or Latin America reads at this grade, with the same rules for sentence length and difficulty. The grade words above are English: use the Spanish word with the same meaning, and put that Spanish word in "words". Keep the JSON keys, the "who" ids and the "mood" values exactly as given in English.` : R.system;
+  const system = LANG === 'es' ? R.system + `\nLanguage: write every text value (titles, lines, choices, summaries, questions, answers, word meanings) in Spanish, the neutral Latin American Spanish a child in the United States or Latin America reads at this grade, with the same rules for sentence length and difficulty. The grade words above are Spanish words for this grade: use them as written. Keep the JSON keys, the "who" ids and the "mood" values exactly as given in English.` : R.system;
   return { system, user, maxTokens: R.maxTokens * (LANG === 'es' ? 1.3 : 1) | 0 };
 }
 // The JSON object in the writer's reply, or null when there is none to use.
@@ -935,7 +946,8 @@ async function nextScene() {
   for (const w of (scene.words || [])) story.glossary[w.word.toLowerCase()] = w.meaning;
   story.scenes.push(scene); showScene(scene);
 }
-const bare = w => w.replace(/^[^\w']+|[^\w']+$/g, '');
+// A word without the punctuation around it (¡ ¿ quotes commas), keeping accented letters and ñ.
+const bare = w => w.replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, '');
 function showScene(scene) {
   $('title').textContent = scene.title || '';
   const sc = $('scene'); sc.innerHTML = ''; for (const e of (scene.emoji || []).slice(0, 4)) { const s = document.createElement('span'); s.textContent = e; sc.appendChild(s); }
@@ -1077,6 +1089,7 @@ window.DucklingLadder = {
       const vocab = drawVocab(lv);
       if (vocab.length < 6 || vocab.length > 10 || new Set(vocab).size !== vocab.length) throw new Error('vocab draw ' + vocab.length);
       if (R.bank.length < 40) throw new Error('bank too small: ' + R.bank.length);
+      if (!BANK_ES[lv] || BANK_ES[lv].length < 40) throw new Error('Spanish bank too small: ' + lv);
       const p = buildPrompt({ lv, cast, place: pick(PLACES), kind: pick(KINDS), drama: pick(DRAMAS), total, sceneNo, history, vocab });
       const all = p.system + '\n' + p.user;
       if (!p.system || !p.user || !(p.maxTokens > 0)) throw new Error('empty prompt');
