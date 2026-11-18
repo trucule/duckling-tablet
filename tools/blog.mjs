@@ -125,8 +125,8 @@ const WORDS = [
   [/\b(the right (shape|caveat|call|choice)|the honest\b|the real (question|answer))\b/i, 'evaluative shorthand'],
   [/\b(is the (part|kind|sort|piece) of\b|is what .{1,40} is about)/i, 'definitional framing'],
   [/\b(let's|we'll|in this post|in this article|today we)\b/i, 'a setup line instead of the subject'],
-  [/\b(simply|just|easily|basically|obviously|of course)\b/i, 'a filler adverb'],
-  [/\b(already (own|owns|owned|have|has|had|use|uses|using)|you already|no need to|without (having|needing) to|(don't|doesn't|do not|does not) (have|need) to)\b/i, 'a presumed situation or an implied benefit'],
+  [/\b(simply|just|easily|basically|obviously)\b/i, 'a filler adverb'],
+  [/\b(already (own|owns|owned|have|has|had|use|uses|using)|you already|as you know|needless to say|it goes without saying|as expected|naturally|of course|no need to|without (having|needing) to|(don't|doesn't|do not|does not) (have|need) to)\b/i, 'a statement of the obvious'],
 ];
 function lint(post) {
   const problems = [];
