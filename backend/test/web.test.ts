@@ -62,7 +62,7 @@ beforeAll(async () => {
 afterAll(async () => {
   webServer?.close(); await app?.close(); await db?.close(); await cluster?.stop();
   // Keep the screenshots when asked (WEB_SHOTS=/some/dir), otherwise clean up.
-  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['home.png', 'home-bg.png', 'bg-card.png', 'home-tablet-photo.png', 'bg-card-tablet.png', 'site-tile.png', 'library.png', 'parent.png', 'ask.png', 'ask-sent.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
+  if (dir && process.env.WEB_SHOTS) { const { cpSync } = await import('node:fs'); for (const f of ['home.png', 'home-bg.png', 'bg-card.png', 'home-tablet-photo.png', 'bg-card-tablet.png', 'site-tile.png', 'library.png', 'parent.png', 'ask.png', 'ask-sent.png', 'es-setup.png', 'es-home.png', 'es-parent.png']) if (existsSync(join(dir, f))) cpSync(join(dir, f), join(process.env.WEB_SHOTS, f)); }
   if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -432,5 +432,64 @@ describe.skipIf(!ready)('child web app', () => {
     expect(await p.locator('.home-bg').count()).toBe(0);
     expect(errors).toEqual([]);
     await b2.close();
+  }, 120_000);
+
+  it('speaks Spanish on a Spanish tablet, from setup to the parent area, and switches the family to English', async () => {
+    const { chromium } = await import('playwright');
+    const b = await chromium.launch();
+    const ctx = await b.newContext({ viewport: { width: 1280, height: 800 }, locale: 'es-MX' });
+    await ctx.route('https://api.ducklingtablet.com/**', async (route) => {
+      const req = route.request();
+      const r = await fetch(req.url().replace('https://api.ducklingtablet.com', api), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() ?? undefined });
+      await route.fulfill({ status: r.status, headers: Object.fromEntries(r.headers), body: Buffer.from(await r.arrayBuffer()) });
+    });
+    const t = await ctx.newPage();
+    const errors: string[] = [];
+    t.on('pageerror', (e) => errors.push(e.message));
+    await t.goto(web);
+    // Setup follows the tablet's language, and so does the code email.
+    await t.getByRole('heading', { name: 'Configura Duckling' }).waitFor();
+    await t.getByPlaceholder('mama@ejemplo.com').fill('lucia@example.com');
+    await t.screenshot({ path: join(dir, 'es-setup.png') });
+    await t.getByRole('button', { name: 'Enviar el código' }).click();
+    await t.getByRole('heading', { name: 'Escribe el código' }).waitFor();
+    expect(mails.at(-1)).toContain('Escribe este código en la tableta');
+    const six = mails.at(-1)!.match(/(\d{3}) (\d{3})/)!.slice(1).join('');
+    // A wrong code: the API's message arrives in Spanish.
+    await t.getByPlaceholder('000000').fill(six === '000000' ? '000001' : '000000');
+    await t.getByRole('button', { name: 'Siguiente' }).click();
+    await t.getByPlaceholder('Ada').fill('Lucía');
+    await t.getByRole('button', { name: 'Terminar' }).click();
+    await t.getByText('Ese código no es correcto o ya venció.', { exact: false }).waitFor();
+    await t.getByRole('button', { name: 'Atrás' }).click();
+    await t.getByPlaceholder('000000').fill(six);
+    await t.getByRole('button', { name: 'Siguiente' }).click();
+    await t.getByRole('button', { name: 'Terminar' }).click();
+    // The home screen: the family was made in Spanish.
+    await t.getByRole('heading', { name: 'Tableta de Lucía' }).waitFor();
+    await t.getByText('Prueba gratis: quedan 7 días.').waitFor();
+    await t.getByRole('button', { name: 'Biblioteca' }).waitFor();
+    expect(await t.evaluate(() => document.documentElement.lang)).toBe('es');
+    await t.screenshot({ path: join(dir, 'es-home.png') });
+    // The PIN and the parent area.
+    await t.getByRole('button', { name: 'Padres' }).click();
+    await t.getByRole('heading', { name: 'Elige un PIN para padres' }).waitFor();
+    for (const d of '2468') await t.getByRole('button', { name: d, exact: true }).click();
+    await t.getByRole('heading', { name: 'Escríbelo otra vez' }).waitFor();
+    for (const d of '2468') await t.getByRole('button', { name: d, exact: true }).click();
+    await t.getByRole('heading', { name: 'Área de padres' }).waitFor();
+    await t.getByRole('heading', { name: 'Administra esta tableta desde tu teléfono' }).waitFor();
+    await t.getByRole('heading', { name: 'Idioma' }).scrollIntoViewIfNeeded();
+    await t.screenshot({ path: join(dir, 'es-parent.png'), fullPage: true });
+    // No English heading or button text is left on the Spanish screens.
+    const texts = (await t.locator('h1, h2, button').allTextContents()).map((s) => s.trim()).filter(Boolean);
+    expect(texts.filter((s) => /\b(the|and|this|your|Parent|Subscribe|Open|Remove|Turn)\b/.test(s))).toEqual([]);
+    // English for the whole family, from the tablet: the parent area follows at once.
+    await t.getByRole('button', { name: 'English' }).click();
+    await t.getByRole('heading', { name: 'Parent area' }).waitFor();
+    await t.getByRole('button', { name: 'Español' }).waitFor();
+    expect(await t.evaluate(() => document.documentElement.lang)).toBe('en');
+    expect(errors).toEqual([]);
+    await b.close();
   }, 120_000);
 });

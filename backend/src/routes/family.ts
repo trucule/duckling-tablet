@@ -8,6 +8,8 @@ import { parentAuth } from '../auth.js';
 import { HttpError, hashToken, inDays, linkExpiry, newId, newToken, notFound, safeEqual, sha256 } from '../util.js';
 import { redactText } from '../logging.js';
 import { notifyDevices } from '../notify.js';
+import { LANGUAGES, languageOf } from '../language.js';
+import { inviteEmail } from '../emails.js';
 
 // Difficulty is a grade on one scale for every subject: -1 pre-K, 0 kindergarten, 1 to 8. A child starts two
 // years below her age (a 7-year-old, in 2nd grade, starts at kindergarten level) unless the parent picks otherwise.
@@ -25,9 +27,11 @@ const childBody = z.object({
   startGrade: gradeNum.optional(),
   levels: levels.optional(),
   theme: theme.optional(),
+  // Her own language; null uses the family's.
+  language: z.enum(LANGUAGES).nullable().optional(),
 });
 
-export const childRow = (r: any) => r && ({ id: r.id, firstName: r.first_name, grade: r.grade, age: ageFrom(r.birth_month), levels: r.levels, theme: r.theme });
+export const childRow = (r: any) => r && ({ id: r.id, firstName: r.first_name, grade: r.grade, age: ageFrom(r.birth_month), levels: r.levels, theme: r.theme, language: r.language ?? null });
 
 // Stars earned across apps minus what the avatar shop spent; null when the child has no avatar or stars yet.
 export const starsOf = async (q: Q, childId: string, avatar: { spent?: number } | null) => {
@@ -73,6 +77,7 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
     const a = await parentAuth(ctx, req);
     return ctx.db.family(a.familyId, async (q) => ({
       familyId: a.familyId, you: a.email,
+      language: (await q.one<{ language: string }>('SELECT language FROM family WHERE id = $1', [a.familyId]))!.language,
       pinSet: !!(await q.one<{ pin_hash: string | null }>('SELECT pin_hash FROM family WHERE id = $1', [a.familyId]))?.pin_hash,
       subscription: await entitlementOf(q, a.familyId),
       // Whether card payments (Stripe) are offered, and whether this family has a Stripe customer to manage.
@@ -97,6 +102,18 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
     return { set: true };
   });
 
+  // The family's language: its tablets, the portal and the emails. A child with her own keeps hers.
+  app.put('/family/language', async (req) => {
+    const a = await parentAuth(ctx, req);
+    const { language } = z.object({ language: z.enum(LANGUAGES) }).parse(req.body);
+    await ctx.db.family(a.familyId, async (q) => {
+      await q.run('UPDATE family SET language = $1 WHERE id = $2', [language, a.familyId]);
+      await audit(q, a.familyId, `parent:${a.parentId}`, 'family.language', { language });
+    });
+    void notifyDevices(ctx, a.familyId);
+    return { language };
+  });
+
   // A second parent: the address gets a sign-in link that joins this family. Up to four parents.
   app.post('/family/parents/invite', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
     const a = await parentAuth(ctx, req);
@@ -110,9 +127,10 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
       await audit(q, a.familyId, `parent:${a.parentId}`, 'parent.invited');
     });
     const link = `${ctx.cfg.PORTAL_URL}/signin?token=${token}`;
+    const lang = languageOf((await ctx.db.family(a.familyId, (q) => q.one<{ language: string }>('SELECT language FROM family WHERE id = $1', [a.familyId])))?.language);
     try {
-      await ctx.mailer.send(email, 'You are invited to a Duckling Tablet family',
-        `${a.email} invited you to manage their family's Duckling tablets. Open this link to join; it works once and expires in 7 days.\n\n${link}\n\nIf you were not expecting this, you can ignore this email.`);
+      const m = inviteEmail(lang, a.email, link);
+      await ctx.mailer.send(email, m.subject, m.body);
     } catch (err) {
       req.log.error({ err: { type: (err as Error).name, code: (err as { code?: string }).code, message: redactText((err as Error).message) } }, 'invite email failed');
       throw new HttpError(503, 'We could not send the email right now. Please try again in a minute.');
@@ -163,8 +181,8 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
     const start = b.startGrade ?? (b.age !== undefined ? gradeForAge(b.age) : 0);
     const levels = { ...Object.fromEntries(SUBJECTS.map((s) => [s, start])), ...(b.levels ?? {}) };
     return ctx.db.family(a.familyId, async (q) => {
-      await q.run('INSERT INTO child (id, family_id, first_name, grade, birth_month, levels, theme) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)',
-        [id, a.familyId, b.firstName, b.grade ?? null, b.age !== undefined ? birthMonthFor(b.age) : null, JSON.stringify(levels), JSON.stringify(b.theme ?? {})]);
+      await q.run('INSERT INTO child (id, family_id, first_name, grade, birth_month, levels, theme, language) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)',
+        [id, a.familyId, b.firstName, b.grade ?? null, b.age !== undefined ? birthMonthFor(b.age) : null, JSON.stringify(levels), JSON.stringify(b.theme ?? {}), b.language ?? null]);
       await audit(q, a.familyId, `parent:${a.parentId}`, 'child.created', { id });
       return childRow(await q.one('SELECT * FROM child WHERE id = $1', [id]));
     });
@@ -177,9 +195,10 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
       const cur = await q.one('SELECT * FROM child WHERE id = $1', [req.params.id]);
       if (!cur) throw notFound('No such child');
       const levels = b.startGrade !== undefined ? Object.fromEntries(SUBJECTS.map((s) => [s, b.startGrade])) : { ...cur.levels, ...(b.levels ?? {}) };
-      await q.run('UPDATE child SET first_name = $1, grade = $2, levels = $3::jsonb, theme = $4::jsonb, birth_month = $6 WHERE id = $5', [
+      await q.run('UPDATE child SET first_name = $1, grade = $2, levels = $3::jsonb, theme = $4::jsonb, birth_month = $6, language = $7 WHERE id = $5', [
         b.firstName ?? cur.first_name, b.grade === undefined ? cur.grade : b.grade,
-        JSON.stringify(levels), JSON.stringify(b.theme ?? cur.theme), cur.id, b.age !== undefined ? birthMonthFor(b.age) : cur.birth_month]);
+        JSON.stringify(levels), JSON.stringify(b.theme ?? cur.theme), cur.id, b.age !== undefined ? birthMonthFor(b.age) : cur.birth_month,
+        b.language === undefined ? cur.language : b.language]);
       await audit(q, a.familyId, `parent:${a.parentId}`, 'child.updated', { id: cur.id });
       return childRow(await q.one('SELECT * FROM child WHERE id = $1', [cur.id]));
     }).then((r) => { void notifyDevices(ctx, a.familyId); return r; });

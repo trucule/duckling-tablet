@@ -1002,3 +1002,47 @@ describe('logs', () => {
     expect(() => loadConfig({ ...prod, SMTP_HOST: 'smtp.sendgrid.net', DATABASE_URL_APP: 'postgresql://duckling_app:duckling@127.0.0.1:5432/duckling' })).toThrow(/DATABASE_URL_APP/);
   });
 });
+
+describe('language', () => {
+  it('starts a family in the tablet language, writes its emails in it, and lets parents and children change it', async () => {
+    // The code email follows the tablet's language before any family exists.
+    await app.inject({ method: 'POST', url: '/auth/code', payload: { email: 'es@example.com', language: 'es-MX' } });
+    const mail = mails.filter((m) => m.to === 'es@example.com').at(-1)!;
+    const code = mail.subject!.match(/^(\d{3}) (\d{3}) es tu código/)!.slice(1).join('');
+    expect(mail.text).toContain('Escribe este código en la tableta');
+    const r = await app.inject({ method: 'POST', url: '/auth/code/pair', payload: { email: 'es@example.com', code, childFirstName: 'Lucía', platform: 'android', name: 'Tableta', language: 'es-MX' } });
+    expect(r.statusCode).toBe(200);
+    const dev = { authorization: `Device ${r.json().deviceToken}` };
+    expect(r.json().config).toMatchObject({ language: 'es', familyLanguage: 'es', narratorVoice: 'es-MX-MarinaNeural' });
+
+    // Anything Duckling does not speak yet is English.
+    await app.inject({ method: 'POST', url: '/auth/email-link', payload: { email: 'fr@example.com', language: 'fr-FR' } });
+    expect(mails.filter((m) => m.to === 'fr@example.com').at(-1)!.subject).toBe('Your Duckling Tablet sign-in link');
+    await app.inject({ method: 'POST', url: '/auth/email-link', payload: { email: 'es@example.com', language: 'es' } });
+    const link = mails.filter((m) => m.to === 'es@example.com').at(-1)!;
+    expect(link.subject).toBe('Tu enlace para entrar a Duckling Tablet');
+    const s = await app.inject({ method: 'POST', url: '/auth/verify', payload: { token: link.text.match(/token=([\w-]+)/)![1] } });
+    const auth = { authorization: `Bearer ${s.json().sessionToken}` };
+    const fam = (await app.inject({ method: 'GET', url: '/family', headers: auth })).json();
+    expect(fam.language).toBe('es');
+
+    // The invite goes out in the family's language.
+    await app.inject({ method: 'POST', url: '/family/parents/invite', headers: auth, payload: { email: 'abuela@example.com' } });
+    expect(mails.filter((m) => m.to === 'abuela@example.com').at(-1)!.subject).toBe('Te invitaron a una familia de Duckling Tablet');
+
+    // A child can have her own language; the tablet follows her, and the family setting follows the parent.
+    const childId = fam.children[0].id;
+    expect((await app.inject({ method: 'PUT', url: `/children/${childId}`, headers: auth, payload: { language: 'en' } })).json().language).toBe('en');
+    let cfg = (await app.inject({ method: 'GET', url: '/device/config', headers: dev })).json();
+    expect(cfg).toMatchObject({ language: 'en', familyLanguage: 'es', narratorVoice: 'en-US-AnaNeural' });
+    expect((await app.inject({ method: 'PUT', url: `/children/${childId}`, headers: auth, payload: { language: null } })).json().language).toBeNull();
+    expect((await app.inject({ method: 'PUT', url: '/family/language', headers: auth, payload: { language: 'en' } })).statusCode).toBe(200);
+    cfg = (await app.inject({ method: 'GET', url: '/device/config', headers: dev })).json();
+    expect(cfg.language).toBe('en');
+    // The tablet's parent area sets the family's language too; unknown languages are refused.
+    expect((await app.inject({ method: 'PUT', url: '/device/language', headers: dev, payload: { language: 'es' } })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/family', headers: auth })).json().language).toBe('es');
+    expect((await app.inject({ method: 'PUT', url: '/device/language', headers: dev, payload: { language: 'fr' } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'PUT', url: '/family/language', headers: auth, payload: { language: 'xx' } })).statusCode).toBe(400);
+  });
+});

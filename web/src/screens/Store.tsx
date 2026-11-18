@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 import { catalog, config, installed, installing, installFromStore, removeApp, go } from '../state';
 import { shell } from '../shell';
 
@@ -8,10 +9,10 @@ export function Store() {
   return (
     <div class="screen">
       <div class="topbar">
-        <h1>Library</h1>
-        <button class="pill" onClick={() => go('home')}>Home</button>
+        <h1>{tr('Library')}</h1>
+        <button class="pill" onClick={() => go('home')}>{tr('Home')}</button>
       </div>
-      {apps.length === 0 && <div class="card"><p>No apps yet. Check back soon.</p></div>}
+      {apps.length === 0 && <div class="card"><p>{tr('No apps yet. Check back soon.')}</p></div>}
       {apps.map((a) => {
         const have = installed.value[a.id];
         const busy = installing.value[a.id];
@@ -23,15 +24,15 @@ export function Store() {
               <h3>{a.name}</h3>
               <p>{a.description}</p>
               <div class="meta">
-                {a.ageMin && a.ageMax ? `Ages ${a.ageMin} to ${a.ageMax}` : ''}{a.subjects?.length ? ` · ${a.subjects.join(', ')}` : ''} · {(a.latest.size / 1048576).toFixed(1)} MB
-                {a.latest.permissions?.length ? ` · uses the ${a.latest.permissions.join(' and ')}` : ''}
+                {a.ageMin && a.ageMax ? tr('Ages {min} to {max}', { min: a.ageMin, max: a.ageMax }) : ''}{a.subjects?.length ? ` · ${a.subjects.map((s) => tr(s)).join(', ')}` : ''} · {(a.latest.size / 1048576).toFixed(1)} MB
+                {a.latest.permissions?.length ? ` · ${tr(a.latest.permissions.length > 1 ? 'uses the microphone and camera' : `uses the ${a.latest.permissions[0]}`)}` : ''}
               </div>
             </div>
             <div class="row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-              {busy ? <button class="pill" disabled>{busy}</button>
-                : have && !update ? <button class="pill primary" onClick={() => shell.openApp(a.id)}>Open</button>
-                : <button class="pill primary" onClick={() => installFromStore(a)}>{update ? 'Update' : 'Install'}</button>}
-              {have && !busy && <button class="pill quiet" onClick={() => { if (confirm(`Remove ${a.name} from this tablet? Progress is kept.`)) removeApp(a.id); }}>Remove</button>}
+              {busy ? <button class="pill" disabled>{tr(busy)}</button>
+                : have && !update ? <button class="pill primary" onClick={() => shell.openApp(a.id)}>{tr('Open')}</button>
+                : <button class="pill primary" onClick={() => installFromStore(a)}>{update ? tr('Update') : tr('Install')}</button>}
+              {have && !busy && <button class="pill quiet" onClick={() => { if (confirm(tr('Remove {app} from this tablet? Progress is kept.', { app: a.name }))) removeApp(a.id); }}>{tr('Remove')}</button>}
             </div>
           </div>
         );

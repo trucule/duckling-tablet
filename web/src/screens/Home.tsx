@@ -1,3 +1,4 @@
+import { tr, trn } from '../i18n';
 import { useState } from 'preact/hooks';
 import { useHomeBackground, usePicture } from '../pictures';
 import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked, unlinked, entitlement, restartNeeded } from '../state';
@@ -23,13 +24,13 @@ const AVATAR = 'my-avatar';
 // the parent area, where the subscription lives on a tablet that bills through its store.
 function subscriptionNote(e: Entitlement | undefined) {
   if (!e || e.status === 'active') return null;
-  const keep = 'Subscribing keeps every app on this tablet and lets you request new apps at no charge.';
+  const keep = tr('Subscribing keeps every app on this tablet and lets you request new apps at no charge.');
   if (e.status === 'trial') {
     const d = e.daysLeft ?? 0;
-    return <><strong>Free trial: {d === 0 ? 'ends today' : `${d} day${d === 1 ? '' : 's'} left`}.</strong> {keep}</>;
+    return <><strong>{d === 0 ? tr('Free trial: ends today.') : trn(d, 'Free trial: {n} day left.', 'Free trial: {n} days left.')}</strong> {keep}</>;
   }
-  if (e.status === 'grace') return <><strong>The last payment did not go through.</strong> Everything keeps running while the store tries again. Check the subscription in the parent area.</>;
-  return <><strong>The free trial has ended, so the apps are locked.</strong> Subscribing in the parent area unlocks every app on this tablet and lets you request new apps at no charge.</>;
+  if (e.status === 'grace') return <><strong>{tr('The last payment did not go through.')}</strong> {tr('Everything keeps running while the store tries again. Check the subscription in the parent area.')}</>;
+  return <><strong>{tr('The free trial has ended, so the apps are locked.')}</strong> {tr('Subscribing in the parent area unlocks every app on this tablet and lets you request new apps at no charge.')}</>;
 }
 
 export function Home() {
@@ -63,27 +64,27 @@ export function Home() {
       {bg && <div class="home-bg" aria-hidden="true"><div class="fill" style={{ backgroundImage: bgUrl }} /><div class="pic" style={{ backgroundImage: bgUrl }} /></div>}
       <div class="topbar">
         <span class="who">
-          <button class="avatar" onClick={openAvatar} aria-label="Your avatar" style={{ background: themeColors.value[0] ?? undefined }}>
+          <button class="avatar" onClick={openAvatar} aria-label={tr('Your avatar')} style={{ background: themeColors.value[0] ?? undefined }}>
             {portrait ? <img src={portrait} alt="" /> : <span class="letter">{(childName.value || '?').slice(0, 1).toUpperCase()}</span>}
-            {avatarBusy ? <span class="busy">{avatarBusy}</span> : null}
+            {avatarBusy ? <span class="busy">{tr(avatarBusy)}</span> : null}
           </button>
-          <h1>{childName.value ? `${childName.value}'s tablet` : 'Duckling'}</h1>
+          <h1>{childName.value ? tr("{name}'s tablet", { name: childName.value }) : 'Duckling'}</h1>
         </span>
-        {c?.child?.stars ? <span class="stars" title="Stars earned in the apps">&#11088; {c.child.stars.balance}</span> : null}
+        {c?.child?.stars ? <span class="stars" title={tr('Stars earned in the apps')}>&#11088; {c.child.stars.balance}</span> : null}
       </div>
       {setupNeeded.value && (
         <button class="setup" onClick={() => go('pin')}>
-          <strong>This tablet is not locked down yet.</strong> A child can still leave Duckling. Finish setup in the parent area.
+          <strong>{tr('This tablet is not locked down yet.')}</strong> {tr('A child can still leave Duckling. Finish setup in the parent area.')}
         </button>
       )}
       {unlinked.value && (
         <button class="setup" onClick={() => go('pin')}>
-          <strong>This tablet is not linked to a family.</strong> The apps still work. A parent can link it again in the parent area.
+          <strong>{tr('This tablet is not linked to a family.')}</strong> {tr('The apps still work. A parent can link it again in the parent area.')}
         </button>
       )}
       {restartNeeded.value && (
         <button class="setup" onClick={() => { restartNeeded.value = null; void shell.windows?.restartSession().catch(() => undefined); }}>
-          <strong>{restartNeeded.value} is ready.</strong> Duckling restarts once to add it: tap here, wait for Duckling to open again, then tap {restartNeeded.value}.
+          <strong>{tr('{app} is ready.', { app: restartNeeded.value })}</strong> {tr('Duckling restarts once to add it: tap here, wait for Duckling to open again, then tap {app}.', { app: restartNeeded.value })}
         </button>
       )}
       {!unlinked.value && subscriptionNote(entitlement.value) && (
@@ -97,7 +98,7 @@ export function Home() {
             <button class={`tile ${locked.value ? 'off' : ''}`} key={a.id} onClick={() => open(a)} aria-label={a.name}>
               <span class="art">
                 {a.tileUrl ? <img src={a.tileUrl} alt="" /> : <span>{a.name.slice(0, 1)}</span>}
-                {!ready && <span class="busy">{busy ?? 'Waiting'}</span>}
+                {!ready && <span class="busy">{tr(busy ?? 'Waiting')}</span>}
               </span>
               <span class="name">{a.name}</span>
             </button>
@@ -109,15 +110,15 @@ export function Home() {
             <span class="name">{w.tile!.name}</span>
           </button>
         ))}
-        <button class={`tile ${locked.value ? 'off' : ''}`} onClick={() => (locked.value ? open({ id: 'library' } as InstalledApp) : go('store'))} aria-label="Library">
+        <button class={`tile ${locked.value ? 'off' : ''}`} onClick={() => (locked.value ? open({ id: 'library' } as InstalledApp) : go('store'))} aria-label={tr('Library')}>
           <span class="art">&#128218;</span>
-          <span class="name">Library</span>
+          <span class="name">{tr('Library')}</span>
         </button>
       </div>
-      {lockNote && <div class="banner">The apps are locked. Ask a parent to subscribe.</div>}
+      {lockNote && <div class="banner">{tr('The apps are locked. Ask a parent to subscribe.')}</div>}
       {!locked.value && (c?.otherApps ?? []).length > 0 && (
         <>
-          <h2 class="section">Other apps</h2>
+          <h2 class="section">{tr('Other apps')}</h2>
           <div class="grid">
             {c!.otherApps!.map((a) => {
               const st = otherAppState(a);
@@ -125,14 +126,14 @@ export function Home() {
                 <button class={`tile ${st.ok ? '' : 'off'}`} key={a.package} onClick={() => openOtherApp(a)} aria-label={a.label}>
                   <span class="art plain">{a.icon ? <img src={a.icon} alt="" /> : <span>&#128241;</span>}</span>
                   <span class="name">{a.label}</span>
-                  <span class="sub">{st.reason || (a.dailyMinutes === null ? 'Any time' : '')}</span>
+                  <span class="sub">{st.reason || (a.dailyMinutes === null ? tr('Any time') : '')}</span>
                 </button>
               );
             })}
           </div>
         </>
       )}
-      <button class="parent-button" onClick={() => go('pin')}>Parent</button>
+      <button class="parent-button" onClick={() => go('pin')}>{tr('Parent')}</button>
     </div>
   );
 }

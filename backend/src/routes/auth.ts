@@ -5,6 +5,8 @@ import { audit, type Ctx } from '../context.js';
 import { SESSION_COOKIE, parentAuth, sessionToken } from '../auth.js';
 import { HttpError, hashToken, inDays, inMinutes, newId, newToken } from '../util.js';
 import { redactText } from '../logging.js';
+import { languageOf } from '../language.js';
+import { portalCodeEmail, signInLinkEmail, tabletCodeEmail } from '../emails.js';
 import { randomInt } from 'node:crypto';
 import { deviceConfig } from './devices.js';
 import { SUBJECTS, gradeForAge } from './family.js';
@@ -13,8 +15,10 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
   const h = (t: string) => hashToken(t, ctx.cfg.SESSION_SECRET);
 
   app.post('/auth/email-link', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
-    const { email, source, delivery } = z.object({
+    const { email, source, delivery, language } = z.object({
       email: z.string().email().max(254), source: z.enum(['portal', 'tablet']).default('portal'),
+      // The asking browser's or tablet's language (navigator.language); the email is written in it.
+      language: z.string().max(35).optional(),
       // 'code' comes from the portal running as an iPhone or iPad home-screen app (navigator.standalone). iOS opens a
       // mail link in Safari, which keeps its own sign-in, so that app gets a six-digit code to type in instead.
       delivery: z.enum(['link', 'code']).default('link'),
@@ -26,18 +30,15 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
       if (source === 'portal' && delivery === 'code') {
         const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
         await ctx.db.query('SELECT create_login_code($1, $2, $3, $4)', [newId('lc'), email.trim(), h(code), inMinutes(15)]);
-        const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
-        await ctx.mailer.send(email, `${spaced} is your Duckling Tablet sign-in code`,
-          `Type this code in the Duckling app on your home screen to sign in:\n\n    ${spaced}\n\nIt works once and expires in 15 minutes. If you did not ask for this, you can ignore this email.`);
+        const m = portalCodeEmail(languageOf(language), code);
+        await ctx.mailer.send(email, m.subject, m.body);
         return { sent: true, delivery: 'code' };
       }
       const token = newToken();
       await ctx.db.query('SELECT create_login_token($1, $2, $3)', [h(token), email.trim(), inMinutes(15)]);
       const link = `${ctx.cfg.PORTAL_URL}/signin?token=${token}`;
-      const body = source === 'tablet'
-        ? `You started setting up Duckling Tablet on a tablet. Open this link on your phone or computer to set up your family; it works once and expires in 15 minutes.\n\n${link}\n\nThen add your child, press Add a device, and type the six-digit code it shows into the tablet.\n\nIf you did not ask for this, you can ignore this email.`
-        : `Tap this link to sign in to Duckling Tablet. It works once and expires in 15 minutes.\n\n${link}\n\nIf you did not ask for this, you can ignore this email.`;
-      await ctx.mailer.send(email, source === 'tablet' ? 'Set up your Duckling Tablet family' : 'Your Duckling Tablet sign-in link', body);
+      const m = signInLinkEmail(languageOf(language), source, link);
+      await ctx.mailer.send(email, m.subject, m.body);
     } catch (err) {
       // The address and the link stay out of the log; the mail server's own message is enough to diagnose.
       req.log.error({ err: { type: (err as Error).name, code: (err as { code?: string }).code, message: redactText((err as Error).message) } }, 'sign-in email failed');
@@ -53,13 +54,13 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
 
   // ---- One-device signup from a tablet: a six-digit code by email, then the tablet is paired in the same step.
   app.post('/auth/code', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
-    const { email } = z.object({ email: z.string().email().max(254) }).parse(req.body);
+    const { email, language } = z.object({ email: z.string().email().max(254), language: z.string().max(35).optional() }).parse(req.body);
     if (isReviewer(email)) return { sent: true };
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     await ctx.db.query('SELECT create_login_code($1, $2, $3, $4)', [newId('lc'), email.trim(), h(code), inMinutes(10)]);
     try {
-      await ctx.mailer.send(email, `${code.slice(0, 3)} ${code.slice(3)} is your Duckling Tablet code`,
-        `Type this code on the tablet to finish setting up Duckling Tablet:\n\n    ${code.slice(0, 3)} ${code.slice(3)}\n\nIt works once and expires in 10 minutes. If you did not ask for this, you can ignore this email.`);
+      const m = tabletCodeEmail(languageOf(language), code);
+      await ctx.mailer.send(email, m.subject, m.body);
     } catch (err) {
       req.log.error({ err: { type: (err as Error).name, code: (err as { code?: string }).code, message: redactText((err as Error).message) } }, 'code email failed');
       throw new HttpError(503, 'We could not send the email right now. Please try again in a minute.');
@@ -74,6 +75,8 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
       email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/),
       childFirstName: z.string().trim().min(1).max(40).optional(), childAge: z.number().min(1).max(16).optional(),
       platform: z.enum(['android', 'ios', 'windows', 'web']), name: z.string().trim().min(1).max(60), shellVersion: z.string().max(30).optional(),
+      // The tablet's language; a new family starts with it.
+      language: z.string().max(35).optional(),
     }).parse(req.body);
     const devId = newId('dev'), devToken = newToken();
     // The code check commits on its own, so a miss is counted and a match is used up whatever happens next.
@@ -86,6 +89,7 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
       // The review family keeps full access for as long as reviews happen (ten years); every other family gets the trial.
       if (parent.created) await q.run('SELECT start_trial($1, $2)', [parent.family_id, isReviewer(b.email) ? 3650 : ctx.cfg.TRIAL_DAYS]);
       await q.setFamily(parent.family_id);
+      if (parent.created) await q.run('UPDATE family SET language = $1 WHERE id = $2', [languageOf(b.language), parent.family_id]);
       let childId: string | null = null;
       if (b.childFirstName) {
         const existing = await q.one<{ id: string }>('SELECT id FROM child WHERE lower(first_name) = lower($1) ORDER BY created_at LIMIT 1', [b.childFirstName]);
@@ -109,7 +113,7 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
   });
 
   app.post('/auth/verify', { config: { rateLimit: { max: 20, timeWindow: '15 minutes' } } }, async (req, reply) => {
-    const { token } = z.object({ token: z.string().min(20).max(200) }).parse(req.body);
+    const { token, language } = z.object({ token: z.string().min(20).max(200), language: z.string().max(35).optional() }).parse(req.body);
     // One transaction: redeem the link, find or create the parent, then scope to the family and open the session.
     const result = await ctx.db.app(async (q) => {
       const link = await q.one<{ email: string; invite_family_id: string | null }>('SELECT email, invite_family_id FROM redeem_login_token($1)', [h(token)]);
@@ -126,14 +130,14 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
           'SELECT parent_id, family_id, created FROM find_or_create_parent($1, $2, $3)', [link.email, newId('fam'), newId('par')]))!;
         if (parent.created) await q.run('SELECT start_trial($1, $2)', [parent.family_id, ctx.cfg.TRIAL_DAYS]);
       }
-      return openSession(q, parent, link.invite_family_id ? 'parent.joined' : undefined);
+      return openSession(q, parent, link.invite_family_id ? 'parent.joined' : undefined, languageOf(language));
     });
     return sessionReply(reply, result);
   });
 
   // The code from the sign-in email sent to the portal on an iPhone or iPad home screen, typed there.
   app.post('/auth/code/verify', { config: { rateLimit: { max: 20, timeWindow: '15 minutes' } } }, async (req, reply) => {
-    const b = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/) }).parse(req.body);
+    const b = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/), language: z.string().max(35).optional() }).parse(req.body);
     // The code check commits on its own, so a miss is counted and a match is used up whatever happens next.
     const [{ ok }] = isReviewer(b.email) ? [{ ok: b.code === ctx.cfg.REVIEW_CODE }]
       : await ctx.db.query('SELECT redeem_login_code($1, $2) AS ok', [b.email.trim(), h(b.code)]) as { ok: boolean }[];
@@ -142,14 +146,16 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
       const parent = (await q.one<{ parent_id: string; family_id: string; created: boolean }>(
         'SELECT parent_id, family_id, created FROM find_or_create_parent($1, $2, $3)', [b.email.trim(), newId('fam'), newId('par')]))!;
       if (parent.created) await q.run('SELECT start_trial($1, $2)', [parent.family_id, isReviewer(b.email) ? 3650 : ctx.cfg.TRIAL_DAYS]);
-      return openSession(q, parent);
+      return openSession(q, parent, undefined, languageOf(b.language));
     });
     return sessionReply(reply, result);
   });
 
   type Parent = { parent_id: string; family_id: string; created: boolean };
-  async function openSession(q: Parameters<Parameters<typeof ctx.db.app>[0]>[0], parent: Parent, event?: string) {
+  // A family made here starts in the language of the browser that signed in.
+  async function openSession(q: Parameters<Parameters<typeof ctx.db.app>[0]>[0], parent: Parent, event?: string, language?: string) {
     await q.setFamily(parent.family_id);
+    if (parent.created && language) await q.run('UPDATE family SET language = $1 WHERE id = $2', [language, parent.family_id]);
     const session = newToken();
     await q.run('INSERT INTO session (token_hash, parent_id, family_id, expires_at) VALUES ($1, $2, $3, $4)', [h(session), parent.parent_id, parent.family_id, inDays(30)]);
     await audit(q, parent.family_id, `parent:${parent.parent_id}`, event ?? (parent.created ? 'family.created' : 'parent.signed_in'));

@@ -10,6 +10,7 @@ import { deviceAuth, parentAuth } from '../auth.js';
 import { backgroundUrl, childRow, portraitUrl, starsOf } from './family.js';
 import { entitlementOf, isLocked, requireSubscribed } from '../entitlement.js';
 import { listCatalog } from '../catalog.js';
+import { LANGUAGES, languageOf, narratorFor } from '../language.js';
 import { after } from '../notify.js';
 import { HttpError, badRequest, forbidden, hashToken, inMinutes, newId, newToken, notFound, now, pairingCode, safeEqual, sha256 } from '../util.js';
 
@@ -56,7 +57,9 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
   const hidden = new Set((await q.all('SELECT app_id FROM device_hidden_app WHERE device_id = $1', [deviceId])).map((r) => r.app_id as string));
   const catalog = (await listCatalog(ctx, q)).filter((a) => !hidden.has(a.id));
   const travelUntil = await getSetting<string | null>(q, deviceId, 'travel_until', null);
-  const fam = await q.one<{ pin_sync: string | null; app_account_token: string }>('SELECT pin_sync, app_account_token::text AS app_account_token FROM family WHERE id = $1', [d.family_id]);
+  const fam = await q.one<{ pin_sync: string | null; app_account_token: string; language: string }>('SELECT pin_sync, app_account_token::text AS app_account_token, language FROM family WHERE id = $1', [d.family_id]);
+  // The child's own language when she has one, else the family's.
+  const language = languageOf(childRaw?.language ?? fam?.language);
   const ent = await entitlementOf(q, d.family_id);
   const allowlist = await getSetting(q, deviceId, 'allowlist', [] as { host: string }[]);
   return {
@@ -79,7 +82,8 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
     limits: await getSetting(q, deviceId, 'limits', {}),
     // Apps installed outside Duckling that a parent allowed, with today's use (the tablet's local day).
     otherApps: await otherAppsFor(q, deviceId, d.family_id, !forParent),
-    narratorVoice: ctx.cfg.NARRATOR_VOICE,
+    language, familyLanguage: languageOf(fam?.language),
+    narratorVoice: narratorFor(ctx.cfg, language),
     serverTime: now(),
   };
 }
@@ -445,6 +449,18 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
       await audit(q, dv.familyId, `device:${dv.deviceId}`, 'pin.set');
       return { set: true };
     });
+  });
+
+  // The language from the tablet's parent area (behind the PIN): the family's, so every tablet and the portal follow.
+  app.put('/device/language', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const { language } = z.object({ language: z.enum(LANGUAGES) }).parse(req.body);
+    await ctx.db.family(dv.familyId, async (q) => {
+      await q.run('UPDATE family SET language = $1 WHERE id = $2', [language, dv.familyId]);
+      await audit(q, dv.familyId, `device:${dv.deviceId}`, 'family.language', { language });
+    });
+    void notifyDevices(ctx, dv.familyId);
+    return { language };
   });
 
   app.post('/device/pin/verify', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req) => {

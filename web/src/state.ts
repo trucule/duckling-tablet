@@ -1,6 +1,7 @@
 // App state: the device config from the server, the catalog, and what the shell has installed. Installs the server
 // expects (starter apps at pairing, apps a parent added remotely) are downloaded as soon as the config arrives.
-import { signal, computed } from '@preact/signals';
+import { signal, computed, effect } from '@preact/signals';
+import { setLang, tr } from './i18n';
 import { adoptTabletBackground, forgetPictures, forgetTabletBackground } from './pictures';
 import { api, ReleasedError, type DeviceConfig, type CatalogApp, type OtherApp, type Entitlement } from './api';
 import { shell } from './shell';
@@ -10,6 +11,8 @@ import { shell } from './shell';
 const CONFIG_KEY = 'duckling:last-config';
 const storedConfig = (): DeviceConfig | null => { try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null'); } catch { return null; } };
 export const config = signal<DeviceConfig | null>(storedConfig());
+// The tablet speaks the language the server sends (the child's, else the family's); before pairing, its own.
+effect(() => { if (config.value?.language) setLang(config.value.language); });
 // Removed from the family on the website, or the family account was deleted: the server answers 410. The tablet
 // keeps its apps, PIN and lockdown and the parent area asks for a new pairing code. Nothing is wiped; only the
 // tablet's own "Remove Duckling from this device" does that.
@@ -103,12 +106,12 @@ const hhmm = () => { const d = new Date(); return `${String(d.getHours()).padSta
 export function otherAppState(a: OtherApp): { ok: boolean; secondsLeft: number; reason: string } {
   if (a.window) {
     const now = hhmm(), inWindow = a.window.start <= a.window.end ? (now >= a.window.start && now < a.window.end) : (now >= a.window.start || now < a.window.end);
-    if (!inWindow) return { ok: false, secondsLeft: 0, reason: `Open ${a.window.start} to ${a.window.end}` };
+    if (!inWindow) return { ok: false, secondsLeft: 0, reason: tr('Open {start} to {end}', { start: a.window.start, end: a.window.end }) };
   }
   if (a.dailyMinutes === null) return { ok: true, secondsLeft: 6 * 3600, reason: '' };
   const left = a.dailyMinutes * 60 - a.usedSecondsToday;
-  if (left <= 0) return { ok: false, secondsLeft: 0, reason: 'Done for today' };
-  return { ok: true, secondsLeft: left, reason: `${Math.ceil(left / 60)} min left today` };
+  if (left <= 0) return { ok: false, secondsLeft: 0, reason: tr('Done for today') };
+  return { ok: true, secondsLeft: left, reason: tr('{n} min left today', { n: Math.ceil(left / 60) }) };
 }
 
 export const travelActive = (c: DeviceConfig | null) => !!c?.travel.active && !!c.travel.until && new Date(c.travel.until).getTime() > Date.now();
@@ -151,10 +154,10 @@ export function openOtherApp(a: OtherApp) {
 }
 window.addEventListener('duckling:otherapp', async (e) => {
   const { pkg, seconds, reason } = (e as CustomEvent<{ pkg: string; seconds: number; reason: string }>).detail;
-  if (reason === 'missing') { lastError.value = 'That app is not on this tablet any more.'; reportedInstalled = false; void reportInstalled(); return; }
+  if (reason === 'missing') { lastError.value = tr('That app is not on this tablet any more.'); reportedInstalled = false; void reportInstalled(); return; }
   // Windows reads the kiosk's list of apps at sign-in, so an app allowed since then needs Duckling to restart.
-  if (reason === 'restart') { restartNeeded.value = config.value?.otherApps?.find((a) => a.package === pkg)?.label ?? 'this app'; return; }
-  if (reason === 'failed') { lastError.value = 'That app did not open.'; return; }
+  if (reason === 'restart') { restartNeeded.value = config.value?.otherApps?.find((a) => a.package === pkg)?.label ?? tr('this app'); return; }
+  if (reason === 'failed') { lastError.value = tr('That app did not open.'); return; }
   if (seconds <= 0) return;
   // Count it locally at once, then on the server.
   if (config.value) {
@@ -174,7 +177,7 @@ async function installMissing(c: DeviceConfig) {
 
 export async function installPackage(id: string, version: string, url: string, sha256: string, signature: string, permissions: string[]): Promise<boolean> {
   if (installing.value[id]) return false;
-  installing.value = { ...installing.value, [id]: 'Downloading' };
+  installing.value = { ...installing.value, [id]: tr('Downloading') };
   try {
     await shell.installApp(id, version, url, sha256, signature, permissions);
     refreshInstalled();
