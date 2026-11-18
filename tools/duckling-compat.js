@@ -32,6 +32,13 @@
   // progress, stars, photos or recordings. Shells older than the child id keep per-app storage as before.
   var CHILD_ID = read('childId', '').replace(/[^A-Za-z0-9_-]/g, '');
   var VOICE = read('voice', 'en-US-AnaNeural');
+  // The child's language, en or es: the shell's own answer when it has one, otherwise the narrator voice the family's
+  // language chose (an es- voice for Spanish), which every shell already passes on. Apps read KidTablet.language.
+  var LANGUAGE = (function () { var l = read('language', '') || (/^es-/i.test(VOICE) ? 'es' : 'en'); return /^es/i.test(l) ? 'es' : 'en'; })();
+  // A line is spoken in its own language: an utterance marked es (u.lang) gets a Spanish voice, any other line an
+  // English one, so an app that is not translated yet never has its English read by a Spanish voice.
+  var VOICES = { en: /^en-/i.test(VOICE) ? VOICE : 'en-US-AnaNeural', es: /^es-/i.test(VOICE) ? VOICE : 'es-MX-DaliaNeural' };
+  var voiceFor = function (lang) { return /^es/i.test(lang || '') ? VOICES.es : VOICES.en; };
   // The child's level per subject on one grade scale: -1 pre-K, 0 kindergarten, 1 to 8. Set by the parent (two years
   // below the child's age by default). Apps map it onto their own ladders with levelFor().
   var LEVELS = {};
@@ -91,8 +98,9 @@
   // ---- 3. The small bridge for apps that look for it -----------------------------------------------------------------
   window.KidTablet = {
     // apiUrl: the Duckling API, for public files an app downloads itself (Paint Studio's font library).
-    platform: bridge ? 'duckling' : 'browser', apiUrl: API, appId: APP_ID, childName: CHILD, narratorVoice: VOICE, levels: LEVELS, grade: grade, levelFor: levelFor, rungFor: rungFor,
-    say: function (text, opts) { var u = new SpeechSynthesisUtterance(String(text)); if (opts && opts.rate) u.rate = opts.rate; window.speechSynthesis.speak(u); return u; },
+    platform: bridge ? 'duckling' : 'browser', apiUrl: API, appId: APP_ID, childName: CHILD, narratorVoice: VOICE, language: LANGUAGE, levels: LEVELS, grade: grade, levelFor: levelFor, rungFor: rungFor,
+    // opts.lang: 'es' for a Spanish line; by default a line is in the child's language.
+    say: function (text, opts) { var u = new SpeechSynthesisUtterance(String(text)); if (opts && opts.rate) u.rate = opts.rate; u.lang = (opts && opts.lang) || (LANGUAGE === 'es' ? 'es-MX' : 'en-US'); window.speechSynthesis.speak(u); return u; },
     // Replaced below on a paired tablet; in a plain browser there is no home screen to change.
     setHomeBackground: function () { return Promise.reject(new Error('Only on a Duckling tablet.')); },
     clearHomeBackground: function () { return Promise.reject(new Error('Only on a Duckling tablet.')); }
@@ -115,7 +123,9 @@
     // the region "duckling", so its requests land on the Duckling API's narrator endpoint with the voice and style.
     window.DWM_CONFIG = Object.assign({}, window.DWM_CONFIG || {}, { apiKey: 'duckling', tts: { provider: 'azure', key: 'duckling', region: 'duckling' } });
     var AZURE_TTS = /^https:\/\/duckling\.tts\.speech\.microsoft\.com\/cognitiveservices\/(v1|voices\/list)\/?$/;
-    var CAST = [['en-US-AnaNeural', 'Female', 'Child'], ['en-US-JennyNeural', 'Female', ''], ['en-US-AriaNeural', 'Female', ''], ['en-US-SaraNeural', 'Female', ''], ['en-US-NancyNeural', 'Female', ''], ['en-US-MichelleNeural', 'Female', ''], ['en-US-AmberNeural', 'Female', ''], ['en-US-AshleyNeural', 'Female', ''], ['en-US-CoraNeural', 'Female', ''], ['en-US-MonicaNeural', 'Female', ''], ['en-US-GuyNeural', 'Male', ''], ['en-US-DavisNeural', 'Male', ''], ['en-US-JasonNeural', 'Male', ''], ['en-US-TonyNeural', 'Male', ''], ['en-US-ChristopherNeural', 'Male', ''], ['en-US-EricNeural', 'Male', ''], ['en-US-BrandonNeural', 'Male', ''], ['en-US-JacobNeural', 'Male', ''], ['en-US-RogerNeural', 'Male', ''], ['en-US-SteffanNeural', 'Male', '']];
+    var CAST = [['en-US-AnaNeural', 'Female', 'Child'], ['en-US-JennyNeural', 'Female', ''], ['en-US-AriaNeural', 'Female', ''], ['en-US-SaraNeural', 'Female', ''], ['en-US-NancyNeural', 'Female', ''], ['en-US-MichelleNeural', 'Female', ''], ['en-US-AmberNeural', 'Female', ''], ['en-US-AshleyNeural', 'Female', ''], ['en-US-CoraNeural', 'Female', ''], ['en-US-MonicaNeural', 'Female', ''], ['en-US-GuyNeural', 'Male', ''], ['en-US-DavisNeural', 'Male', ''], ['en-US-JasonNeural', 'Male', ''], ['en-US-TonyNeural', 'Male', ''], ['en-US-ChristopherNeural', 'Male', ''], ['en-US-EricNeural', 'Male', ''], ['en-US-BrandonNeural', 'Male', ''], ['en-US-JacobNeural', 'Male', ''], ['en-US-RogerNeural', 'Male', ''], ['en-US-SteffanNeural', 'Male', ''],
+      // Spanish, for a cast that speaks Spanish.
+      ['es-MX-MarinaNeural', 'Female', 'Child'], ['es-MX-DaliaNeural', 'Female', ''], ['es-MX-BeatrizNeural', 'Female', ''], ['es-MX-CandelaNeural', 'Female', ''], ['es-MX-CarlotaNeural', 'Female', ''], ['es-MX-LarissaNeural', 'Female', ''], ['es-MX-NuriaNeural', 'Female', ''], ['es-MX-RenataNeural', 'Female', ''], ['es-US-PalomaNeural', 'Female', ''], ['es-MX-JorgeNeural', 'Male', ''], ['es-MX-CecilioNeural', 'Male', ''], ['es-MX-GerardoNeural', 'Male', ''], ['es-MX-LibertoNeural', 'Male', ''], ['es-MX-LucianoNeural', 'Male', ''], ['es-MX-PelayoNeural', 'Male', ''], ['es-MX-YagoNeural', 'Male', ''], ['es-US-AlonsoNeural', 'Male', '']];
     var unesc = function (t) { return t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&'); };
     var ssmlToTts = function (ssml) {
       var voice = (/<voice[^>]*name="([^"]+)"/.exec(ssml) || [])[1] || VOICE;
@@ -134,7 +144,7 @@
       var az = AZURE_TTS.exec(url);
       if (az) {
         if (az[1] === 'v1') return ssmlToTts(String(init.body || ''));
-        var list = CAST.map(function (v) { return { ShortName: v[0], Locale: 'en-US', VoiceType: 'Neural', Gender: v[1], VoiceTag: v[2] ? { VoicePersonalities: [v[2]] } : {} }; });
+        var list = CAST.map(function (v) { return { ShortName: v[0], Locale: v[0].slice(0, 5), VoiceType: 'Neural', Gender: v[1], VoiceTag: v[2] ? { VoicePersonalities: [v[2]] } : {} }; });
         return Promise.resolve(new Response(JSON.stringify(list), { status: 200, headers: { 'content-type': 'application/json' } }));
       }
       if (ANTHROPIC.test(url)) {
@@ -318,10 +328,10 @@
   function isPrivate(text) { return !!(nameRe && nameRe.test(text)); }
 
   // The Duckling narrator: the API answers with the clip (private lines) or sends us to the shared copy on the CDN.
-  function fetchClip(text, rate) {
+  function fetchClip(text, rate, voice) {
     var ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var timer = setTimeout(function () { if (ac) ac.abort(); }, WAIT_MS);
-    var url = API + '/tts?text=' + encodeURIComponent(text) + '&rate=' + rate + '&voice=' + encodeURIComponent(VOICE) + (isPrivate(text) ? '&private=1' : '');
+    var url = API + '/tts?text=' + encodeURIComponent(text) + '&rate=' + rate + '&voice=' + encodeURIComponent(voice) + (isPrivate(text) ? '&private=1' : '');
     return fetch(url, { headers: { authorization: 'Device ' + TOKEN }, signal: ac ? ac.signal : undefined })
       .then(function (r) { clearTimeout(timer); if (r.status === 429) { down = Date.now() + 10 * 60000; return null; } return r.ok ? r.arrayBuffer() : null; })
       .catch(function () { clearTimeout(timer); return null; });
@@ -330,13 +340,13 @@
     var c = audio(); if (!c) return Promise.resolve(null);
     return new Promise(function (res) { try { c.decodeAudioData(bytes.slice(0), function (b) { res(b); }, function () { res(null); }); } catch (e) { res(null); } });
   }
-  function clip(text, rate) {
-    var k = VOICE + '|' + rate + '|' + text;
+  function clip(text, rate, voice) {
+    var k = voice + '|' + rate + '|' + text;
     if (mem.has(k)) return mem.get(k);
     var p = dbGet(k).then(function (saved) {
       if (saved) return decode(saved);
       if (Date.now() < down) return null;
-      return fetchClip(text, rate).then(function (bytes) {
+      return fetchClip(text, rate, voice).then(function (bytes) {
         if (!bytes) { if (Date.now() >= down) down = Date.now() + 30000; return null; }
         dbPut(k, bytes); return decode(bytes);
       });
@@ -359,7 +369,7 @@
     current = item;
     var text = clean(u.text), rate = rateOf(u);
     if (!text) { current = null; fire(u, 'end'); playNext(); return; }
-    clip(text, rate).then(function (buf) {
+    clip(text, rate, voiceFor(u.lang)).then(function (buf) {
       var c = audio();
       if (!buf || !c || c.state === 'running') return buf;
       return Promise.race([c.resume().catch(function () {}), new Promise(function (r) { setTimeout(r, 300); })]).then(function () { return buf; });

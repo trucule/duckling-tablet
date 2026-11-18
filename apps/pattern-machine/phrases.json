@@ -1,12 +1,12 @@
 {
- "source": "82cb543b352352fc6e30a2d3051529333093ff82eb8f61eb3e78ef03c44d396f",
+ "source": "63ad152ea6639d7783693b990f09b84872f773c0e5e290a345f187935a239a60",
  "lines": [
   {
-   "text": "162, 54, 18, 6. Is this pattern arithmetic or geometric, and what comes next? Tap it.",
+   "text": "4, minus 5, minus 14, minus 23. Is this pattern arithmetic or geometric, and what comes next? Tap it.",
    "rate": -10
   },
   {
-   "text": "Find the rule from the three pairs. Then, when 8 goes in, what comes out? Type it.",
+   "text": "Find the rule from the three pairs. Then, when 7 goes in, what comes out? Type it.",
    "rate": -10
   },
   {
@@ -22,11 +22,11 @@
    "rate": -10
   },
   {
-   "text": "The points sit on one line. Find the slope and where it crosses the y axis. Which equation fits? Tap it.",
+   "text": "The shape goes through 2 machines. First one paints it yellow. Last one flips it like a mirror. What comes out at the end?",
    "rate": -10
   },
   {
-   "text": "The shape goes through 2 machines. First one flips it like a mirror. Last one paints it yellow. What comes out at the end?",
+   "text": "The table gives x and y. Find the slope and the starting value. Which equation fits? Tap it.",
    "rate": -10
   },
   {
@@ -34,15 +34,15 @@
    "rate": -10
   },
   {
+   "text": "This machine flips it like a mirror. What comes out? Tap it.",
+   "rate": -10
+  },
+  {
    "text": "This machine paints it blue. What comes out? Tap it.",
    "rate": -10
   },
   {
-   "text": "This machine paints it pink. What comes out? Tap it.",
-   "rate": -10
-  },
-  {
-   "text": "This pattern uses two steps each time. 1, 5, 13, 29. What comes next? Tap it.",
+   "text": "This pattern uses two steps each time. 3, 8, 23, 68. What comes next? Tap it.",
    "rate": -10
   },
   {

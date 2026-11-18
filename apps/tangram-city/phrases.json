@@ -1,20 +1,20 @@
 {
- "source": "b73cd948ad077f3b17377410662f4de37712d77064d01bd749d3b23aa5a27566",
+ "source": "540a14af97334dda562e26ba8f3cb2f706343263b3150fb51ecee44b55b607ef",
  "lines": [
   {
-   "text": "Build a shape so its corner at the yellow dot is 45 degrees. You can use more than one piece. Then tap Check.",
+   "text": "Fill the shadow to build a bridge. Drag pieces. Tap a piece to turn it.",
    "rate": -10
   },
   {
-   "text": "Fill the shadow to build a castle. Drag pieces. Tap a piece to turn it.",
+   "text": "Fill the shadow to build a road sign. Drag pieces. Tap a piece to turn it.",
    "rate": -10
   },
   {
-   "text": "Fill the shadow to build a lighthouse. Drag pieces. Tap a piece to turn it.",
+   "text": "Fill the shadow to build a tree house. Drag pieces. Tap a piece to turn it.",
    "rate": -10
   },
   {
-   "text": "Fill the shadow to build a zoo. Drag pieces. Tap a piece to turn it.",
+   "text": "Fill the shadow to build a water slide. Drag pieces. Tap a piece to turn it.",
    "rate": -10
   },
   {
@@ -26,7 +26,7 @@
    "rate": -10
   },
   {
-   "text": "Look at the grey shape. Build the same shape turned a half turn, so it is upside down, inside the yellow box. Drag pieces. Tap a piece to turn it. Tap Flip to flip it.",
+   "text": "Look at the grey shape. Build the same shape turned a quarter turn to the right, inside the yellow box. Drag pieces. Tap a piece to turn it. Tap Flip to flip it.",
    "rate": -10
   },
   {
@@ -34,7 +34,11 @@
    "rate": -10
   },
   {
-   "text": "Put the small triangle so its square corner, the right angle, is at (4,1). Count across first, then up. Then tap Check.",
+   "text": "Put the large triangle so its square corner, the right angle, is at (1,4). Count across first, then up. Then tap Check.",
+   "rate": -10
+  },
+  {
+   "text": "Tap a corner of the shape with an acute angle. That is less than 90 degrees. The white dots mark the corners.",
    "rate": -10
   },
   {
@@ -42,11 +46,11 @@
    "rate": -10
   },
   {
-   "text": "This right triangle has legs 4 and 3. How long is the long side, the hypotenuse? Type it and tap OK.",
+   "text": "This right triangle has legs 3 and 3. How long is the long side, the hypotenuse? Round to tenths. Type it and tap OK.",
    "rate": -10
   },
   {
-   "text": "This shadow is a tent, turned around. Fill it with all seven pieces. Drag pieces. Tap a piece to turn it. Tap Flip to flip it.",
+   "text": "This shadow is a tower, turned around. Fill it with all seven pieces. Drag pieces. Tap a piece to turn it. Tap Flip to flip it.",
    "rate": -10
   }
  ]

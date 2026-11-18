@@ -1,7 +1,7 @@
 {
   "id": "camera-fun",
   "name": "Camera Fun",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A camera with filters, face stickers that follow the face, stamps, a timer and a gallery. Pictures stay on the tablet; one the child picks can become the home screen background of that tablet.",
   "subjects": [
     "art"

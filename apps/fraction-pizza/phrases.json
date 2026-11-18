@@ -1,8 +1,20 @@
 {
- "source": "7c555910a3236f9bc3a06812ed8f8c66c7541abcded8c8c0fd30f1472460892c",
+ "source": "04a94020a89065276a1cb74df7617f7268897239a2bdb0f881f966bca8be7557",
  "lines": [
   {
-   "text": "Ava wants three fourths of the pizza. Tap slices to put them on the plate.",
+   "text": "0.5 of the pizza. What percent is that?",
+   "rate": -10
+  },
+  {
+   "text": "Ava says: cut my pie into halves. That means two equal pieces.",
+   "rate": -10
+  },
+  {
+   "text": "Ben takes a slice without looking. What is the chance it is pepperoni? Write the fraction in simplest form.",
+   "rate": -10
+  },
+  {
+   "text": "Ben wants one half plus three sixths. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
@@ -10,11 +22,11 @@
    "rate": -10
   },
   {
-   "text": "Ivy says: cut my pizza into thirds. That means three equal pieces.",
+   "text": "Kai wants four eighths of the pizza. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
-   "text": "Mia wants one third of the pie. Tap slices to put them on the plate.",
+   "text": "Mia wants one half of the pizza. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
@@ -22,7 +34,7 @@
    "rate": -10
   },
   {
-   "text": "Theo wants three fourths of the pizza. Tap slices to put them on the plate.",
+   "text": "Sam wants three fourths of the pizza. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
@@ -30,23 +42,11 @@
    "rate": -10
   },
   {
-   "text": "What is the greatest common factor of three and nine?",
+   "text": "What is two thirds of three fourths of a pizza? A slice of a slice.",
    "rate": -10
   },
   {
-   "text": "What is three fourths of four sixths of a pizza? A slice of a slice.",
-   "rate": -10
-  },
-  {
-   "text": "Write one half as a decimal.",
-   "rate": -10
-  },
-  {
-   "text": "Zoe wants one half of the pizza. Tap slices to put them on the plate.",
-   "rate": -10
-  },
-  {
-   "text": "Zoe wants one half plus two eighths. Tap slices to put them on the plate.",
+   "text": "Zoe wants one half of the pie. Tap slices to put them on the plate.",
    "rate": -10
   }
  ]

@@ -1,16 +1,16 @@
 {
- "source": "ce32da23a85efdb267ef96e91790f91501416c81002965cc09d7ebe65324ad4f",
+ "source": "f65540c87d9ea635bd5d4fd6499c3d0413123e6c6f5424c70b183a500811ad9a",
  "lines": [
   {
-   "text": "Find the shortest way. Get all 3 gems in 13 moves or less.",
+   "text": "Find the shortest way. Get all 3 gems in 11 moves or less.",
    "rate": -10
   },
   {
-   "text": "Get all 2 gems using only 3 cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.",
+   "text": "Get all 2 gems using only 5 cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.",
    "rate": -10
   },
   {
-   "text": "Get all 3 gems using only 5 cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.",
+   "text": "Get all 3 gems using only 3 cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.",
    "rate": -10
   },
   {

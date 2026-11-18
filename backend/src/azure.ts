@@ -10,7 +10,7 @@ export function makeAzureSynth(cfg: Config): Synth {
   return async (text, voice, rate, style) => {
     if (!cfg.AZURE_SPEECH_KEY) return null;
     const inner = `<prosody rate="${rate >= 0 ? '+' : ''}${rate}%">${esc(text)}</prosody>`;
-    const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-US"><voice name="${esc(voice)}">` +
+    const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${esc(voice.slice(0, 5))}"><voice name="${esc(voice)}">` +
       (style ? `<mstts:express-as style="${esc(style)}">${inner}</mstts:express-as>` : inner) + `</voice></speak>`;
     const r = await fetch(`https://${cfg.AZURE_SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`, {
       method: 'POST',

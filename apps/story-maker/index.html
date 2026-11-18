@@ -204,6 +204,62 @@ const CFG = Object.assign({ storyModel: 'claude-haiku-4-5-20251001', dailyLimit:
 let picked = [], place = null, kind = null, drama = null, length = null;
 let story = null;   // { scenes: [...], history: [...], reading }
 const $ = id => document.getElementById(id);
+// ---------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) the screen, the spoken prompts, the cast's voices
+// and the stories are Spanish; the writer is told to write in Spanish. The prompt text itself stays English, since the
+// writer follows it in either language. Ids and the English labels the prompt uses do not change.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  'Story Maker': 'Creador de cuentos', 'Who is in the story?': '¿Quién sale en el cuento?', 'pick one, two or three friends': 'elige uno, dos o tres amigos',
+  'Where does it happen?': '¿Dónde pasa?', 'What kind of story?': '¿Qué tipo de cuento?', 'How much trouble?': '¿Cuántos problemas?', 'How long?': '¿Qué tan largo?',
+  'Reading level': 'Nivel de lectura', 'Tell the story! 📖': '¡Cuenta el cuento! 📖', 'The story is being written': 'Se está escribiendo el cuento', 'The End ⭐': 'Fin ⭐',
+  'Make another': 'Hacer otro', 'Read this part again': 'Leer esta parte otra vez', 'Read to me': 'Léemelo', 'New story, same friends': 'Otro cuento, los mismos amigos',
+  'a castle': 'un castillo', 'the moon': 'la luna', 'an island': 'una isla', 'a forest': 'un bosque', 'the beach': 'la playa', 'a fair': 'una feria',
+  'a snowy mountain': 'una montaña nevada', 'cupcake town': 'el pueblo de los pastelitos', 'a train': 'un tren', 'under the sea': 'bajo el mar',
+  'Adventure': 'Aventura', 'Mystery': 'Misterio', 'Friendship': 'Amistad', 'Silly': 'Chistoso', 'Bedtime': 'Para dormir',
+  'Cozy': 'Tranquilo', 'A little trouble': 'Un problemita', 'Big trouble': 'Un gran problema', 'Short': 'Corto', 'Long': 'Largo', '{n} parts': '{n} partes',
+  'Little': 'Pequeños', '1st and 2nd': '1.º y 2.º', '3rd grade': '3.er grado', '4th grade': '4.º grado', '5th and 6th': '5.º y 6.º', '7th grade': '7.º grado', '8th grade': '8.º grado',
+  'age 4 to 6': 'de 4 a 6 años', 'age 6 to 8': 'de 6 a 8 años', 'age 8 to 9': 'de 8 a 9 años', 'age 9 to 10': 'de 9 a 10 años', 'age 10 to 12': 'de 10 a 12 años', 'age 12 to 13': 'de 12 a 13 años', 'age 13 to 14': 'de 13 a 14 años',
+  '{name} the {kind}!': '¡{name}, {kind}!', 'Three friends is plenty!': '¡Tres amigos son suficientes!', '{choice}!': '¡{choice}!',
+  'The story writer is resting right now. Here is a story from the shelf.': 'El escritor de cuentos está descansando. Aquí tienes un cuento del estante.',
+  '{word}. {word} means {meaning}.': '{word}. {word} quiere decir {meaning}.',
+  'The end! Tap the dice for another story.': '¡Fin! Toca el dado para otro cuento.', 'What should happen next?': '¿Qué debería pasar ahora?',
+  'The end. Tap the dice for another story.': 'Fin. Toca el dado para otro cuento.', 'Think about it': 'Piénsalo', 'Question {n} of {total}': 'Pregunta {n} de {total}',
+  'That is a thoughtful choice.': 'Es una decisión muy pensada.', 'Good thinking. There was no easy answer there.': 'Bien pensado. Ahí no había una respuesta fácil.', 'I can see why you would do that.': 'Entiendo por qué harías eso.',
+  'Yes! You got it.': '¡Sí! Lo lograste.', 'That is right!': '¡Correcto!', 'Great reading!': '¡Qué buena lectura!', 'Not quite. Think about the story and try again.': 'Casi. Piensa en el cuento y vuelve a intentarlo.',
+  'You got {n} of {total} on the first try!': '¡Acertaste {n} de {total} al primer intento!', 'Thank you for thinking it through.': 'Gracias por pensarlo con calma.', '{line} Tap the dice for another story.': '{line} Toca el dado para otro cuento.',
+  'I read it myself (tap to have it read to you)': 'Lo leo yo (toca para que te lo lean)', 'Read to me (tap to read it yourself)': 'Léemelo (toca para leerlo tú)',
+  'You read it. Tap a word if you need help.': 'Léelo tú. Toca una palabra si necesitas ayuda.', 'I will read it to you.': 'Yo te lo leo.', 'Story Maker! Who is in the story?': '¡Creador de cuentos! ¿Quién sale en el cuento?',
+  'Who was in the story?': '¿Quién salió en el cuento?', 'Where did the story happen?': '¿Dónde pasó el cuento?', 'What did you choose to do first?': '¿Qué elegiste hacer primero?', 'In the story, what does "{word}" mean?': 'En el cuento, ¿qué quiere decir "{word}"?',
+  'Me': 'Yo', 'Captain Clam': 'Capitán Almeja'
+};
+function T(s, vars) {
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+// Each friend in Spanish: what it is, with its article, and a Spanish voice of the same kind (child, woman, man).
+const ES_CAST = {
+  narrator: ['', 'es-MX-DaliaNeural'], bun: ['el conejo', 'es-US-AlonsoNeural'], spark: ['el dragoncito', 'es-MX-JorgeNeural'], beep: ['el robot', 'es-MX-YagoNeural'],
+  twinkle: ['la unicornio', 'es-MX-NuriaNeural'], pip: ['el pingüino', 'es-MX-CandelaNeural'], me: ['tú', 'es-MX-MarinaNeural'], hop: ['la rana', 'es-MX-LucianoNeural'],
+  rusty: ['el zorro', 'es-MX-GerardoNeural'], luna: ['la lechuza', 'es-MX-RenataNeural'], mo: ['el alce', 'es-MX-PelayoNeural'], zip: ['el ratón', 'es-MX-LarissaNeural'],
+  captain: ['el cangrejo', 'es-MX-CecilioNeural']
+};
+const kindOf = c => (LANG === 'es' && ES_CAST[c.id] && ES_CAST[c.id][0]) || c.kind;
+if (LANG === 'es') {
+  document.documentElement.lang = 'es';
+  for (const c of [NARRATOR, ...CAST]) { const e = ES_CAST[c.id]; if (e) c.azure = e[1]; if (c.id !== 'me' || !(window.KidTablet && window.KidTablet.childName)) c.name = T(c.name); }
+  const set = (sel, text) => { const el = document.querySelector(sel); if (el) el.firstChild.nodeValue = text; };
+  const qs = document.querySelectorAll('#setup .q');
+  [['Who is in the story?', 'pick one, two or three friends'], ['Where does it happen?'], ['What kind of story?'], ['How much trouble?'], ['How long?'], ['Reading level']].forEach(([q, small], i) => {
+    if (!qs[i]) return; qs[i].firstChild.nodeValue = T(q) + (small ? ' ' : ''); if (small) qs[i].querySelector('small').textContent = T(small);
+  });
+  set('header h1', T('Story Maker')); $('go').textContent = T('Tell the story! 📖'); set('#thinking', T('The story is being written')); $('end').textContent = T('The End ⭐');
+  $('back').title = T('Make another'); $('read').title = T('Read this part again'); $('another').title = T('New story, same friends');
+}
+// A place as shown, without its article on a tile.
+const placeName = p => T(p[1]);
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
@@ -286,7 +342,7 @@ const VOICE = (() => {
   function azureVoices(t) { if (!azListP) azListP = loadAzureVoices(t); return azListP; }
   async function loadAzureVoices(t) {
     if (azList) return azList;
-    const LK = 'sm-azure-voices';
+    const LK = 'sm-azure-voices-' + LANG;
     try { const c = JSON.parse(localStorage.getItem(LK) || 'null'); if (c && c.region === t.region && Date.now() - c.at < 864e5 && c.voices.length) return (azList = c.voices); } catch (e) {}
     try {
       const c = new AbortController(); const tm = setTimeout(() => c.abort(), 4000);
@@ -294,8 +350,8 @@ const VOICE = (() => {
       clearTimeout(tm);
       if (r.ok) {
         const all = await r.json();
-        azList = all.filter(v => /^en-/i.test(v.Locale) && /neural/i.test(v.VoiceType || 'Neural') && !/:/.test(v.ShortName))
-          .map(v => ({ name: v.ShortName, kind: /child|girl|boy/i.test(JSON.stringify(v.VoiceTag || '')) || v.ShortName === 'en-US-AnaNeural' ? 'child' : (v.Gender === 'Female' ? 'f' : 'm'), us: /^en-US/i.test(v.Locale) }));
+        azList = all.filter(v => new RegExp('^' + LANG + '-', 'i').test(v.Locale) && /neural/i.test(v.VoiceType || 'Neural') && !/:/.test(v.ShortName))
+          .map(v => ({ name: v.ShortName, kind: /child|girl|boy/i.test(JSON.stringify(v.VoiceTag || '')) || /^(en-US-AnaNeural|es-MX-MarinaNeural)$/.test(v.ShortName) ? 'child' : (v.Gender === 'Female' ? 'f' : 'm'), us: /^(en-US|es-MX)/i.test(v.Locale) }));
         try { localStorage.setItem(LK, JSON.stringify({ region: t.region, at: Date.now(), voices: azList })); } catch (e) {}
         return azList;
       }
@@ -378,7 +434,7 @@ const VOICE = (() => {
           const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
           const style = mood && mood !== 'neutral' ? mood : null;
           const inner = style ? `<mstts:express-as style="${style}">${esc(text)}</mstts:express-as>` : esc(text);
-          const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-US"><voice name="${voice}"><prosody rate="${who.id === 'narrator' ? '-6%' : '0%'}">${inner}</prosody></voice></speak>`;
+          const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${voice.slice(0, 5)}"><voice name="${voice}"><prosody rate="${who.id === 'narrator' ? '-6%' : '0%'}">${inner}</prosody></voice></speak>`;
           const r = await fetch(`https://${t.region || 'eastus'}.tts.speech.microsoft.com/cognitiveservices/v1`, { method: 'POST', headers: { 'Ocp-Apim-Subscription-Key': t.key, 'Content-Type': 'application/ssml+xml', 'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3' }, body: ssml });
           if (r.ok) bytes = await r.arrayBuffer();
         }
@@ -396,7 +452,7 @@ const VOICE = (() => {
   let sysVoices = null;
   function systemVoice(who) {
     try {
-      if (!sysVoices) { sysVoices = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang) && v.localService); }
+      if (!sysVoices) { sysVoices = speechSynthesis.getVoices().filter(v => new RegExp('^' + LANG, 'i').test(v.lang) && v.localService); }
       if (!sysVoices.length) return null;
       if (who.id === 'narrator') return sysVoices.find(v => /zira|jenny|aria/i.test(v.name)) || sysVoices[0];
       const i = CAST.findIndex(c => c.id === who.id); return sysVoices[(i + 1) % sysVoices.length];
@@ -404,7 +460,7 @@ const VOICE = (() => {
   }
   function systemSay(text, who, done, onWord) {
     try {
-      const u = new SpeechSynthesisUtterance(text); const v = systemVoice(who); if (v) u.voice = v;
+      const u = new SpeechSynthesisUtterance(text); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; const v = systemVoice(who); if (v) u.voice = v;
       u.pitch = who.pitch || 1; u.rate = (who.rate || 1) * 0.95; u.onend = () => done && done(); u.onerror = () => done && done();
       if (onWord) {
         let heard = false; const starts = wordStarts(text);
@@ -531,7 +587,7 @@ function drawVocab(id) { const bank = RUNGS[id].bank; return shuffle(bank).slice
 function tile(item, box, onpick, extra) {
   const b = document.createElement('button'); b.className = 'pick';
   const e = document.createElement('div'); e.className = 'e'; e.textContent = item.emoji || item[0]; b.appendChild(e);
-  const t = document.createElement('div'); t.textContent = item.name || item[2] || item[1].replace(/^(a|an|the|one) /, ''); b.appendChild(t);
+  const t = document.createElement('div'); t.textContent = item.name || (item[2] ? T(item[2]) : T(item[1]).replace(/^(a|an|the|one|un|una|el|la|los|las) /, '')); b.appendChild(t);
   if (extra) { const s = document.createElement('div'); s.className = 't'; s.textContent = extra; b.appendChild(s); }
   const n = document.createElement('div'); n.className = 'n'; b.appendChild(n);
   b.onclick = () => onpick(item, b); box.appendChild(b); return b;
@@ -539,17 +595,17 @@ function tile(item, box, onpick, extra) {
 for (const c of CAST) tile(c, $('cast'), (c, b) => {
   const i = picked.indexOf(c);
   if (i >= 0) { picked.splice(i, 1); b.classList.remove('on'); }
-  else if (picked.length < 3) { picked.push(c); b.classList.add('on'); say(`${c.name} the ${c.kind}!`); }
-  else { say('Three friends is plenty!'); }
+  else if (picked.length < 3) { picked.push(c); b.classList.add('on'); say(T('{name} the {kind}!', { name: c.name, kind: kindOf(c) })); }
+  else { say(T('Three friends is plenty!')); }
   [...$('cast').children].forEach((x, k) => { x.classList.toggle('dim', picked.length >= 3 && !picked.includes(CAST[k])); x.querySelector('.n').textContent = picked.indexOf(CAST[k]) + 1; });
   ready();
-}, c.kind);
-const single = (list, box, set, extra) => list.forEach(item => tile(item, box, (it, b) => { [...box.children].forEach(x => x.classList.toggle('on', x === b)); set(it); say(it[2] || it[1]); ready(); }, extra && extra(item)));
-single(PLACES, $('places'), v => place = v); single(KINDS, $('kinds'), v => kind = v); single(DRAMAS, $('dramas'), v => drama = v); single(LENGTHS, $('lengths'), v => length = v, l => RUNGS[level[1]].scenes[l[1]] + ' parts');
-single(LEVELS, $('levels'), v => { level = v; store.set('story-level', v[1]); refreshLengths(); }, l => l[3]);
+}, kindOf(c));
+const single = (list, box, set, extra) => list.forEach(item => tile(item, box, (it, b) => { [...box.children].forEach(x => x.classList.toggle('on', x === b)); set(it); say(T(it[2] || it[1])); ready(); }, extra && extra(item)));
+single(PLACES, $('places'), v => place = v); single(KINDS, $('kinds'), v => kind = v); single(DRAMAS, $('dramas'), v => drama = v); single(LENGTHS, $('lengths'), v => length = v, l => T('{n} parts', { n: RUNGS[level[1]].scenes[l[1]] }));
+single(LEVELS, $('levels'), v => { level = v; store.set('story-level', v[1]); refreshLengths(); }, l => T(l[3]));
 [...$('levels').children][LEVELS.indexOf(level)].classList.add('on');
 // Short and Long mean more scenes at the higher levels; the labels follow the level.
-function refreshLengths() { [...$('lengths').children].forEach((b, i) => { b.querySelector('.t').textContent = RUNGS[level[1]].scenes[LENGTHS[i][1]] + ' parts'; }); }
+function refreshLengths() { [...$('lengths').children].forEach((b, i) => { b.querySelector('.t').textContent = T('{n} parts', { n: RUNGS[level[1]].scenes[LENGTHS[i][1]] }); }); }
 function ready() { $('go').disabled = !(picked.length && place && kind && drama && length); }
 
 // ---------------------------------------------------------------------------
@@ -576,7 +632,9 @@ function buildPrompt(ctx) {
     ending = ` Also "questions": 4 questions about the WHOLE story to check she understood it, covering who, what happened, why something happened, and the order of events${rank >= 2 ? ', plus one about the meaning of a word from the story' : ''}: [{"q": "the question", "choices": ["three short answers"], "answer": index of the one right choice}]. Exactly one choice is right; the other two are clearly wrong for this story.`;
   }
   const user = `Cast: ${castDesc}.${teller}\nPlace: ${ctx.place[1]}. Kind: ${ctx.kind[1]}. Drama level: ${ctx.drama[1]} (${ctx.drama[3]}). Total scenes: ${ctx.total}.\n${vocab}\nSo far:\n${history}\n\nWrite scene ${ctx.sceneNo}${isLast ? ', the LAST scene: resolve everything happily and end with a warm closing line' : ''}.\nJSON shape: {"title": "short scene title", "emoji": ["one", "two", "three emoji for the scene"], "lines": [{"who": "narrator" or a cast id, "text": "${little ? 'one or two sentences' : 'one to three sentences'}", "mood": one of "neutral","cheerful","excited","sad","whispering","shouting","friendly"}], "summary": "one sentence of what happened", "choices": [{"label": "3-6 words, what happens next", "emoji": "one emoji"}, ...]}. Choices: ${R.choices}.${words} ${R.lines}. ${isLast ? 'For the last scene: "choices": [] and "end": true.' : ''}${ending}`;
-  return { system: R.system, user, maxTokens: R.maxTokens };
+  // Spanish: every word the child sees or hears is written in Spanish; the JSON keys, ids and moods stay as given.
+  const system = LANG === 'es' ? R.system + `\nLanguage: write every text value (titles, lines, choices, summaries, questions, answers, word meanings) in Spanish, the neutral Latin American Spanish a child in the United States or Latin America reads at this grade, with the same rules for sentence length and difficulty. The grade words above are English: use the Spanish word with the same meaning, and put that Spanish word in "words". Keep the JSON keys, the "who" ids and the "mood" values exactly as given in English.` : R.system;
+  return { system, user, maxTokens: R.maxTokens * (LANG === 'es' ? 1.3 : 1) | 0 };
 }
 // The JSON object in the writer's reply, or null when there is none to use.
 function parseScene(text) {
@@ -621,13 +679,27 @@ function cleanReflect(x) {
   return { q: x.q.trim(), reflect: true, choices: opts.map(o => o.text), replies: opts.map(o => o.reply), answer: -1 };
 }
 
+// The Little story in Spanish: the same three scenes, written for a Spanish-speaking child.
+function littleSceneEs() {
+  const s = story, n = s.scenes.length, names = picked.map(c => c.name), who = i => picked[i % picked.length];
+  const list = names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' y ' + names[names.length - 1];
+  const lastChoice = s.history.length ? s.history[s.history.length - 1].choice : '';
+  const L = (who, text, mood) => ({ who, text, mood: mood || 'neutral' });
+  const where = placeName(place);
+  const quip = c => ({ bun: '¡Salto, salto! ¡Vamos!', spark: '¡Achís! Uy, una chispa.', beep: 'Bip bup. Cuento una aventura.', twinkle: 'Oh, algo está brillando.', pip: 'Eh... ¿Puedo ir yo también?', me: '¡Tengo una idea!', hop: '¡CROAC! ¿Qué fue eso?', rusty: 'Déjenmelo a mí. Tengo un plan.', luna: 'Uuu. Paciencia, amigos.', mo: 'Uy, perdón, mis astas son grandes.', zip: '¡Rápido, rápido, vengan!', captain: '¡Arr! ¡Sigan al capitán!' }[c.id] || '¡Vamos!');
+  if (n === 0) return { title: '¡Allá vamos!', emoji: [who(0).emoji, place[0], '☀️'], lines: [L(NARRATOR, `Una mañana de sol, ${list} ${names.length === 1 ? 'salió' : 'salieron'} hacia ${where}.`), ...picked.map(c => L(c, quip(c), 'cheerful')), L(NARRATOR, 'Al llegar, oyeron un ruido raro. ¡Boing! ¡Boing! ¡Boing!')], summary: `${list} llegaron a ${where} y oyeron un boing.`, choices: [{ label: 'Seguir el sonido', emoji: '👂' }, { label: 'Esconderse y espiar', emoji: '🙈' }] };
+  if (n === 1) { const followed = /seguir/i.test(lastChoice); return { title: followed ? 'La cosa que rebota' : '¡Te veo!', emoji: [who(0).emoji, '🎈', place[0]], lines: [L(NARRATOR, followed ? 'Siguieron el boing hasta un globo rojo y grande que rebotaba solito.' : 'Se escondieron detrás de una roca y espiaron. Un globo rojo y grande pasó rebotando solito.'), L(who(0), '¿Un globo que rebota? Eso es nuevo.', 'excited'), ...picked.slice(1).map(c => L(c, c.id === 'luna' ? 'Uuu. Los globos no rebotan. Hay algo adentro.' : '¡Vamos a atraparlo!', 'excited')), L(NARRATOR, 'El globo se detuvo. Una vocecita adentro dijo: "¡Ayuda! ¡Estoy atrapado!"'), L(who(0), 'No te preocupes, vocecita. Te vamos a sacar.', 'friendly')], summary: 'Los amigos encontraron un globo que rebotaba con alguien atrapado adentro.', choices: [{ label: 'Hacerle cosquillas', emoji: '🪶' }, { label: 'Cantarle', emoji: '🎵' }] }; }
+  const tickled = /cosquillas/i.test(lastChoice);
+  return { title: 'Un nuevo amigo', emoji: ['🐣', ...picked.slice(0, 2).map(c => c.emoji)], end: true, choices: [], lines: [L(NARRATOR, tickled ? `${who(0).name} le hizo cosquillas al globo. Se rio, se tambaleó y ¡PUM! Salió rodando un pollito chiquito.` : `${who(0).name} cantó una canción suave. El globo tarareó, se tambaleó y ¡PUM! Salió rodando un pollito chiquito.`), L(who(0), '¡Hola! ¿Estás bien?', 'friendly'), L(NARRATOR, '"¡El viento me trajo volando desde la granja!", pió el pollito.'), ...picked.slice(1).map(c => L(c, '¡Entonces te llevamos a casa!', 'cheerful')), L(NARRATOR, 'Y así lo hicieron, todos juntos, y el pollito se volvió el nuevo amigo del grupo. Fin.')], summary: 'Sacaron al pollito y lo llevaron a casa.' };
+}
 // Built-in story for Little (no key, or the writer failed): three scenes, two choices each, all friends speak.
 function littleScene() {
+  if (LANG === 'es') return littleSceneEs();
   const s = story, n = s.scenes.length, names = picked.map(c => c.name), who = i => picked[i % picked.length];
   const list = names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
   const lastChoice = s.history.length ? s.history[s.history.length - 1].choice : '';
   const L = (who, text, mood) => ({ who, text, mood: mood || 'neutral' });
-  const quip = c => ({ bun: 'Hop hop! Let\'s go!', spark: 'Achoo! Oops, a spark.', beep: 'Beep boop. I count one adventure.', twinkle: 'Ooh, something is sparkling.', pip: 'Um. Can I come too?', scarlett: 'I have an idea!', hop: 'RIBBIT! What was that?', rusty: 'Leave it to me. I have a plan.', luna: 'Hoo. Patience, friends.', mo: 'Whoops, sorry, big antlers.', zip: 'Fast fast fast, come on!', captain: 'Arr! Follow the captain!' }[c.id]);
+  const quip = c => ({ bun: 'Hop hop! Let\'s go!', spark: 'Achoo! Oops, a spark.', beep: 'Beep boop. I count one adventure.', twinkle: 'Ooh, something is sparkling.', pip: 'Um. Can I come too?', me: 'I have an idea!', hop: 'RIBBIT! What was that?', rusty: 'Leave it to me. I have a plan.', luna: 'Hoo. Patience, friends.', mo: 'Whoops, sorry, big antlers.', zip: 'Fast fast fast, come on!', captain: 'Arr! Follow the captain!' }[c.id] || 'Let\'s go!');
   if (n === 0) return { title: 'Off we go', emoji: [who(0).emoji, place[0], '☀️'], lines: [L(NARRATOR, `One sunny morning, ${list} set off for ${place[1]}.`), ...picked.map(c => L(c, quip(c), 'cheerful')), L(NARRATOR, `When they got there, they heard a strange sound. Boing! Boing! Boing!`)], summary: `${list} arrived at ${place[1]} and heard a boing.`, choices: [{ label: 'Follow the sound', emoji: '👂' }, { label: 'Hide and peek', emoji: '🙈' }] };
   if (n === 1) { const followed = /follow/i.test(lastChoice); return { title: followed ? 'The bouncing thing' : 'Peek-a-boo', emoji: [who(0).emoji, '🎈', place[0]], lines: [L(NARRATOR, followed ? `They followed the boing all the way to a big red balloon, bouncing all by itself.` : `They hid behind a rock and peeked. A big red balloon bounced past, all by itself.`), L(who(0), 'A balloon that bounces? That is new.', 'excited'), ...picked.slice(1).map(c => L(c, c.id === 'luna' ? 'Hoo. Balloons do not bounce. Something is inside.' : 'Let\'s catch it!', 'excited')), L(NARRATOR, `The balloon stopped. A tiny voice inside said, "Help! I am stuck!"`), L(who(0), 'Don\'t worry, little voice. We will get you out.', 'friendly')], summary: `The friends found a bouncing balloon with someone stuck inside.`, choices: [{ label: 'Tickle it open', emoji: '🪶' }, { label: 'Sing to it', emoji: '🎵' }] }; }
   const tickled = /tickle/i.test(lastChoice);
@@ -781,7 +853,8 @@ function plotScene() {
   const words = Object.entries(plot.words).filter(([w]) => new RegExp('\\b' + w + '\\b').test(all)).map(([word, meaning]) => ({ word, meaning }));
   return { title: typeof sc.title === 'string' ? sc.title : sc.title[key], emoji, lines, summary: sc.summary, choices: sc.choices || [], end: !!sc.end, words };
 }
-function builtinScene() { return story.level === 'little' ? littleScene() : plotScene(); }
+// In Spanish the shelf has the Little story at every level (the 2nd and 3rd grade plots are English only).
+function builtinScene() { return story.level === 'little' || LANG === 'es' ? littleScene() : plotScene(); }
 
 // ---------------------------------------------------------------------------
 // Questions after the story. Each has exactly one right answer among three.
@@ -807,13 +880,13 @@ function cleanQuestions(qs) {
 function storyQuestions() {
   const s = story, qs = [];
   const others = CAST.filter(c => !picked.includes(c) && c.id !== 'me');   // never offer her own name as a wrong answer
-  qs.push(mkQ('Who was in the story?', pick(picked).name, shuffle(others).slice(0, 2).map(c => c.name)));
-  qs.push(mkQ('Where did the story happen?', cap(place[1]), shuffle(PLACES.filter(p => p !== place)).slice(0, 2).map(p => cap(p[1]))));
+  qs.push(mkQ(T('Who was in the story?'), pick(picked).name, shuffle(others).slice(0, 2).map(c => c.name)));
+  qs.push(mkQ(T('Where did the story happen?'), cap(placeName(place)), shuffle(PLACES.filter(p => p !== place)).slice(0, 2).map(p => cap(placeName(p)))));
   if (s.history.length && s.history[0].others.length) {
-    const elsewhere = Object.values(PLOTS).flatMap(p => p.scenes.flatMap(sc => (sc.choices || []).map(c => c.label))).filter(l => !s.history.some(h => h.choice === l || h.others.includes(l)));
-    qs.push(mkQ('What did you choose to do first?', s.history[0].choice, [s.history[0].others[0], pick(elsewhere)]));
+    const elsewhere = (LANG === 'es' ? ['Seguir el sonido', 'Esconderse y espiar', 'Hacerle cosquillas', 'Cantarle', 'Buscar un mapa', 'Llamar a un amigo'] : Object.values(PLOTS).flatMap(p => p.scenes.flatMap(sc => (sc.choices || []).map(c => c.label)))).filter(l => !s.history.some(h => h.choice === l || h.others.includes(l)));
+    qs.push(mkQ(T('What did you choose to do first?'), s.history[0].choice, [s.history[0].others[0], pick(elsewhere)]));
   }
-  if (s.level === 'little') return qs;
+  if (s.level === 'little' || (LANG === 'es' && !s.ai)) return qs;
   if (s.ai && upper(s.level)) {
     // 5th grade and up: the reflection first, then the one check question the writer set. Either is skipped when
     // its JSON was not usable; with neither, the local questions stand in.
@@ -828,7 +901,7 @@ function storyQuestions() {
   const used = s.scenes.flatMap(sc => sc.words || []);
   if (used.length) {
     const w = pick(used), wrong = shuffle(Object.entries(plot.words).filter(([k]) => k !== w.word).map(([, m]) => m));
-    qs.push(mkQ(`In the story, what does "${w.word}" mean?`, w.meaning, wrong));
+    qs.push(mkQ(T('In the story, what does "{word}" mean?', { word: w.word }), w.meaning, wrong));
   }
   return qs.slice(0, 6);
 }
@@ -850,7 +923,7 @@ async function start(sameFriends) {
 function writerResting() {
   if (!story || !story.ai) return;
   story.ai = false;
-  $('note').textContent = 'The story writer is resting right now. Here is a story from the shelf.'; $('note').classList.add('on');
+  $('note').textContent = T('The story writer is resting right now. Here is a story from the shelf.'); $('note').classList.add('on');
 }
 async function nextScene() {
   $('choices').classList.remove('on'); $('choices').innerHTML = ''; $('thinking').classList.add('on');
@@ -895,7 +968,7 @@ function tapWord(word, line) {
   $('popWord').textContent = w; $('popMeaning').textContent = meaning || ''; $('pop').classList.add('on');
   clearTimeout(tapWord.t); tapWord.t = setTimeout(() => $('pop').classList.remove('on'), meaning ? 4500 : 2000);
   highlight(-1, -1);
-  VOICE.say(meaning ? `${w}. ${w} means ${meaning}.` : w, NARRATOR, null, () => { if (wasReading && story && story.reading === -2) setTimeout(() => readFrom(line), 400); });
+  VOICE.say(meaning ? T('{word}. {word} means {meaning}.', { word: w, meaning }) : w, NARRATOR, null, () => { if (wasReading && story && story.reading === -2) setTimeout(() => readFrom(line), 400); });
 }
 function readFrom(i, once) {
   const scene = story && story.scenes[story.scenes.length - 1]; if (!scene) return; story.reading = i;
@@ -912,14 +985,14 @@ function readFrom(i, once) {
   }, w => { if (story && story.reading === i) highlight(i, w); });
 }
 function afterScene(scene, quiet) {
-  if (scene.end || !scene.choices.length) { $('end').classList.add('on'); if (grown()) { startQuiz(); } else say('The end! Tap the dice for another story.'); return; }
+  if (scene.end || !scene.choices.length) { $('end').classList.add('on'); if (grown()) { startQuiz(); } else say(T('The end! Tap the dice for another story.')); return; }
   const box = $('choices'); box.innerHTML = '';
   for (const c of scene.choices) {
     const b = document.createElement('button'); const e = document.createElement('span'); e.className = 'e'; e.textContent = c.emoji || '✨'; b.appendChild(e); b.appendChild(document.createTextNode(c.label));
-    b.onclick = () => { VOICE.stop(); story.history.push({ title: scene.title, summary: scene.summary || scene.title, choice: c.label, key: c.key, others: scene.choices.filter(x => x !== c).map(x => x.label) }); say(c.label + '!'); nextScene(); };
+    b.onclick = () => { VOICE.stop(); story.history.push({ title: scene.title, summary: scene.summary || scene.title, choice: c.label, key: c.key, others: scene.choices.filter(x => x !== c).map(x => x.label) }); say(T('{choice}!', { choice: c.label })); nextScene(); };
     box.appendChild(b);
   }
-  box.classList.add('on'); if (!quiet) say('What should happen next?');
+  box.classList.add('on'); if (!quiet) say(T('What should happen next?'));
   if (!quiet) $('choices').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
@@ -928,14 +1001,14 @@ let quiz = null;
 function startQuiz() {
   const qs = storyQuestions();
   quiz = { qs, i: 0, first: 0, missed: false, scored: qs.filter(q => !q.reflect).length };
-  if (!qs.length) { quiz.done = true; say('The end. Tap the dice for another story.'); return; }
+  if (!qs.length) { quiz.done = true; say(T('The end. Tap the dice for another story.')); return; }
   $('quiz').classList.add('on'); showQuestion();
   $('quiz').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 function showQuestion() {
   const q = quiz.qs[quiz.i], box = $('qChoices'); quiz.missed = false;
   const scoredBefore = quiz.qs.slice(0, quiz.i).filter(x => !x.reflect).length;
-  $('qNum').textContent = q.reflect ? 'Think about it' : `Question ${scoredBefore + 1} of ${quiz.scored}`; $('qText').textContent = q.q; box.innerHTML = '';
+  $('qNum').textContent = q.reflect ? T('Think about it') : T('Question {n} of {total}', { n: scoredBefore + 1, total: quiz.scored }); $('qText').textContent = q.q; box.innerHTML = '';
   q.choices.forEach((c, k) => {
     const b = document.createElement('button'); b.textContent = c;
     b.onclick = () => {
@@ -943,16 +1016,16 @@ function showQuestion() {
       if (q.reflect) {
         // No right answer. A character (or the narrator) answers her, then the story moves on.
         b.classList.add('right'); [...box.children].forEach(x => x.disabled = true);
-        say((q.replies && q.replies[k]) || pick(['That is a thoughtful choice.', 'Good thinking. There was no easy answer there.', 'I can see why you would do that.']));
+        say((q.replies && q.replies[k]) || T(pick(['That is a thoughtful choice.', 'Good thinking. There was no easy answer there.', 'I can see why you would do that.'])));
         setTimeout(() => { quiz.i++; if (quiz.i < quiz.qs.length) showQuestion(); else endQuiz(); }, 2200);
         return;
       }
       if (k === q.answer) {
         b.classList.add('right'); [...box.children].forEach(x => x.disabled = true);
         if (!quiz.missed) { quiz.first++; stars++; store.set('story-stars', stars); $('stars').textContent = '⭐ ' + stars; }
-        say(pick(['Yes! You got it.', 'That is right!', 'Great reading!']));
+        say(T(pick(['Yes! You got it.', 'That is right!', 'Great reading!'])));
         setTimeout(() => { quiz.i++; if (quiz.i < quiz.qs.length) showQuestion(); else endQuiz(); }, 1400);
-      } else { b.classList.add('wrong'); b.disabled = true; quiz.missed = true; say('Not quite. Think about the story and try again.'); }
+      } else { b.classList.add('wrong'); b.disabled = true; quiz.missed = true; say(T('Not quite. Think about the story and try again.')); }
     };
     box.appendChild(b);
   });
@@ -960,14 +1033,14 @@ function showQuestion() {
 }
 function endQuiz() {
   quiz.done = true;
-  const line = quiz.scored ? `You got ${quiz.first} of ${quiz.scored} on the first try!` : 'Thank you for thinking it through.';
+  const line = quiz.scored ? T('You got {n} of {total} on the first try!', { n: quiz.first, total: quiz.scored }) : T('Thank you for thinking it through.');
   $('qNum').textContent = ''; $('qText').textContent = line; $('qChoices').innerHTML = '';
-  say(`${line} Tap the dice for another story.`);
+  say(T('{line} Tap the dice for another story.', { line }));
 }
-function showMode() { $('mode').textContent = selfRead ? '👀' : '👂'; $('mode').title = selfRead ? 'I read it myself (tap to have it read to you)' : 'Read to me (tap to read it yourself)'; }
+function showMode() { $('mode').textContent = selfRead ? '👀' : '👂'; $('mode').title = selfRead ? T('I read it myself (tap to have it read to you)') : T('Read to me (tap to read it yourself)'); }
 $('mode').onclick = () => {
   selfRead = !selfRead; store.set('story-self-read', selfRead); showMode();
-  say(selfRead ? 'You read it. Tap a word if you need help.' : 'I will read it to you.');
+  say(selfRead ? T('You read it. Tap a word if you need help.') : T('I will read it to you.'));
   const scene = story && story.scenes[story.scenes.length - 1];
   if (scene && !selfRead && !$('choices').classList.contains('on') && !scene.end) readFrom(0);
   else if (scene && selfRead && !$('choices').classList.contains('on') && !scene.end) { VOICE.stop(); story.reading = -1; highlight(-1, -1); afterScene(scene, true); }
@@ -978,7 +1051,7 @@ $('another').onclick = () => { VOICE.stop(); start(true); };
 $('back').onclick = () => { VOICE.stop(); story = null; $('setup').classList.remove('off'); $('story').classList.remove('on'); $('back').hidden = true; };
 $('stars').textContent = '⭐ ' + stars;
 try { speechSynthesis.onvoiceschanged = () => {}; } catch (e) {}
-addEventListener('pointerdown', () => say('Story Maker! Who is in the story?'), { once: true });
+addEventListener('pointerdown', () => say(T('Story Maker! Who is in the story?')), { once: true });
 const pickArgs = (ids, p, k, d, l, lv) => { picked = ids.map(id => CAST.find(c => c.id === id)); place = PLACES[p]; kind = KINDS[k]; drama = DRAMAS[d]; length = LENGTHS[l]; if (lv !== undefined) level = LEVELS[lv]; };
 window.STORY = { cfg: CFG, CAST, PLACES, KINDS, LEVELS, RUNGS, PLOTS, get story() { return story; }, get quiz() { return quiz; }, start, pick: pickArgs, builtinScene, buildPrompt, parseScene, cleanReflect, storyQuestions, cleanQuestions, VOICE, setSelfRead: v => { selfRead = v; showMode(); } };
 window.SM = window.STORY;

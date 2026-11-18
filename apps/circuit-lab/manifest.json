@@ -1,7 +1,7 @@
 {
   "id": "circuit-lab",
   "name": "Circuit Lab",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Wire batteries, bulbs, switches, resistors and coils on a 3D board, from closing one gap to Ohm's law, logic gates and circuit diagrams.",
   "subjects": [
     "science"

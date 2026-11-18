@@ -1,20 +1,20 @@
 {
- "source": "07cabcc7043423df7a6053d3c32161f64b393a0bed91ccfb314f0c1030e6c4c7",
+ "source": "966b81695e8b3924e3ffacd9a218590afd4873c29fb35b0a360373e7176dadc0",
  "lines": [
   {
-   "text": "Balance the whole tank! Keep 6 fish, 3 snails and the plants healthy for 5 days.",
+   "text": "Balance the whole tank! Keep 7 fish, 3 snails and the plants healthy for 5 days.",
    "rate": -8
   },
   {
-   "text": "Carrying capacity is the most fish a tank can hold over time. Room here is 3 fish plus 2 for every plant. This tank has 4 plants. What is its carrying capacity?",
+   "text": "Carrying capacity is the most fish a tank can hold over time. Room here is 3 fish plus 2 for every plant. This tank has 5 plants. What is its carrying capacity?",
    "rate": -8
   },
   {
-   "text": "Eli wants to know if more food makes more algae. Which plan is a fair test?",
+   "text": "Eli wants to know if more plants make more air. Which plan is a fair test?",
    "rate": -8
   },
   {
-   "text": "Feed the 3 fish so they stay healthy for 2 days. Each pinch feeds 2 fish.",
+   "text": "Feed the 2 fish so they stay healthy for 2 days. Each pinch feeds 2 fish.",
    "rate": -8
   },
   {
@@ -22,11 +22,11 @@
    "rate": -8
   },
   {
-   "text": "Keep 6 fish healthy for 3 days. Fish need air!",
+   "text": "Keep 7 fish healthy for 3 days. Fish need air!",
    "rate": -8
   },
   {
-   "text": "The graph shows the small fish and the big fish for 5 days. What will the small fish do in the next 3 days?",
+   "text": "The graph shows the small fish and the big fish for 5 days. What will the big fish do in the next 3 days?",
    "rate": -8
   },
   {
@@ -34,7 +34,7 @@
    "rate": -8
   },
   {
-   "text": "This tank sits by a sunny window. Keep 3 fish healthy for 4 days with clear water!",
+   "text": "This tank sits by a sunny window. Keep 6 fish healthy for 4 days with clear water!",
    "rate": -8
   },
   {
