@@ -40,6 +40,9 @@ The full rules are the ET Ducky promotion brief, section 5 (in the ET Ducky prom
 - No illustrative tails ("so you can ..."), no setup lines ("In this post", "Let's"), no evaluative shorthand
   ("the right choice"), no definitional framing ("X is the part of Y that Z"), no vague back-references ("this
   gap", "the same way"). Name the object.
+- No presumed situations and no implied benefits. "A tablet the family already owns" tells the reader what
+  they gain through a situation the writer invented for them. State the fact: "runs on Android tablets, iPads, and
+  Windows devices." The same for "no need to", "without having to", and "you don't have to".
 - Open a feature post with what the feature does, stated directly. Lead a how-to with the reader's goal or the
   first step as an imperative. End on the last useful step, with no closing remark on how important it was.
 - Plain words over product jargon. Spell out a vendor term on first use with the acronym in parentheses and link

@@ -8,7 +8,7 @@ Duckling Tablet is now available for Android tablets on [Google Play](https://pl
 
 ## What the app does
 
-Duckling Tablet turns a tablet the family already owns into a learning device for one child. The app becomes the child's home screen and runs a library of learning apps made by ET Ducky, with no ads and nothing to buy inside an app. The apps cover reading, math, science, logic, art, and music. Most of them have levels from pre-K to 8th grade, and a narrator reads every instruction aloud, so a child who cannot read yet can still use them.
+Duckling Tablet turns an Android tablet, an iPad, or a Windows device into a learning device for one child. The app becomes the child's home screen and runs a library of learning apps made by ET Ducky, with no ads and nothing to buy inside an app. The apps cover reading, math, science, logic, art, and music. Most of them have levels from pre-K to 8th grade, and a narrator reads every instruction aloud, so a child who cannot read yet can still use them.
 
 A parent sets the child's grade for each subject. Every app opens at that grade and moves up or down as the child gets things right or wrong. The child's avatar, stars, and progress follow her to every tablet in the family.
 
