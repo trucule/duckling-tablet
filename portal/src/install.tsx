@@ -1,3 +1,4 @@
+import { tr, trn } from './i18n';
 import { useEffect, useState } from 'preact/hooks';
 
 // "Add to home screen" where the browser offers an install prompt (Chrome, Edge, Samsung Internet). Safari on iPhone
@@ -15,11 +16,11 @@ export function InstallButton() {
     return () => window.removeEventListener('beforeinstallprompt', onPrompt);
   }, []);
   if (standalone) return null;
-  if (prompt) return <button class="btn quiet" onClick={async () => { await prompt.prompt(); await prompt.userChoice; setPrompt(null); }}>Add to home screen</button>;
+  if (prompt) return <button class="btn quiet" onClick={async () => { await prompt.prompt(); await prompt.userChoice; setPrompt(null); }}>{tr('Add to home screen')}</button>;
   if (ios) return (
     <span>
-      <button class="btn quiet" onClick={() => setHint(!hint)}>Add to home screen</button>
-      {hint && <span class="muted" style={{ display: 'block', maxWidth: 260, marginTop: 6 }}>In Safari, tap Share, then "Add to Home Screen".</span>}
+      <button class="btn quiet" onClick={() => setHint(!hint)}>{tr('Add to home screen')}</button>
+      {hint && <span class="muted" style={{ display: 'block', maxWidth: 260, marginTop: 6 }}>{tr('In Safari, tap Share, then "Add to Home Screen".')}</span>}
     </span>
   );
   return null;
@@ -43,18 +44,18 @@ export function InstallCard() {
   }, []);
   if (standalone || hidden) return null;
   const dismiss = () => { setHidden(true); try { localStorage.setItem('duckling.installcard', 'hidden'); } catch {} };
-  const route = ios ? 'In Safari, tap the Share button (the square with an arrow), then "Add to Home Screen".'
-    : samsung ? 'Tap the menu (three lines), then "Add page to", then "Home screen".'
-    : firefox ? 'Tap the menu (three dots), then "Install" or "Add to Home screen".'
-    : android ? 'Tap the menu (three dots) at the top right of Chrome, then "Add to Home screen" or "Install app".'
-    : 'In Chrome or Edge, use the install icon at the right end of the address bar, or the menu, then "Install Duckling Parents".';
+  const route = ios ? tr('In Safari, tap the Share button (the square with an arrow), then "Add to Home Screen".')
+    : samsung ? tr('Tap the menu (three lines), then "Add page to", then "Home screen".')
+    : firefox ? tr('Tap the menu (three dots), then "Install" or "Add to Home screen".')
+    : android ? tr('Tap the menu (three dots) at the top right of Chrome, then "Add to Home screen" or "Install app".')
+    : tr('In Chrome or Edge, use the install icon at the right end of the address bar, or the menu, then "Install Duckling Parents".');
   return (
     <div class="card">
-      <h2>Keep this page on your phone</h2>
-      <p>The portal works as an app: an icon on the home screen, full screen, signed in. {prompt ? 'Your browser can add it now.' : route}</p>
+      <h2>{tr('Keep this page on your phone')}</h2>
+      <p>{tr('The portal works as an app: an icon on the home screen, full screen, signed in.')} {prompt ? tr('Your browser can add it now.') : route}</p>
       <div class="row">
-        {prompt && <button class="btn primary" onClick={async () => { await prompt.prompt(); await prompt.userChoice; setPrompt(null); }}>Add to home screen</button>}
-        <button class="btn quiet" onClick={dismiss}>Not now</button>
+        {prompt && <button class="btn primary" onClick={async () => { await prompt.prompt(); await prompt.userChoice; setPrompt(null); }}>{tr('Add to home screen')}</button>}
+        <button class="btn quiet" onClick={dismiss}>{tr('Not now')}</button>
       </div>
     </div>
   );

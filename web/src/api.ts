@@ -39,7 +39,7 @@ async function call<T>(method: string, path: string, body?: unknown, auth = true
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (auth) {
     const token = shell.getDeviceToken();
-    if (!token) throw new ApiError(401, 'Not paired');
+    if (!token) throw new ApiError(401, tr('Not paired'));
     headers.authorization = `Device ${token}`;
   }
   const r = await fetch(`${API}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });

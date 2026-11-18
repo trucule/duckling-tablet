@@ -1,13 +1,14 @@
 // Parent calls to the API with the session token from the email link (kept in localStorage; the API also sets a
 // cookie, but the portal and the API are on different hosts so the bearer header is what counts).
+import { tr, lang, type Lang } from './i18n';
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
 
-export interface Child { id: string; firstName: string; grade: string | null; age?: number | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; stars?: { earned: number; spent: number; balance: number }; portraitUrl?: string | null }
+export interface Child { id: string; firstName: string; grade: string | null; age?: number | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; stars?: { earned: number; spent: number; balance: number }; portraitUrl?: string | null; language?: Lang | null }
 export interface Device { id: string; childId: string | null; platform: string; name: string; state: string; shellVersion: string | null; battery: number | null; lastSeenAt: string | null }
 export interface Attachment { id: string; requestId: string; contentType: string; size: number; url: string; createdAt: string }
 export interface AppRequest { id: string; title: string; description: string; childGrade: string | null; installWhenReady: boolean; status: string; appId: string | null; createdAt: string; updatedAt: string; attachments: Attachment[] }
 export interface Entitlement { status: 'trial' | 'active' | 'grace' | 'ended' | 'none'; source: string | null; periodEnd: string | null; daysLeft: number | null }
-export interface Family { familyId: string; you: string; pinSet: boolean; subscription: Entitlement; cardPayments?: boolean; cardCustomer?: boolean; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
+export interface Family { familyId: string; you: string; language?: Lang; pinSet: boolean; subscription: Entitlement; cardPayments?: boolean; cardCustomer?: boolean; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
 export interface OtherApp { package: string; label: string; icon: string | null; allowed: boolean; dailyMinutes: number | null; window: { start: string; end: string } | null; hosts: string[]; usedSecondsToday: number }
 export interface DeviceDetail { deviceId: string; state: string; child: Child | null; apps: { id: string; name: string; version: string; tileUrl: string | null }[]; hidden: string[]; allowlist: { host: string; tile?: { name: string; url: string } }[]; travel: { active: boolean; until: string | null }; otherApps: OtherApp[] }
 export interface CatalogApp { id: string; name: string; tileUrl: string | null; description: string; demoUrl: string | null; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; about: { concept: string; progression: string; lifeSkills: string[] } | null }
@@ -35,21 +36,23 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   const text = await r.text();
   const json = text ? JSON.parse(text) : {};
   if (r.status === 401) session.set('');
-  if (!r.ok) throw new ApiError(r.status, reason(json) ?? r.statusText);
+  if (!r.ok) throw new ApiError(r.status, tr(reason(json) ?? r.statusText));
   return json as T;
 }
 
 export const api = {
-  emailLink: (email: string, delivery: 'link' | 'code' = 'link') => call<{ sent: boolean; delivery: 'link' | 'code' }>('POST', '/auth/email-link', { email, delivery }),
-  verifyCode: (email: string, code: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/code/verify', { email, code }),
-  verify: (token: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/verify', { token }),
+  emailLink: (email: string, delivery: 'link' | 'code' = 'link') => call<{ sent: boolean; delivery: 'link' | 'code' }>('POST', '/auth/email-link', { email, delivery, language: lang.value }),
+  verifyCode: (email: string, code: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/code/verify', { email, code, language: lang.value }),
+  verify: (token: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/verify', { token, language: lang.value }),
   logout: () => call('POST', '/auth/logout', {}),
   family: () => call<Family>('GET', '/family'),
+  // The family's language: emails, the portal, and every tablet whose child has no language of their own.
+  setLanguage: (language: Lang) => call<{ language: Lang }>('PUT', '/family/language', { language }),
   // Card payments through Stripe: a Checkout page to subscribe, the Customer Portal to manage.
   stripeCheckout: () => call<{ url: string; trialEnd: string | null }>('POST', '/billing/stripe/checkout', {}),
   stripePortal: () => call<{ url: string }>('POST', '/billing/stripe/portal', {}),
   addChild: (b: { firstName: string; grade?: string | null; age?: number; startGrade?: number; levels?: Record<string, number>; theme?: Child['theme'] }) => call<Child>('POST', '/children', b),
-  updateChild: (id: string, b: Partial<{ firstName: string; grade: string | null; age: number; startGrade: number; levels: Record<string, number>; theme: Child['theme'] }>) => call<Child>('PUT', `/children/${id}`, b),
+  updateChild: (id: string, b: Partial<{ firstName: string; grade: string | null; age: number; startGrade: number; levels: Record<string, number>; theme: Child['theme']; language: Lang | null }>) => call<Child>('PUT', `/children/${id}`, b),
   deleteChild: (id: string) => call('DELETE', `/children/${id}`),
   pairingCode: (childId: string | null) => call<{ code: string; expiresInMinutes: number }>('POST', '/devices/pairing-codes', { childId }),
   device: (id: string) => call<DeviceDetail>('GET', `/devices/${id}`),
@@ -72,13 +75,13 @@ export const api = {
   attach: async (requestId: string, file: File): Promise<Attachment> => {
     const r = await fetch(`${API}/requests/${requestId}/attachments`, { method: 'POST', headers: { 'content-type': file.type || 'image/jpeg', authorization: `Bearer ${session.get()}` }, body: file });
     const json = await r.json().catch(() => ({}));
-    if (!r.ok) throw new ApiError(r.status, reason(json) ?? r.statusText);
+    if (!r.ok) throw new ApiError(r.status, tr(reason(json) ?? r.statusText));
     return json as Attachment;
   },
   // Pictures are private: fetched with the session and shown from a blob URL.
   picture: async (url: string): Promise<string> => {
     const r = await fetch(url, { headers: { authorization: `Bearer ${session.get()}` } });
-    if (!r.ok) throw new ApiError(r.status, 'Picture unavailable');
+    if (!r.ok) throw new ApiError(r.status, tr('Picture unavailable'));
     return URL.createObjectURL(await r.blob());
   },
   deleteFamily: () => call('DELETE', '/family', { confirm: 'DELETE' }),

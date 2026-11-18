@@ -344,4 +344,60 @@ describe.skipIf(!ready)('parent portal', () => {
     expect(errors).toEqual([]);
     await browser.close();
   }, 120_000);
+  it('speaks the family language: Spanish from the browser at sign-in, switched to English and back, and a child with her own', async () => {
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 }, locale: 'es-MX' });
+    await ctx.route('https://api.ducklingtablet.com/**', async (route) => {
+      const req = route.request();
+      const r = await fetch(req.url().replace('https://api.ducklingtablet.com', api), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() ?? undefined });
+      await route.fulfill({ status: r.status, headers: Object.fromEntries(r.headers), body: Buffer.from(await r.arrayBuffer()) });
+    });
+    const p = await ctx.newPage();
+    const errors: string[] = [];
+    p.on('pageerror', (e) => errors.push(e.message));
+    await p.goto(portal);
+    // Before sign-in the page follows the browser; the email follows the page.
+    await p.getByLabel('Correo electrónico').fill('lucia@example.com');
+    await p.getByRole('button', { name: 'Envíame un enlace' }).click();
+    await p.getByText('Revisa tu correo', { exact: false }).waitFor();
+    expect(mails.at(-1)).toContain('Toca este enlace para entrar a Duckling Tablet');
+    await p.goto(mails.at(-1)!.match(/(http\S+signin\?token=[\w-]+)/)![1]);
+    // The new family is a Spanish family.
+    await p.getByRole('heading', { name: 'Niños' }).waitFor();
+    expect(await p.evaluate(() => document.documentElement.lang)).toBe('es');
+    await p.getByPlaceholder('Nombre', { exact: true }).fill('Lucía');
+    await p.getByPlaceholder('Edad', { exact: true }).fill('7');
+    await p.getByRole('button', { name: 'Agregar niño' }).click();
+    await p.getByText('7 años · nivel Kínder', { exact: false }).waitFor();
+    await p.screenshot({ path: join(process.env.SHOT_DIR ?? dir, 'portal-es.png'), fullPage: true });
+    const token = await p.evaluate(() => localStorage.getItem('duckling.session'));
+    const fam = await (await fetch(`${api}/family`, { headers: { authorization: `Bearer ${token}` } })).json();
+    expect(fam.language).toBe('es');
+    await p.locator('#devices select').first().selectOption({ label: 'Lucía' });
+    await p.getByRole('button', { name: 'Crear un código de vinculación' }).click();
+    const code = (await p.locator('.code').textContent())!.trim();
+    const paired = await (await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, platform: 'android', name: 'Tableta' }) })).json();
+    expect(paired.config.language).toBe('es');
+    await p.getByRole('button', { name: 'Actualizar' }).click();
+    await p.getByText('Tableta').first().waitFor();
+    // A wrong website: the portal's own message in Spanish.
+    await p.getByPlaceholder('pbskids.org').fill('not a site');
+    await p.getByRole('button', { name: 'Permitir el sitio' }).click();
+    await p.getByText('no es un sitio web', { exact: false }).waitFor();
+
+    // The family switches to English: the page follows at once, and so does the tablet.
+    await p.locator('#account').getByRole('button', { name: 'English' }).click();
+    await p.getByRole('heading', { name: 'Children' }).waitFor();
+    const dev = { authorization: `Device ${paired.deviceToken}` };
+    expect((await (await fetch(`${api}/device/config`, { headers: dev })).json()).language).toBe('en');
+    // Lucía keeps Spanish on her tablet while the family is in English.
+    await p.locator('.list li', { hasText: 'Lucía' }).getByRole('button', { name: 'Levels' }).click();
+    await p.locator('.list li', { hasText: 'Lucía' }).getByLabel('Language').selectOption('es');
+    await p.getByText('speaks Español', { exact: false }).waitFor();
+    expect((await (await fetch(`${api}/device/config`, { headers: dev })).json()).language).toBe('es');
+    await p.screenshot({ path: join(process.env.SHOT_DIR ?? dir, 'portal-en-child-es.png'), fullPage: true });
+    expect(errors).toEqual([]);
+    await browser.close();
+  }, 120_000);
 });

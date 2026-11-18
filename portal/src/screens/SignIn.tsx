@@ -1,3 +1,4 @@
+import { tr, trn } from '../i18n';
 import { useEffect, useState } from 'preact/hooks';
 import { api, session } from '../api';
 
@@ -31,28 +32,28 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   };
   return (
     <div class="card" style={{ maxWidth: 520, margin: '40px auto' }}>
-      <h1>Sign in</h1>
-      {sent === 'link' && <p class="ok">Check your email for a sign-in link from hello@ducklingtablet.com. It works once and expires in 15 minutes.</p>}
+      <h1>{tr('Sign in')}</h1>
+      {sent === 'link' && <p class="ok">{tr('Check your email for a sign-in link from hello@ducklingtablet.com. It works once and expires in 15 minutes.')}</p>}
       {sent === 'code' ? (
         <form onSubmit={check}>
-          <p>We sent a code to <strong>{email.trim()}</strong>. Type it here.</p>
-          <label class="field"><span>Code</span>
+          <p>{tr('We sent a code to {email}. Type it here.', { email: email.trim() })}</p>
+          <label class="field"><span>{tr('Code')}</span>
             <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]*" maxLength={7} required value={code}
               onInput={(e) => setCode((e.target as HTMLInputElement).value)} autoFocus style={{ fontSize: 24, letterSpacing: '0.15em' }} />
           </label>
           {error && <div class="error">{error}</div>}
-          <button class="btn primary" disabled={busy || code.replace(/\D/g, '').length !== 6}>{busy ? 'Working' : 'Sign in'}</button>
-          <p class="muted">No email? Check spam, or <a href="#" onClick={(e) => { e.preventDefault(); setSent(false); setCode(''); setError(''); }}>send a new code</a>. The code works once and expires in 15 minutes.</p>
+          <button class="btn primary" disabled={busy || code.replace(/\D/g, '').length !== 6}>{busy ? tr('Working') : tr('Sign in')}</button>
+          <p class="muted">{tr('No email? Check spam, or')} <a href="#" onClick={(e) => { e.preventDefault(); setSent(false); setCode(''); setError(''); }}>{tr('send a new code')}</a>{tr('. The code works once and expires in 15 minutes.')}</p>
         </form>
       ) : !sent && (
         <form onSubmit={submit}>
-          <p>Type your email address and we send {iosHomeScreen ? 'a code' : 'a link'}. No password to remember. The first sign-in creates your family account.</p>
-          <label class="field"><span>Email</span><input type="email" autoComplete="email" required value={email} onInput={(e) => setEmail((e.target as HTMLInputElement).value)} autoFocus /></label>
+          <p>{iosHomeScreen ? tr('Type your email address and we send a code. No password to remember. The first sign-in creates your family account.') : tr('Type your email address and we send a link. No password to remember. The first sign-in creates your family account.')}</p>
+          <label class="field"><span>{tr('Email')}</span><input type="email" autoComplete="email" required value={email} onInput={(e) => setEmail((e.target as HTMLInputElement).value)} autoFocus /></label>
           {error && <div class="error">{error}</div>}
-          <button class="btn primary" disabled={busy || !email}>{busy ? 'Working' : iosHomeScreen ? 'Send me a code' : 'Send me a link'}</button>
+          <button class="btn primary" disabled={busy || !email}>{busy ? tr('Working') : iosHomeScreen ? tr('Send me a code') : tr('Send me a link')}</button>
         </form>
       )}
-      {!sent && error && <p class="muted">A link that failed can be replaced by asking for a new one above.</p>}
+      {!sent && error && <p class="muted">{tr('A link that failed can be replaced by asking for a new one above.')}</p>}
     </div>
   );
 }

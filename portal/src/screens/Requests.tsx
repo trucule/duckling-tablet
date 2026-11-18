@@ -1,3 +1,4 @@
+import { tr, trn } from '../i18n';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, type AppRequest, type Attachment } from '../api';
 
@@ -11,8 +12,8 @@ export function NoMatch({ q, onAsk }: { q: string; onAsk: (title: string) => voi
   const words = q.trim();
   return (
     <div class="nomatch">
-      <p class="muted" style={{ margin: 0 }}>{words ? `No app matches "${words}".` : 'No app matches.'} Try fewer words or another subject, or ask the ET Ducky team to build it.</p>
-      <button class="btn primary" onClick={() => onAsk(words)}>Ask for this app</button>
+      <p class="muted" style={{ margin: 0 }}>{words ? tr('No app matches "{words}".', { words }) : tr('No app matches.')} {tr('Try fewer words or another subject, or ask the ET Ducky team to build it.')}</p>
+      <button class="btn primary" onClick={() => onAsk(words)}>{tr('Ask for this app')}</button>
     </div>
   );
 }
@@ -37,7 +38,7 @@ export function Requests({ grades, onError, seed }: { grades: string[]; onError:
   const [busy, setBusy] = useState('');
   const [confirming, setConfirming] = useState('');
   const withdraw = async (r: AppRequest) => {
-    setBusy('Withdrawing');
+    setBusy(tr('Withdrawing'));
     try { await api.withdrawRequest(r.id); setConfirming(''); await load(); }
     catch (err) { onError((err as Error).message); }
     finally { setBusy(''); }
@@ -48,17 +49,17 @@ export function Requests({ grades, onError, seed }: { grades: string[]; onError:
 
   const submit = async (e: Event) => {
     e.preventDefault();
-    setBusy('Sending');
+    setBusy(tr('Sending'));
     try {
       const r = await api.createRequest({ title: title.trim(), description: desc.trim(), childGrade: grade || null, installWhenReady: true });
-      for (const [i, f] of files.entries()) { setBusy(`Sending picture ${i + 1} of ${files.length}`); await api.attach(r.id, f); }
+      for (const [i, f] of files.entries()) { setBusy(tr('Sending picture {n} of {total}', { n: i + 1, total: files.length })); await api.attach(r.id, f); }
       setTitle(''); setDesc(''); setFiles([]);
       await load();
     } catch (err) { onError((err as Error).message); }
     finally { setBusy(''); }
   };
   const addPictures = async (r: AppRequest, picked: File[]) => {
-    setBusy('Sending picture');
+    setBusy(tr('Sending picture'));
     try { for (const f of picked) await api.attach(r.id, f); await load(); }
     catch (err) { onError((err as Error).message); }
     finally { setBusy(''); }
@@ -66,45 +67,45 @@ export function Requests({ grades, onError, seed }: { grades: string[]; onError:
 
   return (
     <div class="card" id={ASK_ID} ref={card}>
-      <h2>Ask for an app <span class="muted" style={{ fontWeight: 400, fontSize: 14 }}>included with your subscription</span></h2>
-      {list === null && <p>Loading</p>}
+      <h2>{tr('Ask for an app')} <span class="muted" style={{ fontWeight: 400, fontSize: 14 }}>{tr('included with your subscription')}</span></h2>
+      {list === null && <p>{tr('Loading')}</p>}
       {list && list.length > 0 && (
         <ul class="list">
           {list.map((r) => (
             <li key={r.id}>
               <span class="grow">
-                <strong>{r.title}</strong> <span class="muted">{STATUS[r.status] ?? r.status} · {new Date(r.createdAt).toLocaleDateString()}</span>
+                <strong>{r.title}</strong> <span class="muted">{tr(STATUS[r.status] ?? r.status)} · {new Date(r.createdAt).toLocaleDateString()}</span>
                 <br /><span class="muted">{r.description}</span>
                 {r.attachments.length > 0 && <div class="row" style={{ marginTop: 8 }}>{r.attachments.map((a) => <Picture key={a.id} a={a} />)}</div>}
               </span>
               {OPEN.includes(r.status) && r.attachments.length < 5 && (
-                <label class="btn quiet">Add a picture<input type="file" accept="image/*" multiple hidden onChange={(e) => { const f = Array.from((e.target as HTMLInputElement).files ?? []); if (f.length) addPictures(r, f.slice(0, 5 - r.attachments.length)); }} /></label>
+                <label class="btn quiet">{tr('Add a picture')}<input type="file" accept="image/*" multiple hidden onChange={(e) => { const f = Array.from((e.target as HTMLInputElement).files ?? []); if (f.length) addPictures(r, f.slice(0, 5 - r.attachments.length)); }} /></label>
               )}
               {OPEN.includes(r.status) && (confirming === r.id
-                ? <span class="row"><button class="btn danger" disabled={!!busy} onClick={() => withdraw(r)}>Withdraw it</button><button class="btn quiet" onClick={() => setConfirming('')}>Keep it</button></span>
-                : <button class="btn quiet" onClick={() => setConfirming(r.id)}>Withdraw</button>)}
+                ? <span class="row"><button class="btn danger" disabled={!!busy} onClick={() => withdraw(r)}>{tr('Withdraw it')}</button><button class="btn quiet" onClick={() => setConfirming('')}>{tr('Keep it')}</button></span>
+                : <button class="btn quiet" onClick={() => setConfirming(r.id)}>{tr('Withdraw')}</button>)}
             </li>
           ))}
         </ul>
       )}
       {list && !open && (
         <form onSubmit={submit} style={{ marginTop: 12 }}>
-          <p>Describe an app you wish existed and the ET Ducky team builds it, for your family and every other, at no extra cost. One request at a time; you can follow it here, and when it is ready it installs on your tablets.</p>
+          <p>{tr('Describe an app you wish existed and the ET Ducky team builds it, for your family and every other, at no extra cost. One request at a time; you can follow it here, and when it is ready it installs on your tablets.')}</p>
           <div class="row">
-            <input placeholder="A short name, like Dinosaur dig" required minLength={3} maxLength={80} value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} style={{ flex: 1, minWidth: 220 }} />
+            <input placeholder={tr('A short name, like Dinosaur dig')} required minLength={3} maxLength={80} value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} style={{ flex: 1, minWidth: 220 }} />
             <select value={grade} onChange={(e) => setGrade((e.target as HTMLSelectElement).value)} style={{ maxWidth: 140 }}>
-              <option value="">Any grade</option>
-              {['pre-k', 'k', '1', '2', '3', '4', '5', '6'].map((g) => <option key={g} value={g}>{g === 'pre-k' ? 'Pre-K' : g === 'k' ? 'K' : `Grade ${g}`}</option>)}
+              <option value="">{tr('Any grade')}</option>
+              {['pre-k', 'k', '1', '2', '3', '4', '5', '6'].map((g) => <option key={g} value={g}>{g === 'pre-k' ? tr('Pre-K') : g === 'k' ? tr('K') : tr('Grade {n}', { n: g })}</option>)}
             </select>
           </div>
-          <textarea ref={descBox} placeholder="What should it do, and what does your child like about the idea?" required minLength={10} maxLength={2000} rows={4} value={desc} onInput={(e) => setDesc((e.target as HTMLTextAreaElement).value)} style={{ width: '100%', marginTop: 10, boxSizing: 'border-box' }} />
+          <textarea ref={descBox} placeholder={tr('What should it do, and what does your child like about the idea?')} required minLength={10} maxLength={2000} rows={4} value={desc} onInput={(e) => setDesc((e.target as HTMLTextAreaElement).value)} style={{ width: '100%', marginTop: 10, boxSizing: 'border-box' }} />
           <div class="row" style={{ marginTop: 10 }}>
-            <label class="btn quiet">{files.length ? `${files.length} picture${files.length > 1 ? 's' : ''} chosen` : 'Add pictures'}<input type="file" accept="image/*" multiple hidden onChange={(e) => setFiles(Array.from((e.target as HTMLInputElement).files ?? []).slice(0, 5))} /></label>
-            <button class="btn primary" disabled={!!busy || title.trim().length < 3 || desc.trim().length < 10}>{busy || 'Send the request'}</button>
+            <label class="btn quiet">{files.length ? trn(files.length, '{n} picture chosen', '{n} pictures chosen') : tr('Add pictures')}<input type="file" accept="image/*" multiple hidden onChange={(e) => setFiles(Array.from((e.target as HTMLInputElement).files ?? []).slice(0, 5))} /></label>
+            <button class="btn primary" disabled={!!busy || title.trim().length < 3 || desc.trim().length < 10}>{busy || tr('Send the request')}</button>
           </div>
         </form>
       )}
-      {list && open && <p class="muted" style={{ marginTop: 10 }}>{busy || 'A new request can be made once this one is finished.'}</p>}
+      {list && open && <p class="muted" style={{ marginTop: 10 }}>{busy || tr('A new request can be made once this one is finished.')}</p>}
     </div>
   );
 }
@@ -112,5 +113,5 @@ export function Requests({ grades, onError, seed }: { grades: string[]; onError:
 function Picture({ a }: { a: Attachment }) {
   const [src, setSrc] = useState('');
   useEffect(() => { let url = ''; api.picture(a.url).then((u) => { url = u; setSrc(u); }).catch(() => {}); return () => { if (url) URL.revokeObjectURL(url); }; }, [a.url]);
-  return src ? <img src={src} alt="" style={{ height: 72, borderRadius: 8, border: '1px solid var(--line)' }} /> : <span class="muted">loading</span>;
+  return src ? <img src={src} alt="" style={{ height: 72, borderRadius: 8, border: '1px solid var(--line)' }} /> : <span class="muted">{tr('loading')}</span>;
 }

@@ -1,3 +1,4 @@
+import { tr, trn } from './i18n';
 import { useEffect, useState } from 'preact/hooks';
 import { InstallButton } from './install';
 import { session } from './api';
@@ -19,7 +20,7 @@ export function App() {
     <div class="wrap">
       <header class="top">
         <img src="/logo.png" alt="" /><span class="name">Duckling Tablet</span>
-        <span class="right"><InstallButton /><a href="https://ducklingtablet.com/support">Support</a></span>
+        <span class="right"><InstallButton /><a href="https://ducklingtablet.com/support">{tr('Support')}</a></span>
       </header>
       {!signedIn ? <SignIn onSignedIn={() => setSignedIn(true)} />
         : route.app ? <AppAbout id={route.app} onBack={() => { history.length > 1 ? history.back() : (location.hash = ''); }} />

@@ -1,3 +1,4 @@
+import { tr, trn } from './i18n';
 import { useMemo, useState } from 'preact/hooks';
 import type { CatalogApp } from './api';
 
@@ -27,18 +28,18 @@ export function useAppFilter(catalog: CatalogApp[]) {
   }, [catalog, q, subject, age]);
   const bar = (
     <div class="filter">
-      <input type="search" placeholder="Search apps: fractions, handwriting, patience, music" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />
+      <input type="search" placeholder={tr('Search apps: fractions, handwriting, patience, music')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />
       <div class="chips">
-        <button class={`chip ${subject === '' ? 'on' : ''}`} onClick={() => setSubject('')}>All subjects</button>
-        {SUBJECTS.map(([id, name]) => <button key={id} class={`chip ${subject === id ? 'on' : ''}`} onClick={() => setSubject(subject === id ? '' : id)}>{name}</button>)}
+        <button class={`chip ${subject === '' ? 'on' : ''}`} onClick={() => setSubject('')}>{tr('All subjects')}</button>
+        {SUBJECTS.map(([id, name]) => <button key={id} class={`chip ${subject === id ? 'on' : ''}`} onClick={() => setSubject(subject === id ? '' : id)}>{tr(name)}</button>)}
       </div>
       <div class="chips">
-        <button class={`chip ${age === '' ? 'on' : ''}`} onClick={() => setAge('')}>All ages</button>
-        {AGES.map(([id, name]) => <button key={id} class={`chip ${age === id ? 'on' : ''}`} onClick={() => setAge(age === id ? '' : id)}>{name}</button>)}
+        <button class={`chip ${age === '' ? 'on' : ''}`} onClick={() => setAge('')}>{tr('All ages')}</button>
+        {AGES.map(([id, name]) => <button key={id} class={`chip ${age === id ? 'on' : ''}`} onClick={() => setAge(age === id ? '' : id)}>{tr(name)}</button>)}
       </div>
     </div>
   );
   return { apps, bar, q, active: !!(q || subject || age) };
 }
 
-export const ageText = (a: CatalogApp) => a.ageMin && a.ageMax ? `${a.ageMin} to ${a.ageMax}` : a.ageMin ? `${a.ageMin} and up` : '';
+export const ageText = (a: CatalogApp) => a.ageMin && a.ageMax ? tr('ages {min} to {max}', { min: a.ageMin, max: a.ageMax }) : a.ageMin ? tr('ages {min} and up', { min: a.ageMin }) : '';

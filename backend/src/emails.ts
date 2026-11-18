@@ -19,12 +19,12 @@ export function portalCodeEmail(lang: Language, code: string): Email {
 export function signInLinkEmail(lang: Language, source: 'portal' | 'tablet', link: string): Email {
   if (lang === 'es') return source === 'tablet'
     ? { subject: 'Configura tu familia de Duckling Tablet',
-        body: `Empezaste a configurar Duckling Tablet en una tableta. Abre este enlace en tu teléfono o computadora para configurar tu familia; funciona una sola vez y vence en 15 minutos.\n\n${link}\n\nLuego agrega a tu hijo o hija, toca Agregar un dispositivo y escribe en la tableta el código de seis dígitos que aparece.\n\nSi no lo pediste, puedes ignorar este correo.` }
+        body: `Empezaste a configurar Duckling Tablet en una tableta. Abre este enlace en tu teléfono o computadora para configurar tu familia; funciona una sola vez y vence en 15 minutos.\n\n${link}\n\nLuego agrega a tu hijo o hija, toca Crear un código de vinculación y escribe en la tableta el código de seis dígitos que aparece.\n\nSi no lo pediste, puedes ignorar este correo.` }
     : { subject: 'Tu enlace para entrar a Duckling Tablet',
         body: `Toca este enlace para entrar a Duckling Tablet. Funciona una sola vez y vence en 15 minutos.\n\n${link}\n\nSi no lo pediste, puedes ignorar este correo.` };
   return source === 'tablet'
     ? { subject: 'Set up your Duckling Tablet family',
-        body: `You started setting up Duckling Tablet on a tablet. Open this link on your phone or computer to set up your family; it works once and expires in 15 minutes.\n\n${link}\n\nThen add your child, press Add a device, and type the six-digit code it shows into the tablet.\n\nIf you did not ask for this, you can ignore this email.` }
+        body: `You started setting up Duckling Tablet on a tablet. Open this link on your phone or computer to set up your family; it works once and expires in 15 minutes.\n\n${link}\n\nThen add your child, press Make a pairing code, and type the six-digit code it shows into the tablet.\n\nIf you did not ask for this, you can ignore this email.` }
     : { subject: 'Your Duckling Tablet sign-in link',
         body: `Tap this link to sign in to Duckling Tablet. It works once and expires in 15 minutes.\n\n${link}\n\nIf you did not ask for this, you can ignore this email.` };
 }

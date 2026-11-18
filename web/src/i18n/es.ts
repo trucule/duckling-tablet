@@ -294,4 +294,11 @@ export const es: Record<string, string> = {
   'The family PIN is already set; the tablet receives it at check-in.': 'El PIN de la familia ya está puesto; la tableta lo recibe al sincronizarse.',
   'Not paired': 'Sin vincular',
   'Invalid request': 'Solicitud no válida',
+  "Install failed": "No se pudo instalar",
+  "Apps run on the tablet. In a browser, the Store and the parent area can be tried.": "Las apps funcionan en la tableta. En un navegador se pueden probar la Tienda y el área de padres.",
+  "On the tablet this opens the home app chooser.": "En la tableta, esto abre el selector de la app de inicio.",
+  "On the tablet this opens the security settings.": "En la tableta, esto abre los ajustes de seguridad.",
+  "On the tablet this opens the Wi-Fi settings.": "En la tableta, esto abre los ajustes de Wi-Fi.",
+  "On the tablet this opens the app.": "En la tableta, esto abre la app.",
+  "On the tablet this opens the overlay permission.": "En la tableta, esto abre el permiso para mostrar sobre otras apps.",
 };

@@ -1,6 +1,7 @@
 // The bridge to the native shell (window.DucklingShell, injected by the Android, iPad and Windows apps).
 // In a desktop browser there is no shell: the browser fallback keeps state in localStorage, "installs" are
 // recorded with the server only, and opening an app explains that apps run on the tablet.
+import { tr } from './i18n';
 
 export interface LockdownStatus { homeRole: boolean; deviceSecure: boolean; pinned: boolean; lockdownOn: boolean; windows?: WindowsStatus }
 
@@ -148,7 +149,7 @@ window.DucklingWeb = {
   onInstall(id, ok, message) {
     const p = pending.get(id); pending.delete(id);
     if (!p) return;
-    ok ? p.resolve() : p.reject(new Error(message || 'Install failed'));
+    ok ? p.resolve() : p.reject(new Error(message || tr('Install failed')));
   },
   // The shell calls this when the activity comes back to the front (after a settings screen, for example).
   onResume() { window.dispatchEvent(new Event('duckling:resume')); },
@@ -250,15 +251,15 @@ function browser(): Shell {
     installedApps: installed,
     async installApp(id, version) { const all = installed(); all[id] = version; set('installed', JSON.stringify(all)); },
     uninstallApp(id) { const all = installed(); delete all[id]; set('installed', JSON.stringify(all)); },
-    openApp() { alert('Apps run on the tablet. In a browser, the Store and the parent area can be tried.'); },
+    openApp() { alert(tr('Apps run on the tablet. In a browser, the Store and the parent area can be tried.')); },
     hasPin: () => !!get('pin'),
     async setPin(pin) { set('pin', await hash(pin)); },
     async verifyPin(pin) { return !!get('pin') && get('pin') === await hash(pin); },
     setPinHash(h) { set('pin', h); },
     lockdownStatus: () => ({ homeRole: false, deviceSecure: false, pinned: false, lockdownOn: false }),
-    requestHomeRole() { alert('On the tablet this opens the home app chooser.'); },
-    openSecuritySettings() { alert('On the tablet this opens the security settings.'); },
-    openWifiSettings() { alert('On the tablet this opens the Wi-Fi settings.'); },
+    requestHomeRole() { alert(tr('On the tablet this opens the home app chooser.')); },
+    openSecuritySettings() { alert(tr('On the tablet this opens the security settings.')); },
+    openWifiSettings() { alert(tr('On the tablet this opens the Wi-Fi settings.')); },
     mediaAccess: () => null,
     requestMediaAccess() {},
     openAppSettings() {},
@@ -272,9 +273,9 @@ function browser(): Shell {
     setChildId() {},
     release() { set('token', null); set('installed', null); set('pin', null); },
     installedPackages: () => [],
-    launchPackage() { alert('On the tablet this opens the app.'); },
+    launchPackage() { alert(tr('On the tablet this opens the app.')); },
     canDrawOverlays: () => false,
-    openOverlaySettings() { alert('On the tablet this opens the overlay permission.'); },
+    openOverlaySettings() { alert(tr('On the tablet this opens the overlay permission.')); },
     storeBilling: false,
     subscriptionPrice: () => '',
     subscribe: async () => ({ status: 'unavailable', message: '' }),
