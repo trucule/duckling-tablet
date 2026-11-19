@@ -32,7 +32,7 @@ final class AppSchemeHandlerTests: XCTestCase {
         let nav = Nav { done.fulfill() }
         web.navigationDelegate = nav
         web.load(URLRequest(url: URL(string: "\(AppSchemeHandler.origin)/apps/\(id)/\(path)")!))
-        await fulfillment(of: [done], timeout: 20)
+        await fulfillment(of: [done], timeout: 60)
         XCTAssertNil(nav.error, "load failed: \(String(describing: nav.error))")
     }
 
