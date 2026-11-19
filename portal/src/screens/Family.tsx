@@ -196,6 +196,7 @@ export function Family() {
         <LanguageChoice value={fam.language ?? 'en'} onChange={(l) => act(() => api.setLanguage(l))} />
         <p>{tr('Signed in as {email}. Deleting the account releases every device first, then removes every record.', { email: fam.you })}</p>
         <div class="row">
+          {fam.stats && <a class="btn" href="#/stats">{tr('Stats')}</a>}
           <button class="btn quiet" onClick={async () => { await api.logout().catch(() => {}); location.reload(); }}>{tr('Sign out')}</button>
           <button class="btn danger" onClick={async () => { if (prompt(tr('Type DELETE to remove the family account and all its data.')) === tr('DELETE')) { await api.deleteFamily(); location.reload(); } }}>{tr('Delete account and all data')}</button>
         </div>

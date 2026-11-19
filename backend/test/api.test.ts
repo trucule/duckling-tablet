@@ -37,7 +37,7 @@ beforeEach(async () => {
   mails.length = 0; tickets.length = 0; attached.length = 0; synthCalls = 0; azureUp = true; etduckyUp = true; aiCalls.length = 0; siteFetches.length = 0; aiUp = 'ok'; pushes.length = 0; deadTokens = [];
   const cfg = loadConfig({
     NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local',
-    ADMIN_TOKEN: ADMIN, ETDUCKY_WEBHOOK_SECRET: HOOK, TTS_DAILY_CHARS_PER_DEVICE: 200, PUBLIC_URL: 'https://api.test', AI_DAILY_CALLS: 'draw-with-me:3,*:1', AI_MAX_PROMPT_CHARS: 500,
+    ADMIN_TOKEN: ADMIN, ETDUCKY_WEBHOOK_SECRET: HOOK, TTS_DAILY_CHARS_PER_DEVICE: 200, PUBLIC_URL: 'https://api.test', AI_DAILY_CALLS: 'draw-with-me:3,*:1', AI_MAX_PROMPT_CHARS: 500, STATS_EMAILS: ' Owner@Example.com ,other@example.com',
   });
   ({ app } = await buildServer(cfg, {
     db, logger: false,
@@ -1044,5 +1044,68 @@ describe('language', () => {
     expect((await app.inject({ method: 'GET', url: '/family', headers: auth })).json().language).toBe('es');
     expect((await app.inject({ method: 'PUT', url: '/device/language', headers: dev, payload: { language: 'fr' } })).statusCode).toBe(400);
     expect((await app.inject({ method: 'PUT', url: '/family/language', headers: auth, payload: { language: 'xx' } })).statusCode).toBe(400);
+  });
+});
+
+describe('owner stats', () => {
+  it('counts app opens and minutes per tablet and day, for the tablet only', async () => {
+    await publish('robot-path', '1.0.0', { starter: true });
+    const p = await signIn('p@example.com'); const d = await pair(p.auth);
+    const day = new Date().toISOString().slice(0, 10);
+    for (const seconds of [120, 300]) expect((await app.inject({ method: 'POST', url: '/device/app-usage', headers: d.dev, payload: { app: 'robot-path', seconds, day } })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'POST', url: '/device/app-usage', headers: d.dev, payload: { app: 'Robot Path!', seconds: 1, day } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'POST', url: '/device/app-usage', headers: d.dev, payload: { app: 'robot-path', seconds: 7 * 3600, day } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'POST', url: '/device/app-usage', headers: p.auth, payload: { app: 'robot-path', seconds: 1, day } })).statusCode).toBe(401);
+    const rows = await db.system((q) => q.all('SELECT app_id, opens, seconds FROM app_usage'));
+    expect(rows).toEqual([{ app_id: 'robot-path', opens: 2, seconds: 420 }]);
+  });
+
+  it('is offered to the STATS_EMAILS parents and the admin token, and to no one else', async () => {
+    const plain = await signIn('p@example.com');
+    expect((await app.inject({ method: 'GET', url: '/family', headers: plain.auth })).json().stats).toBe(false);
+    expect((await app.inject({ method: 'GET', url: '/stats', headers: plain.auth })).statusCode).toBe(403);
+    expect((await app.inject({ method: 'GET', url: '/stats' })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: '/stats', headers: { authorization: 'Bearer wrong-token' } })).statusCode).toBe(401);
+    const owner = await signIn('owner@example.com');
+    expect((await app.inject({ method: 'GET', url: '/family', headers: owner.auth })).json().stats).toBe(true);
+    expect((await app.inject({ method: 'GET', url: '/stats', headers: owner.auth })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/stats', headers: { authorization: `Bearer ${ADMIN}` } })).statusCode).toBe(200);
+  });
+
+  it('adds up every family without naming any', async () => {
+    await publish('robot-path', '1.0.0', { starter: true });
+    await publish('word-wizard', '1.0.0');
+    // The tablet sends its own day; here the database's, so the daily series has today's figures.
+    const day = (await db.system((q) => q.one<{ d: string }>('SELECT current_date::text d')))!.d;
+    const a = await signIn('a@example.com');
+    const ada = (await app.inject({ method: 'POST', url: '/children', headers: a.auth, payload: { firstName: 'Ada', startGrade: 2 } })).json();
+    const da = await pair(a.auth, ada.id);
+    await app.inject({ method: 'POST', url: '/device/app-usage', headers: da.dev, payload: { app: 'robot-path', seconds: 600, day } });
+    const b = await signIn('b@example.com');
+    await app.inject({ method: 'PUT', url: '/family/language', headers: b.auth, payload: { language: 'es' } });
+    const db2 = await pair(b.auth);
+    await app.inject({ method: 'POST', url: '/device/checkin', headers: db2.dev, payload: { battery: 50 } });
+    await app.inject({ method: 'POST', url: '/device/app-usage', headers: db2.dev, payload: { app: 'robot-path', seconds: 300, day } });
+    await app.inject({ method: 'POST', url: '/device/app-usage', headers: db2.dev, payload: { app: 'robot-path', seconds: 0, day } });
+    await app.inject({ method: 'POST', url: '/requests', headers: b.auth, payload: { title: 'Bugs', description: 'An app about bugs' } });
+
+    const r = await app.inject({ method: 'GET', url: '/stats', headers: { authorization: `Bearer ${ADMIN}` } });
+    expect(r.statusCode).toBe(200);
+    expect(r.headers['cache-control']).toBe('no-store');
+    const s = r.json();
+    expect(s.families).toMatchObject({ total: 2, new7: 2, new30: 2, withTablet: 2, spanish: 1 });
+    expect(s.children).toMatchObject({ total: 1, spanish: 0 });
+    expect(s.tablets.total).toBe(2);
+    expect(s.tablets.platforms).toEqual([{ platform: 'android', total: 2, seen7: expect.any(Number) }]);
+    const rp = s.apps.find((x: any) => x.id === 'robot-path');
+    expect(rp).toMatchObject({ installs: 2, opens7: 3, minutes7: 15, tablets7: 2, opens30: 3, minutes30: 15 });
+    expect(s.apps.find((x: any) => x.id === 'word-wizard')).toMatchObject({ installs: 0, opens7: 0 });
+    expect(s.days).toHaveLength(30);
+    expect(s.days.at(-1)).toMatchObject({ families: 2, tablets: 2, active: 2, minutes: 15 });
+    expect(s.levels.filter((l: any) => l.subject === 'math')).toEqual([{ subject: 'math', grade: 2, n: 1 }]);
+    expect(s.requests.new30).toBe(1);
+    expect(s.subscriptions.byStatus.reduce((t: number, x: any) => t + x.n, 0)).toBe(2);
+    // Counts only: no email, name or id from any family is in the answer.
+    for (const secret of ['a@example.com', 'b@example.com', 'Ada', a.familyId, b.familyId, da.deviceId, db2.deviceId]) expect(r.body).not.toContain(secret);
   });
 });

@@ -8,7 +8,7 @@ export interface Device { id: string; childId: string | null; platform: string; 
 export interface Attachment { id: string; requestId: string; contentType: string; size: number; url: string; createdAt: string }
 export interface AppRequest { id: string; title: string; description: string; childGrade: string | null; installWhenReady: boolean; status: string; appId: string | null; createdAt: string; updatedAt: string; attachments: Attachment[] }
 export interface Entitlement { status: 'trial' | 'active' | 'grace' | 'ended' | 'none'; source: string | null; periodEnd: string | null; daysLeft: number | null }
-export interface Family { familyId: string; you: string; language?: Lang; pinSet: boolean; subscription: Entitlement; cardPayments?: boolean; cardCustomer?: boolean; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
+export interface Family { familyId: string; you: string; language?: Lang; pinSet: boolean; subscription: Entitlement; cardPayments?: boolean; cardCustomer?: boolean; stats?: boolean; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
 export interface OtherApp { package: string; label: string; icon: string | null; allowed: boolean; dailyMinutes: number | null; window: { start: string; end: string } | null; hosts: string[]; usedSecondsToday: number }
 export interface DeviceDetail { deviceId: string; state: string; child: Child | null; apps: { id: string; name: string; version: string; tileUrl: string | null }[]; hidden: string[]; allowlist: { host: string; tile?: { name: string; url: string } }[]; travel: { active: boolean; until: string | null }; otherApps: OtherApp[] }
 export interface CatalogApp { id: string; name: string; tileUrl: string | null; description: string; demoUrl: string | null; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; about: { concept: string; progression: string; lifeSkills: string[] } | null }
@@ -40,7 +40,25 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return json as T;
 }
 
+// The owner's stats (GET /stats): counts across every family, no names.
+export interface Stats {
+  at: string; trialDays: number;
+  families: { total: number; new7: number; new30: number; withTablet: number; spanish: number };
+  children: { total: number; spanish: number; portraits: number };
+  tablets: { total: number; seen1: number; seen7: number; seen30: number; new7: number; new30: number;
+    platforms: { platform: string; total: number; seen7: number }[]; shells: { platform: string; version: string; n: number }[] };
+  subscriptions: { byStatus: { status: string; source: string; n: number }[]; trialEnded: number; paying: number; trialsEnding7: number };
+  apps: { id: string; name: string; installs: number; opens7: number; minutes7: number; tablets7: number; opens30: number; minutes30: number; stars: number; ai30: number }[];
+  days: { day: string; families: number; tablets: number; active: number; minutes: number }[];
+  levels: { subject: string; grade: number; n: number }[];
+  requests: { byStatus: { status: string; n: number }[]; new30: number };
+  voice: { clips: number; chars: number; hits: number; clips30: number; chars30: number; charsAsked30: number; byLanguage: { lang: string; clips: number; hits: number }[] };
+  ai: { calls30: number; inputTokens30: number; outputTokens30: number };
+  otherApps: { label: string; families: number; minutes30: number }[];
+}
+
 export const api = {
+  stats: () => call<Stats>('GET', '/stats'),
   emailLink: (email: string, delivery: 'link' | 'code' = 'link') => call<{ sent: boolean; delivery: 'link' | 'code' }>('POST', '/auth/email-link', { email, delivery, language: lang.value }),
   verifyCode: (email: string, code: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/code/verify', { email, code, language: lang.value }),
   verify: (token: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/verify', { token, language: lang.value }),

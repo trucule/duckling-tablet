@@ -111,6 +111,9 @@ const schema = z.object({
 
   // Admin calls (publishing apps) use this bearer token.
   ADMIN_TOKEN: z.string().default(''),
+  // Parents (by sign-in email, comma separated) who see the owner's stats page in the portal: counts across every
+  // family, never one family's details. Empty: nobody; GET /stats also takes the admin token.
+  STATS_EMAILS: z.string().default('').transform((v) => v.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)),
   // Session cookie signing and token hashing.
   SESSION_SECRET: z.string().min(16).default('dev-only-change-me-please'),
 });

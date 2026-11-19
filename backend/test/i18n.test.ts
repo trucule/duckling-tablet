@@ -59,7 +59,7 @@ const TREES = [
       'Reading', 'Math', 'Science', 'Art', 'Music', 'Logic', 'Ages 4 to 5', 'Ages 6 to 7', 'Ages 8 and up',
       // Request statuses, device states and parent roles as the API sends them.
       'Received', 'Planned', 'Being built', 'Not taken on', 'In the Store', 'Withdrawn', 'Finished', 'active', 'release', 'released', 'owner', 'parent'],
-    quiet: ['Duckling Tablet'],
+    quiet: ['Duckling Tablet', 'Google Play', 'App Store'],
   },
 ];
 

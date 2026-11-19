@@ -1,6 +1,5 @@
 import { tr } from '../i18n';
-import { catalog, config, installed, installing, installFromStore, removeApp, go } from '../state';
-import { shell } from '../shell';
+import { catalog, config, installed, installing, installFromStore, removeApp, go, openApp } from '../state';
 
 // Every app that is not hidden on this device. Install is free for the child; a parent can hide an app remotely.
 export function Store() {
@@ -30,7 +29,7 @@ export function Store() {
             </div>
             <div class="row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
               {busy ? <button class="pill" disabled>{tr(busy)}</button>
-                : have && !update ? <button class="pill primary" onClick={() => shell.openApp(a.id)}>{tr('Open')}</button>
+                : have && !update ? <button class="pill primary" onClick={() => openApp(a.id)}>{tr('Open')}</button>
                 : <button class="pill primary" onClick={() => installFromStore(a)}>{update ? tr('Update') : tr('Install')}</button>}
               {have && !busy && <button class="pill quiet" onClick={() => { if (confirm(tr('Remove {app} from this tablet? Progress is kept.', { app: a.name }))) removeApp(a.id); }}>{tr('Remove')}</button>}
             </div>

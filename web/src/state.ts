@@ -167,6 +167,24 @@ window.addEventListener('duckling:otherapp', async (e) => {
   try { const r = await api.otherAppUsage(pkg, seconds, localDay()); if (config.value) { config.value = { ...config.value, otherApps: r.otherApps }; applyHosts(config.value); } } catch { /* counted locally; the next check-in reconciles */ }
 });
 
+// ---- Time in Duckling apps. Opening one notes the app and the time; coming back to Duckling sends the open and the
+// minutes to the server for the owner's stats. The note is kept in localStorage, so a page reload in between (the iPad
+// shell can reload the home page) still counts it. One open spans the time until the tablet is back on Duckling.
+const OPEN_KEY = 'duckling:app-open';
+const MAX_SECONDS = 6 * 3600;
+function finishAppOpen() {
+  let open: { id: string; start: number; day: string } | null = null;
+  try { open = JSON.parse(localStorage.getItem(OPEN_KEY) || 'null'); localStorage.removeItem(OPEN_KEY); } catch { return; }
+  if (!open || typeof open.id !== 'string' || typeof open.start !== 'number') return;
+  const seconds = Math.max(0, Math.min(MAX_SECONDS, Math.round((Date.now() - open.start) / 1000)));
+  void api.appUsage(open.id, seconds, open.day || localDay()).catch(() => { /* a lost open only lowers the stats */ });
+}
+export function openApp(id: string) {
+  finishAppOpen();
+  try { localStorage.setItem(OPEN_KEY, JSON.stringify({ id, start: Date.now(), day: localDay() })); } catch { /* no storage: not counted */ }
+  shell.openApp(id);
+}
+
 // Apps the server lists for this device but the shell does not have yet (or has at an older version).
 async function installMissing(c: DeviceConfig) {
   for (const a of c.apps) {
@@ -288,6 +306,7 @@ function takeTabletBackground() {
   else if (d) void adoptTabletBackground(d);
 }
 export function startCheckins() {
+  finishAppOpen();
   takeTabletBackground();
   refresh(0);
   setInterval(() => refresh(0), 3 * 3600 * 1000);
@@ -296,6 +315,6 @@ export function startCheckins() {
   // Back from an app or another screen: My Avatar may have saved a portrait, Paint Studio a background, and any app
   // stars. Every return checks in; only the catalog waits between returns. The shells say so with onResume, and the
   // page itself sees it as visibilitychange (the iPad shell sends onResume only when Duckling comes to the front).
-  window.addEventListener('duckling:resume', () => { takeTabletBackground(); refresh(20 * 1000); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { takeTabletBackground(); refresh(10 * 60 * 1000); } });
+  window.addEventListener('duckling:resume', () => { finishAppOpen(); takeTabletBackground(); refresh(20 * 1000); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { finishAppOpen(); takeTabletBackground(); refresh(10 * 60 * 1000); } });
 }

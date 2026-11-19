@@ -34,7 +34,7 @@ beforeAll(async () => {
   ({ db } = await cluster.newDb());
   const apiPort = await freePort(), portalPort = await freePort();
   api = `http://127.0.0.1:${apiPort}`; portal = `http://127.0.0.1:${portalPort}`;
-  const cfg = loadConfig({ NODE_ENV: 'test', RATE_LIMIT_PER_MINUTE: 5000, STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), ADMIN_TOKEN: ADMIN, PUBLIC_URL: api, PORTAL_URL: portal });
+  const cfg = loadConfig({ NODE_ENV: 'test', RATE_LIMIT_PER_MINUTE: 5000, STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), ADMIN_TOKEN: ADMIN, PUBLIC_URL: api, PORTAL_URL: portal, STATS_EMAILS: 'owner@example.com' });
   ({ app } = await buildServer(cfg, { db, logger: false, mailer: { async send(_to, _s, text) { mails.push(text); } }, synth: async () => null, createTicket: async () => null }));
   await app.listen({ port: apiPort, host: '127.0.0.1' });
   const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -397,6 +397,57 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByText('speaks Español', { exact: false }).waitFor();
     expect((await (await fetch(`${api}/device/config`, { headers: dev })).json()).language).toBe('es');
     await p.screenshot({ path: join(process.env.SHOT_DIR ?? dir, 'portal-en-child-es.png'), fullPage: true });
+    expect(errors).toEqual([]);
+    await browser.close();
+  }, 120_000);
+  it('shows the owner the Stats page, and no one else a way to it', async () => {
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+    await ctx.route('https://api.ducklingtablet.com/**', async (route) => {
+      const req = route.request();
+      const r = await fetch(req.url().replace('https://api.ducklingtablet.com', api), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() ?? undefined });
+      await route.fulfill({ status: r.status, headers: Object.fromEntries(r.headers), body: Buffer.from(await r.arrayBuffer()) });
+    });
+    const p = await ctx.newPage();
+    const errors: string[] = [];
+    p.on('pageerror', (e) => errors.push(e.message));
+    const signIn = async (email: string) => {
+      await p.goto(portal);
+      await p.evaluate(() => localStorage.clear()); await p.reload();
+      await p.getByLabel('Email').fill(email);
+      await p.getByRole('button', { name: 'Send me a link' }).click();
+      await p.getByText('Check your email', { exact: false }).waitFor();
+      await p.goto(mails.at(-1)!.match(/(http\S+signin\?token=[\w-]+)/)![1]);
+      await p.getByRole('heading', { name: 'Children' }).waitFor();
+    };
+    await signIn('someone@example.com');
+    expect(await p.locator('#account').getByRole('link', { name: 'Stats' }).count()).toBe(0);
+
+    // A few days of use on a tablet, so the page has something to draw.
+    await signIn('owner@example.com');
+    const token = await p.evaluate(() => localStorage.getItem('duckling.session'));
+    const auth = { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
+    const { code } = await (await fetch(`${api}/devices/pairing-codes`, { method: 'POST', headers: auth, body: JSON.stringify({}) })).json();
+    const paired = await (await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, platform: 'ios', name: 'iPad' }) })).json();
+    const dev = { authorization: `Device ${paired.deviceToken}`, 'content-type': 'application/json' };
+    const today = (await db.system((q) => q.one<{ d: string }>('SELECT current_date::text d')))!.d;
+    const ago = (n: number) => { const d = new Date(`${today}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+    for (const [n, app, minutes] of [[0, 'word-wizard', 12], [0, 'count-with-me', 6], [1, 'word-wizard', 20], [3, 'draw-with-me', 9], [6, 'word-wizard', 15], [12, 'count-with-me', 8]] as const) {
+      expect((await fetch(`${api}/device/app-usage`, { method: 'POST', headers: dev, body: JSON.stringify({ app, seconds: minutes * 60, day: ago(n) }) })).status).toBe(200);
+    }
+
+    await p.locator('#account').getByRole('link', { name: 'Stats' }).click();
+    await p.getByRole('heading', { name: 'Stats' }).waitFor();
+    await p.getByText('Minutes in apps this week').waitFor();
+    const row = p.locator('table.stats tr', { hasText: 'Word Wizard' });
+    // Installs count the tablets the earlier tests paired too; the use is this tablet's alone.
+    await expect.poll(async () => (await row.locator('td').allTextContents()).filter((_, i) => i !== 1)).toEqual(['Word Wizard', '1', '3', '47', '3', '47', '0', '0']);
+    expect(await p.locator('.bars').count()).toBe(4);
+    expect(await p.locator('.bars').first().locator('.plot span:not(.zero)').count()).toBe(5);
+    await p.screenshot({ path: join(process.env.SHOT_DIR ?? dir, 'portal-stats.png'), fullPage: true });
+    await p.getByRole('link', { name: 'Back' }).click();
+    await p.getByRole('heading', { name: 'Children' }).waitFor();
     expect(errors).toEqual([]);
     await browser.close();
   }, 120_000);

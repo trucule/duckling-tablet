@@ -166,6 +166,17 @@ describe.skipIf(!ready)('child web app', () => {
     await p.waitForFunction(() => { const i = document.querySelector('.art.site img') as HTMLImageElement | null; return !!i && i.complete && i.naturalWidth > 0; });
     await p.getByRole('button', { name: 'PBS KIDS' }).screenshot({ path: join(dir, 'site-tile.png') });
     await p.screenshot({ path: join(dir, 'home.png') });
+    // Opening an app notes it; coming back to Duckling sends the open and its minutes. (In a browser the app itself
+    // does not run; the shell says so in an alert.) The start is moved back 90 seconds to stand for time in the app.
+    p.once('dialog', (d) => d.dismiss());
+    await p.getByRole('button', { name: 'Word Wizard' }).click();
+    await p.waitForFunction(() => JSON.parse(localStorage.getItem('duckling:app-open') || 'null')?.id === 'word-wizard');
+    await p.evaluate(() => { const o = JSON.parse(localStorage.getItem('duckling:app-open')!); o.start -= 90_000; localStorage.setItem('duckling:app-open', JSON.stringify(o)); });
+    await p.evaluate(() => (window as any).DucklingWeb.onResume());
+    await p.waitForFunction(() => !localStorage.getItem('duckling:app-open'));
+    await expect.poll(() => db.system((q) => q.all('SELECT app_id, opens, seconds FROM app_usage WHERE device_id = $1', [adaDevice]))).toEqual([{ app_id: 'word-wizard', opens: 1, seconds: expect.any(Number) }]);
+    const [{ seconds: used }] = await db.system((q) => q.all('SELECT seconds FROM app_usage WHERE device_id = $1', [adaDevice]));
+    expect(used).toBeGreaterThanOrEqual(90); expect(used).toBeLessThan(120);
     // A new home screen version is deployed while the tablet is on: coming back from an app finds it, and the page
     // reloads into it without anyone restarting Duckling.
     await p.waitForFunction(() => !!navigator.serviceWorker.controller);

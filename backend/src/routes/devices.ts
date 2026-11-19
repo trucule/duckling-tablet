@@ -297,6 +297,16 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
     });
   });
 
+  // A Duckling app opened, and the seconds until Duckling was back in front, added to the tablet's local day.
+  app.post('/device/app-usage', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const b = z.object({ app: z.string().regex(/^[a-z0-9-]{1,64}$/), seconds: z.number().int().min(0).max(6 * 3600), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).parse(req.body);
+    await ctx.db.family(dv.familyId, (q) => q.run(`INSERT INTO app_usage (family_id, device_id, app_id, day, opens, seconds) VALUES ($1, $2, $3, $4, 1, $5)
+      ON CONFLICT (device_id, app_id, day) DO UPDATE SET opens = app_usage.opens + 1, seconds = app_usage.seconds + excluded.seconds, updated_at = now()`,
+      [dv.familyId, dv.deviceId, b.app, b.day, b.seconds]));
+    return { ok: true };
+  });
+
   // Time spent in another app, counted by the tablet from launch to its return; added to the tablet's local day.
   app.post('/device/other-app-usage', async (req) => {
     const dv = await deviceAuth(ctx, req);

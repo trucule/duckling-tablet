@@ -64,3 +64,24 @@ nav.sections .chip { font-size: 14px; padding: 7px 14px; }
 .card[id] { scroll-margin-top: 12px; }
 .btn.totop { position: fixed; right: 16px; bottom: 16px; background: var(--white); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15); z-index: 5; }
 .other { padding: 8px 0 0; }
+
+/* The owner's Stats page. */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 12px; }
+.kpi { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.kpi .v { font-size: 30px; font-weight: 800; line-height: 1.1; }
+.kpi .l { font-weight: 700; margin-top: 2px; }
+.kpi .n { font-size: 13px; margin-top: 2px; }
+.bars { margin: 14px 0 6px; }
+.bars .plot { display: flex; align-items: flex-end; gap: 3px; height: 80px; margin-top: 6px; border-bottom: 1px solid var(--line); }
+.bars .plot span { flex: 1; background: var(--pond); border-radius: 3px 3px 0 0; min-width: 3px; }
+.bars .plot span.zero { background: var(--line); }
+.bars .ends { font-size: 12px; margin-top: 3px; }
+.scroll { overflow-x: auto; }
+table.stats { border-collapse: collapse; width: 100%; font-size: 15px; }
+table.stats.narrow { max-width: 560px; }
+table.stats th, table.stats td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.stats th:first-child, table.stats td:first-child { text-align: left; }
+table.stats.narrow td:first-child { white-space: normal; }
+table.stats th { white-space: normal; vertical-align: bottom; font-size: 13px; color: var(--ink-soft); font-weight: 700; }
+h3 { font-size: 17px; margin: 16px 0 6px; }
+.row > .grow { flex: 1; }

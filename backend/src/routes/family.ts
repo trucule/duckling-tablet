@@ -77,6 +77,8 @@ export default async function familyRoutes(app: FastifyInstance, { ctx }: { ctx:
     const a = await parentAuth(ctx, req);
     return ctx.db.family(a.familyId, async (q) => ({
       familyId: a.familyId, you: a.email,
+      // The owner's stats page is offered to the emails in STATS_EMAILS.
+      stats: ctx.cfg.STATS_EMAILS.includes(a.email.toLowerCase()),
       language: (await q.one<{ language: string }>('SELECT language FROM family WHERE id = $1', [a.familyId]))!.language,
       pinSet: !!(await q.one<{ pin_hash: string | null }>('SELECT pin_hash FROM family WHERE id = $1', [a.familyId]))?.pin_hash,
       subscription: await entitlementOf(q, a.familyId),

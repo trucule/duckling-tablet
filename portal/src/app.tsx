@@ -5,11 +5,12 @@ import { session } from './api';
 import { SignIn } from './screens/SignIn';
 import { Family } from './screens/Family';
 import { AppAbout } from './screens/AppAbout';
+import { Stats } from './screens/Stats';
 
 export function App() {
   const [signedIn, setSignedIn] = useState(!!session.get());
-  const parse = () => location.hash.startsWith('#/app/') ? { app: location.hash.slice(6) } : {};
-  const [route, setRoute] = useState<{ app?: string }>(parse());
+  const parse = () => location.hash.startsWith('#/app/') ? { app: location.hash.slice(6) } : location.hash === '#/stats' ? { stats: true } : {};
+  const [route, setRoute] = useState<{ app?: string; stats?: boolean }>(parse());
   useEffect(() => {
     const onHash = () => { setRoute(parse()); window.scrollTo(0, 0); };
     window.addEventListener('hashchange', onHash); return () => window.removeEventListener('hashchange', onHash);
@@ -24,6 +25,7 @@ export function App() {
       </header>
       {!signedIn ? <SignIn onSignedIn={() => setSignedIn(true)} />
         : route.app ? <AppAbout id={route.app} onBack={() => { history.length > 1 ? history.back() : (location.hash = ''); }} />
+        : route.stats ? <Stats onBack={() => { location.hash = ''; }} />
         : <Family />}
     </div>
   );

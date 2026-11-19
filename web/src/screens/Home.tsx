@@ -1,7 +1,7 @@
 import { tr, trn } from '../i18n';
 import { useState } from 'preact/hooks';
 import { useHomeBackground, usePicture } from '../pictures';
-import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked, unlinked, entitlement, restartNeeded } from '../state';
+import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked, unlinked, entitlement, restartNeeded, openApp } from '../state';
 import { shell } from '../shell';
 import { API, type Entitlement, type InstalledApp } from '../api';
 
@@ -40,7 +40,7 @@ export function Home() {
   const [lockNote, setLockNote] = useState(false);
   const open = (a: InstalledApp) => {
     if (locked.value) { setLockNote(true); setTimeout(() => setLockNote(false), 3000); return; }
-    if (installed.value[a.id]) shell.openApp(a.id); else if (!installing.value[a.id]) void retryInstall(a.id);
+    if (installed.value[a.id]) openApp(a.id); else if (!installing.value[a.id]) void retryInstall(a.id);
   };
   // The child's own character in a circle: tapping it opens My Avatar, where she changes it. Until she saves one,
   // the circle shows her first letter. If My Avatar is not on this tablet, the tap installs it first.
