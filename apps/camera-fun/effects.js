@@ -253,13 +253,20 @@ window.CAMERA_FUN = { filters: [], stickers: [], stamps: [] };
     for (const at of ['cheekL', 'cheekR']) f.local(ctx, at, c => { const g = c.createRadialGradient(0, 0, 0, 0, 0, 0.14); g.addColorStop(0, '#FF6F9Caa'); g.addColorStop(1, '#FF6F9C00'); c.fillStyle = g; c.beginPath(); c.arc(0, 0, 0.14, 0, 7); c.fill(); });
   } });
 
-  // Open your mouth for these.
-  const spray = (make) => function (ctx, f, t, dt) {
+  // Open your mouth for these. Particles come at a steady rate (per second, so a slow tablet does not get more per
+  // frame), at most 90 at once, and emoji particles are drawn from a ready-made picture (C.drawEmoji).
+  const spray = (make, rate = 50) => function (ctx, f, t, dt) {
     const parts = this.parts || (this.parts = []);
-    if (f.open > 0.35 && f.index === 0) for (let k = 0; k < 3; k++) parts.push(make(f));
+    if (f.open > 0.35 && f.index === 0) { this.due = (this.due || 0) + rate * Math.min(dt, 0.1); for (; this.due >= 1; this.due--) parts.push(make(f)); }
     for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.g || 0) * dt; p.life -= dt; }
-    this.parts = parts.filter(p => p.life > 0).slice(-160);
-    for (const p of this.parts) { ctx.save(); ctx.globalAlpha = Math.min(1, p.life * 2); ctx.translate(p.x, p.y); if (p.ch) { ctx.font = `${p.size}px "Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.ch, 0, 0); } else { ctx.beginPath(); ctx.arc(0, 0, p.size, 0, 7); ctx.fillStyle = p.color; ctx.fill(); if (p.ring) { ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 2; ctx.stroke(); } } ctx.restore(); }
+    this.parts = parts.filter(p => p.life > 0).slice(-90);
+    const a0 = ctx.globalAlpha;
+    for (const p of this.parts) {
+      ctx.globalAlpha = Math.min(1, p.life * 2);
+      if (p.ch) C.drawEmoji(ctx, p.ch, p.x, p.y, p.size);
+      else { ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fillStyle = p.color; ctx.fill(); if (p.ring) { ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 2; ctx.stroke(); } }
+    }
+    ctx.globalAlpha = a0;
   };
   const down = f => f.down;
   sticker({ id: 'rainbowmouth', name: 'Rainbow mouth', icon: '🌈', hint: 'Open your mouth!', draw: spray(f => {

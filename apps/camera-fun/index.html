@@ -370,6 +370,22 @@
 <script>
 const $ = id => document.getElementById(id);
 const C = window.CAMERA_FUN;
+// Emoji are drawn from a picture made once per character. Drawing an emoji as text costs the browser a font lookup and
+// a fresh colour glyph at every new size, which is slow on a tablet; a fire spray draws dozens a frame. The picture is
+// made at 128 pixels (in a 160 pixel square, so tall glyphs are not cut) and scaled when drawn.
+const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif', emojiSprites = new Map();
+function emojiSprite(ch) {
+  let c = emojiSprites.get(ch);
+  if (!c) {
+    c = document.createElement('canvas'); c.width = c.height = 160; const g = c.getContext('2d');
+    g.font = `128px ${EMOJI_FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, 80, 84);
+    emojiSprites.set(ch, c);
+  }
+  return c;
+}
+// Draws ch centred on (x, y), as large as text of `size` pixels would be.
+function drawEmoji(ctx, ch, x, y, size) { const s = size * 1.25; ctx.drawImage(emojiSprite(ch), x - s / 2, y - s / 2, s, s); }
+C.drawEmoji = drawEmoji;
 const state = { tab: 'filters', filter: 'none', stickers: [], stamp: '⭐', timer: 0, mirror: true };
 try { Object.assign(state, JSON.parse(localStorage.getItem('camerafun-v1') || '{}')); } catch (e) {}
 if (!C.filters.find(f => f.id === state.filter)) state.filter = 'none';
@@ -566,7 +582,7 @@ function makeFace(P, index, moved) {
   f.local = (ctx, at, fn) => { const p = f.at(at); ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(roll); ctx.scale(w, w); fn(ctx); ctx.restore(); };
   f.emoji = (ctx, ch, at, size, dx = 0, dy = 0, spin = 0) => {
     const p = f.at(at); ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(roll); ctx.translate(dx * w, dy * w); ctx.rotate(spin);
-    ctx.font = `${Math.round(size * w)}px "Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ch, 0, 0); ctx.restore();
+    drawEmoji(ctx, ch, 0, 0, size * w); ctx.restore();
   };
   return f;
 }
@@ -623,7 +639,7 @@ function render() {
   const t = now / 1000, fresh = now - lastFaceT < 600;
   if (fresh) for (const face of faces) for (const id of state.stickers) { const s = C.stickers.find(x => x.id === id); try { drawSticker(s, face, t, dt); } catch (e) { errors.push('sticker ' + id + ': ' + e.message); state.stickers = state.stickers.filter(x => x !== id); } }
   else for (const id of state.stickers) { const s = C.stickers.find(x => x.id === id); if (s && s.parts) s.draw.call(s, octx, { open: 0, index: 1, at: () => ({ x: 0, y: 0 }), down: { x: 0, y: 1 }, w: 0 }, t, dt); }
-  for (const s of stamps) { octx.font = `${Math.round(s.size * H)}px "Segoe UI Emoji","Noto Color Emoji",sans-serif`; octx.textAlign = 'center'; octx.textBaseline = 'middle'; octx.fillText(s.ch, s.x * W, s.y * H); }
+  for (const s of stamps) drawEmoji(octx, s.ch, s.x * W, s.y * H, s.size * H);
   updateHint(fresh);
   faceTick();
   requestAnimationFrame(render);
