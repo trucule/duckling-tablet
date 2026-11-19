@@ -100,6 +100,9 @@
     // apiUrl: the Duckling API, for public files an app downloads itself (Paint Studio's font library).
     platform: bridge ? 'duckling' : 'browser', apiUrl: API, appId: APP_ID, childName: CHILD, narratorVoice: VOICE, language: LANGUAGE, levels: LEVELS, grade: grade, levelFor: levelFor, rungFor: rungFor,
     // opts.lang: 'es' for a Spanish line; by default a line is in the child's language.
+    // The child's portrait from My Avatar, as an image URL an app can draw (a blob: URL, so a canvas or WebGL texture
+    // can use it), or null when she has not made one. Replaced below on a paired tablet.
+    portrait: function () { return Promise.resolve(null); },
     say: function (text, opts) { var u = new SpeechSynthesisUtterance(String(text)); if (opts && opts.rate) u.rate = opts.rate; u.lang = (opts && opts.lang) || (LANGUAGE === 'es' ? 'es-MX' : 'en-US'); window.speechSynthesis.speak(u); return u; },
     // Replaced below on a paired tablet; in a plain browser there is no home screen to change.
     setHomeBackground: function () { return Promise.reject(new Error('Only on a Duckling tablet.')); },
@@ -118,6 +121,12 @@
     var api = function (method, path, body, type) {
       var h = Object.assign({}, AUTH); if (type) h['content-type'] = type;
       return realFetch(API + path, { method: method, headers: h, body: body, mode: 'cors', credentials: 'omit' });
+    };
+    var portraitP = null;
+    window.KidTablet.portrait = function () {
+      if (!portraitP) portraitP = api('GET', '/device/child/portrait').then(function (r) { return r.ok ? r.blob() : null; })
+        .then(function (b) { return b && b.size ? URL.createObjectURL(b) : null; }, function () { portraitP = null; return null; });
+      return portraitP;
     };
     // Story Maker's cast: it speaks to Azure directly with the key from DWM_CONFIG.tts; here the "key" is a marker and
     // the region "duckling", so its requests land on the Duckling API's narrator endpoint with the voice and style.

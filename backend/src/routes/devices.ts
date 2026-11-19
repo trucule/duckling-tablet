@@ -376,6 +376,17 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
     });
   });
 
+  // The child's portrait for an app to draw (Number Line Rocket's pilot), as PNG bytes. 404 when she has none.
+  app.get('/device/child/portrait', async (req, reply) => {
+    const dv = await deviceAuth(ctx, req);
+    if (!dv.childId) throw new HttpError(404, 'No portrait');
+    const row = await ctx.db.family(dv.familyId, (q) => q.one<{ portrait_key: string | null }>('SELECT portrait_key FROM child WHERE id = $1', [dv.childId]));
+    const png = row?.portrait_key ? await ctx.storage.get(row.portrait_key) : null;
+    if (!png) throw new HttpError(404, 'No portrait');
+    reply.header('Cache-Control', 'private, max-age=300').type('image/png');
+    return reply.send(png);
+  });
+
   // The portrait: a 384-pixel PNG as a data URL (what My Avatar's portrait() returns), up to 600 KB.
   app.register(async (pics) => {
     pics.addContentTypeParser('text/plain', { parseAs: 'string', bodyLimit: 900 * 1024 }, (_req, body, done) => done(null, body));

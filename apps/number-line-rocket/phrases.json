@@ -1,28 +1,20 @@
 {
- "source": "840e910c48320e25839284a9ef2d0096e3709df7e498b08bc81051fd1893d8c7",
+ "source": "49a24a5640fc7f747f2c5aba73fb809615f66dfb16e303b741d713319af59d4f",
  "lines": [
   {
    "text": "Count by tens from zero, then look between the marks.",
    "rate": -10
   },
   {
-   "text": "Tap the line where 100 goes. Then launch!",
+   "text": "Tap the line where 0 point 8 5 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where 13 goes. Then launch!",
+   "text": "Tap the line where 1 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where 15 goes. Then launch!",
-   "rate": -10
-  },
-  {
-   "text": "Tap the line where 3 point 2 goes. Then launch!",
-   "rate": -10
-  },
-  {
-   "text": "Tap the line where 45 goes. Then launch!",
+   "text": "Tap the line where 600 goes. Then launch!",
    "rate": -10
   },
   {
@@ -30,19 +22,27 @@
    "rate": -10
   },
   {
-   "text": "Tap the line where negative 1 goes. Then launch!",
+   "text": "Tap the line where negative 8 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where one third goes. Then launch!",
+   "text": "Tap the line where the square root of 99 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where the square root of 38 goes. Then launch!",
+   "text": "Tap the line where two thirds goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "The marks count by 25. Tap the line where negative 84 goes. Then launch!",
+   "text": "The marks count by 10. Tap the line where 72 goes. Then launch!",
+   "rate": -10
+  },
+  {
+   "text": "The marks count by 10. Tap the line where negative 3 goes. Then launch!",
+   "rate": -10
+  },
+  {
+   "text": "The marks count by 25. Tap the line where 32 goes. Then launch!",
    "rate": -10
   }
  ]

@@ -524,14 +524,14 @@ const LV = (name, o) => ({ name, gen() { return makeTask(o); }, o });
 //   1  Count the jumps      pre-K, K   0 to 10 with only 0, 5 and 10 labelled
 //   2  Up to twenty         K          0 to 20, labels every 10
 //   3  Tens to one hundred  K, 1st     tens on a 0 to 100 line
-//   4  Guess on 0 to 100    1st        estimate any number on 0 to 100 with marks at 0, 50 and 100
+//   4  Guess on 0 to 100    1st        estimate any number on 0 to 100: marks every 10, labels at 0, 50 and 100
 //   5  Where did it land?   1st, 2nd   watch the rocket land on 0 to 100 and read the number
 //   6  Hundreds to 1000     2nd        hundreds on a 0 to 1000 line
-//   7  Guess on 0 to 1000   2nd, 3rd   estimate on 0 to 1000 with marks at 0, 500 and 1000
+//   7  Guess on 0 to 1000   2nd, 3rd   estimate on 0 to 1000: marks every 100, labels at 0, 500 and 1000
 //   8  Fractions of one     3rd        halves, thirds, fourths, sixths and eighths on 0 to 1
 //   9  Fractions to two     3rd, 4th   halves, thirds and fourths on 0 to 2
 //  10  Below zero           4th        whole numbers on -10 to 10
-//  11  Way below zero       4th        estimate on -100 to 100
+//  11  Way below zero       4th        estimate on -100 to 100: marks every 10, labels every 50
 //  12  Tenths               4th, 5th   decimals like 0.7 and 3.4 on a line with tenth marks
 //  13  Hundredths           5th        decimals like 2.35 on a line with marks every 0.05
 //  14  Mixed numbers        5th        improper fractions and mixed numbers on 0 to 3 or 0 to 4
@@ -546,14 +546,14 @@ const LEVELS = [
   LV('Count the jumps', { min: 0, max: 10, tick: 1, labelEvery: 5, snap: 1, pick: () => pick([1, 2, 3, 4, 6, 7, 8, 9]) }),
   LV('Up to twenty', { min: 0, max: 20, tick: 1, labelEvery: 10, snap: 1, pick: () => pick([...Array(19).keys()].map(i => i + 1).filter(v => v !== 10)) }),
   LV('Tens to one hundred', { min: 0, max: 100, tick: 10, labelEvery: 50, snap: 10, pick: () => pick([10, 20, 30, 40, 60, 70, 80, 90]) }),
-  LV('Guess on 0 to 100', { min: 0, max: 100, tick: 50, labelEvery: 50, snap: 0, pick: () => pick([...Array(99).keys()].map(i => i + 1).filter(v => v % 50)) }),
+  LV('Guess on 0 to 100', { min: 0, max: 100, tick: 10, labelEvery: 50, snap: 0, scaleNote: true, pick: () => pick([...Array(99).keys()].map(i => i + 1).filter(v => v % 50)) }),
   LV('Where did it land?', { min: 0, max: 100, tick: 10, labelEvery: 50, snap: 5, read: true, pick: () => rand(1, 19) * 5 }),
   LV('Hundreds to 1000', { min: 0, max: 1000, tick: 100, labelEvery: 500, snap: 100, pick: () => pick([100, 200, 300, 400, 600, 700, 800, 900]) }),
-  LV('Guess on 0 to 1000', { min: 0, max: 1000, tick: 500, labelEvery: 500, snap: 0, pick: () => rand(2, 98) * 10 + pick([0, 0, 5]) }),
+  LV('Guess on 0 to 1000', { min: 0, max: 1000, tick: 100, labelEvery: 500, snap: 0, scaleNote: true, pick: () => rand(2, 98) * 10 + pick([0, 0, 5]) }),
   LV('Fractions of one', { min: 0, max: 1, frac: [2, 3, 4, 6, 8], labelEvery: 1, pick: d => rand(1, d - 1) }),
   LV('Fractions to two', { min: 0, max: 2, frac: [2, 3, 4], labelEvery: 1, pick: d => rand(1, 2 * d - 1) }),
   LV('Below zero', { min: -10, max: 10, tick: 1, labelEvery: 5, snap: 1, pick: () => pick([-9, -8, -7, -6, -4, -3, -2, -1, -1, -3, 2, 3, 7]) }),
-  LV('Way below zero', { min: -100, max: 100, tick: 50, labelEvery: 100, snap: 0, pick: () => rand(-95, 95) }),
+  LV('Way below zero', { min: -100, max: 100, tick: 10, labelEvery: 50, snap: 0, scaleNote: true, pick: () => rand(-95, 95) }),
   { name: 'Tenths', gen: genTenths },
   { name: 'Hundredths', gen: genHundredths },
   { name: 'Mixed numbers', gen: genMixed },
@@ -608,7 +608,7 @@ function genMixed() {
 function genFifty() {
   if (Math.random() < 0.6) return lineTask({ min: -50, max: 50, tick: 5, labelEvery: 25, snap: 5, value: pick([-45, -40, -35, -30, -20, -15, -10, -5, 5, 10, 15, 20, 30, 35, 40, 45]) });
   let v = 7; for (let i = 0; i < 50; i++) { v = rand(-49, 49); if (v % 5 !== 0 && Math.abs(v) > 2) break; }
-  return lineTask({ min: -50, max: 50, tick: 10, labelEvery: 50, snap: 0, value: v });
+  return lineTask({ min: -50, max: 50, tick: 10, labelEvery: 50, snap: 0, scaleNote: true, value: v });
 }
 function genJumps() {
   const wide = Math.random() < 0.4, R = wide ? 20 : 10;
@@ -739,7 +739,7 @@ function promptFor(t) {
 function missSpeech(t, v, sc) {
   if (t.region) return `${fmt(t, v)} is not in the green part. That is where ${speakGoal(t).replace(/^a spot /, '')} holds.`;
   if (t.abs) return `You landed on ${fmt(t, v)}. ${sayNum(t.abs.k)} and negative ${sayNum(t.abs.k)} are both ${sayNum(t.abs.k)} from zero. The gold stars show them.`;
-  const off = t.estimate ? `You were ${fmt(t, sc.err)} away.` : `You landed on ${fmt(t, v)}.`;
+  const off = t.estimate ? `You landed on ${fmt(t, v)}. That is ${fmt(t, sc.err)} away.` : `You landed on ${fmt(t, v)}.`;
   if (t.root) { const f = Math.floor(t.value); return `${off} ${speakVal(t)} is about ${sayNum(rnd(t.value, 1))}. It sits between ${f} and ${f + 1}, at the gold star.`; }
   return `${off} ${speakVal(t)} is at the gold star.`;
 }
@@ -780,14 +780,30 @@ function space() {
     const x = (Math.random() - 0.5) * 34, z = -2 - Math.random() * 16; c.position.set(x, 0.02, z); scene.add(c);
   }
 }
+// An emoji drawn on a canvas, for the pilot until the child's portrait arrives.
+function emojiTexture(ch) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d');
+  c.font = '96px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(ch, 64, 70);
+  return new THREE.CanvasTexture(cv);
+}
+// The child rides in the rocket: her portrait (KidTablet.portrait, a blob URL) replaces the astronaut in the porthole.
+function seatPilot() {
+  if (!(window.KidTablet && KidTablet.portrait)) return;
+  KidTablet.portrait().then(url => {
+    if (!url) return;
+    new THREE.TextureLoader().load(url, tex => { const p = rocket.userData.pilot, old = p.material.map; p.material.map = tex; p.material.needsUpdate = true; if (old) old.dispose(); });
+  }, () => {});
+}
 function makeRocket() {
   const g = new THREE.Group();
   const prof = [[0, 0], [0.42, 0.05], [0.55, 0.5], [0.6, 1.3], [0.55, 2.0], [0.38, 2.5], [0.0, 2.85]].map(([x, y]) => new THREE.Vector2(x, y));
   const body = new THREE.Mesh(new THREE.LatheGeometry(prof, 28), mat(0xFFFFFF, { roughness: 0.3, metalness: 0.2 })); g.add(body);
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.39, 0.7, 28), mat(0xFF2E55, { roughness: 0.3 })); nose.position.y = 2.55; g.add(nose);
   const band = new THREE.Mesh(new THREE.CylinderGeometry(0.61, 0.61, 0.22, 28), mat(0xFF2E55)); band.position.y = 0.95; g.add(band);
-  const win = new THREE.Mesh(new THREE.SphereGeometry(0.24, 20, 14), mat(0x00E5FF, { emissive: 0x00A0FF, emissiveIntensity: 0.6, roughness: 0.1 })); win.position.set(0, 1.65, 0.48); g.add(win);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.06, 10, 24), mat(0xFFD60A, { metalness: 0.5, roughness: 0.3 })); rim.position.set(0, 1.65, 0.5); g.add(rim);
+  // The porthole, with the pilot in it: the child's own portrait from My Avatar once it loads, an astronaut until then.
+  const glass = new THREE.Mesh(new THREE.CircleGeometry(0.5, 36), new THREE.MeshBasicMaterial({ color: 0x9FE8FF })); glass.position.set(0, 1.5, 0.62); g.add(glass);
+  const pilot = new THREE.Mesh(new THREE.CircleGeometry(0.48, 36), new THREE.MeshBasicMaterial({ map: emojiTexture('🧑‍🚀'), transparent: true })); pilot.position.set(0, 1.5, 0.63); g.add(pilot); g.userData.pilot = pilot;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.51, 0.07, 10, 36), mat(0xFFD60A, { metalness: 0.5, roughness: 0.3 })); rim.position.set(0, 1.5, 0.64); g.add(rim);
   for (let i = 0; i < 3; i++) {
     const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(0.65, -0.25); s.lineTo(0.6, 0.35); s.lineTo(0, 0.9);
     const fin = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.08, bevelEnabled: false }), mat(0x00E5FF, { roughness: 0.35 }));
@@ -797,7 +813,7 @@ function makeRocket() {
   const f1 = new THREE.Mesh(new THREE.ConeGeometry(0.33, 1.2, 18), new THREE.MeshBasicMaterial({ color: 0xFF7A00, transparent: true, opacity: 0.9 })); f1.rotation.x = Math.PI; f1.position.y = -0.55;
   const f2 = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.75, 14), new THREE.MeshBasicMaterial({ color: 0xFFF27A })); f2.rotation.x = Math.PI; f2.position.y = -0.35;
   flame.add(f1, f2); flame.visible = false; g.add(flame);
-  shadowy(g); f1.castShadow = f2.castShadow = false; g.scale.setScalar(0.62); return g;
+  shadowy(g); f1.castShadow = f2.castShadow = false; g.scale.setScalar(0.85); return g;
 }
 function makePad() {
   const g = new THREE.Group();
@@ -837,7 +853,8 @@ function makeMarker() {
   const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.6, 18), mat(0x7CFF4F, { emissive: 0x7CFF4F, emissiveIntensity: 0.6 })); arrow.rotation.x = Math.PI; arrow.position.y = LINE_Y + 1.5; g.add(arrow); g.userData.arrow = arrow;
   return g;
 }
-// On lines with marks the picked number floats over the marker, so a dense scale is readable. Estimates stay blank.
+// On lines with marks the picked number floats over the marker, so a dense scale is readable. An estimate stays blank
+// until the rocket lands: the marks every 10 (or 100) are there to count, and the landing shows the number.
 function setMarkerLabel(t, v) {
   const want = t.snap || t.snaps ? fmt(t, v) : '';
   if (want === markerText) return; markerText = want;
@@ -925,6 +942,10 @@ function showTruth(t, guess) {
     const lb = label(text, { height: t.d ? 1.3 : 0.95, bg: '#FFE14D', depthTest: false }); lb.position.set(x, LINE_Y + (t.d ? 3.4 : 3.1), 0.5); reveal.add(lb);
   }
   const x = xOf(t, t.value);
+  // A guess shows the number it landed on, under the line, so the child sees how near she was.
+  if (t.estimate && guess !== undefined) {
+    const lb = label(fmt(t, guess), { height: 0.75, bg: '#7CFF4F', depthTest: false }); lb.position.set(xOf(t, guess), LINE_Y - 1.0, 0.5); reveal.add(lb);
+  }
   if (truths.length === 1 && guess !== undefined && Math.abs(guess - t.value) > 1e-9) {
     const gx = xOf(t, guess), gap = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(gx - x), 0.12, 0.12), mat(0xFF2E55, { emissive: 0xFF2E55, emissiveIntensity: 0.6 }));
     gap.position.set((gx + x) / 2, LINE_Y + 0.3, 0.45); reveal.add(gap);
@@ -959,7 +980,7 @@ renderer.setClearColor(0x000000, 0);
 space();
 lineGroup = new THREE.Group(); scene.add(lineGroup);
 pad = makePad(); pad.position.copy(PAD_AT); scene.add(pad);
-rocket = makeRocket(); scene.add(rocket);
+rocket = makeRocket(); scene.add(rocket); seatPilot();
 marker = makeMarker(); scene.add(marker); marker.visible = false;
 ONFRAME.push(now => {
   if (flame.visible) { flame.scale.set(1, 0.8 + Math.random() * 0.5, 1); }
