@@ -625,7 +625,7 @@ function ready() { $('go').disabled = !(picked.length && place && kind && drama 
 function storiesToday() { try { const d = JSON.parse(localStorage.getItem('story-count') || '{}'); return d.day === new Date().toDateString() ? d.n : 0; } catch (e) { return 0; } }
 function countStory() { try { localStorage.setItem('story-count', JSON.stringify({ day: new Date().toDateString(), n: storiesToday() + 1 })); } catch (e) {} }
 function canUseAI() { return !!CFG.apiKey && storiesToday() < CFG.dailyLimit; }
-// The prompt for one scene. ctx: { lv, cast, place, kind, drama, total, sceneNo, history, vocab }. Pure, so the
+// The prompt for one scene. ctx: { lv, cast, place, kind, drama, total, sceneNo, history, vocab, premise }. Pure, so the
 // self-check hook can build prompts for any rung without a story on screen. Returns { system, user, maxTokens }.
 function buildPrompt(ctx) {
   const lv = ctx.lv, R = RUNGS[lv], rank = rankOf(lv), isLast = ctx.sceneNo >= ctx.total, little = lv === 'little';
@@ -633,6 +633,13 @@ function buildPrompt(ctx) {
   const castDesc = ctx.cast.map(c => `${c.id}: ${c.name}, ${art(c.kind)} ${c.kind}, ${c.trait}`).join('; ');
   const teller = lv === 'eighth' ? `\nThe "narrator" lines are ${ctx.cast[0].name} the ${ctx.cast[0].kind} telling the story as I (the unreliable narrator).` : '';
   const history = ctx.history.map((h, i) => `Scene ${i + 1} "${h.title}": ${h.summary} She chose: ${h.choice}.`).join('\n') || '(none yet)';
+  // Where the story starts. Scene 1 sets the scene and the problem (or, for a cozy story, the wish) before anything
+  // happens; it also returns a one-line premise, which every later scene is given so the story keeps to its thread.
+  const want = ctx.drama[1] === 'cozy' ? 'the wish or plan' : 'the problem';
+  const begin = ctx.sceneNo === 1
+    ? `\nThis is the OPENING scene, so begin at the beginning. The first narrator line says where the friends are, when it is (a time of day or a season) and what they are doing there, with one thing to see or hear. Then each cast member appears by name, with one thing that shows what they are like. Before the scene ends, show the event that starts the story: ${want} the story is about, so the reader knows what the friends want or need. Do not open in the middle of the action.`
+    : `\nThe story began like this: ${ctx.premise || (ctx.history[0] && ctx.history[0].summary) || 'see scene 1'}. Open this scene by showing what happened because of her last choice, and keep the friends moving toward what they want.`;
+  const premise = ctx.sceneNo === 1 ? ' "premise": "one sentence: who the friends are, where they are, and what they want or need to do",' : '';
   const vocab = `Grade words to work into this story, spelled exactly: ${ctx.vocab.join(', ')}. Use at least two of them in this scene, each in a sentence that makes its meaning clear, and all of them by the last scene.`;
   const words = R.gloss ? ` "words": [{"word": "a grade word or other new word used in this scene, spelled exactly as in the text", "meaning": "a short meaning a child understands"}], 1 to 3 items.` : '';
   let ending = '';
@@ -642,7 +649,7 @@ function buildPrompt(ctx) {
   } else if (isLast && !little) {
     ending = ` Also "questions": 4 questions about the WHOLE story to check she understood it, covering who, what happened, why something happened, and the order of events${rank >= 2 ? ', plus one about the meaning of a word from the story' : ''}: [{"q": "the question", "choices": ["three short answers"], "answer": index of the one right choice}]. Exactly one choice is right; the other two are clearly wrong for this story.`;
   }
-  const user = `Cast: ${castDesc}.${teller}\nPlace: ${ctx.place[1]}. Kind: ${ctx.kind[1]}. Drama level: ${ctx.drama[1]} (${ctx.drama[3]}). Total scenes: ${ctx.total}.\n${vocab}\nSo far:\n${history}\n\nWrite scene ${ctx.sceneNo}${isLast ? ', the LAST scene: resolve everything happily and end with a warm closing line' : ''}.\nJSON shape: {"title": "short scene title", "emoji": ["one", "two", "three emoji for the scene"], "lines": [{"who": "narrator" or a cast id, "text": "${little ? 'one or two sentences' : 'one to three sentences'}", "mood": one of "neutral","cheerful","excited","sad","whispering","shouting","friendly"}], "summary": "one sentence of what happened", "choices": [{"label": "3-6 words, what happens next", "emoji": "one emoji"}, ...]}. Choices: ${R.choices}.${words} ${R.lines}. ${isLast ? 'For the last scene: "choices": [] and "end": true.' : ''}${ending}`;
+  const user = `Cast: ${castDesc}.${teller}\nPlace: ${ctx.place[1]}. Kind: ${ctx.kind[1]}. Drama level: ${ctx.drama[1]} (${ctx.drama[3]}). Total scenes: ${ctx.total}.\n${vocab}\nSo far:\n${history}${begin}\n\nWrite scene ${ctx.sceneNo}${isLast ? ', the LAST scene: resolve everything happily and end with a warm closing line' : ''}.\nJSON shape: {"title": "short scene title", "emoji": ["one", "two", "three emoji for the scene"], "lines": [{"who": "narrator" or a cast id, "text": "${little ? 'one or two sentences' : 'one to three sentences'}", "mood": one of "neutral","cheerful","excited","sad","whispering","shouting","friendly"}], "summary": "one sentence of what happened",${premise} "choices": [{"label": "3-6 words, what happens next", "emoji": "one emoji"}, ...]}. Choices: ${R.choices}.${words} ${R.lines}. ${isLast ? 'For the last scene: "choices": [] and "end": true.' : ''}${ending}`;
   // Spanish: every word the child sees or hears is written in Spanish; the JSON keys, ids and moods stay as given.
   const system = LANG === 'es' ? R.system + `\nLanguage: write every text value (titles, lines, choices, summaries, questions, answers, word meanings) in Spanish, the neutral Latin American Spanish a child in the United States or Latin America reads at this grade, with the same rules for sentence length and difficulty. The grade words above are Spanish words for this grade: use them as written. Keep the JSON keys, the "who" ids and the "mood" values exactly as given in English.` : R.system;
   return { system, user, maxTokens: R.maxTokens * (LANG === 'es' ? 1.3 : 1) | 0 };
@@ -658,7 +665,7 @@ function parseScene(text) {
 // tells the child and uses the built-in story). Network and server errors throw.
 async function writeScene() {
   const s = story, isLast = s.scenes.length + 1 >= s.total, lv = s.level, R = RUNGS[lv];
-  const p = buildPrompt({ lv, cast: picked, place, kind, drama, total: s.total, sceneNo: s.scenes.length + 1, history: s.history, vocab: s.vocab });
+  const p = buildPrompt({ lv, cast: picked, place, kind, drama, total: s.total, sceneNo: s.scenes.length + 1, history: s.history, vocab: s.vocab, premise: s.premise });
   const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': CFG.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
     body: JSON.stringify({ model: CFG.storyModel, max_tokens: p.maxTokens, system: p.system, messages: [{ role: 'user', content: p.user }] }) });
   if (!r.ok) throw new Error('api ' + r.status);
@@ -674,6 +681,7 @@ async function writeScene() {
   if (!isLast && json.choices.length < 2) return null;
   json.end = isLast || !!json.end;
   json.summary = typeof json.summary === 'string' ? json.summary : json.title;
+  if (!s.scenes.length && typeof json.premise === 'string' && json.premise.trim()) s.premise = json.premise.trim().slice(0, 400);
   json.words = R.gloss ? (Array.isArray(json.words) ? json.words : []).filter(w => w && typeof w.word === 'string' && typeof w.meaning === 'string' && w.word.trim() && w.meaning.trim()).map(w => ({ word: w.word.trim(), meaning: w.meaning.trim() })) : [];
   json.questions = cleanQuestions(json.questions);
   json.check = cleanQuestions(json.check ? [json.check] : [])[0] || null;   // 5th grade and up; skipped when malformed
@@ -1098,6 +1106,7 @@ window.DucklingLadder = {
       for (const w of vocab) if (!all.includes(w)) throw new Error('missing word ' + w);
       if (sceneNo === total && (i >= 4) !== /"check"/.test(p.user)) throw new Error('check question guidance');
       if (!/Choices: /.test(p.user)) throw new Error('choice guidance');
+      if (sceneNo === 1 ? !/OPENING scene/.test(p.user) || !/"premise"/.test(p.user) : !/The story began like this/.test(p.user)) throw new Error('opening guidance');
       // The reply path: a well formed scene parses, a bad one is skipped instead of thrown.
       const good = parseScene('```json\n{"title":"t","lines":[{"who":"narrator","text":"Hi."}],"choices":[{"label":"Go on"},{"label":"Wait"}],"check":{"q":"Why?","choices":["a","b","c"],"answer":1},"reflect":{"q":"What would you do?","options":["x","y","z"]}}\n```');
       if (!good || cleanQuestions([good.check]).length !== 1 || !cleanReflect(good.reflect)) throw new Error('parse of a good reply');

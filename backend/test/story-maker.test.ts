@@ -36,7 +36,8 @@ const SILENCE = (() => {
 const scene = (es: boolean) => JSON.stringify({
   title: es ? 'El globo rojo' : 'The red balloon', emoji: ['🎈', '🏰'],
   lines: [{ who: 'narrator', text: es ? 'Un día de sol, Bun llegó a un castillo.' : 'One sunny day, Bun came to a castle.' }, { who: 'bun', text: es ? '¡Qué bonito!' : 'How lovely!', mood: 'cheerful' }],
-  choices: [{ label: es ? 'Entrar' : 'Go in', emoji: '🚪' }, { label: es ? 'Esperar' : 'Wait', emoji: '⏳' }], summary: 'x'
+  choices: [{ label: es ? 'Entrar' : 'Go in', emoji: '🚪' }, { label: es ? 'Esperar' : 'Wait', emoji: '⏳' }], summary: 'x',
+  premise: es ? 'Bun quiere encontrar la corona perdida del castillo.' : 'Bun wants to find the castle\'s lost crown.'
 });
 
 async function open(voice: string) {
@@ -71,6 +72,24 @@ async function tellOne(p: import('playwright').Page) {
   await p.locator('#go').click();
   await p.locator('#text p').first().waitFor();
 }
+
+describe('Story Maker openings', () => {
+  it('starts each story at its beginning and keeps later scenes on the premise scene 1 set', async () => {
+    const { browser, p, ai, errors } = await open('en-US-JennyNeural');
+    await tellOne(p);
+    expect(ai).toHaveLength(1);
+    const first = ai[0].messages[0].content as string;
+    expect(first).toContain('This is the OPENING scene, so begin at the beginning.');
+    expect(first).toContain('"premise"');
+    await p.getByRole('button', { name: /Go in/ }).click();
+    await expect.poll(() => ai.length, { timeout: 20_000 }).toBe(2);
+    const second = ai[1].messages[0].content as string;
+    expect(second).toContain("The story began like this: Bun wants to find the castle's lost crown.");
+    expect(second).not.toContain('OPENING scene');
+    expect(errors).toEqual([]);
+    await browser.close();
+  }, 60_000);
+});
 
 describe('Story Maker language', () => {
   it('tells the story in Spanish with Spanish voices on a Spanish tablet', async () => {
