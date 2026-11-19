@@ -468,15 +468,35 @@ if (gl) {
 // Camera
 // ---------------------------------------------------------------------------
 const video = $('v');
-let stream = null, facing = 'user', camReady = false;
-async function startCamera() {
+let stream = null, facing = 'user', camReady = false, camIds = [], camAt = -1;
+// The cameras on this tablet, by id. Asking for a facing mode alone is only a hint, and Android's WebView and Windows
+// often keep the same camera, so Flip moves to the next camera by its id. The list has ids only once the camera is
+// allowed, so it is read after the first start. With one camera, the Flip button is hidden.
+async function listCameras() {
+  try { camIds = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput' && d.deviceId).map(d => d.deviceId); } catch (e) { camIds = []; }
+  const cur = stream && stream.getVideoTracks()[0] && stream.getVideoTracks()[0].getSettings().deviceId;
+  camAt = Math.max(0, camIds.indexOf(cur));
+  $('flip').hidden = camIds.length < 2;
+}
+async function startCamera(deviceId) {
   try {
     if (stream) stream.getTracks().forEach(t => t.stop());
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    const size = { width: { ideal: 1280 }, height: { ideal: 720 } };
+    stream = await navigator.mediaDevices.getUserMedia({ video: deviceId ? { deviceId: { exact: deviceId }, ...size } : { facingMode: facing, ...size }, audio: false });
+    const fm = stream.getVideoTracks()[0].getSettings().facingMode;
+    if (fm) facing = fm === 'environment' ? 'environment' : 'user';
     video.srcObject = stream; await video.play(); camReady = true; state.mirror = facing === 'user'; hasBg = false; msg('');
-  } catch (e) { camReady = false; msg('The camera is not working right now.'); errors.push('camera: ' + e.message); }
+    if (!deviceId) await listCameras();
+    return true;
+  } catch (e) { camReady = false; msg('The camera is not working right now.'); errors.push('camera: ' + e.message); return false; }
 }
-$('flip').onclick = () => { facing = facing === 'user' ? 'environment' : 'user'; startCamera(); };
+$('flip').onclick = async () => {
+  if (camIds.length < 2) return;
+  const before = camAt; camAt = (camAt + 1) % camIds.length;
+  // A camera without a facing mode (a laptop's or a Surface's) is taken as the back one once it is not the first.
+  facing = facing === 'user' ? 'environment' : 'user';
+  if (!(await startCamera(camIds[camAt]))) { camAt = before; await startCamera(camIds[before]); }
+};
 
 let W = 0, H = 0;
 function resize() {

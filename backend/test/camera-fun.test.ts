@@ -85,4 +85,33 @@ describe('Camera Fun home screen background', () => {
       await browser.close();
     }
   }, 90_000);
+  it('Flip moves to the next camera by its id, and is hidden with one camera', async () => {
+    const { chromium } = await import('playwright');
+    for (const cams of [['front', 'back'], ['front']]) {
+      const browser = await chromium.launch();
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+      // Cameras that ignore a facing-mode hint, as Android's WebView and Windows often do: only an id picks one.
+      await ctx.addInitScript(`(() => {
+        const cams = ${JSON.stringify(cams)};
+        const make = (id) => { const c = document.createElement('canvas'); c.width = 640; c.height = 360; const g = c.getContext('2d');
+          setInterval(() => { g.fillStyle = id === 'front' ? '#e63946' : '#3aa0ff'; g.fillRect(0, 0, 640, 360); }, 50);
+          const st = c.captureStream(10), tr = st.getVideoTracks()[0]; tr.getSettings = () => ({ deviceId: id, facingMode: id === 'front' ? 'user' : 'environment' }); return st; };
+        window.__asked = [];
+        navigator.mediaDevices.enumerateDevices = async () => cams.map((id) => ({ kind: 'videoinput', deviceId: id, label: id }));
+        navigator.mediaDevices.getUserMedia = async (c) => { if (!c.video) throw new Error('no microphone here');
+          const id = c.video.deviceId ? c.video.deviceId.exact : cams[0]; window.__asked.push(id); return make(id); };
+      })();`);
+      const p = await ctx.newPage();
+      await p.goto(url);
+      await p.waitForFunction('camReady === true && camIds.length > 0');
+      if (cams.length === 1) { expect(await p.locator('#flip').isVisible()).toBe(false); await browser.close(); continue; }
+      expect(await p.evaluate('state.mirror')).toBe(true);
+      await p.locator('#flip').click();
+      // The back camera, not mirrored.
+      await p.waitForFunction('window.__asked.at(-1) === "back" && stream.getVideoTracks()[0].getSettings().deviceId === "back" && state.mirror === false');
+      await p.locator('#flip').click();
+      await p.waitForFunction('window.__asked.at(-1) === "front" && stream.getVideoTracks()[0].getSettings().deviceId === "front" && state.mirror === true');
+      await browser.close();
+    }
+  }, 90_000);
 });
