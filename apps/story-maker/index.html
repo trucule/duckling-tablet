@@ -111,6 +111,10 @@
   #story { display: none; } #story.on { display: block; } #setup.off { display: none; }
   #scene { min-height: 150px; display: flex; align-items: center; justify-content: center; gap: 26px; font-size: 92px; background: #fff; border: 4px solid var(--ink); border-radius: 28px; margin-bottom: 8px; position: relative; }
   #scene span { transition: transform .3s; } #scene span.now { transform: scale(1.25) rotate(-6deg); }
+  /* The 3D stage (stage.js): the cast acting on the story's set. It stays in view while the text scrolls under it. */
+  #scene.stage { height: 330px; padding: 0; overflow: hidden; position: sticky; top: 0; z-index: 2; background: #cfe9ff; }
+  #scene.stage canvas { display: block; width: 100%; height: 100%; }
+  #story.upper #scene.stage { height: 280px; }
   #title { text-align: center; font-size: 28px; font-weight: 900; margin: 6px 0 10px; }
   #text { font-size: 27px; line-height: 1.5; font-weight: 700; }
   #text p { margin: 0 0 8px; padding: 8px 14px; border-radius: 18px; transition: background .2s; display: flex; gap: 10px; align-items: flex-start; }
@@ -172,6 +176,8 @@
   <div id="pop"><div id="popWord"></div><div id="popMeaning"></div></div>
 </div>
 <script src="config.js"></script>
+<script src="three.min.js"></script>
+<script src="stage.js"></script>
 <script src="voices.js"></script>
 <script id="voicepack">/* voice pack goes here: run voices/make-voices.py */</script>
 <script>
@@ -639,6 +645,10 @@ function buildPrompt(ctx) {
   const begin = ctx.sceneNo === 1
     ? `\nThis is the OPENING scene, so begin at the beginning. The first narrator line says where the friends are, when it is (a time of day or a season) and what they are doing there, with one thing to see or hear. Then each cast member appears by name, with one thing that shows what they are like. Before the scene ends, show the event that starts the story: ${want} the story is about, so the reader knows what the friends want or need. Do not open in the middle of the action.`
     : `\nThe story began like this: ${ctx.premise || (ctx.history[0] && ctx.history[0].summary) || 'see scene 1'}. Open this scene by showing what happened because of her last choice, and keep the friends moving toward what they want.`;
+  // The 3D stage acts out every line while it is read (stage.js): where each friend goes, what they do, who they
+  // look at, what they hold. Its marks and actions are fixed lists; cleanAct drops anything else.
+  const S = window.STAGE || { MARKS: ['left', 'center', 'right', 'front', 'back'], ACTIONS: ['wave', 'jump', 'talk'] };
+  const acting = `\nThe scene is acted out by small 3D figures of the cast while each line is read. Give every line an "act" with one or two stage directions that show what the line says: a narrator line stages what it describes (who walks where, who jumps, who hides), a cast line stages the speaker. Marks: back is near the landmark behind them, front is close to the reader. Use "prop" for a thing a character holds or finds, as one emoji.`;
   const premise = ctx.sceneNo === 1 ? ' "premise": "one sentence: who the friends are, where they are, and what they want or need to do",' : '';
   const vocab = `Grade words to work into this story, spelled exactly: ${ctx.vocab.join(', ')}. Use at least two of them in this scene, each in a sentence that makes its meaning clear, and all of them by the last scene.`;
   const words = R.gloss ? ` "words": [{"word": "a grade word or other new word used in this scene, spelled exactly as in the text", "meaning": "a short meaning a child understands"}], 1 to 3 items.` : '';
@@ -649,10 +659,10 @@ function buildPrompt(ctx) {
   } else if (isLast && !little) {
     ending = ` Also "questions": 4 questions about the WHOLE story to check she understood it, covering who, what happened, why something happened, and the order of events${rank >= 2 ? ', plus one about the meaning of a word from the story' : ''}: [{"q": "the question", "choices": ["three short answers"], "answer": index of the one right choice}]. Exactly one choice is right; the other two are clearly wrong for this story.`;
   }
-  const user = `Cast: ${castDesc}.${teller}\nPlace: ${ctx.place[1]}. Kind: ${ctx.kind[1]}. Drama level: ${ctx.drama[1]} (${ctx.drama[3]}). Total scenes: ${ctx.total}.\n${vocab}\nSo far:\n${history}${begin}\n\nWrite scene ${ctx.sceneNo}${isLast ? ', the LAST scene: resolve everything happily and end with a warm closing line' : ''}.\nJSON shape: {"title": "short scene title", "emoji": ["one", "two", "three emoji for the scene"], "lines": [{"who": "narrator" or a cast id, "text": "${little ? 'one or two sentences' : 'one to three sentences'}", "mood": one of "neutral","cheerful","excited","sad","whispering","shouting","friendly"}], "summary": "one sentence of what happened",${premise} "choices": [{"label": "3-6 words, what happens next", "emoji": "one emoji"}, ...]}. Choices: ${R.choices}.${words} ${R.lines}. ${isLast ? 'For the last scene: "choices": [] and "end": true.' : ''}${ending}`;
+  const user = `Cast: ${castDesc}.${teller}\nPlace: ${ctx.place[1]}. Kind: ${ctx.kind[1]}. Drama level: ${ctx.drama[1]} (${ctx.drama[3]}). Total scenes: ${ctx.total}.\n${vocab}\nSo far:\n${history}${begin}${acting}\n\nWrite scene ${ctx.sceneNo}${isLast ? ', the LAST scene: resolve everything happily and end with a warm closing line' : ''}.\nJSON shape: {"title": "short scene title", "emoji": ["one", "two", "three emoji for the scene"], "lines": [{"who": "narrator" or a cast id, "text": "${little ? 'one or two sentences' : 'one to three sentences'}", "mood": one of "neutral","cheerful","excited","sad","whispering","shouting","friendly", "act": [{"who": a cast id, "move": "" or one of ${S.MARKS.join(', ')}, "do": "" or one of ${S.ACTIONS.join(', ')}, "face": "" or a cast id or audience or back, "prop": "" or one emoji the character holds or finds}]}], "summary": "one sentence of what happened",${premise} "choices": [{"label": "3-6 words, what happens next", "emoji": "one emoji"}, ...]}. Choices: ${R.choices}.${words} ${R.lines}. ${isLast ? 'For the last scene: "choices": [] and "end": true.' : ''}${ending}`;
   // Spanish: every word the child sees or hears is written in Spanish; the JSON keys, ids and moods stay as given.
-  const system = LANG === 'es' ? R.system + `\nLanguage: write every text value (titles, lines, choices, summaries, questions, answers, word meanings) in Spanish, the neutral Latin American Spanish a child in the United States or Latin America reads at this grade, with the same rules for sentence length and difficulty. The grade words above are Spanish words for this grade: use them as written. Keep the JSON keys, the "who" ids and the "mood" values exactly as given in English.` : R.system;
-  return { system, user, maxTokens: R.maxTokens * (LANG === 'es' ? 1.3 : 1) | 0 };
+  const system = LANG === 'es' ? R.system + `\nLanguage: write every text value (titles, lines, choices, summaries, questions, answers, word meanings) in Spanish, the neutral Latin American Spanish a child in the United States or Latin America reads at this grade, with the same rules for sentence length and difficulty. The grade words above are Spanish words for this grade: use them as written. Keep the JSON keys, the "who" ids, the "mood" values and every "act" value except "prop" exactly as given in English.` : R.system;
+  return { system, user, maxTokens: R.maxTokens * 1.35 * (LANG === 'es' ? 1.3 : 1) | 0 };
 }
 // The JSON object in the writer's reply, or null when there is none to use.
 function parseScene(text) {
@@ -675,7 +685,7 @@ async function writeScene() {
   if (!json) return null;
   json.title = typeof json.title === 'string' ? json.title : '';
   json.emoji = Array.isArray(json.emoji) ? json.emoji.filter(e => typeof e === 'string').slice(0, 4) : [];
-  json.lines = (Array.isArray(json.lines) ? json.lines : []).filter(l => l && typeof l.text === 'string' && l.text.trim()).map(l => ({ who: picked.find(c => c.id === l.who) || NARRATOR, text: String(l.text).trim(), mood: typeof l.mood === 'string' ? l.mood : 'neutral' }));
+  json.lines = (Array.isArray(json.lines) ? json.lines : []).filter(l => l && typeof l.text === 'string' && l.text.trim()).map(l => { const who = picked.find(c => c.id === l.who) || NARRATOR; return { who, text: String(l.text).trim(), mood: typeof l.mood === 'string' ? l.mood : 'neutral', act: cleanAct(l.act, who, picked) }; });
   if (!json.lines.length) return null;
   json.choices = isLast ? [] : (Array.isArray(json.choices) ? json.choices : []).filter(c => c && typeof c.label === 'string' && c.label.trim()).map(c => ({ label: c.label.trim(), emoji: typeof c.emoji === 'string' ? c.emoji : '✨' })).slice(0, 3);
   if (!isLast && json.choices.length < 2) return null;
@@ -687,6 +697,19 @@ async function writeScene() {
   json.check = cleanQuestions(json.check ? [json.check] : [])[0] || null;   // 5th grade and up; skipped when malformed
   json.reflect = cleanReflect(json.reflect);
   return json;
+}
+// A line's stage directions for the 3D stage (stage.js): up to three of { who, move, do, face, prop }, each value
+// from the stage's own lists. Anything else is dropped; a direction with no who belongs to the line's speaker.
+function cleanAct(x, who, cast) {
+  const S = window.STAGE || { MARKS: [], ACTIONS: [] }, ids = cast.map(c => c.id), sid = who && who !== NARRATOR ? who.id : '';
+  const list = Array.isArray(x) ? x : (x && typeof x === 'object' ? [x] : []);
+  return list.filter(d => d && typeof d === 'object').slice(0, 3).map(d => ({
+    who: ids.includes(d.who) ? d.who : sid,
+    move: S.MARKS.includes(d.move) ? d.move : '',
+    do: S.ACTIONS.includes(d.do) ? d.do : '',
+    face: ids.includes(d.face) || d.face === 'audience' || d.face === 'back' ? d.face : '',
+    prop: typeof d.prop === 'string' && /\p{Extended_Pictographic}/u.test(d.prop) && [...d.prop].length <= 4 ? d.prop : ''
+  })).filter(d => d.who && (d.move || d.do || d.face || d.prop));
 }
 // The reflection question (5th grade and up): a question and 2 to 4 options, none of them right or wrong. Each
 // option may carry a reply a character says back. Null when the writer's JSON does not hold one.
@@ -958,7 +981,13 @@ async function nextScene() {
 const bare = w => w.replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, '');
 function showScene(scene) {
   $('title').textContent = scene.title || '';
-  const sc = $('scene'); sc.innerHTML = ''; for (const e of (scene.emoji || []).slice(0, 4)) { const s = document.createElement('span'); s.textContent = e; sc.appendChild(s); }
+  const sc = $('scene');
+  if (window.STAGE && STAGE.ok) {
+    if (!sc.classList.contains('stage')) { sc.innerHTML = ''; sc.classList.add('stage'); STAGE.mount(sc); }
+    // The scene's things (not the cast or the place) stand on the set as emoji.
+    const things = (scene.emoji || []).filter(e => e !== place[0] && !picked.some(c => c.emoji === e));
+    STAGE.setScene({ place: STAGE.placeId(place[1]), ids: picked.map(c => c.id), entrance: story.scenes.length === 1, things });
+  } else { sc.innerHTML = ''; for (const e of (scene.emoji || []).slice(0, 4)) { const s = document.createElement('span'); s.textContent = e; sc.appendChild(s); } }
   const text = $('text'); text.innerHTML = '';
   scene.lines.forEach((l, i) => {
     const p = document.createElement('p'); if (l.who !== NARRATOR) { p.className = 'say'; const w = document.createElement('span'); w.className = 'who'; w.textContent = l.who.emoji; p.appendChild(w); }
@@ -993,19 +1022,22 @@ function tapWord(word, line) {
 function readFrom(i, once) {
   const scene = story && story.scenes[story.scenes.length - 1]; if (!scene) return; story.reading = i;
   const ps = $('text').children; [...ps].forEach((p, k) => p.classList.toggle('now', k === i));
-  [...$('scene').children].forEach(s => s.classList.remove('now'));
-  if (i >= scene.lines.length) { VOICE.stop(); highlight(-1, -1); afterScene(scene); return; }
-  const l = scene.lines[i]; if (l.who !== NARRATOR) { const idx = (scene.emoji || []).indexOf(l.who.emoji); if (idx >= 0) $('scene').children[idx].classList.add('now'); }
+  const stage = window.STAGE && STAGE.ok;
+  if (!stage) [...$('scene').children].forEach(s => s.classList.remove('now'));
+  if (i >= scene.lines.length) { VOICE.stop(); highlight(-1, -1); if (stage) STAGE.quiet(); afterScene(scene); return; }
+  const l = scene.lines[i];
+  if (stage) STAGE.line({ whoId: l.who.id, mood: l.mood, acts: l.act || [] });
+  else if (l.who !== NARRATOR) { const idx = (scene.emoji || []).indexOf(l.who.emoji); if (idx >= 0) $('scene').children[idx].classList.add('now'); }
   if (!once && i + 2 < scene.lines.length) VOICE.prefetch(scene.lines[i + 2].text, scene.lines[i + 2].who, scene.lines[i + 2].mood);
   ps[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   VOICE.say(l.text, l.who, l.mood, () => {
-    highlight(-1, -1);
+    highlight(-1, -1); if (stage) STAGE.quiet();
     if (once) { if (story.reading === i) { story.reading = -1; ps[i].classList.remove('now'); } return; }
     if (story.reading === i) setTimeout(() => { if (story && story.reading === i) readFrom(i + 1); }, 300);
   }, w => { if (story && story.reading === i) highlight(i, w); });
 }
 function afterScene(scene, quiet) {
-  if (scene.end || !scene.choices.length) { $('end').classList.add('on'); if (grown()) { startQuiz(); } else say(T('The end! Tap the dice for another story.')); return; }
+  if (scene.end || !scene.choices.length) { $('end').classList.add('on'); if (window.STAGE && STAGE.ok) STAGE.cheer(); if (grown()) { startQuiz(); } else say(T('The end! Tap the dice for another story.')); return; }
   const box = $('choices'); box.innerHTML = '';
   for (const c of scene.choices) {
     const b = document.createElement('button'); const e = document.createElement('span'); e.className = 'e'; e.textContent = c.emoji || '✨'; b.appendChild(e); b.appendChild(document.createTextNode(c.label));
@@ -1068,12 +1100,12 @@ $('mode').onclick = () => {
 $('go').onclick = () => start();
 $('read').onclick = () => { if (story) readFrom(0); };
 $('another').onclick = () => { VOICE.stop(); start(true); };
-$('back').onclick = () => { VOICE.stop(); story = null; $('setup').classList.remove('off'); $('story').classList.remove('on'); $('back').hidden = true; };
+$('back').onclick = () => { VOICE.stop(); if (window.STAGE && STAGE.ok) STAGE.stop(); story = null; $('setup').classList.remove('off'); $('story').classList.remove('on'); $('back').hidden = true; };
 $('stars').textContent = '⭐ ' + stars;
 try { speechSynthesis.onvoiceschanged = () => {}; } catch (e) {}
 addEventListener('pointerdown', () => say(T('Story Maker! Who is in the story?')), { once: true });
 const pickArgs = (ids, p, k, d, l, lv) => { picked = ids.map(id => CAST.find(c => c.id === id)); place = PLACES[p]; kind = KINDS[k]; drama = DRAMAS[d]; length = LENGTHS[l]; if (lv !== undefined) level = LEVELS[lv]; };
-window.STORY = { cfg: CFG, CAST, PLACES, KINDS, LEVELS, RUNGS, PLOTS, get story() { return story; }, get quiz() { return quiz; }, start, pick: pickArgs, builtinScene, buildPrompt, parseScene, cleanReflect, storyQuestions, cleanQuestions, VOICE, setSelfRead: v => { selfRead = v; showMode(); } };
+window.STORY = { cfg: CFG, CAST, PLACES, KINDS, LEVELS, RUNGS, PLOTS, get story() { return story; }, get quiz() { return quiz; }, start, pick: pickArgs, builtinScene, buildPrompt, parseScene, cleanReflect, cleanAct, storyQuestions, cleanQuestions, VOICE, setSelfRead: v => { selfRead = v; showMode(); } };
 window.SM = window.STORY;
 
 // ---------------------------------------------------------------------------
@@ -1106,11 +1138,15 @@ window.DucklingLadder = {
       for (const w of vocab) if (!all.includes(w)) throw new Error('missing word ' + w);
       if (sceneNo === total && (i >= 4) !== /"check"/.test(p.user)) throw new Error('check question guidance');
       if (!/Choices: /.test(p.user)) throw new Error('choice guidance');
+      if (!/"act": \[\{"who"/.test(p.user) || !/acted out by small 3D figures/.test(p.user)) throw new Error('stage guidance');
       if (sceneNo === 1 ? !/OPENING scene/.test(p.user) || !/"premise"/.test(p.user) : !/The story began like this/.test(p.user)) throw new Error('opening guidance');
       // The reply path: a well formed scene parses, a bad one is skipped instead of thrown.
       const good = parseScene('```json\n{"title":"t","lines":[{"who":"narrator","text":"Hi."}],"choices":[{"label":"Go on"},{"label":"Wait"}],"check":{"q":"Why?","choices":["a","b","c"],"answer":1},"reflect":{"q":"What would you do?","options":["x","y","z"]}}\n```');
       if (!good || cleanQuestions([good.check]).length !== 1 || !cleanReflect(good.reflect)) throw new Error('parse of a good reply');
       if (parseScene('{}') === null || parseScene('not json') !== null || cleanQuestions([{ q: 'x', choices: ['a'], answer: 0 }]).length || cleanReflect({ q: 'x', options: ['a'] })) throw new Error('parse of a bad reply');
+      // Stage directions: values outside the stage's lists are dropped, and a direction with nothing left goes.
+      const ca = cleanAct([{ who: cast[0].id, move: 'left', do: 'fly', face: 'moon', prop: '🗺️' }, { move: 'nowhere' }, 'x'], NARRATOR, cast);
+      if (ca.length !== 1 || ca[0].move !== 'left' || ca[0].do !== '' || ca[0].face !== '' || ca[0].prop !== '🗺️') throw new Error('stage directions');
       out.push(`${LEVELS[i][2]}: scene ${sceneNo} of ${total}, words ${vocab.join(' ')}`);
     }
     return out;

@@ -1,4 +1,4 @@
-// Story Maker follows the tablet's language. The real compatibility script runs over a fake shell bridge whose
+// Story Maker acts each story out on a 3D stage, and it follows the tablet's language. The real compatibility script runs over a fake shell bridge whose
 // narrator voice is the family's (an es- voice for a Spanish family). In Spanish the screen and the spoken prompts are
 // Spanish, the writer is told to write in Spanish, and every line is spoken by a Spanish voice; in English nothing
 // changes. The compatibility script itself speaks a line with an English voice unless the line is marked Spanish, so
@@ -35,14 +35,17 @@ const SILENCE = (() => {
 // One scene as the writer would send it, in the language asked for.
 const scene = (es: boolean) => JSON.stringify({
   title: es ? 'El globo rojo' : 'The red balloon', emoji: ['🎈', '🏰'],
-  lines: [{ who: 'narrator', text: es ? 'Un día de sol, Bun llegó a un castillo.' : 'One sunny day, Bun came to a castle.' }, { who: 'bun', text: es ? '¡Qué bonito!' : 'How lovely!', mood: 'cheerful' }],
+  lines: [{ who: 'narrator', text: es ? 'Un día de sol, Bun llegó a un castillo.' : 'One sunny day, Bun came to a castle.', act: [{ who: 'bun', move: 'front', do: 'wave' }] },
+    { who: 'bun', text: es ? '¡Qué bonito!' : 'How lovely!', mood: 'cheerful', act: [{ do: 'jump', prop: '🗺️' }, { do: 'fly' }] }],
   choices: [{ label: es ? 'Entrar' : 'Go in', emoji: '🚪' }, { label: es ? 'Esperar' : 'Wait', emoji: '⏳' }], summary: 'x',
   premise: es ? 'Bun quiere encontrar la corona perdida del castillo.' : 'Bun wants to find the castle\'s lost crown.'
 });
 
-async function open(voice: string) {
+// gl: 'on' gives the browser software WebGL, so the 3D stage runs; 'off' turns WebGL off, so the emoji strip shows.
+const GL: Record<string, string[]> = { on: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], off: ['--disable-3d-apis'], default: [] };
+async function open(voice: string, gl: 'on' | 'off' | 'default' = 'default') {
   const { chromium } = await import('playwright');
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ args: GL[gl] });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   await ctx.addInitScript(`window.DucklingApp = { appId: () => 'story-maker', deviceToken: () => 'dev-1', apiUrl: () => 'https://api.example.test', childId: () => 'chd_1', childName: () => 'Ada', voice: () => '${voice}', levels: () => '{"reading":0}' };`);
   await ctx.addInitScript(COMPAT);
@@ -86,6 +89,42 @@ describe('Story Maker openings', () => {
     const second = ai[1].messages[0].content as string;
     expect(second).toContain("The story began like this: Bun wants to find the castle's lost crown.");
     expect(second).not.toContain('OPENING scene');
+    expect(errors).toEqual([]);
+    await browser.close();
+  }, 60_000);
+});
+
+describe('Story Maker stage', () => {
+  it('acts out each line on a 3D set for the place, from the stage directions the writer sends', async () => {
+    const { browser, p, ai, errors } = await open('en-US-JennyNeural', 'on');
+    await tellOne(p);
+    expect(await p.evaluate(() => (window as any).STAGE.ok)).toBe(true);
+    await p.locator('#scene.stage canvas').waitFor();
+    expect(await p.locator('#scene span').count()).toBe(0);
+    const user = ai[0].messages[0].content as string;
+    expect(user).toContain('acted out by small 3D figures');
+    expect(user).toContain('"act": [{"who"');
+    // Directions are kept when every value is the stage's own; a direction with nothing usable left is dropped.
+    const acts = await p.evaluate(() => (window as any).STORY.story.scenes[0].lines.map((l: any) => l.act));
+    expect(acts).toEqual([[{ who: 'bun', move: 'front', do: 'wave', face: '', prop: '' }], [{ who: 'bun', move: '', do: 'jump', face: '', prop: '🗺️' }]]);
+    const dbg = () => p.evaluate(() => (window as any).STAGE.debug());
+    expect((await dbg()).set).toBe('castle');
+    // Bun walks on, then to the front of the set for the narrator's line.
+    await expect.poll(async () => (await dbg()).actors[0]?.z ?? 0, { timeout: 30_000 }).toBeGreaterThan(2.4);
+    if (process.env.WEB_SHOTS) await p.screenshot({ path: join(process.env.WEB_SHOTS, 'story-maker-stage.png') });
+    // The cast's line: Bun holds the map.
+    await expect.poll(async () => (await dbg()).props, { timeout: 30_000 }).toBe(1);
+    expect(errors).toEqual([]);
+    await browser.close();
+  }, 90_000);
+
+  it('shows the emoji strip when the tablet has no WebGL', async () => {
+    const { browser, p, errors } = await open('en-US-JennyNeural', 'off');
+    await tellOne(p);
+    expect(await p.evaluate(() => (window as any).STAGE.ok)).toBe(false);
+    expect(await p.locator('#scene canvas').count()).toBe(0);
+    expect(await p.locator('#scene span').count()).toBeGreaterThan(0);
+    await p.getByText('One sunny day, Bun came to a castle.').waitFor();
     expect(errors).toEqual([]);
     await browser.close();
   }, 60_000);
