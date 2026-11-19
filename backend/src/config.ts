@@ -93,7 +93,7 @@ const schema = z.object({
   // The AI proxy (POST /ai/messages) for Draw With Me lessons and Story Maker scenes. With no key, apps get a 503
   // and fall back to their built-in content. Models outside AI_MODELS are served with AI_DEFAULT_MODEL.
   ANTHROPIC_API_KEY: z.string().default(''),
-  AI_MODELS: z.string().default('claude-haiku-5-5,claude-sonnet-5-5,claude-haiku-4-5-20251001'),
+  AI_MODELS: z.string().default('claude-haiku-5-5,claude-sonnet-5-5'),
   AI_DEFAULT_MODEL: z.string().default('claude-haiku-5-5'),
   AI_DAILY_CALLS: z.string().default('draw-with-me:25,story-maker:12,*:10'),
   AI_MAX_TOKENS: z.coerce.number().int().default(6000),

@@ -841,8 +841,10 @@ describe('ai proxy', () => {
     // A model outside the allowlist is served with the default model.
     expect((await call('draw-with-me', { model: 'claude-3-opus-20240229' })).statusCode).toBe(200);
     expect(aiCalls[1].model).toBe('claude-haiku-5-5');
+    // Haiku 4.5 is no longer served: a tablet still on an older app version that asks for it gets the default.
     // The third call is the last one today for this app on this device; the fourth is refused without reaching Anthropic.
-    expect((await call('draw-with-me')).statusCode).toBe(200);
+    expect((await call('draw-with-me', { model: 'claude-haiku-4-5-20251001' })).statusCode).toBe(200);
+    expect(aiCalls[2].model).toBe('claude-haiku-5-5');
     expect((await call('draw-with-me')).statusCode).toBe(429);
     expect(aiCalls).toHaveLength(3);
     // Another app has its own allowance; a second device too.

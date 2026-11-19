@@ -206,7 +206,7 @@ const KINDS = [['🧭', 'adventure', 'Adventure'], ['🔍', 'mystery', 'Mystery'
 const DRAMAS = [['☁️', 'cozy', 'Cozy', 'no real problem, just a happy time together'], ['🌦️', 'little', 'A little trouble', 'one small problem that friends solve kindly'], ['⛈️', 'big', 'Big trouble', 'an exciting safe scare, like getting lost or a storm, that ends well']];
 // How many scenes Short and Long mean depends on the reading level (RUNGS[...].scenes); totalScenes() reads it.
 const LENGTHS = [['📄', 'short', 'Short'], ['📚', 'long', 'Long']];
-const CFG = Object.assign({ storyModel: 'claude-haiku-4-5-20251001', dailyLimit: 10, tts: null }, window.DWM_CONFIG || {});
+const CFG = Object.assign({ storyModel: 'claude-haiku-5-5', dailyLimit: 10, tts: null }, window.DWM_CONFIG || {});
 let picked = [], place = null, kind = null, drama = null, length = null;
 let story = null;   // { scenes: [...], history: [...], reading }
 const $ = id => document.getElementById(id);

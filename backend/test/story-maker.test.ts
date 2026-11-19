@@ -166,6 +166,7 @@ describe('Story Maker language', () => {
     await p.getByRole('heading', { name: 'Story Maker' }).waitFor();
     await tellOne(p);
     expect(ai[0].system).not.toContain('Spanish');
+    expect(ai[0].model).toBe('claude-haiku-5-5');
     await p.waitForTimeout(800);
     expect(tts.filter((t) => !/^en-/.test(t.voice))).toEqual([]);
     expect(errors).toEqual([]);
