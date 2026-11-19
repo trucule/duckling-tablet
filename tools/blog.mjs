@@ -81,7 +81,7 @@ ${GA}
 <link rel="alternate" type="application/rss+xml" title="Duckling Tablet blog" href="/blog/feed.xml">
 <meta property="og:title" content="${esc(title)} | Duckling Tablet">
 <meta property="og:description" content="${esc(description)}">
-<meta property="og:image" content="${ORIGIN}/og.png">
+<meta property="og:image" content="${ORIGIN}/og.png?v=2">
 <meta property="og:type" content="${current === 'post' ? 'article' : 'website'}">
 ${FONTS}
 <link rel="stylesheet" href="/site.css">
