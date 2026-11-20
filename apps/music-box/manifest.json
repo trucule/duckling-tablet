@@ -1,7 +1,7 @@
 {
   "id": "music-box",
   "name": "Music Box",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A tone matrix with drums and five instruments, three song slots, and a Voice Lab that turns the child's own voice into an instrument.",
   "subjects": [
     "music"
@@ -23,5 +23,21 @@
       "Keeping a steady beat",
       "Expressing a mood through sound"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Caja de música",
+      "description": "Una matriz de tonos con percusión y cinco instrumentos, tres espacios para canciones y un Laboratorio de voz que convierte la propia voz del niño en un instrumento.",
+      "about": {
+        "concept": "Patrón y ritmo. Una matriz de tonos convierte una cuadrícula de decisiones en una melodía que se repite, así el niño escucha cómo cambiar una celda cambia el conjunto y aprende pulsos, compases y capas al construirlos.",
+        "progression": "El juego libre es una matriz de tonos abierta con percusión, cinco instrumentos, tres canciones guardadas y un Laboratorio de voz para la propia voz del niño. La escalera de Retos usa la misma cuadrícula, desde el pulso constante, agudo y grave, y fuerte y suave en preescolar, pasando por ritmos, ecos, escalas, intervalos, mayor y menor, acordes y compases, hasta armaduras, progresiones de acordes, lectura del pentagrama y composición con reglas en octavo grado.",
+        "lifeSkills": [
+          "Escuchar con atención",
+          "Componer y revisar",
+          "Mantener un pulso constante",
+          "Expresar un estado de ánimo con sonido"
+        ]
+      }
+    }
   }
 }

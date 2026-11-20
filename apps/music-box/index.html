@@ -399,6 +399,237 @@ const PAD_EMOJI = ['🎤', '🐶', '🐱', '🦖', '🚀', '🍓', '👻', '🌈
 const INST_NAMES = { bell: '🔔', flute: '🎵', pluck: '🎸', marimba: '🪵', organ: '🎹', voice: '🎤' };
 const BASE = 523.25; // a recorded voice played as-is counts as this note (middle of the grid)
 
+// --- Language ------------------------------------------------------------------------------------------------------
+// On a Duckling tablet set to Spanish (KidTablet.language) every label, prompt, hint, feedback line and spoken line is
+// Spanish, note letters become solfege names (do re mi fa sol la si) and the narrator speaks es-MX. The sounds, the
+// grid, the ladder and the English text do not change: ES is keyed by the English text with {name} placeholders.
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  // Header, tabs, instruments, effects, footer
+  'Music Box': 'Caja de música', '🎼 Song': '🎼 Canción', '🎤 Voice Lab': '🎤 Laboratorio de voz', '🏆 Challenges': '🏆 Retos',
+  '🔔 Bell': '🔔 Campana', '🎵 Flute': '🎵 Flauta', '🎸 Pluck': '🎸 Cuerda', '🪵 Marimba': '🪵 Marimba', '🎹 Organ': '🎹 Órgano', '🎤 Me': '🎤 Yo',
+  'Hear it again': 'Escúchalo otra vez', '🐿️ Chipmunk': '🐿️ Ardilla', '🐻 Giant': '🐻 Gigante', '↩️ Backwards': '↩️ Al revés', '🤖 Robot': '🤖 Robot',
+  '🏔️ Echo': '🏔️ Eco', '⭐ Sing my notes': '⭐ Canta mis notas', '🎼 In my song': '🎼 En mi canción',
+  'Play': 'Reproducir', 'Clear': 'Borrar', 'Surprise song': 'Canción sorpresa', 'Scale': 'Escala', 'Swing': 'Swing', 'Record': 'Grabar',
+  '🔊 Listen': '🔊 Escucha', '💡 Hint': '💡 Pista', '✅ Check': '✅ Comprobar', '⏭️ Skip': '⏭️ Saltar',
+  // Free play
+  'Get ready...': 'Prepárate...', 'Say something!': '¡Di algo!', 'Got it!': '¡Lo tengo!', 'I did not hear anything. Try again!': 'No escuché nada. ¡Intenta otra vez!',
+  'I cannot hear the microphone.': 'No puedo oír el micrófono.', 'Now your voice can sing!': '¡Ahora tu voz puede cantar!',
+  '🐢 Slow': '🐢 Lento', '🐇 Fast!': '🐇 ¡Rápido!', '🚶 Medium': '🚶 Moderado', 'Song {n}': 'Canción {n}',
+  'Tap to hear': 'Toca para oír', 'Tap 🎤 and talk': 'Toca 🎤 y habla', 'No microphone': 'Sin micrófono', 'Ready…': 'Prepárate…', 'Try again': 'Intenta otra vez', '🔴 Talk!': '🔴 ¡Habla!',
+  // Challenges: names of things
+  'drum': 'tambor', 'clap': 'palmada', 'shaker': 'maraca', 'Drum': 'Tambor', 'Clap': 'Palmada', 'Shaker': 'Maraca',
+  'a drum': 'un tambor', 'a clap': 'una palmada', 'a shaker': 'una maraca', 'the drum': 'el tambor', 'the clap': 'la palmada', 'the shaker': 'la maraca',
+  'the drum row': 'la fila del tambor', 'the clap row': 'la fila de la palmada', 'the shaker row': 'la fila de la maraca',
+  'bird': 'pájaro', 'cat': 'gato', 'frog': 'rana', 'dog': 'perro', 'cow': 'vaca', 'lion': 'león', 'bear': 'oso', 'elephant': 'elefante',
+  'ta': 'ta', 'ti-ti': 'ti-ti', 'rest': 'silencio', ' and ': ' y ', ', then ': ', luego ', 'high': 'agudo', 'low': 'grave', 'loud': 'fuerte', 'soft': 'suave',
+  'unison': 'unísono', 'second': 'segunda', 'third': 'tercera', 'fourth': 'cuarta', 'fifth': 'quinta', 'sixth': 'sexta', 'seventh': 'séptima', 'octave': 'octava',
+  'one': 'uno', 'two': 'dos', 'three': 'tres', 'four': 'cuatro', 'five': 'cinco', 'six': 'seis', 'seven': 'siete',
+  'major': 'mayor', 'minor': 'menor', 'diminished': 'disminuido', 'natural minor': 'menor natural', '{k} major': '{k} mayor',
+  'sharps': 'sostenidos', 'sharp': 'sostenido', 'flats': 'bemoles', 'flat': 'bemol', 'half': 'semitono', 'whole': 'tono', 'a half step': 'un semitono', 'a whole step': 'un tono',
+  '{n} notes': '{n} notas', 'box {n}': 'caja {n}',
+  'Steady beat': 'Pulso constante', 'High and low': 'Agudo y grave', 'Loud and soft': 'Fuerte y suave', 'Echo 3 notes': 'Eco de 3 notas', 'Rhythm patterns': 'Patrones rítmicos',
+  'Echo 5 notes': 'Eco de 5 notas', 'Instrument families': 'Familias de instrumentos', 'Repeat the rhythm': 'Repite el ritmo', 'Read the rhythm': 'Lee el ritmo', 'Scales': 'Escalas',
+  'Melody echo': 'Eco de melodía', 'Whole and half steps': 'Tonos y semitonos', 'Intervals': 'Intervalos', 'Major and minor': 'Mayor y menor', 'Chords': 'Acordes',
+  'Time signatures': 'Compases', 'Key signatures': 'Armaduras', 'Chord progressions': 'Progresiones de acordes', 'Reading a staff': 'Leer el pentagrama', 'Composing to a rule': 'Componer con reglas',
+  'Mary Had a Little Lamb': 'María tenía un corderito', 'Hot Cross Buns': 'Panecillos calientes', 'Twinkle, Twinkle, Little Star': 'Estrellita, ¿dónde estás?',
+  'Ode to Joy': 'Himno a la alegría', 'Brother John': 'Martinillo', 'Lightly Row': 'Rema suavemente', 'London Bridge': 'El puente de Londres',
+  'Row, Row, Row Your Boat': 'Rema, rema tu bote', 'Jingle Bells': 'Navidad, Navidad', 'Old MacDonald': 'El viejo MacDonald', 'Au Clair de la Lune': 'A la luz de la luna', 'Yankee Doodle': 'Yankee Doodle',
+  'a string instrument': 'un instrumento de cuerda', 'an instrument with strings, like a guitar': 'un instrumento con cuerdas, como una guitarra',
+  'A guitar has strings you pluck. Tap 🎸 Pluck at the top.': 'Una guitarra tiene cuerdas que se puntean. Toca 🎸 Cuerda arriba.',
+  'a woodwind instrument': 'un instrumento de viento madera', 'an instrument you blow into': 'un instrumento que se sopla',
+  'A flute is a woodwind. You blow into it. Tap 🎵 Flute at the top.': 'La flauta es de viento madera. Se sopla. Toca 🎵 Flauta arriba.',
+  'an instrument you hit with a mallet': 'un instrumento que se golpea con una baqueta', 'a pitched percussion instrument': 'un instrumento de percusión con notas',
+  'Bells and a marimba are hit with mallets. Tap 🔔 Bell or 🪵 Marimba at the top.': 'Las campanas y la marimba se golpean con baquetas. Toca 🔔 Campana o 🪵 Marimba arriba.',
+  'a keyboard instrument': 'un instrumento de teclado', 'an instrument with keys, like a piano': 'un instrumento con teclas, como un piano',
+  'An organ has keys like a piano. Tap 🎹 Organ at the top.': 'El órgano tiene teclas como un piano. Toca 🎹 Órgano arriba.',
+  'This song is in 4/4: 4 beats in every bar. Each box is one beat.': 'Esta canción está en 4/4: 4 tiempos en cada compás. Cada caja es un tiempo.',
+  'This song is in 3/4: 3 beats in every bar. Each box is one beat.': 'Esta canción está en 3/4: 3 tiempos en cada compás. Cada caja es un tiempo.',
+  'This song is in 2/4: 2 beats in every bar. Each box is one beat.': 'Esta canción está en 2/4: 2 tiempos en cada compás. Cada caja es un tiempo.',
+  'This song is in 6/8: 6 eighth notes in every bar, felt as two big beats. Each square is one eighth note.': 'Esta canción está en 6/8: 6 corcheas en cada compás, que se sienten como dos tiempos grandes. Cada cuadro es una corchea.',
+  // Composing rules
+  'Start and end on {t}.': 'Empieza y termina en {t}.', 'Use at least {n} notes, one at a time.': 'Usa al menos {n} notas, una a la vez.',
+  'Move by step or skip. No jump bigger than a third.': 'Muévete por grados o saltos pequeños. Ningún salto mayor que una tercera.',
+  'Your highest note comes only once.': 'Tu nota más aguda aparece solo una vez.',
+  'Use a leap of a fourth or more, then step back the other way.': 'Usa un salto de cuarta o más y luego regresa un grado en sentido contrario.',
+  'Use only the notes of the {t} major chord: {a}, {b} and {c}.': 'Usa solo las notas del acorde de {t} mayor: {a}, {b} y {c}.',
+  'Put a drum on beat 1 of both bars.': 'Pon un tambor en el tiempo 1 de los dos compases.', 'End bar 1 on {d} and bar 2 on {t}.': 'Termina el compás 1 en {d} y el compás 2 en {t}.',
+  'Stay within a fifth: highest and lowest notes no more than five letters apart.': 'Quédate dentro de una quinta: entre la nota más aguda y la más grave hay como máximo cinco notas.',
+  'Not yet: {rule}': 'Todavía no: {rule}',
+  // Shared feedback
+  'One note at a time. Each column gets just one note.': 'Una nota a la vez. Cada columna lleva solo una nota.', 'Tap a square to start.': 'Toca un cuadro para empezar.',
+  'Note {n} is not right yet.': 'La nota {n} todavía no está bien.', 'Good start. Keep going.': 'Buen comienzo. Sigue así.', 'Too many notes. Take the extra ones away.': 'Hay demasiadas notas. Quita las que sobran.',
+  'Look at {row} again.': 'Mira {row} otra vez.', '{Thep} stays quiet this time.': '{Thep} se queda en silencio esta vez.',
+  // Steady beat
+  'Each box has two squares. Put {ap} at the start of every box.': 'Cada caja tiene dos cuadros. Pon {ap} al inicio de cada caja.',
+  'Play {thep} once in every box, on the first square.': 'Toca {thep} una vez en cada caja, en el primer cuadro.',
+  'Walk with {thep}: one sound at the start of each box.': 'Camina con {thep}: un sonido al inicio de cada caja.',
+  'Tap the first square of each box in the {ic} row. Skip the second square.': 'Toca el primer cuadro de cada caja en la fila {ic}. Deja el segundo cuadro vacío.',
+  'Keep a steady beat with {thep} and {thep2} together. Fill both rows.': 'Mantén un pulso constante con {thep} y {thep2} juntos. Llena las dos filas.',
+  'Two friends keep the beat. Fill {row} and {row2}.': 'Dos amigos llevan el pulso. Llena {row} y {row2}.',
+  'Tap every square in the {ic} row, then every square in the {ic2} row.': 'Toca cada cuadro de la fila {ic} y luego cada cuadro de la fila {ic2}.',
+  'Keep a steady beat. Turn on every {p} square.': 'Mantén un pulso constante. Enciende todos los cuadros de {row}.',
+  'Fill {row}, all the way across. Tap, tap, tap.': 'Llena {row} de lado a lado. Toca, toca, toca.',
+  'A steady beat keeps going. Put {ap} in every square.': 'Un pulso constante no se detiene. Pon {ap} en cada cuadro.',
+  'Play {thep} on every beat, from start to end.': 'Toca {thep} en cada pulso, de principio a fin.',
+  'Find the {ic} row. Tap every square in it, or slide your finger along it.': 'Busca la fila {ic}. Toca cada cuadro o desliza el dedo por toda la fila.',
+  // High and low
+  'The bird sings high. Put {n} notes in the top row.': 'El pájaro canta agudo. Pon {n} notas en la fila de arriba.',
+  'High up in the sky! Play {n} high notes in the bird row.': '¡Alto en el cielo! Toca {n} notas agudas en la fila del pájaro.',
+  'The elephant sings low. Put {n} notes in the bottom row.': 'El elefante canta grave. Pon {n} notas en la fila de abajo.',
+  'Down low, like an elephant. Play {n} low notes in the bottom row.': 'Bien grave, como un elefante. Toca {n} notas graves en la fila de abajo.',
+  'The bird is at the top. Tap {n} squares in its row.': 'El pájaro está arriba. Toca {n} cuadros en su fila.',
+  'The elephant is at the bottom. Tap {n} squares in its row.': 'El elefante está abajo. Toca {n} cuadros en su fila.',
+  'Use only the top row.': 'Usa solo la fila de arriba.', 'Use only the bottom row.': 'Usa solo la fila de abajo.',
+  'Add more notes. We need {n}.': 'Agrega más notas. Necesitamos {n}.', 'Too many. We need {n}.': 'Son demasiadas. Necesitamos {n}.',
+  'Play {words}. The bird is high and the elephant is low.': 'Toca {words}. El pájaro es agudo y el elefante es grave.',
+  'Make this song: {words}. Bird for high, elephant for low.': 'Haz esta canción: {words}. Pájaro para agudo, elefante para grave.',
+  'High is the bird at the top. Low is the elephant at the bottom. Put one note in each square, left to right.': 'Agudo es el pájaro de arriba. Grave es el elefante de abajo. Pon una nota en cada cuadro, de izquierda a derecha.',
+  'Climb the stairs from low to high. Start with the elephant and go up one row in each square.': 'Sube la escalera de grave a agudo. Empieza con el elefante y sube una fila en cada cuadro.',
+  'Walk down the stairs from high to low. Start with the bird and go down one row in each square.': 'Baja la escalera de agudo a grave. Empieza con el pájaro y baja una fila en cada cuadro.',
+  'First square: the elephant row at the bottom. Next square: one row higher. Keep climbing to the bird.': 'Primer cuadro: la fila del elefante, abajo. Siguiente cuadro: una fila más arriba. Sigue subiendo hasta el pájaro.',
+  'First square: the bird row at the top. Next square: one row lower. Keep going down to the elephant.': 'Primer cuadro: la fila del pájaro, arriba. Siguiente cuadro: una fila más abajo. Sigue bajando hasta el elefante.',
+  // Loud and soft
+  'Play {words}. The drum is loud and the shaker is soft.': 'Toca {words}. El tambor es fuerte y la maraca es suave.',
+  'Loud and soft song: {words}. Drum for loud, shaker for soft.': 'Canción de fuerte y suave: {words}. Tambor para fuerte, maraca para suave.',
+  'One square for each word, left to right. Loud goes in the drum row 🥁. Soft goes in the shaker row 🪇.': 'Un cuadro por cada palabra, de izquierda a derecha. Fuerte va en la fila del tambor 🥁. Suave va en la fila de la maraca 🪇.',
+  'The drum is loud. Make a big loud beat: fill the drum row, with no shaker.': 'El tambor es fuerte. Haz un pulso bien fuerte: llena la fila del tambor, sin maraca.',
+  'Loud like thunder! Put a drum in every square.': '¡Fuerte como un trueno! Pon un tambor en cada cuadro.',
+  'The shaker is soft. Make a quiet beat: fill the shaker row, with no drum.': 'La maraca es suave. Haz un pulso suavecito: llena la fila de la maraca, sin tambor.',
+  'Soft like a mouse. Put a shaker in every square and keep the drum off.': 'Suave como un ratón. Pon una maraca en cada cuadro y deja el tambor apagado.',
+  'Loud is the drum 🥁. Fill its row and leave the shaker off.': 'Fuerte es el tambor 🥁. Llena su fila y deja la maraca apagada.',
+  'Soft is the shaker 🪇. Fill its row and leave the drum and clap off.': 'Suave es la maraca 🪇. Llena su fila y deja el tambor y la palmada apagados.',
+  'Start loud, then go soft. Drums in the first half, shakers in the second half.': 'Empieza fuerte y luego suave. Tambores en la primera mitad, maracas en la segunda mitad.',
+  'Loud, then soft! Drum first, then shaker.': '¡Fuerte y luego suave! Primero tambor, luego maraca.',
+  'Start soft, then get loud. Shakers in the first half, drums in the second half.': 'Empieza suave y luego fuerte. Maracas en la primera mitad, tambores en la segunda mitad.',
+  'Soft, then loud! Shaker first, then drum.': '¡Suave y luego fuerte! Primero maraca, luego tambor.',
+  'The purple line is the middle. Fill the drum row before it and the shaker row after it.': 'La línea morada es la mitad. Llena la fila del tambor antes de ella y la fila de la maraca después.',
+  'The purple line is the middle. Fill the shaker row before it and the drum row after it.': 'La línea morada es la mitad. Llena la fila de la maraca antes de ella y la fila del tambor después.',
+  'Get louder and louder. Four shakers, then four claps, then four drums.': 'Cada vez más fuerte. Cuatro maracas, luego cuatro palmadas, luego cuatro tambores.',
+  'Get softer and softer. Four drums, then four claps, then four shakers.': 'Cada vez más suave. Cuatro tambores, luego cuatro palmadas, luego cuatro maracas.',
+  'Box 1: shaker row. Box 2: clap row. Box 3: drum row. Fill each box.': 'Caja 1: fila de la maraca. Caja 2: fila de la palmada. Caja 3: fila del tambor. Llena cada caja.',
+  'Box 1: drum row. Box 2: clap row. Box 3: shaker row. Fill each box.': 'Caja 1: fila del tambor. Caja 2: fila de la palmada. Caja 3: fila de la maraca. Llena cada caja.',
+  // Echoes
+  'Listen. Then play it back: {names}.': 'Escucha. Luego tócalo tú: {names}.', 'Echo me! Play {names}.': '¡Haz mi eco! Toca {names}.', 'Copy my song: {names}.': 'Copia mi canción: {names}.',
+  'Find each animal on the left. Put one note in its row, one square after another.': 'Busca cada animal a la izquierda. Pon una nota en su fila, un cuadro tras otro.',
+  'Echo this longer song: {names}.': 'Haz el eco de esta canción más larga: {names}.', 'Copy all {n} notes: {names}.': 'Copia las {n} notas: {names}.',
+  'Find each animal on the left. One note in its row, then the next square for the next animal.': 'Busca cada animal a la izquierda. Una nota en su fila y el siguiente cuadro para el siguiente animal.',
+  // Rhythm patterns, repeat the rhythm, read the rhythm
+  'Play this rhythm on {row}: {words}.': 'Toca este ritmo en {row}: {words}.', 'Say it, then build it with {thep}: {words}.': 'Dilo y luego constrúyelo con {thep}: {words}.',
+  'Here is a rhythm: {words}. Make it with {thep}.': 'Aquí hay un ritmo: {words}. Hazlo con {thep}.',
+  'Each box is one beat. Ta is one sound at the start of the box. Ti-ti fills both squares. A rest stays empty.': 'Cada caja es un tiempo. Ta es un sonido al inicio de la caja. Ti-ti llena los dos cuadros. Un silencio se queda vacío.',
+  'Here is a rhythm. Copy it into the second half so it plays two times.': 'Aquí hay un ritmo. Cópialo en la segunda mitad para que suene dos veces.',
+  'Repeat after me. Make the second half match the first half.': 'Repite conmigo. Haz que la segunda mitad sea igual a la primera.',
+  'Rhythms love to repeat. Copy the first four boxes into the last four boxes.': 'A los ritmos les gusta repetirse. Copia las primeras cuatro cajas en las últimas cuatro.',
+  'Look at each row. Turn on the same squares after the purple line as before it.': 'Mira cada fila. Enciende después de la línea morada los mismos cuadros que hay antes.',
+  'Put a rhythm in the first half again.': 'Pon otra vez un ritmo en la primera mitad.', 'The second half of {row} does not match yet.': 'La segunda mitad de {row} todavía no coincide.',
+  'Play two rhythms at once. {A}: {wa}. {B}: {wb}.': 'Toca dos ritmos a la vez. {A}: {wa}. {B}: {wb}.',
+  'Do one row at a time. Ta is the first square of a box, ti-ti is both squares, rest is empty.': 'Haz una fila a la vez. Ta es el primer cuadro de una caja, ti-ti son los dos cuadros, silencio es vacío.',
+  'Read the rhythm. Play it on {row}. Each box is one beat.': 'Lee el ritmo. Tócalo en {row}. Cada caja es un tiempo.',
+  'Here are notes and rests. Turn them into {p} sounds, one box for each beat.': 'Aquí hay notas y silencios. Conviértelos en sonidos de {p}, una caja por cada tiempo.',
+  'A black note is one beat: tap the first square of its box. Two notes joined by a beam fill both squares. The open note lasts two boxes. The squiggle is a rest.': 'Una nota negra es un tiempo: toca el primer cuadro de su caja. Dos notas unidas por una barra llenan los dos cuadros. La nota blanca dura dos cajas. El garabato es un silencio.',
+  // Instrument families
+  'The drum, clap and shaker are untuned percussion. Play a beat with {n} of their squares, and no tune notes.': 'El tambor, la palmada y la maraca son percusión sin afinación. Toca un ritmo con {n} de sus cuadros, sin notas de melodía.',
+  'Use only the bottom three rows: 🥁 👏 🪇. Leave the animal rows empty.': 'Usa solo las tres filas de abajo: 🥁 👏 🪇. Deja vacías las filas de los animales.',
+  'No tune notes this time. Only the drum, clap and shaker.': 'Esta vez sin notas de melodía. Solo tambor, palmada y maraca.',
+  'Use {n} squares. You have {k}.': 'Usa {n} cuadros. Tienes {k}.', 'Too many. Use {n} squares.': 'Son demasiados. Usa {n} cuadros.',
+  'At the top, pick {what}. Then play {n} notes on it.': 'Arriba, elige {what}. Luego toca {n} notas con él.',
+  'At the top, pick {what}. Then play {n} notes on it. Add a drum on the first square too.': 'Arriba, elige {what}. Luego toca {n} notas con él. Pon también un tambor en el primer cuadro.',
+  'Pick a different instrument at the top.': 'Elige otro instrumento arriba.', 'Play {n} notes. You have {k}.': 'Toca {n} notas. Tienes {k}.',
+  'Too many notes. We need {n}.': 'Demasiadas notas. Necesitamos {n}.', 'Put a drum on the first square.': 'Pon un tambor en el primer cuadro.',
+  // Scales
+  'Play {len} notes of the {k} major scale going up, starting on {n}.': 'Toca {len} notas de la escala de {k} mayor hacia arriba, empezando en {n}.',
+  'Play {len} notes of the {k} major scale going down, starting on {n}.': 'Toca {len} notas de la escala de {k} mayor hacia abajo, empezando en {n}.',
+  'Start on the {n} row. Each square moves one row up.': 'Empieza en la fila de {n}. Cada cuadro sube una fila.', 'Start on the {n} row. Each square moves one row down.': 'Empieza en la fila de {n}. Cada cuadro baja una fila.',
+  'Play the {k} pentatonic scale going up: {notes}. It skips two notes of the major scale.': 'Toca la escala pentatónica de {k} hacia arriba: {notes}. Se salta dos notas de la escala mayor.',
+  'Skip {a} and {b}. One note in each square.': 'Sáltate {a} y {b}. Una nota en cada cuadro.',
+  'Some notes fell out of the {k} major scale. Put them back so it climbs from low {k} to high {k}.': 'Algunas notas se cayeron de la escala de {k} mayor. Vuelve a ponerlas para que suba del {k} grave al {k} agudo.',
+  'The scale goes up one row in every square. The missing ones are {list}.': 'La escala sube una fila en cada cuadro. Las que faltan son {list}.',
+  'Climb the {k} major scale, from low {k} to high {k}. One note in each square.': 'Sube la escala de {k} mayor, del {k} grave al {k} agudo. Una nota en cada cuadro.',
+  'Walk down the {k} major scale, from high {k} to low {k}. One note in each square.': 'Baja la escala de {k} mayor, del {k} agudo al {k} grave. Una nota en cada cuadro.',
+  'Play the {k} major scale up and back down, one note in each square.': 'Toca la escala de {k} mayor hacia arriba y de regreso hacia abajo, una nota en cada cuadro.',
+  'Start on the top row. Each square goes down one row.': 'Empieza en la fila de arriba. Cada cuadro baja una fila.', 'Start on the bottom row. Each square goes up one row.': 'Empieza en la fila de abajo. Cada cuadro sube una fila.',
+  // Melody echo
+  'This is the start of {title}. ': 'Este es el comienzo de {title}. ', 'Listen, then write it on the grid: {names}.': 'Escucha y luego escríbelo en la cuadrícula: {names}.',
+  'Echo the tune: {names}.': 'Haz el eco de la melodía: {names}.',
+  'Find each letter on the left. One note in its row, then move one square right for the next note.': 'Busca cada nota a la izquierda. Una nota en su fila y luego un cuadro a la derecha para la siguiente.',
+  // Whole and half steps
+  'Start on {n}. Then go up {steps}.': 'Empieza en {n}. Luego sube {steps}.', 'Start on {n}. Then go down {steps}.': 'Empieza en {n}. Luego baja {steps}.',
+  'Start on {n}. Go up {steps}.': 'Empieza en {n}. Sube {steps}.', 'Start on {n}. Go down {steps}.': 'Empieza en {n}. Baja {steps}.',
+  'A half step is the very next row, black rows too. A whole step skips one row.': 'Un semitono es la fila que sigue, también las filas negras. Un tono se salta una fila.',
+  // Intervals
+  'Stack two notes {art} {ord} apart in one column. The bottom note is {a}.': 'Apila dos notas a distancia de {ord} en una columna. La nota de abajo es {a}.',
+  'Count letters up from {a}, and count {a} as 1. Note {n} is {b}.': 'Cuenta notas hacia arriba desde {a}, y cuenta {a} como 1. La nota {n} es {b}.',
+  'Count letters down from {a}, and count {a} as 1. Note {n} is {b}.': 'Cuenta notas hacia abajo desde {a}, y cuenta {a} como 1. La nota {n} es {b}.',
+  'Put two notes in one column.': 'Pon dos notas en una columna.', 'Keep both notes in the same column.': 'Mantén las dos notas en la misma columna.', 'Use exactly two notes.': 'Usa exactamente dos notas.',
+  'The top note is not right yet. Count again.': 'La nota de arriba todavía no está bien. Cuenta otra vez.', 'The bottom note should be {n}.': 'La nota de abajo debe ser {n}.',
+  'Play {a}, then the note {art} {ord} higher.': 'Toca {a} y luego la nota a distancia de {ord} hacia arriba.', 'Play {a}, then the note {art} {ord} lower.': 'Toca {a} y luego la nota a distancia de {ord} hacia abajo.',
+  // Major and minor
+  'Play the C {q} scale going up, one note in each square.': 'Toca la escala de do {q} hacia arriba, una nota en cada cuadro.',
+  'Minor steps: whole, half, whole, whole, half, whole, whole. That is C D E♭ F G A♭ B♭ C.': 'Pasos de la menor: tono, semitono, tono, tono, semitono, tono, tono. Es do re mi♭ fa sol la♭ si♭ do.',
+  'Major steps: whole, whole, half, whole, whole, whole, half. Only the white rows.': 'Pasos de la mayor: tono, tono, semitono, tono, tono, tono, semitono. Solo las filas blancas.',
+  'Stack your notes in one column.': 'Apila tus notas en una columna.', 'Keep all three notes in one column.': 'Mantén las tres notas en una columna.', 'A chord here has three notes.': 'Aquí un acorde tiene tres notas.',
+  'Put {r} at the bottom.': 'Pon {r} abajo.', 'Count the half steps again.': 'Cuenta los semitonos otra vez.',
+  'This {r} major chord sounds bright. Make it minor: move the middle note down one half step.': 'Este acorde de {r} mayor suena brillante. Hazlo menor: baja la nota del medio un semitono.',
+  'This {r} minor chord sounds dark. Make it major: move the middle note up one half step.': 'Este acorde de {r} menor suena oscuro. Hazlo mayor: sube la nota del medio un semitono.',
+  'Turn off the middle note and turn on the row just below it. That is {n}.': 'Apaga la nota del medio y enciende la fila justo debajo. Es {n}.',
+  'Turn off the middle note and turn on the row just above it. That is {n}.': 'Apaga la nota del medio y enciende la fila justo encima. Es {n}.',
+  'Build {art} {r} {q} chord. Stack three notes in one column, with {r} at the bottom.': 'Construye un acorde de {r} {q}. Apila tres notas en una columna, con {r} abajo.',
+  'Major: from {r} go up 4 half steps, then 3 more. That is {r}, {a} and {b}.': 'Mayor: desde {r} sube 4 semitonos y luego 3 más. Es {r}, {a} y {b}.',
+  'Minor: from {r} go up 3 half steps, then 4 more. That is {r}, {a} and {b}.': 'Menor: desde {r} sube 3 semitonos y luego 4 más. Es {r}, {a} y {b}.',
+  // Chords and progressions
+  'In {k} major, build the {roman} chord in one column.': 'En {k} mayor, construye el acorde {roman} en una columna.',
+  'Build {art} {name} chord in one column.': 'Construye el acorde de {name} en una columna.',
+  'Build a triad on note {n} of the {k} major scale: skip a note, skip a note.': 'Construye una tríada sobre la nota {n} de la escala de {k} mayor: salta una nota, salta otra nota.',
+  'The {name} chord is {letters}. Any order works.': 'El acorde de {name} es {letters}. Cualquier orden sirve.',
+  'Keep the whole chord in one column.': 'Mantén todo el acorde en una columna.', 'Not those notes yet. Skip a letter between each one.': 'Esas notas todavía no. Salta una nota entre cada una.',
+  'In {k} major, play {romans}. One chord in each box.': 'En {k} mayor, toca {romans}. Un acorde en cada caja.', '{roman} is {notes}.': '{roman} es {notes}.',
+  'Box {n} needs a chord.': 'La caja {n} necesita un acorde.', 'Check the chord in box {n}.': 'Revisa el acorde de la caja {n}.',
+  // Time signatures
+  '{p} on all six counts': '{thep} en las seis corcheas', '{p} on every half beat': '{thep} en cada medio tiempo', '{p} on beat {list}': '{thep} en el tiempo {list}', '{p} on beats {list}': '{thep} en los tiempos {list}',
+  '{p} on count {list}': '{thep} en la corchea {list}', '{p} on counts {list}': '{thep} en las corcheas {list}', '{intro} Play {parts} in every bar.': '{intro} Toca {parts} en cada compás.',
+  'Count the squares 1 to 6, then a new bar starts at 1 again.': 'Cuenta los cuadros del 1 al 6; luego un nuevo compás empieza otra vez en 1.',
+  'Count the boxes 1 to {n}, then a new bar starts at 1 again.': 'Cuenta las cajas del 1 al {n}; luego un nuevo compás empieza otra vez en 1.',
+  // Key signatures
+  'This key signature has {n} {kind}. The {k} major scale is missing those notes. Add them so the scale climbs from the bottom row.': 'Esta armadura tiene {n} {kind}. A la escala de {k} mayor le faltan esas notas. Agrégalas para que la escala suba desde la fila de abajo.',
+  'The {kind} in this key: {list}. Put each one in its empty square.': '{Kind} de esta tonalidad: {list}. Pon cada uno en su cuadro vacío.',
+  'This key signature has {n} {kind}. Its minor key starts on {t}. Build the {t} natural minor scale going down from the top row.': 'Esta armadura tiene {n} {kind}. Su tonalidad menor empieza en {t}. Construye la escala de {t} menor natural bajando desde la fila de arriba.',
+  'This key signature has {n} {kind}. Its minor key starts on {t}. Build the {t} natural minor scale going up from the bottom row.': 'Esta armadura tiene {n} {kind}. Su tonalidad menor empieza en {t}. Construye la escala de {t} menor natural subiendo desde la fila de abajo.',
+  'This key signature has {n} {kind}. Its major key is {k}. Build the {k} major scale going down from the top row.': 'Esta armadura tiene {n} {kind}. Su tonalidad mayor es {k}. Construye la escala de {k} mayor bajando desde la fila de arriba.',
+  'This key signature has {n} {kind}. Its major key is {k}. Build the {k} major scale going up from the bottom row.': 'Esta armadura tiene {n} {kind}. Su tonalidad mayor es {k}. Construye la escala de {k} mayor subiendo desde la fila de abajo.',
+  'The {kind} in this key: {list}. Every other note is a plain letter. One note in each square.': '{Kind} de esta tonalidad: {list}. Las demás notas son naturales. Una nota en cada cuadro.',
+  // Reading a staff, composing
+  'Read the music on the staff. Play it on the grid. Each box is one beat.': 'Lee la música del pentagrama. Tócala en la cuadrícula. Cada caja es un tiempo.',
+  'Here is a melody on the treble staff. Put each note in its row and its box.': 'Aquí hay una melodía en clave de sol. Pon cada nota en su fila y su caja.',
+  '{text} The sharp in the key signature makes every F an F sharp.': '{text} El sostenido de la armadura convierte cada fa en fa sostenido.',
+  'Lines from the bottom are E, G, B, D, F. Spaces are F, A, C, E. A black note is one beat, an open note is two, and a flag splits a beat in half.': 'Las líneas, de abajo hacia arriba, son mi, sol, si, re, fa. Los espacios son fa, la, do, mi. Una nota negra es un tiempo, una blanca son dos, y una corchea divide el tiempo en dos.',
+  'Check box {n}.': 'Revisa la caja {n}.',
+  'Compose a melody in {k} major that follows every rule. Press Check when it is ready.': 'Compón una melodía en {k} mayor que siga todas las reglas. Pulsa Comprobar cuando esté lista.',
+  'Write your own tune in {k} major. Follow all the rules, then press Check.': 'Escribe tu propia melodía en {k} mayor. Sigue todas las reglas y luego pulsa Comprobar.',
+  'Plan the first and last notes first. Then fill the middle, moving mostly one row at a time.': 'Planea primero la primera y la última nota. Luego llena el medio, moviéndote casi siempre una fila a la vez.',
+  // Results
+  'Next one is a little easier.': 'El siguiente es un poco más fácil.', 'Yes! You did it!': '¡Sí! ¡Lo lograste!', 'Beautiful music!': '¡Qué música tan bonita!',
+  'Great listening!': '¡Qué bien escuchas!', 'That is it!': '¡Eso es!', 'Wonderful!': '¡Maravilloso!', 'New challenge: {name}!': '¡Nuevo reto: {name}!', 'Now try {name}.': 'Ahora prueba {name}.',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+window.DucklingLang = {
+  keys: () => Object.keys(ES),
+  missing: () => [...USED].filter(k => ES[k] == null),
+  allow: [],
+};
+if (LANG === 'es') {
+  document.documentElement.lang = 'es';
+  document.title = T('Music Box');
+  document.querySelectorAll('h1, .pill, footer .cbtn').forEach(e => { const s = e.textContent.trim(); if (!e.children.length && /[a-z]/i.test(s)) e.textContent = T(s); });
+  document.querySelectorAll('[title]').forEach(e => { e.title = T(e.title); });
+}
+
 // --- State -------------------------------------------------------------------
 function emptyGrid() {
   return { notes: Array.from({ length: ROWS }, () => Array(STEPS).fill(false)),
@@ -538,7 +769,7 @@ function starSample() { return samples.find(s => s && s.star) || null; }
 // --- Speech prompts (pre-rendered pack if present, else the Windows voice) ----
 const PROMPTS = { ready: 'Get ready...', go: 'Say something!', got: 'Got it!', quiet: 'I did not hear anything. Try again!', nomic: 'I cannot hear the microphone.', star: 'Now your voice can sing!' };
 function say(key) {
-  const text = PROMPTS[key]; const pack = window.VOICE_PACK || {};
+  const text = T(PROMPTS[key]); const pack = window.VOICE_PACK || {};
   const a = audio();
   if (pack[text] && a) {
     try {
@@ -549,7 +780,7 @@ function say(key) {
   }
   systemSay(text);
 }
-function systemSay(text, done) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.95; u.pitch = 1.1; if (done) { u.onend = done; u.onerror = done; } speechSynthesis.speak(u); } catch (e) { if (done) done(); } }
+function systemSay(text, done) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.95; u.pitch = 1.1; if (done) { u.onend = done; u.onerror = done; } speechSynthesis.speak(u); } catch (e) { if (done) done(); } }
 function toast(t, ms) { const el = document.getElementById('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), ms || 1600); }
 
 // --- Song grid -----------------------------------------------------------------
@@ -631,7 +862,7 @@ document.getElementById('random').onclick = () => {
   samples.forEach((s, i) => { if (s && s.inSong) for (let c = 0; c < STEPS; c++) g.samp[i][c] = Math.random() < 0.1; });
   song.grid = g; build(); save(); if (!playing) setPlaying(true);
 };
-function setBpm(v) { song.bpm = Math.max(60, Math.min(200, v)); save(); toast(song.bpm <= 80 ? '🐢 Slow' : song.bpm >= 160 ? '🐇 Fast!' : '🚶 Medium', 700); }
+function setBpm(v) { song.bpm = Math.max(60, Math.min(200, v)); save(); toast(T(song.bpm <= 80 ? '🐢 Slow' : song.bpm >= 160 ? '🐇 Fast!' : '🚶 Medium'), 700); }
 document.getElementById('slower').onclick = () => setBpm(song.bpm - 15);
 document.getElementById('faster').onclick = () => setBpm(song.bpm + 15);
 document.getElementById('scale').onclick = () => {
@@ -639,7 +870,7 @@ document.getElementById('scale').onclick = () => {
   const a = audio(); const n = SCALES[song.scale].notes; if (a) [7, 5, 3, 1].forEach((i, k) => note(n[i], a.currentTime + k * 0.13));
 };
 document.getElementById('swing').onclick = () => { song.swing = !song.swing; save(); refreshButtons(); };
-document.querySelectorAll('#slots button').forEach(b => b.onclick = () => { if (playing) setPlaying(false); slot = +b.dataset.slot; song = songs[slot]; save(); build(); refreshButtons(); toast('Song ' + (slot + 1), 700); });
+document.querySelectorAll('#slots button').forEach(b => b.onclick = () => { if (playing) setPlaying(false); slot = +b.dataset.slot; song = songs[slot]; save(); build(); refreshButtons(); toast(T('Song {n}', { n: slot + 1 }), 700); });
 document.querySelectorAll('.pill[data-inst]').forEach(b => b.onclick = () => { song.inst = b.dataset.inst; save(); refreshButtons(); note(BASE); if (song.chal && window.CHAL) CHAL.changed(); });
 function refreshButtons() {
   document.querySelectorAll('.pill[data-inst]').forEach(x => x.classList.toggle('on', x.dataset.inst === song.inst));
@@ -656,7 +887,7 @@ function buildPads() {
   padsEl.innerHTML = ''; padEls.length = 0;
   for (let i = 0; i < PADS; i++) {
     const p = document.createElement('div'); p.className = 'pad'; p.dataset.i = i;
-    p.innerHTML = '<div class="top"><div class="emoji"></div><div class="status"></div><button class="mic" title="Record">🎤</button></div><canvas></canvas><div class="level"><i></i></div><div class="flags"></div>';
+    p.innerHTML = '<div class="top"><div class="emoji"></div><div class="status"></div><button class="mic" title="' + T('Record') + '">🎤</button></div><canvas></canvas><div class="level"><i></i></div><div class="flags"></div>';
     p.querySelector('.emoji').addEventListener('pointerdown', e => { e.stopPropagation(); const s = samples[i]; if (!s) return; s.emoji = PAD_EMOJI[(PAD_EMOJI.indexOf(s.emoji) + 1) % PAD_EMOJI.length]; DB.put(i, plain(s)); drawPad(i); build(); });
     p.querySelector('.mic').addEventListener('pointerdown', e => { e.stopPropagation(); selPad = i; drawPads(); record(i); });
     p.addEventListener('pointerdown', () => { selPad = i; drawPads(); if (samples[i]) playSample(samples[i]); });
@@ -668,7 +899,7 @@ function drawPads() { for (let i = 0; i < PADS; i++) drawPad(i); refreshFx(); }
 function drawPad(i) {
   const p = padEls[i], s = samples[i]; p.classList.toggle('sel', i === selPad);
   p.querySelector('.emoji').textContent = s ? s.emoji : '·';
-  if (!p.classList.contains('rec')) p.querySelector('.status').textContent = s ? 'Tap to hear' : 'Tap 🎤 and talk';
+  if (!p.classList.contains('rec')) p.querySelector('.status').textContent = T(s ? 'Tap to hear' : 'Tap 🎤 and talk');
   const flags = []; if (s) { if (s.star) flags.push('⭐'); if (s.inSong) flags.push('🎼'); if (s.fx.speed === 'chip') flags.push('🐿️'); if (s.fx.speed === 'giant') flags.push('🐻'); if (s.fx.reverse) flags.push('↩️'); if (s.fx.robot) flags.push('🤖'); if (s.fx.echo) flags.push('🏔️'); }
   p.querySelector('.flags').innerHTML = flags.map(f => '<span>' + f + '</span>').join('');
   const cv = p.querySelector('canvas'); const W = cv.width = cv.clientWidth || 300, H = cv.height = cv.clientHeight || 60; const g = cv.getContext('2d'); g.clearRect(0, 0, W, H);
@@ -701,8 +932,8 @@ async function record(i) {
   const p = padEls[i], status = p.querySelector('.status'), level = p.querySelector('.level i');
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
-  catch (e) { status.textContent = 'No microphone'; say('nomic'); return; }
-  recording = true; p.classList.add('rec'); status.textContent = 'Ready…'; say('ready');
+  catch (e) { status.textContent = T('No microphone'); say('nomic'); return; }
+  recording = true; p.classList.add('rec'); status.textContent = T('Ready…'); say('ready');
   const src = a.createMediaStreamSource(stream), proc = a.createScriptProcessor(2048, 1, 1), sink = a.createGain(); sink.gain.value = 0;
   const chunks = []; let armed = false, heard = false, quiet = 0, total = 0; const rate = a.sampleRate;
   const finish = () => {
@@ -710,7 +941,7 @@ async function record(i) {
     try { proc.disconnect(); src.disconnect(); } catch (e) {} stream.getTracks().forEach(t => t.stop());
     p.classList.remove('rec'); level.style.width = '0';
     const s = trim(concat(chunks), rate);
-    if (!s) { status.textContent = 'Try again'; say('quiet'); drawPad(i); return; }
+    if (!s) { status.textContent = T('Try again'); say('quiet'); drawPad(i); return; }
     const old = samples[i];
     samples[i] = { rate, data: s, emoji: old ? old.emoji : PAD_EMOJI[i % PAD_EMOJI.length], fx: old ? old.fx : {}, star: old ? old.star : false, inSong: old ? old.inSong : false };
     DB.put(i, plain(samples[i])); say('got'); drawPads(); refreshButtons(); build();
@@ -725,7 +956,7 @@ async function record(i) {
     if ((heard && quiet > rate * 0.7) || total > rate * 4) finish();
   };
   src.connect(proc); proc.connect(sink).connect(a.destination);
-  setTimeout(() => { if (!recording) return; armed = true; status.textContent = '🔴 Talk!'; say('go'); }, 900);
+  setTimeout(() => { if (!recording) return; armed = true; status.textContent = T('🔴 Talk!'); say('go'); }, 900);
   setTimeout(() => { if (recording) finish(); }, 7000);
 }
 function concat(chunks) { const n = chunks.reduce((s, c) => s + c.length, 0); const out = new Float32Array(n); let o = 0; chunks.forEach(c => { out.set(c, o); o += c.length; }); return out; }
@@ -809,18 +1040,26 @@ const chPick = a => a[Math.floor(Math.random() * a.length)];
 const chShuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const chRange = (n, from) => Array.from({ length: n }, (_, i) => i + (from || 0));
 const chCap = s => s.charAt(0).toUpperCase() + s.slice(1);
-const chAnd = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+const chAnd = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + T(' and ') + a[a.length - 1];
 const chFreq = m => 440 * Math.pow(2, (m - 69) / 12);
+// Note names in text and on row labels: letters in English, solfege in Spanish (C# is do♯, Bb is si♭). Logic keeps the letters.
+const CH_SOLF = { C: 'do', D: 're', E: 'mi', F: 'fa', G: 'sol', A: 'la', B: 'si' };
+const NN = s => LANG === 'es' ? String(s).replace(/^([A-G])([#b]?)$/, (m, l, a) => CH_SOLF[l] + (a === '#' ? '♯' : a === 'b' ? '♭' : '')) : String(s);
 const chPretty = s => String(s).replace(/([A-G])#/g, '$1♯').replace(/([A-G])b(?![a-z])/g, '$1♭');
-const chSpoken = s => String(s).replace(/([A-G])#/g, '$1 sharp').replace(/([A-G])b(?![a-z])/g, '$1 flat').replace(/(\d)\/(\d)/g, '$1 $2');
+const chSpoken = s => LANG === 'es' ? String(s).replace(/♯/g, ' sostenido').replace(/♭/g, ' bemol').replace(/(\d)\/(\d)/g, '$1 por $2')
+  : String(s).replace(/([A-G])#/g, '$1 sharp').replace(/([A-G])b(?![a-z])/g, '$1 flat').replace(/(\d)\/(\d)/g, '$1 $2');
 const chArt = w => /^[aeiou]|^F\b|^F[#b]|^A\b|^A[#b]|^E\b|^E[#b]|^octave/i.test(w) ? 'an' : 'a';
+// The words for a percussion row in every form a prompt needs (drum, a drum, the drum, the drum row), so Spanish gets its articles.
+const PN = r => T(CH_PN[r]);
+const pv = (r, sfx) => { const n = CH_PN[r], o = {}; o['p' + sfx] = T(n); o['P' + sfx] = chCap(T(n)); o['ap' + sfx] = T('a ' + n); o['thep' + sfx] = T('the ' + n); o['Thep' + sfx] = chCap(T('the ' + n)); o['row' + sfx] = T('the ' + n + ' row'); o['ic' + sfx] = PERC_DEF[r].icon; return o; };
+const pvs = (r, r2) => Object.assign(pv(r, ''), r2 === undefined ? {} : pv(r2, '2'));
 
 // --- Rows ------------------------------------------------------------------------------------------------------
 function chAnimalRows() { return LABELS.map((icon, i) => ({ name: icon, midi: CH_ANIMAL_MIDI[i], freq: SCALES.happy.notes[i], color: COLORS[i] })); }
 // One octave of a major key, tonic to tonic, high note at the top. Row r holds scale degree 7 - r.
 function chKeyRows(k, tonic) {
   const K = CH_KEYS[k], t = tonic || K.t, out = [];
-  for (let d = 7; d >= 0; d--) out.push({ name: K.s[d % 7], midi: t + CH_MAJ[d], freq: chFreq(t + CH_MAJ[d]), color: COLORS[7 - d], cls: 'nm', deg: d });
+  for (let d = 7; d >= 0; d--) out.push({ name: NN(K.s[d % 7]), midi: t + CH_MAJ[d], freq: chFreq(t + CH_MAJ[d]), color: COLORS[7 - d], cls: 'nm', deg: d });
   return out;
 }
 // Thirteen half steps from a tonic up an octave, like a piano keyboard on its side. Row r is 12 - r half steps up.
@@ -828,7 +1067,7 @@ function chChromaRows(t, flats) {
   const out = [];
   for (let s = 12; s >= 0; s--) {
     const m = t + s, pc = m % 12, blk = CH_BLACK.includes(pc);
-    out.push({ name: (flats ? CH_FLATS : CH_SHARPS)[pc], midi: m, freq: chFreq(m), color: blk ? '#4A3F5C' : COLORS[(12 - s) % 8], cls: 'nm' + (blk ? ' blk' : ''), semi: s });
+    out.push({ name: NN((flats ? CH_FLATS : CH_SHARPS)[pc]), midi: m, freq: chFreq(m), color: blk ? '#4A3F5C' : COLORS[(12 - s) % 8], cls: 'nm' + (blk ? ' blk' : ''), semi: s });
   }
   return out;
 }
@@ -862,26 +1101,27 @@ function chColRows(st, c) { const out = []; st.notes.forEach((row, r) => { if (r
 function chMelodyIs(target) {
   return st => {
     const s = chSeq(st);
-    if (!s) return 'One note at a time. Each column gets just one note.';
-    if (!s.length) return 'Tap a square to start.';
+    if (!s) return T('One note at a time. Each column gets just one note.');
+    if (!s.length) return T('Tap a square to start.');
     const k = s.findIndex((x, i) => i < target.length && x.r !== target[i]);
-    if (k >= 0) return 'Note ' + (k + 1) + ' is not right yet.';
-    if (s.length < target.length) return 'Good start. Keep going.';
-    if (s.length > target.length) return 'Too many notes. Take the extra ones away.';
+    if (k >= 0) return T('Note {n} is not right yet.', { n: k + 1 });
+    if (s.length < target.length) return T('Good start. Keep going.');
+    if (s.length > target.length) return T('Too many notes. Take the extra ones away.');
     return null;
   };
 }
 function chPercIs(spec, quiet) {
   return st => {
-    for (const k in spec) if (!chSame(st.perc[k], spec[k])) return 'Look at the ' + CH_PN[k] + ' row again.';
-    for (const k of quiet || []) if (st.perc[k].some(Boolean)) return 'The ' + CH_PN[k] + ' stays quiet this time.';
+    for (const k in spec) if (!chSame(st.perc[k], spec[k])) return T('Look at {row} again.', pv(k, ''));
+    for (const k of quiet || []) if (st.perc[k].some(Boolean)) return T('{Thep} stays quiet this time.', pv(k, ''));
     return null;
   };
 }
 // Rhythm words, one beat each, two squares per beat.
 const CH_TOK = { ta: [1, 0], titi: [1, 1], rest: [0, 0] }, CH_WORD = { ta: 'ta', titi: 'ti-ti', rest: 'rest' };
 function chTokPos(toks, map) { const bits = [].concat(...toks.map(t => (map || CH_TOK)[t])); return bits.map((b, i) => b ? i : -1).filter(i => i >= 0); }
-function chTokChips(toks, r) { const ic = PERC_DEF[r].icon; return toks.map(t => ({ t: t === 'ta' ? ic : t === 'titi' ? ic + ic : '🤫', s: CH_WORD[t] })); }
+function chTokChips(toks, r) { const ic = PERC_DEF[r].icon; return toks.map(t => ({ t: t === 'ta' ? ic : t === 'titi' ? ic + ic : '🤫', s: T(CH_WORD[t]) })); }
+const chTokWords = toks => toks.map(t => T(CH_WORD[t])).join(', ');
 function chRandToks(n) { let toks; do { toks = chRange(n).map(() => chPick(['ta', 'ta', 'titi', 'titi', 'rest'])); } while (toks.filter(t => t !== 'rest').length < 2 || toks.every(t => t === toks[0])); return toks; }
 // A random tune: n row indexes between lo and hi, moving by at most `jump` and never repeating a note.
 function chWalk(n, lo, hi, jump) {
@@ -968,13 +1208,13 @@ const CH_METERS = [
 
 // Composing rules for the top rung. m is the melody [{ c, d }] (d is the scale degree), st the whole grid.
 function chRules(k) {
-  const L = CH_KEYS[k].s, T = L[0], D = L[4], last = m => m[m.length - 1];
+  const L = CH_KEYS[k].s, Tn = NN(L[0]), Dn = NN(L[4]), last = m => m[m.length - 1];
   return {
-    startEnd: { t: `Start and end on ${T}.`, ok: m => m.length > 1 && m[0].d % 7 === 0 && last(m).d % 7 === 0 },
-    count: n => ({ t: `Use at least ${n} notes, one at a time.`, ok: m => m.length >= n }),
-    noleap: { t: 'Move by step or skip. No jump bigger than a third.', ok: m => m.length > 1 && m.every((x, i) => !i || Math.abs(x.d - m[i - 1].d) <= 2) },
-    peak: { t: 'Your highest note comes only once.', ok: m => { if (!m.length) return false; const hi = Math.max(...m.map(x => x.d)); return m.filter(x => x.d === hi).length === 1; } },
-    leapback: { t: 'Use a leap of a fourth or more, then step back the other way.', ok: m => {
+    startEnd: { t: T('Start and end on {t}.', { t: Tn }), ok: m => m.length > 1 && m[0].d % 7 === 0 && last(m).d % 7 === 0 },
+    count: n => ({ t: T('Use at least {n} notes, one at a time.', { n }), ok: m => m.length >= n }),
+    noleap: { t: T('Move by step or skip. No jump bigger than a third.'), ok: m => m.length > 1 && m.every((x, i) => !i || Math.abs(x.d - m[i - 1].d) <= 2) },
+    peak: { t: T('Your highest note comes only once.'), ok: m => { if (!m.length) return false; const hi = Math.max(...m.map(x => x.d)); return m.filter(x => x.d === hi).length === 1; } },
+    leapback: { t: T('Use a leap of a fourth or more, then step back the other way.'), ok: m => {
       let leaps = 0;
       for (let i = 1; i < m.length; i++) {
         const a = m[i].d - m[i - 1].d; if (Math.abs(a) < 3) continue; leaps++;
@@ -982,10 +1222,10 @@ function chRules(k) {
         if (Math.abs(b) !== 1 || Math.sign(b) !== -Math.sign(a)) return false;
       }
       return leaps > 0; } },
-    chord: { t: `Use only the notes of the ${T} major chord: ${L[0]}, ${L[2]} and ${L[4]}.`, ok: m => m.length > 0 && m.every(x => [0, 2, 4].includes(x.d % 7)) },
-    drum: { t: 'Put a drum on beat 1 of both bars.', ok: (m, st) => st.perc[0][0] && st.perc[0][8] },
-    answer: { t: `End bar 1 on ${D} and bar 2 on ${T}.`, ok: m => { const a = m.filter(x => x.c < 8), b = m.filter(x => x.c >= 8); return a.length > 0 && b.length > 0 && last(a).d % 7 === 4 && last(b).d % 7 === 0; } },
-    range: { t: 'Stay within a fifth: highest and lowest notes no more than five letters apart.', ok: m => m.length > 0 && Math.max(...m.map(x => x.d)) - Math.min(...m.map(x => x.d)) <= 4 },
+    chord: { t: T('Use only the notes of the {t} major chord: {a}, {b} and {c}.', { t: Tn, a: NN(L[0]), b: NN(L[2]), c: NN(L[4]) }), ok: m => m.length > 0 && m.every(x => [0, 2, 4].includes(x.d % 7)) },
+    drum: { t: T('Put a drum on beat 1 of both bars.'), ok: (m, st) => st.perc[0][0] && st.perc[0][8] },
+    answer: { t: T('End bar 1 on {d} and bar 2 on {t}.', { d: Dn, t: Tn }), ok: m => { const a = m.filter(x => x.c < 8), b = m.filter(x => x.c >= 8); return a.length > 0 && b.length > 0 && last(a).d % 7 === 4 && last(b).d % 7 === 0; } },
+    range: { t: T('Stay within a fifth: highest and lowest notes no more than five letters apart.'), ok: m => m.length > 0 && Math.max(...m.map(x => x.d)) - Math.min(...m.map(x => x.d)) <= 4 },
   };
 }
 const CH_CLASH = [['chord', 'leapback'], ['noleap', 'leapback']];
@@ -1008,103 +1248,103 @@ const LEVELS = [
     if (mode === 'box') {
       const pos = chRange(8).map(i => i * 2);
       return chTask({ steps: 16, beat: 2, perc: true, listen: true,
-        text: chPick([`Each box has two squares. Put a ${CH_PN[r]} at the start of every box.`, `Play the ${CH_PN[r]} once in every box, on the first square.`, `Walk with the ${CH_PN[r]}: one sound at the start of each box.`]),
-        hint: `Tap the first square of each box in the ${ic} row. Skip the second square.`, sol: { perc: pos.map(c => [r, c]) }, check: chPercIs({ [r]: pos }) });
+        text: T(chPick(['Each box has two squares. Put {ap} at the start of every box.', 'Play {thep} once in every box, on the first square.', 'Walk with {thep}: one sound at the start of each box.']), pv(r, '')),
+        hint: T('Tap the first square of each box in the {ic} row. Skip the second square.', { ic }), sol: { perc: pos.map(c => [r, c]) }, check: chPercIs({ [r]: pos }) });
     }
     const steps = chPick([8, 8, 12, 16]), all = chRange(steps);
     if (mode === 'two') {
       const r2 = chPick([0, 1, 2].filter(x => x !== r));
       return chTask({ steps, perc: true, listen: true,
-        text: chPick([`Keep a steady beat with the ${CH_PN[r]} and the ${CH_PN[r2]} together. Fill both rows.`, `Two friends keep the beat. Fill the ${CH_PN[r]} row and the ${CH_PN[r2]} row.`]),
-        hint: `Tap every square in the ${ic} row, then every square in the ${PERC_DEF[r2].icon} row.`,
+        text: T(chPick(['Keep a steady beat with {thep} and {thep2} together. Fill both rows.', 'Two friends keep the beat. Fill {row} and {row2}.']), pvs(r, r2)),
+        hint: T('Tap every square in the {ic} row, then every square in the {ic2} row.', pvs(r, r2)),
         sol: { perc: [...all.map(c => [r, c]), ...all.map(c => [r2, c])] }, check: chPercIs({ [r]: all, [r2]: all }) });
     }
     return chTask({ steps, perc: true, listen: true,
-      text: chPick([`Keep a steady beat. Turn on every ${CH_PN[r]} square.`, `Fill the ${CH_PN[r]} row, all the way across. Tap, tap, tap.`, `A steady beat keeps going. Put a ${CH_PN[r]} in every square.`, `Play the ${CH_PN[r]} on every beat, from start to end.`]),
-      hint: `Find the ${ic} row. Tap every square in it, or slide your finger along it.`, sol: { perc: all.map(c => [r, c]) }, check: chPercIs({ [r]: all }) });
+      text: T(chPick(['Keep a steady beat. Turn on every {p} square.', 'Fill {row}, all the way across. Tap, tap, tap.', 'A steady beat keeps going. Put {ap} in every square.', 'Play {thep} on every beat, from start to end.']), pv(r, '')),
+      hint: T('Find the {ic} row. Tap every square in it, or slide your finger along it.', { ic }), sol: { perc: all.map(c => [r, c]) }, check: chPercIs({ [r]: all }) });
   } },
   { name: 'High and low', g: -1, gen() {
     const rows = chAnimalRows(), mode = chPick(['count', 'count', 'pat', 'pat', 'stairs']);
     if (mode === 'count') {
       const hi = Math.random() < 0.5, r = hi ? 0 : 7, n = chRnd(2, 4), cols = chShuffle(chRange(8)).slice(0, n).sort((a, b) => a - b);
       return chTask({ rows, listen: true,
-        text: hi ? chPick([`The bird sings high. Put ${n} notes in the top row.`, `High up in the sky! Play ${n} high notes in the bird row.`]) : chPick([`The elephant sings low. Put ${n} notes in the bottom row.`, `Down low, like an elephant. Play ${n} low notes in the bottom row.`]),
-        hint: hi ? `The bird is at the top. Tap ${n} squares in its row.` : `The elephant is at the bottom. Tap ${n} squares in its row.`,
+        text: T(hi ? chPick(['The bird sings high. Put {n} notes in the top row.', 'High up in the sky! Play {n} high notes in the bird row.']) : chPick(['The elephant sings low. Put {n} notes in the bottom row.', 'Down low, like an elephant. Play {n} low notes in the bottom row.']), { n }),
+        hint: T(hi ? 'The bird is at the top. Tap {n} squares in its row.' : 'The elephant is at the bottom. Tap {n} squares in its row.', { n }),
         show: { chips: chRange(n).map(() => ({ t: LABELS[r], c: COLORS[r] })) }, sol: { notes: cols.map(c => [r, c]) },
         check: st => {
-          if (st.notes.some((row, i) => i !== r && row.some(Boolean))) return hi ? 'Use only the top row.' : 'Use only the bottom row.';
-          const k = chCount(st.notes); return k < n ? `Add more notes. We need ${n}.` : k > n ? `Too many. We need ${n}.` : null;
+          if (st.notes.some((row, i) => i !== r && row.some(Boolean))) return T(hi ? 'Use only the top row.' : 'Use only the bottom row.');
+          const k = chCount(st.notes); return k < n ? T('Add more notes. We need {n}.', { n }) : k > n ? T('Too many. We need {n}.', { n }) : null;
         } });
     }
     if (mode === 'pat') {
       let seq; do { seq = chRange(chRnd(2, 4)).map(() => Math.random() < 0.5 ? 0 : 7); } while (!seq.includes(0) || !seq.includes(7));
-      const words = seq.map(r => r ? 'low' : 'high');
+      const words = seq.map(r => T(r ? 'low' : 'high'));
       return chTask({ rows, listen: true,
-        text: chPick([`Play ${words.join(', ')}. The bird is high and the elephant is low.`, `Make this song: ${words.join(', ')}. Bird for high, elephant for low.`]),
-        hint: 'High is the bird at the top. Low is the elephant at the bottom. Put one note in each square, left to right.',
+        text: T(chPick(['Play {words}. The bird is high and the elephant is low.', 'Make this song: {words}. Bird for high, elephant for low.']), { words: words.join(', ') }),
+        hint: T('High is the bird at the top. Low is the elephant at the bottom. Put one note in each square, left to right.'),
         show: { chips: seq.map((r, i) => ({ t: LABELS[r], s: words[i], c: COLORS[r] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
     }
     const up = Math.random() < 0.5, seq = up ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
     return chTask({ rows, listen: true,
-      text: up ? 'Climb the stairs from low to high. Start with the elephant and go up one row in each square.' : 'Walk down the stairs from high to low. Start with the bird and go down one row in each square.',
-      hint: up ? 'First square: the elephant row at the bottom. Next square: one row higher. Keep climbing to the bird.' : 'First square: the bird row at the top. Next square: one row lower. Keep going down to the elephant.',
+      text: T(up ? 'Climb the stairs from low to high. Start with the elephant and go up one row in each square.' : 'Walk down the stairs from high to low. Start with the bird and go down one row in each square.'),
+      hint: T(up ? 'First square: the elephant row at the bottom. Next square: one row higher. Keep climbing to the bird.' : 'First square: the bird row at the top. Next square: one row lower. Keep going down to the elephant.'),
       show: { chips: [{ t: LABELS[seq[0]] }, { t: up ? '⬆️' : '⬇️' }, { t: LABELS[seq[7]] }] }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
   } },
   { name: 'Loud and soft', g: 0, gen() {
     const mode = chPick(['loud', 'soft', 'ls', 'sl', 'cresc', 'dim', 'pat', 'pat', 'pat', 'pat']);
-    const loudChip = { t: '🥁', s: 'loud' }, softChip = { t: '🪇', s: 'soft' };
+    const loudChip = { t: '🥁', s: T('loud') }, softChip = { t: '🪇', s: T('soft') };
     if (mode === 'pat') {
       let seq; do { seq = chRange(chRnd(4, 6)).map(() => Math.random() < 0.5 ? 'loud' : 'soft'); } while (!seq.includes('loud') || !seq.includes('soft'));
       const spec = { 0: [], 2: [] }; seq.forEach((w, c) => spec[w === 'loud' ? 0 : 2].push(c));
       return chTask({ steps: 8, perc: true, listen: true, show: { chips: seq.map(w => w === 'loud' ? loudChip : softChip) },
-        text: chPick([`Play ${seq.join(', ')}. The drum is loud and the shaker is soft.`, `Loud and soft song: ${seq.join(', ')}. Drum for loud, shaker for soft.`]),
-        hint: 'One square for each word, left to right. Loud goes in the drum row 🥁. Soft goes in the shaker row 🪇.',
+        text: T(chPick(['Play {words}. The drum is loud and the shaker is soft.', 'Loud and soft song: {words}. Drum for loud, shaker for soft.']), { words: seq.map(w => T(w)).join(', ') }),
+        hint: T('One square for each word, left to right. Loud goes in the drum row 🥁. Soft goes in the shaker row 🪇.'),
         sol: { perc: spec[0].map(c => [0, c]).concat(spec[2].map(c => [2, c])) }, check: chPercIs(spec, [1]) });
     }
     if (mode === 'loud' || mode === 'soft') {
       const steps = chPick([8, 12]), all = chRange(steps), loud = mode === 'loud';
       return chTask({ steps, perc: true, listen: true, show: { chips: [loud ? loudChip : softChip] },
-        text: loud ? chPick(['The drum is loud. Make a big loud beat: fill the drum row, with no shaker.', 'Loud like thunder! Put a drum in every square.']) : chPick(['The shaker is soft. Make a quiet beat: fill the shaker row, with no drum.', 'Soft like a mouse. Put a shaker in every square and keep the drum off.']),
-        hint: loud ? 'Loud is the drum 🥁. Fill its row and leave the shaker off.' : 'Soft is the shaker 🪇. Fill its row and leave the drum and clap off.',
+        text: T(loud ? chPick(['The drum is loud. Make a big loud beat: fill the drum row, with no shaker.', 'Loud like thunder! Put a drum in every square.']) : chPick(['The shaker is soft. Make a quiet beat: fill the shaker row, with no drum.', 'Soft like a mouse. Put a shaker in every square and keep the drum off.'])),
+        hint: T(loud ? 'Loud is the drum 🥁. Fill its row and leave the shaker off.' : 'Soft is the shaker 🪇. Fill its row and leave the drum and clap off.'),
         sol: { perc: all.map(c => [loud ? 0 : 2, c]) }, check: loud ? chPercIs({ 0: all }, [2]) : chPercIs({ 2: all }, [0, 1]) });
     }
     if (mode === 'ls' || mode === 'sl') {
       const steps = chPick([8, 12, 16]), h = steps / 2, a = chRange(h), b = chRange(h, h), ls = mode === 'ls';
       const spec = ls ? { 0: a, 2: b } : { 2: a, 0: b };
       return chTask({ steps, perc: true, listen: true, barCells: h, show: { chips: ls ? [loudChip, softChip] : [softChip, loudChip] },
-        text: ls ? chPick(['Start loud, then go soft. Drums in the first half, shakers in the second half.', 'Loud, then soft! Drum first, then shaker.']) : chPick(['Start soft, then get loud. Shakers in the first half, drums in the second half.', 'Soft, then loud! Shaker first, then drum.']),
-        hint: `The purple line is the middle. ${ls ? 'Fill the drum row before it and the shaker row after it.' : 'Fill the shaker row before it and the drum row after it.'}`,
+        text: T(ls ? chPick(['Start loud, then go soft. Drums in the first half, shakers in the second half.', 'Loud, then soft! Drum first, then shaker.']) : chPick(['Start soft, then get loud. Shakers in the first half, drums in the second half.', 'Soft, then loud! Shaker first, then drum.'])),
+        hint: T(ls ? 'The purple line is the middle. Fill the drum row before it and the shaker row after it.' : 'The purple line is the middle. Fill the shaker row before it and the drum row after it.'),
         sol: { perc: [...(ls ? a : b).map(c => [0, c]), ...(ls ? b : a).map(c => [2, c])] }, check: chPercIs(spec) });
     }
     const up = mode === 'cresc', order = up ? [2, 1, 0] : [0, 1, 2], spec = {}; const sol = [];
     order.forEach((r, i) => { spec[r] = chRange(4, i * 4); spec[r].forEach(c => sol.push([r, c])); });
     return chTask({ steps: 12, beat: 4, perc: true, listen: true, show: { chips: order.map(r => ({ t: PERC_DEF[r].icon })).concat([{ t: up ? '📈' : '📉' }]) },
-      text: up ? 'Get louder and louder. Four shakers, then four claps, then four drums.' : 'Get softer and softer. Four drums, then four claps, then four shakers.',
-      hint: up ? 'Box 1: shaker row. Box 2: clap row. Box 3: drum row. Fill each box.' : 'Box 1: drum row. Box 2: clap row. Box 3: shaker row. Fill each box.',
+      text: T(up ? 'Get louder and louder. Four shakers, then four claps, then four drums.' : 'Get softer and softer. Four drums, then four claps, then four shakers.'),
+      hint: T(up ? 'Box 1: shaker row. Box 2: clap row. Box 3: drum row. Fill each box.' : 'Box 1: drum row. Box 2: clap row. Box 3: shaker row. Fill each box.'),
       sol: { perc: sol }, check: chPercIs(spec) });
   } },
   { name: 'Echo 3 notes', g: 0, gen() {
-    const rows = chAnimalRows(), seq = chWalk(chPick([2, 3, 3, 3]), 0, 7, 4), names = seq.map(r => CH_ANIMALS[r]).join(', ');
+    const rows = chAnimalRows(), seq = chWalk(chPick([2, 3, 3, 3]), 0, 7, 4), names = seq.map(r => T(CH_ANIMALS[r])).join(', ');
     return chTask({ rows, listen: true,
-      text: chPick([`Listen. Then play it back: ${names}.`, `Echo me! Play ${names}.`, `Copy my song: ${names}.`]),
-      hint: 'Find each animal on the left. Put one note in its row, one square after another.',
+      text: T(chPick(['Listen. Then play it back: {names}.', 'Echo me! Play {names}.', 'Copy my song: {names}.']), { names }),
+      hint: T('Find each animal on the left. Put one note in its row, one square after another.'),
       show: { chips: seq.map(r => ({ t: LABELS[r], c: COLORS[r] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
   } },
   { name: 'Rhythm patterns', g: 1, gen() {
-    const r = chPick([0, 1, 1, 2]), toks = chRandToks(4), pos = chTokPos(toks), words = toks.map(t => CH_WORD[t]).join(', ');
+    const r = chPick([0, 1, 1, 2]), toks = chRandToks(4), pos = chTokPos(toks), words = chTokWords(toks);
     return chTask({ steps: 8, beat: 2, perc: true, listen: true,
-      text: chPick([`Play this rhythm on the ${CH_PN[r]} row: ${words}.`, `Say it, then build it with the ${CH_PN[r]}: ${words}.`, `Here is a rhythm: ${words}. Make it with the ${CH_PN[r]}.`]),
-      hint: 'Each box is one beat. Ta is one sound at the start of the box. Ti-ti fills both squares. A rest stays empty.',
+      text: T(chPick(['Play this rhythm on {row}: {words}.', 'Say it, then build it with {thep}: {words}.', 'Here is a rhythm: {words}. Make it with {thep}.']), Object.assign({ words }, pv(r, ''))),
+      hint: T('Each box is one beat. Ta is one sound at the start of the box. Ti-ti fills both squares. A rest stays empty.'),
       show: { chips: chTokChips(toks, r) }, sol: { perc: pos.map(c => [r, c]) }, check: chPercIs({ [r]: pos }) });
   } },
   { name: 'Echo 5 notes', g: 1, gen() {
     const rows = chAnimalRows(); let seq;
     if (Math.random() < 0.25) { const a = chRnd(0, 7), b = chPick(chRange(8).filter(x => x !== a)); seq = chRnd(0, 1) ? [a, b, a, b, a] : [a, a, b, b, a]; }
     else seq = chWalk(chRnd(4, 5), 0, 7, 2);
-    const names = seq.map(r => CH_ANIMALS[r]).join(', ');
+    const names = seq.map(r => T(CH_ANIMALS[r])).join(', ');
     return chTask({ rows, listen: true,
-      text: chPick([`Listen. Then play it back: ${names}.`, `Echo this longer song: ${names}.`, `Copy all ${seq.length} notes: ${names}.`]),
-      hint: 'Find each animal on the left. One note in its row, then the next square for the next animal.',
+      text: T(chPick(['Listen. Then play it back: {names}.', 'Echo this longer song: {names}.', 'Copy all {n} notes: {names}.']), { names, n: seq.length }),
+      hint: T('Find each animal on the left. One note in its row, then the next square for the next animal.'),
       show: { chips: seq.map(r => ({ t: LABELS[r], c: COLORS[r] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
   } },
   { name: 'Instrument families', g: 2, gen() {
@@ -1112,19 +1352,19 @@ const LEVELS = [
     if (Math.random() < 0.18) {
       const n = chRnd(4, 6), cells = chShuffle([].concat(...[0, 1, 2].map(r => chRange(8).map(c => [r, c])))).slice(0, n);
       return chTask({ rows, perc: true, insts: true, inst: chPick(CH_INSTS),
-        text: `The drum, clap and shaker are untuned percussion. Play a beat with ${n} of their squares, and no tune notes.`,
-        hint: 'Use only the bottom three rows: 🥁 👏 🪇. Leave the animal rows empty.', sol: { perc: cells },
-        check: st => { if (chCount(st.notes)) return 'No tune notes this time. Only the drum, clap and shaker.'; const k = chCount(st.perc); return k < n ? `Use ${n} squares. You have ${k}.` : k > n ? `Too many. Use ${n} squares.` : null; } });
+        text: T('The drum, clap and shaker are untuned percussion. Play a beat with {n} of their squares, and no tune notes.', { n }),
+        hint: T('Use only the bottom three rows: 🥁 👏 🪇. Leave the animal rows empty.'), sol: { perc: cells },
+        check: st => { if (chCount(st.notes)) return T('No tune notes this time. Only the drum, clap and shaker.'); const k = chCount(st.perc); return k < n ? T('Use {n} squares. You have {k}.', { n, k }) : k > n ? T('Too many. Use {n} squares.', { n }) : null; } });
     }
     const f = chPick(CH_FAM), n = chRnd(3, 6), drum = Math.random() < 0.35;
     const cells = chShuffle([].concat(...chRange(8).map(r => chRange(8).map(c => [r, c])))).slice(0, n);
     return chTask({ rows, perc: true, insts: true, inst: chPick(CH_INSTS.filter(x => !f.set.includes(x))),
-      text: `At the top, pick ${chPick(f.say)}. Then play ${n} notes on it.` + (drum ? ' Add a drum on the first square too.' : ''),
-      hint: f.hint, sol: { inst: f.set[0], notes: cells, perc: drum ? [[0, 0]] : [] },
+      text: T(drum ? 'At the top, pick {what}. Then play {n} notes on it. Add a drum on the first square too.' : 'At the top, pick {what}. Then play {n} notes on it.', { what: T(chPick(f.say)), n }),
+      hint: T(f.hint), sol: { inst: f.set[0], notes: cells, perc: drum ? [[0, 0]] : [] },
       check: st => {
-        if (!f.set.includes(st.inst)) return 'Pick a different instrument at the top.';
-        const k = chCount(st.notes); if (k !== n) return k < n ? `Play ${n} notes. You have ${k}.` : `Too many notes. We need ${n}.`;
-        return drum && !st.perc[0][0] ? 'Put a drum on the first square.' : null;
+        if (!f.set.includes(st.inst)) return T('Pick a different instrument at the top.');
+        const k = chCount(st.notes); if (k !== n) return k < n ? T('Play {n} notes. You have {k}.', { n, k }) : T('Too many notes. We need {n}.', { n });
+        return drum && !st.perc[0][0] ? T('Put a drum on the first square.') : null;
       } });
   } },
   { name: 'Repeat the rhythm', g: 2, gen() {
@@ -1132,19 +1372,19 @@ const LEVELS = [
       const used = chShuffle([0, 1, 2]).slice(0, chRnd(1, 2)), pre = [];
       used.forEach(r => chTokPos(chRandToks(4)).forEach(c => pre.push([r, c])));
       return chTask({ steps: 16, beat: 2, perc: true, listen: true, barCells: 8, pre: { perc: pre }, sol: { perc: pre.concat(pre.map(([r, c]) => [r, c + 8])) },
-        text: chPick(['Here is a rhythm. Copy it into the second half so it plays two times.', 'Repeat after me. Make the second half match the first half.', 'Rhythms love to repeat. Copy the first four boxes into the last four boxes.']),
-        hint: 'Look at each row. Turn on the same squares after the purple line as before it.',
+        text: T(chPick(['Here is a rhythm. Copy it into the second half so it plays two times.', 'Repeat after me. Make the second half match the first half.', 'Rhythms love to repeat. Copy the first four boxes into the last four boxes.'])),
+        hint: T('Look at each row. Turn on the same squares after the purple line as before it.'),
         check: st => {
-          if (!st.perc.some(row => row.slice(0, 8).some(Boolean))) return 'Put a rhythm in the first half again.';
-          for (let r = 0; r < PERC; r++) for (let c = 0; c < 8; c++) if (st.perc[r][c] !== st.perc[r][c + 8]) return `The second half of the ${CH_PN[r]} row does not match yet.`;
+          if (!st.perc.some(row => row.slice(0, 8).some(Boolean))) return T('Put a rhythm in the first half again.');
+          for (let r = 0; r < PERC; r++) for (let c = 0; c < 8; c++) if (st.perc[r][c] !== st.perc[r][c + 8]) return T('The second half of {row} does not match yet.', pv(r, ''));
           return null;
         } });
     }
     const [a, b] = chShuffle([0, 1, 2]), ta = chRandToks(4), tb = chRandToks(4), pa = chTokPos(ta), pb = chTokPos(tb);
-    const wa = ta.map(t => CH_WORD[t]).join(', '), wb = tb.map(t => CH_WORD[t]).join(', ');
+    const wa = chTokWords(ta), wb = chTokWords(tb);
     return chTask({ steps: 8, beat: 2, perc: true, listen: true,
-      text: `Play two rhythms at once. ${chCap(CH_PN[a])}: ${wa}. ${chCap(CH_PN[b])}: ${wb}.`,
-      hint: 'Do one row at a time. Ta is the first square of a box, ti-ti is both squares, rest is empty.',
+      text: T('Play two rhythms at once. {A}: {wa}. {B}: {wb}.', { A: chCap(PN(a)), wa, B: chCap(PN(b)), wb }),
+      hint: T('Do one row at a time. Ta is the first square of a box, ti-ti is both squares, rest is empty.'),
       show: { lines: [{ label: PERC_DEF[a].icon, chips: chTokChips(ta, a) }, { label: PERC_DEF[b].icon, chips: chTokChips(tb, b) }] },
       sol: { perc: pa.map(c => [a, c]).concat(pb.map(c => [b, c])) }, check: chPercIs({ [a]: pa, [b]: pb }) });
   } },
@@ -1156,34 +1396,34 @@ const LEVELS = [
     } while (toks.filter(t => t !== 'r').length < 2 || toks.every(t => t === toks[0]));
     const map = { q: [1, 0], e: [1, 1], r: [0, 0], h: [1, 0, 0, 0] }, pos = chTokPos(toks, map);
     return chTask({ steps: beats * 2, beat: 2, perc: true, listen: true, show: { svg: chRhythmSvg(toks) },
-      text: chPick([`Read the rhythm. Play it on the ${CH_PN[r]} row. Each box is one beat.`, `Here are notes and rests. Turn them into ${CH_PN[r]} sounds, one box for each beat.`]),
-      hint: 'A black note is one beat: tap the first square of its box. Two notes joined by a beam fill both squares. The open note lasts two boxes. The squiggle is a rest.',
+      text: T(chPick(['Read the rhythm. Play it on {row}. Each box is one beat.', 'Here are notes and rests. Turn them into {p} sounds, one box for each beat.']), pv(r, '')),
+      hint: T('A black note is one beat: tap the first square of its box. Two notes joined by a beam fill both squares. The open note lasts two boxes. The squiggle is a rest.'),
       sol: { perc: pos.map(c => [r, c]) }, check: chPercIs({ [r]: pos }) });
   } },
   { name: 'Scales', g: 3, gen() {
-    const k = chPick(['C', 'C', 'G', 'F', 'D']), rows = chKeyRows(k), L = CH_KEYS[k].s, nm = d => L[d % 7], mode = chPick(['up', 'down', 'updown', 'missing', 'missing', 'penta', 'part', 'part', 'part']);
+    const k = chPick(['C', 'C', 'G', 'F', 'D']), rows = chKeyRows(k), L = CH_KEYS[k].s, nm = d => NN(L[d % 7]), kn = NN(k), mode = chPick(['up', 'down', 'updown', 'missing', 'missing', 'penta', 'part', 'part', 'part']);
     const R = d => 7 - d, up = chRange(8), down = up.slice().reverse();
     if (mode === 'part') {
       const len = chRnd(4, 6), rise = Math.random() < 0.5, d0 = rise ? chRnd(0, 8 - len) : chRnd(len - 1, 7), degs = chRange(len).map(i => rise ? d0 + i : d0 - i), seq = degs.map(R);
-      return chTask({ rows, listen: true, text: `Play ${len} notes of the ${k} major scale going ${rise ? 'up' : 'down'}, starting on ${nm(d0)}.`,
-        hint: `Start on the ${nm(d0)} row. Each square moves one row ${rise ? 'up' : 'down'}.`, show: { chips: [{ t: nm(d0) }, { t: rise ? '⬆️' : '⬇️', s: len + ' notes' }] },
+      return chTask({ rows, listen: true, text: T(rise ? 'Play {len} notes of the {k} major scale going up, starting on {n}.' : 'Play {len} notes of the {k} major scale going down, starting on {n}.', { len, k: kn, n: nm(d0) }),
+        hint: T(rise ? 'Start on the {n} row. Each square moves one row up.' : 'Start on the {n} row. Each square moves one row down.', { n: nm(d0) }), show: { chips: [{ t: nm(d0) }, { t: rise ? '⬆️' : '⬇️', s: T('{n} notes', { n: len }) }] },
         sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
     }
     if (mode === 'penta') {
       const degs = [0, 1, 2, 4, 5, 7], seq = degs.map(R);
-      return chTask({ rows, listen: true, text: `Play the ${k} pentatonic scale going up: ${degs.map(nm).join(', ')}. It skips two notes of the major scale.`,
-        hint: `Skip ${nm(3)} and ${nm(6)}. One note in each square.`, show: { chips: degs.map(d => ({ t: nm(d), c: COLORS[R(d)] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+      return chTask({ rows, listen: true, text: T('Play the {k} pentatonic scale going up: {notes}. It skips two notes of the major scale.', { k: kn, notes: degs.map(nm).join(', ') }),
+        hint: T('Skip {a} and {b}. One note in each square.', { a: nm(3), b: nm(6) }), show: { chips: degs.map(d => ({ t: nm(d), c: COLORS[R(d)] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
     }
     if (mode === 'missing') {
       const gone = chShuffle(chRange(6, 1)).slice(0, chRnd(2, 3)), seq = up.map(R);
       return chTask({ rows, listen: true, pre: { notes: up.filter(d => !gone.includes(d)).map(d => [R(d), d]) }, sol: { notes: up.map(d => [R(d), d]) },
-        text: `Some notes fell out of the ${k} major scale. Put them back so it climbs from low ${k} to high ${k}.`,
-        hint: `The scale goes up one row in every square. The missing ones are ${chAnd(gone.slice().sort().map(nm))}.`, check: chMelodyIs(seq) });
+        text: T('Some notes fell out of the {k} major scale. Put them back so it climbs from low {k} to high {k}.', { k: kn }),
+        hint: T('The scale goes up one row in every square. The missing ones are {list}.', { list: chAnd(gone.slice().sort().map(nm)) }), check: chMelodyIs(seq) });
     }
     const degs = mode === 'up' ? up : mode === 'down' ? down : up.concat(down.slice(1)), seq = degs.map(R);
     return chTask({ rows, listen: true, steps: degs.length > 8 ? 16 : 8,
-      text: mode === 'up' ? `Climb the ${k} major scale, from low ${k} to high ${k}. One note in each square.` : mode === 'down' ? `Walk down the ${k} major scale, from high ${k} to low ${k}. One note in each square.` : `Play the ${k} major scale up and back down, one note in each square.`,
-      hint: mode === 'down' ? 'Start on the top row. Each square goes down one row.' : 'Start on the bottom row. Each square goes up one row.',
+      text: T(mode === 'up' ? 'Climb the {k} major scale, from low {k} to high {k}. One note in each square.' : mode === 'down' ? 'Walk down the {k} major scale, from high {k} to low {k}. One note in each square.' : 'Play the {k} major scale up and back down, one note in each square.', { k: kn }),
+      hint: T(mode === 'down' ? 'Start on the top row. Each square goes down one row.' : 'Start on the bottom row. Each square goes up one row.'),
       show: { chips: [{ t: nm(degs[0]) }, { t: mode === 'up' ? '⬆️' : mode === 'down' ? '⬇️' : '⬆️⬇️' }, { t: nm(degs[degs.length - 1]) }] },
       sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
   } },
@@ -1191,10 +1431,10 @@ const LEVELS = [
     const k = chPick(['C', 'C', 'G', 'F']), rows = chKeyRows(k), L = CH_KEYS[k].s; let degs, title = '';
     if (Math.random() < 0.55) { const tn = chPick(CH_TUNES); title = tn[0]; degs = tn[1]; }
     else degs = chWalk(chRnd(6, 8), 0, 7, 2);
-    const seq = degs.map(d => 7 - d), names = degs.map(d => L[d % 7]);
+    const seq = degs.map(d => 7 - d), names = degs.map(d => NN(L[d % 7]));
     return chTask({ rows, listen: true,
-      text: (title ? `This is the start of ${title}. ` : '') + chPick([`Listen, then write it on the grid: ${names.join(', ')}.`, `Echo the tune: ${names.join(', ')}.`]),
-      hint: 'Find each letter on the left. One note in its row, then move one square right for the next note.',
+      text: (title ? T('This is the start of {title}. ', { title: T(title) }) : '') + T(chPick(['Listen, then write it on the grid: {names}.', 'Echo the tune: {names}.']), { names: names.join(', ') }),
+      hint: T('Find each letter on the left. One note in its row, then move one square right for the next note.'),
       show: { chips: names.map((n, i) => ({ t: n, c: COLORS[seq[i]] })) }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
   } },
   { name: 'Whole and half steps', g: 4, gen() {
@@ -1202,74 +1442,77 @@ const LEVELS = [
     const span = sizes.reduce((a, b) => a + b, 0);
     const starts = chRange(13).filter(s => !CH_BLACK.includes(s % 12) && s + dir * span >= 0 && s + dir * span <= 12);
     const s0 = chPick(starts), semis = [s0]; sizes.forEach(z => semis.push(semis[semis.length - 1] + dir * z));
-    const word = z => z === 1 ? 'half' : 'whole', way = dir > 0 ? 'up' : 'down', seq = semis.map(s => 12 - s);
-    const text = `Start on ${CH_SHARPS[s0 % 12]}. ${m === 1 ? 'Then go' : 'Go'} ${way} ` + sizes.map(z => 'a ' + word(z) + ' step').join(', then ') + '.';
+    const word = z => z === 1 ? 'half' : 'whole', seq = semis.map(s => 12 - s), n0 = NN(CH_SHARPS[s0 % 12]);
+    const steps = sizes.map(z => T('a ' + word(z) + ' step')).join(T(', then '));
+    const text = T(m === 1 ? (dir > 0 ? 'Start on {n}. Then go up {steps}.' : 'Start on {n}. Then go down {steps}.') : (dir > 0 ? 'Start on {n}. Go up {steps}.' : 'Start on {n}. Go down {steps}.'), { n: n0, steps });
     return chTask({ rows, listen: true, text,
-      hint: 'A half step is the very next row, black rows too. A whole step skips one row.',
-      show: { chips: [{ t: CH_SHARPS[s0 % 12] }].concat(sizes.map(z => ({ t: dir > 0 ? '⬆️' : '⬇️', s: word(z) }))) },
+      hint: T('A half step is the very next row, black rows too. A whole step skips one row.'),
+      show: { chips: [{ t: n0 }].concat(sizes.map(z => ({ t: dir > 0 ? '⬆️' : '⬇️', s: T(word(z)) }))) },
       sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
   } },
   { name: 'Intervals', g: 5, gen() {
-    const k = chPick(['C', 'C', 'G', 'F']), rows = chKeyRows(k), L = CH_KEYS[k].s, nm = d => L[d % 7];
-    const n = chRnd(2, 8), d = chRnd(0, 8 - n), u = d + n - 1, ord = CH_ORD[n - 1], mode = chPick(['up', 'up', 'down', 'stack', 'stack']);
+    const k = chPick(['C', 'C', 'G', 'F']), rows = chKeyRows(k), L = CH_KEYS[k].s, nm = d => NN(L[d % 7]);
+    const n = chRnd(2, 8), d = chRnd(0, 8 - n), u = d + n - 1, ord = CH_ORD[n - 1], art = chArt(ord), mode = chPick(['up', 'up', 'down', 'stack', 'stack']);
     if (mode === 'stack') {
       const c = chRnd(0, 7);
-      return chTask({ rows, listen: true, text: `Stack two notes ${chArt(ord)} ${ord} apart in one column. The bottom note is ${nm(d)}.`,
-        hint: `Count letters up from ${nm(d)}, and count ${nm(d)} as 1. Note ${n} is ${nm(u)}.`, sol: { notes: [[7 - d, c], [7 - u, c]] },
+      return chTask({ rows, listen: true, text: T('Stack two notes {art} {ord} apart in one column. The bottom note is {a}.', { art, ord: T(ord), a: nm(d) }),
+        hint: T('Count letters up from {a}, and count {a} as 1. Note {n} is {b}.', { a: nm(d), n, b: nm(u) }), sol: { notes: [[7 - d, c], [7 - u, c]] },
         check: st => {
-          const used = chColsUsed(st); if (!used.length) return 'Put two notes in one column.';
-          if (used.length > 1) return 'Keep both notes in the same column.';
-          const rs = chColRows(st, used[0]); if (rs.length !== 2) return 'Use exactly two notes.';
-          return rs.includes(7 - d) ? (rs.includes(7 - u) ? null : 'The top note is not right yet. Count again.') : `The bottom note should be ${nm(d)}.`;
+          const used = chColsUsed(st); if (!used.length) return T('Put two notes in one column.');
+          if (used.length > 1) return T('Keep both notes in the same column.');
+          const rs = chColRows(st, used[0]); if (rs.length !== 2) return T('Use exactly two notes.');
+          return rs.includes(7 - d) ? (rs.includes(7 - u) ? null : T('The top note is not right yet. Count again.')) : T('The bottom note should be {n}.', { n: nm(d) });
         } });
     }
     const seq = mode === 'up' ? [7 - d, 7 - u] : [7 - u, 7 - d];
     return chTask({ rows, listen: true,
-      text: mode === 'up' ? `Play ${nm(d)}, then the note ${chArt(ord)} ${ord} higher.` : `Play ${nm(u)}, then the note ${chArt(ord)} ${ord} lower.`,
-      hint: mode === 'up' ? `Count letters up from ${nm(d)}, and count ${nm(d)} as 1. Note ${n} is ${nm(u)}.` : `Count letters down from ${nm(u)}, and count ${nm(u)} as 1. Note ${n} is ${nm(d)}.`,
-      show: { chips: [{ t: nm(mode === 'up' ? d : u) }, { t: mode === 'up' ? '⬆️' : '⬇️', s: ord }] }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+      text: T(mode === 'up' ? 'Play {a}, then the note {art} {ord} higher.' : 'Play {a}, then the note {art} {ord} lower.', { a: nm(mode === 'up' ? d : u), art, ord: T(ord) }),
+      hint: mode === 'up' ? T('Count letters up from {a}, and count {a} as 1. Note {n} is {b}.', { a: nm(d), n, b: nm(u) }) : T('Count letters down from {a}, and count {a} as 1. Note {n} is {b}.', { a: nm(u), n, b: nm(d) }),
+      show: { chips: [{ t: nm(mode === 'up' ? d : u) }, { t: mode === 'up' ? '⬆️' : '⬇️', s: T(ord) }] }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
   } },
   { name: 'Major and minor', g: 5, gen() {
-    const root = chPick([0, 2, 4, 5]), flats = root === 0 || root === 5, rows = chChromaRows(60, flats), N = s => (flats ? CH_FLATS : CH_SHARPS)[s % 12], R = CH_SHARPS[root];
+    const root = chPick([0, 2, 4, 5]), flats = root === 0 || root === 5, rows = chChromaRows(60, flats), N = s => NN((flats ? CH_FLATS : CH_SHARPS)[s % 12]), R = NN(CH_SHARPS[root]);
     const mode = chPick(['build', 'build', 'change', 'change', 'scale']);
     if (mode === 'scale') {
       const minor = Math.random() < 0.6, semis = minor ? CH_MIN : CH_MAJ, rows2 = chChromaRows(60, minor), seq = semis.map(s => 12 - s);
-      return chTask({ rows: rows2, listen: true, text: `Play the C ${minor ? 'natural minor' : 'major'} scale going up, one note in each square.`,
-        hint: minor ? 'Minor steps: whole, half, whole, whole, half, whole, whole. That is C D E♭ F G A♭ B♭ C.' : 'Major steps: whole, whole, half, whole, whole, whole, half. Only the white rows.',
-        show: { chips: [{ t: 'C' }, { t: '⬆️', s: minor ? 'minor' : 'major' }, { t: 'C' }] }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
+      return chTask({ rows: rows2, listen: true, text: T('Play the C {q} scale going up, one note in each square.', { q: T(minor ? 'natural minor' : 'major') }),
+        hint: T(minor ? 'Minor steps: whole, half, whole, whole, half, whole, whole. That is C D E♭ F G A♭ B♭ C.' : 'Major steps: whole, whole, half, whole, whole, whole, half. Only the white rows.'),
+        show: { chips: [{ t: NN('C') }, { t: '⬆️', s: T(minor ? 'minor' : 'major') }, { t: NN('C') }] }, sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
     }
     const q = Math.random() < 0.5 ? 'major' : 'minor', third = q === 'major' ? 4 : 3, want = [root, root + third, root + 7].map(s => 12 - s), c = chRnd(0, 7);
     const check = st => {
-      const used = chColsUsed(st); if (!used.length) return 'Stack your notes in one column.';
-      if (used.length > 1) return 'Keep all three notes in one column.';
-      const rs = chColRows(st, used[0]); if (rs.length !== 3) return 'A chord here has three notes.';
-      if (Math.max(...rs) !== want[0]) return `Put ${R} at the bottom.`;
-      return want.every(r => rs.includes(r)) ? null : 'Count the half steps again.';
+      const used = chColsUsed(st); if (!used.length) return T('Stack your notes in one column.');
+      if (used.length > 1) return T('Keep all three notes in one column.');
+      const rs = chColRows(st, used[0]); if (rs.length !== 3) return T('A chord here has three notes.');
+      if (Math.max(...rs) !== want[0]) return T('Put {r} at the bottom.', { r: R });
+      return want.every(r => rs.includes(r)) ? null : T('Count the half steps again.');
     };
     if (mode === 'change') {
       const other = 7 - third, from = [root, root + other, root + 7].map(s => 12 - s);
       return chTask({ rows, listen: false, pre: { notes: from.map(r => [r, c]) }, sol: { notes: want.map(r => [r, c]) }, check,
-        text: q === 'minor' ? `This ${R} major chord sounds bright. Make it minor: move the middle note down one half step.` : `This ${R} minor chord sounds dark. Make it major: move the middle note up one half step.`,
-        hint: `Turn off the middle note and turn on the row just ${q === 'minor' ? 'below' : 'above'} it. That is ${N(root + third)}.`,
-        show: { chips: [{ t: q === 'minor' ? '☀️' : '🌧️' }, { t: '➡️' }, { t: q === 'minor' ? '🌧️' : '☀️', s: q }] } });
+        text: T(q === 'minor' ? 'This {r} major chord sounds bright. Make it minor: move the middle note down one half step.' : 'This {r} minor chord sounds dark. Make it major: move the middle note up one half step.', { r: R }),
+        hint: T(q === 'minor' ? 'Turn off the middle note and turn on the row just below it. That is {n}.' : 'Turn off the middle note and turn on the row just above it. That is {n}.', { n: N(root + third) }),
+        show: { chips: [{ t: q === 'minor' ? '☀️' : '🌧️' }, { t: '➡️' }, { t: q === 'minor' ? '🌧️' : '☀️', s: T(q) }] } });
     }
     return chTask({ rows, listen: true, sol: { notes: want.map(r => [r, c]) }, check,
-      text: `Build ${chArt(R)} ${R} ${q} chord. Stack three notes in one column, with ${R} at the bottom.`,
-      hint: q === 'major' ? `Major: from ${R} go up 4 half steps, then 3 more. That is ${R}, ${N(root + 4)} and ${N(root + 7)}.` : `Minor: from ${R} go up 3 half steps, then 4 more. That is ${R}, ${N(root + 3)} and ${N(root + 7)}.`,
-      show: { chips: [{ t: R, s: q }] } });
+      text: T('Build {art} {r} {q} chord. Stack three notes in one column, with {r} at the bottom.', { art: chArt(CH_SHARPS[root]), r: R, q: T(q) }),
+      hint: q === 'major' ? T('Major: from {r} go up 4 half steps, then 3 more. That is {r}, {a} and {b}.', { r: R, a: N(root + 4), b: N(root + 7) }) : T('Minor: from {r} go up 3 half steps, then 4 more. That is {r}, {a} and {b}.', { r: R, a: N(root + 3), b: N(root + 7) }),
+      show: { chips: [{ t: R, s: T(q) }] } });
   } },
   { name: 'Chords', g: 6, gen() {
     const k = chPick(['C', 'G', 'F', 'D']), rows = chKeyRows(k), L = CH_KEYS[k].s, d = chRnd(0, 5), degs = [d, d + 2, d + 4].map(x => x % 7);
-    const letters = degs.map(x => L[x]), name = `${L[d]} ${CH_QUAL[d]}`, c = chRnd(0, 7), mode = chPick(['roman', 'name', 'degree']);
-    const text = mode === 'roman' ? `In ${k} major, build the ${CH_ROMAN[d]} chord in one column.` : mode === 'name' ? `Build ${chArt(L[d])} ${name} chord in one column.` : `Build a triad on note ${d + 1} of the ${k} major scale: skip a note, skip a note.`;
-    return chTask({ rows, listen: true, text, speak: chSpoken(text).replace(/\b(I|ii|iii|IV|V|vi) chord/, (m, r) => CH_ROMAN_SAY[CH_ROMAN.indexOf(r)] + ' chord'),
-      hint: `The ${name} chord is ${chAnd(letters)}. Any order works.`, show: { chips: [{ t: mode === 'roman' ? CH_ROMAN[d] : mode === 'name' ? L[d] : String(d + 1), s: mode === 'name' ? CH_QUAL[d] : k + ' major' }] },
+    const letters = degs.map(x => NN(L[x])), name = `${NN(L[d])} ${T(CH_QUAL[d])}`, c = chRnd(0, 7), mode = chPick(['roman', 'name', 'degree']);
+    const key = mode === 'roman' ? 'In {k} major, build the {roman} chord in one column.' : mode === 'name' ? 'Build {art} {name} chord in one column.' : 'Build a triad on note {n} of the {k} major scale: skip a note, skip a note.';
+    const vars = { k: NN(k), roman: CH_ROMAN[d], art: chArt(L[d]), name, n: d + 1 };
+    const text = T(key, vars);
+    return chTask({ rows, listen: true, text, speak: chSpoken(T(key, Object.assign({}, vars, { roman: T(CH_ROMAN_SAY[d]) }))),
+      hint: T('The {name} chord is {letters}. Any order works.', { name, letters: chAnd(letters) }), show: { chips: [{ t: mode === 'roman' ? CH_ROMAN[d] : mode === 'name' ? NN(L[d]) : String(d + 1), s: mode === 'name' ? T(CH_QUAL[d]) : T('{k} major', { k: NN(k) }) }] },
       sol: { notes: degs.map(x => [7 - x, c]) },
       check: st => {
-        const used = chColsUsed(st); if (!used.length) return 'Stack your notes in one column.';
-        if (used.length > 1) return 'Keep the whole chord in one column.';
+        const used = chColsUsed(st); if (!used.length) return T('Stack your notes in one column.');
+        if (used.length > 1) return T('Keep the whole chord in one column.');
         const got = new Set(chColRows(st, used[0]).map(r => (7 - r) % 7));
-        return got.size === 3 && degs.every(x => got.has(x)) ? null : 'Not those notes yet. Skip a letter between each one.';
+        return got.size === 3 && degs.every(x => got.has(x)) ? null : T('Not those notes yet. Skip a letter between each one.');
       } });
   } },
   { name: 'Time signatures', g: 6, gen() {
@@ -1281,46 +1524,46 @@ const LEVELS = [
       spec[r] = []; for (let b = 0; b < bars; b++) inBar.forEach(c => spec[r].push(b * bar + c));
       spec[r].forEach(c => sol.push([r, c]));
       const word = eighth ? 'count' : 'beat';
-      parts.push(`${CH_PN[r]} on ${counts === 'all' ? (eighth ? 'all six counts' : 'every half beat') : word + (counts.length > 1 ? 's ' : ' ') + chAnd(counts.map(String))}`);
+      parts.push(T(counts === 'all' ? (eighth ? '{p} on all six counts' : '{p} on every half beat') : '{p} on ' + word + (counts.length > 1 ? 's' : '') + ' {list}', Object.assign({ list: counts === 'all' ? '' : chAnd(counts.map(String)) }, pv(r, ''))));
     });
     const quiet = [0, 1, 2].filter(r => !(r in spec));
     return chTask({ steps, beat: M.beat, perc: true, listen: true, show: { sig: M.sig },
-      text: `${M.intro} Play ${chAnd(parts)} in every bar.`,
-      hint: eighth ? 'Count the squares 1 to 6, then a new bar starts at 1 again.' : `Count the boxes 1 to ${M.bpb}, then a new bar starts at 1 again.`,
+      text: T('{intro} Play {parts} in every bar.', { intro: T(M.intro), parts: chAnd(parts) }),
+      hint: eighth ? T('Count the squares 1 to 6, then a new bar starts at 1 again.') : T('Count the boxes 1 to {n}, then a new bar starts at 1 again.', { n: M.bpb }),
       sol: { perc: sol }, check: chPercIs(spec, quiet) });
   } },
   { name: 'Key signatures', g: 7, gen() {
     const k = chPick(['G', 'D', 'A', 'E', 'B', 'F', 'Bb', 'Eb', 'Ab', 'Db']), K = CH_KEYS[k], n = Math.abs(K.acc), sharp = K.acc > 0, mode = chPick(['up', 'down', 'minor', 'minordown', 'missing', 'missing']);
-    const kind = sharp ? (n > 1 ? 'sharps' : 'sharp') : (n > 1 ? 'flats' : 'flat');
-    const accs = (sharp ? ['F#', 'C#', 'G#', 'D#', 'A#', 'E#', 'B#'] : ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Fb']).slice(0, n);
-    const minor = mode === 'minor' || mode === 'minordown', tonicName = minor ? K.s[5] : k; let t = minor ? K.t + 9 : K.t; while (t > 67) t -= 12; while (t < 55) t += 12;
+    const kind = T(sharp ? (n > 1 ? 'sharps' : 'sharp') : (n > 1 ? 'flats' : 'flat')), Kind = chCap(kind), kn = NN(k);
+    const accs = (sharp ? ['F#', 'C#', 'G#', 'D#', 'A#', 'E#', 'B#'] : ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Fb']).slice(0, n).map(NN);
+    const minor = mode === 'minor' || mode === 'minordown', tonicName = NN(minor ? K.s[5] : k); let t = minor ? K.t + 9 : K.t; while (t > 67) t -= 12; while (t < 55) t += 12;
     const semis = minor ? CH_MIN : CH_MAJ, seq0 = semis.map(s => 12 - s), seq = mode === 'down' || mode === 'minordown' ? seq0.slice().reverse() : seq0;
     if (mode === 'missing') {   // the plain letters are placed; the child adds the notes the key signature changes
       const altered = K.s.map((nm, i) => nm.length > 1 ? i : -1).filter(i => i >= 0);
       return chTask({ rows: chChromaRows(t, !sharp), listen: false, show: { svg: chStaffSvg(K.acc, []) },
         pre: { notes: CH_MAJ.map((s, i) => [12 - s, i]).filter(([, i]) => !altered.includes(i % 7)) }, sol: { notes: seq0.map((r, c) => [r, c]) },
-        text: `This key signature has ${n} ${kind}. The ${k} major scale is missing those notes. Add them so the scale climbs from the bottom row.`,
-        hint: `The ${kind} in this key: ${chAnd(accs)}. Put each one in its empty square.`, check: chMelodyIs(seq0) });
+        text: T('This key signature has {n} {kind}. The {k} major scale is missing those notes. Add them so the scale climbs from the bottom row.', { n, kind, k: kn }),
+        hint: T('The {kind} in this key: {list}. Put each one in its empty square.', { kind, Kind, list: chAnd(accs) }), check: chMelodyIs(seq0) });
     }
     return chTask({ rows: chChromaRows(t, !sharp), listen: false, show: { svg: chStaffSvg(K.acc, []) },
-      text: minor ? `This key signature has ${n} ${kind}. Its minor key starts on ${tonicName}. Build the ${tonicName} natural minor scale going ${mode === 'minordown' ? 'down from the top row' : 'up from the bottom row'}.`
-        : `This key signature has ${n} ${kind}. Its major key is ${k}. Build the ${k} major scale going ${mode === 'down' ? 'down from the top row' : 'up from the bottom row'}.`,
-      hint: `The ${kind} in this key: ${chAnd(accs)}. Every other note is a plain letter. One note in each square.`,
+      text: minor ? T(mode === 'minordown' ? 'This key signature has {n} {kind}. Its minor key starts on {t}. Build the {t} natural minor scale going down from the top row.' : 'This key signature has {n} {kind}. Its minor key starts on {t}. Build the {t} natural minor scale going up from the bottom row.', { n, kind, t: tonicName })
+        : T(mode === 'down' ? 'This key signature has {n} {kind}. Its major key is {k}. Build the {k} major scale going down from the top row.' : 'This key signature has {n} {kind}. Its major key is {k}. Build the {k} major scale going up from the bottom row.', { n, kind, k: kn }),
+      hint: T('The {kind} in this key: {list}. Every other note is a plain letter. One note in each square.', { kind, Kind, list: chAnd(accs) }),
       sol: { notes: seq.map((r, c) => [r, c]) }, check: chMelodyIs(seq) });
   } },
   { name: 'Chord progressions', g: 7, gen() {
     const k = chPick(['C', 'G', 'F', 'D', 'A', 'Bb']), rows = chKeyRows(k), L = CH_KEYS[k].s, prog = chPick(CH_PROGS), chordOf = d => [d, d + 2, d + 4].map(x => x % 7);
     const romans = prog.map(d => CH_ROMAN[d]), uniq = [...new Set(prog)];
     const sol = []; prog.forEach((d, b) => chordOf(d).forEach(x => sol.push([7 - x, b * 4])));
-    const text = `In ${k} major, play ${romans.join(', ')}. One chord in each box.`;
-    return chTask({ rows, steps: 16, beat: 4, listen: true, text, speak: chSpoken(`In ${k} major, play `) + prog.map(d => CH_ROMAN_SAY[d]).join(', ') + '. One chord in each box.',
-      hint: uniq.map(d => `${CH_ROMAN[d]} is ${chordOf(d).map(x => L[x]).join(' ')}.`).join(' '),
-      show: { chips: romans.map((r, i) => ({ t: r, s: 'box ' + (i + 1) })) }, sol: { notes: sol },
+    const text = T('In {k} major, play {romans}. One chord in each box.', { k: NN(k), romans: romans.join(', ') });
+    return chTask({ rows, steps: 16, beat: 4, listen: true, text, speak: chSpoken(T('In {k} major, play {romans}. One chord in each box.', { k: NN(k), romans: prog.map(d => T(CH_ROMAN_SAY[d])).join(', ') })),
+      hint: uniq.map(d => T('{roman} is {notes}.', { roman: CH_ROMAN[d], notes: chordOf(d).map(x => NN(L[x])).join(' ') })).join(' '),
+      show: { chips: romans.map((r, i) => ({ t: r, s: T('box {n}', { n: i + 1 }) })) }, sol: { notes: sol },
       check: st => {
         for (let b = 0; b < 4; b++) {
           const got = new Set(); for (let c = b * 4; c < b * 4 + 4; c++) chColRows(st, c).forEach(r => got.add((7 - r) % 7));
-          if (!got.size) return `Box ${b + 1} needs a chord.`;
-          const want = chordOf(prog[b]); if (got.size !== 3 || !want.every(x => got.has(x))) return `Check the chord in box ${b + 1}.`;
+          if (!got.size) return T('Box {n} needs a chord.', { n: b + 1 });
+          const want = chordOf(prog[b]); if (got.size !== 3 || !want.every(x => got.has(x))) return T('Check the chord in box {n}.', { n: b + 1 });
         }
         return null;
       } });
@@ -1342,10 +1585,10 @@ const LEVELS = [
     });
     const want = chState({ rows, steps: beats * 2 }, { notes: sol });
     return chTask({ rows, steps: beats * 2, beat: 2, listen: false, show: { svg: chStaffSvg(CH_KEYS[k].acc, notes) },
-      text: chPick(['Read the music on the staff. Play it on the grid. Each box is one beat.', 'Here is a melody on the treble staff. Put each note in its row and its box.']) + (k === 'G' ? ' The sharp in the key signature makes every F an F sharp.' : ''),
-      hint: 'Lines from the bottom are E, G, B, D, F. Spaces are F, A, C, E. A black note is one beat, an open note is two, and a flag splits a beat in half.',
+      text: (t0 => k === 'G' ? T('{text} The sharp in the key signature makes every F an F sharp.', { text: t0 }) : t0)(T(chPick(['Read the music on the staff. Play it on the grid. Each box is one beat.', 'Here is a melody on the treble staff. Put each note in its row and its box.']))),
+      hint: T('Lines from the bottom are E, G, B, D, F. Spaces are F, A, C, E. A black note is one beat, an open note is two, and a flag splits a beat in half.'),
       sol: { notes: sol },
-      check: st => { for (let c = 0; c < beats * 2; c++) for (let r = 0; r < rows.length; r++) if (st.notes[r][c] !== want.notes[r][c]) return `Check box ${Math.floor(c / 2) + 1}.`; return null; } });
+      check: st => { for (let c = 0; c < beats * 2; c++) for (let r = 0; r < rows.length; r++) if (st.notes[r][c] !== want.notes[r][c]) return T('Check box {n}.', { n: Math.floor(c / 2) + 1 }); return null; } });
   } },
   { name: 'Composing to a rule', g: 8, gen() {
     for (let attempt = 0; attempt < 30; attempt++) {
@@ -1353,10 +1596,10 @@ const LEVELS = [
       let extra; do { extra = chShuffle(['noleap', 'peak', 'leapback', 'chord', 'drum', 'answer', 'range']).slice(0, 2); } while (CH_CLASH.some(([a, b]) => extra.includes(a) && extra.includes(b)));
       const rules = [RU.startEnd, RU.count(n)].concat(extra.map(x => RU[x]));
       const melOf = st => (chSeq(st) || []).map(x => ({ c: x.c, d: 7 - x.r }));
-      const check = st => { if (!chSeq(st)) return 'One note at a time. Each column gets just one note.'; const m = melOf(st); const bad = rules.find(R => !R.ok(m, st)); return bad ? 'Not yet: ' + bad.t : null; };
+      const check = st => { if (!chSeq(st)) return T('One note at a time. Each column gets just one note.'); const m = melOf(st); const bad = rules.find(R => !R.ok(m, st)); return bad ? T('Not yet: {rule}', { rule: bad.t }) : null; };
       const t = chTask({ rows, perc: true, steps: 16, beat: 2, barCells: 8, manual: true,
-        text: chPick([`Compose a melody in ${k} major that follows every rule. Press Check when it is ready.`, `Write your own tune in ${k} major. Follow all the rules, then press Check.`]),
-        hint: 'Plan the first and last notes first. Then fill the middle, moving mostly one row at a time.', rules, ruleState: melOf, check });
+        text: T(chPick(['Compose a melody in {k} major that follows every rule. Press Check when it is ready.', 'Write your own tune in {k} major. Follow all the rules, then press Check.']), { k: NN(k) }),
+        hint: T('Plan the first and last notes first. Then fill the middle, moving mostly one row at a time.'), rules, ruleState: melOf, check });
       for (let tries = 0; tries < 400; tries++) {
         const cnt = chRnd(n, Math.min(16, n + 3)), cols = chShuffle(chRange(16)).slice(0, cnt).sort((a, b) => a - b), ds = [chPick([0, 0, 7])];
         while (ds.length < cnt) {
@@ -1373,9 +1616,9 @@ const LEVELS = [
     }
     const k = 'C', RU = chRules(k), rules = [RU.startEnd, RU.count(6), RU.noleap], degs = [0, 1, 2, 3, 2, 1, 0];
     return chTask({ rows: chKeyRows(k), perc: true, steps: 16, beat: 2, barCells: 8, manual: true, rules, ruleState: st => (chSeq(st) || []).map(x => ({ c: x.c, d: 7 - x.r })),
-      text: 'Compose a melody in C major that follows every rule. Press Check when it is ready.', hint: 'Plan the first and last notes first. Then fill the middle, moving mostly one row at a time.',
+      text: T('Compose a melody in {k} major that follows every rule. Press Check when it is ready.', { k: NN(k) }), hint: T('Plan the first and last notes first. Then fill the middle, moving mostly one row at a time.'),
       sol: { notes: degs.map((d, i) => [7 - d, i * 2]) },
-      check: st => { if (!chSeq(st)) return 'One note at a time. Each column gets just one note.'; const m = (chSeq(st) || []).map(x => ({ c: x.c, d: 7 - x.r })); const bad = rules.find(R => !R.ok(m, st)); return bad ? 'Not yet: ' + bad.t : null; } });
+      check: st => { if (!chSeq(st)) return T('One note at a time. Each column gets just one note.'); const m = (chSeq(st) || []).map(x => ({ c: x.c, d: 7 - x.r })); const bad = rules.find(R => !R.ok(m, st)); return bad ? T('Not yet: {rule}', { rule: bad.t }) : null; } });
   } },
 ];
 // Where a new player starts: the first rung for the child's music grade (set by the parent), 2nd grade when unknown.
@@ -1421,7 +1664,7 @@ function chPlay(st) {
 }
 function chListen() { if (CT.listen) chPlay(chState(CT, CT.sol)); else chSayThen(CT.speak || chSpoken(CT.text)); }
 function chInfo() {
-  $c('cInfo').innerHTML = `<span>${LEVELS[P.lv].name}</span><span>⭐ ${P.stars} <span class="dots">${'●'.repeat(P.st.streak)}${'○'.repeat(Math.max(0, 4 - P.st.streak))}</span></span>`;
+  $c('cInfo').innerHTML = `<span>${T(LEVELS[P.lv].name)}</span><span>⭐ ${P.stars} <span class="dots">${'●'.repeat(P.st.streak)}${'○'.repeat(Math.max(0, 4 - P.st.streak))}</span></span>`;
 }
 function chRender() {
   $c('cText').textContent = chPretty(CT.text);
@@ -1445,14 +1688,14 @@ function chNew() {
   $c('cListen').style.display = CT.listen ? '' : 'none';
   chSayThen(CT.speak || chSpoken(CT.text), () => { if (chOn && CT.listen) chPlay(chState(CT, CT.sol)); });
 }
-function chMiss() { if (chMissed) return; chMissed = true; const ch = chRecord(false); chInfo(); if (ch < 0) setTimeout(() => toast('Next one is a little easier.', 1800), 1600); }
+function chMiss() { if (chMissed) return; chMissed = true; const ch = chRecord(false); chInfo(); if (ch < 0) setTimeout(() => toast(T('Next one is a little easier.'), 1800), 1600); }
 function chWin() {
   chWon = true; const ch = chMissed ? 0 : chRecord(true);
   P.stars++; chPersist(); chInfo();
   const grid = cells; rowsDef.forEach((row, r) => grid[r].forEach((d, c) => { if (d.classList.contains('on')) setTimeout(() => { if (cells === grid) flash(r, c); }, c * 40); }));
-  const cheer = chPick(['Yes! You did it!', 'Beautiful music!', 'Great listening!', 'That is it!', 'Wonderful!']);
-  toast('⭐ ' + cheer + (ch > 0 ? ' New challenge: ' + LEVELS[P.lv].name + '!' : ''), 2200);
-  systemSay(cheer + (ch > 0 ? ' Now try ' + LEVELS[P.lv].name + '.' : ''));
+  const cheer = T(chPick(['Yes! You did it!', 'Beautiful music!', 'Great listening!', 'That is it!', 'Wonderful!'])), name = T(LEVELS[P.lv].name);
+  toast('⭐ ' + cheer + (ch > 0 ? ' ' + T('New challenge: {name}!', { name }) : ''), 2200);
+  systemSay(cheer + (ch > 0 ? ' ' + T('Now try {name}.', { name }) : ''));
   chNextTimer = setTimeout(() => { if (chOn) chNew(); }, 2600);
 }
 const CHAL = window.CHAL = {
