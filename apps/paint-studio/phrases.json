@@ -1,5 +1,5 @@
 {
- "source": "f8d3b1a0c9db8e2946d6d77ab7c7f82bd7e2d3baa2cb72976948b866d24eca5a",
+ "source": "5fc1018dc663f2683101cb98b422ce87a08b796cda57714943fce0134f2de834",
  "lines": [
   {
    "text": "A blank page",
@@ -44,6 +44,11 @@
   {
    "text": "Tap again for a blank page",
    "rate": -5
+  },
+  {
+   "text": "Te damos la bienvenida a Estudio de pintura. Elige un pincel y un color, y pinta.",
+   "rate": -5,
+   "lang": "es"
   },
   {
    "text": "That did not work. Try again in a moment.",
