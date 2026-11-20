@@ -16,7 +16,7 @@ URL=https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-command -v unzip >/dev/null || apt-get install -y -q unzip >/dev/null
+command -v unzip >/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -y -q unzip >/dev/null 2>&1
 echo "Downloading $URL"
 curl -fsSL --retry 3 -o "$TMP/model.zip" "$URL"
 unzip -q "$TMP/model.zip" -d "$TMP"
@@ -25,6 +25,8 @@ MODEL=$(find "$TMP" -maxdepth 1 -mindepth 1 -type d -name 'vosk-model-small-es*'
 
 # The list the app fetches: apps/read-it-say-it/vosk/model-list.js is the source of truth.
 FILES=(am/final.mdl conf/mfcc.conf conf/model.conf graph/HCLr.fst graph/disambig_tid.int graph/phones/word_boundary.int graph/words.txt ivector/final.dubm ivector/final.ie ivector/final.mat ivector/global_cmvn.stats ivector/online_cmvn.conf ivector/splice.conf)
+# Vosk's small models carry no graph/words.txt; the app needs it, so it is made from Gr.fst's symbol table.
+[ -f "$MODEL/graph/words.txt" ] || node "$SRC/tools/fst-words.mjs" "$MODEL/graph/Gr.fst" "$MODEL/graph/words.txt"
 for f in "${FILES[@]}"; do
   [ -f "$MODEL/$f" ] || { echo "Missing in the archive: $f" >&2; exit 1; }
 done

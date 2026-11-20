@@ -34,7 +34,10 @@ ivector/online_cmvn.conf
 ivector/splice.conf
 ```
 
-This is the list in `apps/read-it-say-it/vosk/model-list.js`, the one the app fetches for both languages.
+This is the list in `apps/read-it-say-it/vosk/model-list.js`, the one the app fetches for both languages. The
+archive has no `graph/words.txt`; the install script writes it from `graph/Gr.fst`'s symbol table with
+`node tools/fst-words.mjs` (by hand: `node tools/fst-words.mjs graph/Gr.fst graph/words.txt` inside the unzipped
+folder before copying).
 `graph/Gr.fst` is left out on purpose: the app always recognizes against a grammar made of the passage's own words,
 so the language model is not read. `README` and the rest of the archive are not needed.
 
