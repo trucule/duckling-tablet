@@ -240,11 +240,19 @@ const ES = {
   'Who was in the story?': '¿Quién salió en el cuento?', 'Where did the story happen?': '¿Dónde pasó el cuento?', 'What did you choose to do first?': '¿Qué elegiste hacer primero?', 'In the story, what does "{word}" mean?': 'En el cuento, ¿qué quiere decir "{word}"?',
   'Me': 'Yo', 'Captain Clam': 'Capitán Almeja'
 };
+// Every key T() is asked for, so the Spanish check (tools/ladder-check.mjs --lang es) can list the ones with no line.
+const USED = new Set();
 function T(s, vars) {
+  USED.add(s);
   let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
   if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
   return t;
 }
+window.DucklingLang = {
+  keys: () => Object.keys(ES),
+  missing: () => [...USED].filter(k => ES[k] == null),
+  allow: []
+};
 // Each friend in Spanish: what it is, with its article, and a Spanish voice of the same kind (child, woman, man).
 const ES_CAST = {
   narrator: ['', 'es-MX-DaliaNeural'], bun: ['el conejo', 'es-US-AlonsoNeural'], spark: ['el dragoncito', 'es-MX-JorgeNeural'], beep: ['el robot', 'es-MX-YagoNeural'],
@@ -254,8 +262,10 @@ const ES_CAST = {
 };
 const kindOf = c => (LANG === 'es' && ES_CAST[c.id] && ES_CAST[c.id][0]) || c.kind;
 if (LANG === 'es') {
-  document.documentElement.lang = 'es';
-  for (const c of [NARRATOR, ...CAST]) { const e = ES_CAST[c.id]; if (e) c.azure = e[1]; if (c.id !== 'me' || !(window.KidTablet && window.KidTablet.childName)) c.name = T(c.name); }
+  document.documentElement.lang = 'es'; document.title = T('Story Maker');
+  // Most friends keep their name in Spanish (Bun, Luna, Zip); only the names the dictionary lists change, and the
+  // child's own name never does.
+  for (const c of [NARRATOR, ...CAST]) { const e = ES_CAST[c.id]; if (e) c.azure = e[1]; if (ES[c.name] != null && (c.id !== 'me' || !(window.KidTablet && window.KidTablet.childName))) c.name = T(c.name); }
   const set = (sel, text) => { const el = document.querySelector(sel); if (el) el.firstChild.nodeValue = text; };
   const qs = document.querySelectorAll('#setup .q');
   [['Who is in the story?', 'pick one, two or three friends'], ['Where does it happen?'], ['What kind of story?'], ['How much trouble?'], ['How long?'], ['Reading level']].forEach(([q, small], i) => {
@@ -1117,7 +1127,7 @@ window.SM = window.STORY;
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START,
-  label: () => level[2],
+  label: () => T(level[2]),
   exercise: (i, n) => {
     const lv = LEVELS[i] && LEVELS[i][1]; if (!lv || !RUNGS[lv]) throw new Error('no rung ' + i);
     const R = RUNGS[lv], out = [];

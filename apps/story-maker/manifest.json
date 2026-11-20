@@ -1,7 +1,7 @@
 {
   "id": "story-maker",
   "name": "Story Maker",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Choose characters, a place and a kind of story, and a new story is written scene by scene, read aloud by a cast of voices and acted out by 3D characters on a set for the place, with choices along the way.",
   "subjects": [
     "reading"
@@ -21,5 +21,21 @@
       "Making choices and seeing where they lead",
       "Telling a story in order"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Creador de cuentos",
+      "description": "Elige personajes, un lugar y un tipo de cuento, y un cuento nuevo se escribe escena por escena, leído en voz alta por un elenco de voces y actuado por personajes en 3D en un escenario del lugar, con decisiones en el camino.",
+      "about": {
+        "concept": "Narrativa y comprensión. Un cuento que el niño ayudó a formar se lee en voz alta con una voz distinta para cada personaje, con las palabras a la vista; en los momentos clave el niño decide qué pasa después, así que escuchar sigue siendo activo y la estructura de un cuento (lugar, problema, decisión, final) se siente desde adentro.",
+        "progression": "Siete niveles de lectura van de preescolar a octavo grado: cuentos cortos leídos en voz alta, con palabras sencillas y dos opciones, crecen hasta cuentos más largos con vocabulario del grado incluido, lenguaje figurado, anticipación, decisiones que cambian la trama y un dilema moral, contados en octavo grado por un narrador poco confiable. Desde primer grado el cuento termina con preguntas sobre la historia, y desde quinto grado con una pregunta de reflexión y una pregunta de comprobación que pone el escritor.",
+        "lifeSkills": [
+          "Escuchar para entender",
+          "Vocabulario",
+          "Tomar decisiones y ver adónde llevan",
+          "Contar una historia en orden"
+        ]
+      }
+    }
   }
 }
