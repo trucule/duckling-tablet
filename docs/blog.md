@@ -116,9 +116,9 @@ Chris answers parents' questions in forums under his own name. A scheduled task 
 finds the threads and drafts each reply into the Duckling Tablet Promo Queue (a Claude artifact,
 https://claude.ai/artifact/5W4LZzE3NfYAxGtcd54maw, collection `drafts`; the task's prompt is
 `docs/thread-finder-task.md`); Chris reads the draft, opens the thread, posts it himself, and marks the card posted. Nothing is ever
-posted by a task, and no account other than Chris's own is ever used. The task reads Reddit through its API and the
-parenting forums in the built-in browser on Chris's computer without signing in; `docs/thread-finder-task.md` lists the
-sources. Facebook groups are behind a login, so the task never reads them. Chris finds those threads himself.
+posted by a task, and no account other than Chris's own is ever used. The task reads the parenting forums in Claude in
+Chrome on Chris's computer and only reads there; `docs/thread-finder-task.md` lists the sources. Reddit is not a
+source. Facebook groups are behind a login, so the task never reads them. Chris finds those threads himself.
 
 What a reply is:
 
@@ -140,7 +140,7 @@ What a reply is:
   one day. The queue is checked for the thread's URL before a card is written.
 
 Spanish threads get Spanish replies. The finder also searches Spanish terms (tableta para niños, control parental,
-tiempo de pantalla, apps educativas, bloquear la tablet) across Reddit and the forums it can open, and answers in
+tiempo de pantalla, apps educativas, bloquear la tablet) in the Spanish forums it can open, and answers in
 the thread's language. A Spanish reply is neutral Latin American Spanish with tú to the parent, checked with
 `node tools/blog.mjs reply <file> --es`, and its disclosure is "Soy el creador de Duckling Tablet". What it may say
 about Spanish comes from the repo: the tablet's screens, the parent area, the parent portal, and the emails are in
@@ -149,7 +149,7 @@ its stories in Spanish (`apps/story-maker`), and the other learning apps and the
 own translations land. A reply never says the apps or the site are in Spanish while that is so. A community found
 through a Spanish search is added to the queue's community list with its rules read before any draft.
 
-The card: `channel` (reddit, forum), `language` (en, es), `community` (r/Parenting), `target_title`, `target_url`, `thread_excerpt`
+The card: `channel` (forum), `language` (en, es), `community` (Mumsnet), `target_title`, `target_url`, `thread_excerpt`
 (the question in the poster's words, under 300 characters), `why` (one sentence on the fit, and the community's
 rule on self-promotion as read in the run), `draft`, `disclosure: true`, `voice: "Chris (maker, disclosed)"`,
 `status: "draft"`, `created_at`, `run`. Chris sets `posted` (with `posted_url`), `blocked` (locked, removed, or
