@@ -1,7 +1,7 @@
 {
   "id": "paint-studio",
   "name": "Paint Studio",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "A paint box with a bristle paint brush that blends wet colors, textured brushes, words in nine fonts and about a thousand more to download, a full color wheel, mirror, kaleidoscope, spin and tile drawing, three layers, two-finger zoom, a gallery, and art challenges from pre-K to 8th grade.",
   "subjects": [
     "art"
@@ -20,5 +20,21 @@
       "Planning a picture before painting it",
       "Finishing a piece and keeping it"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Estudio de pintura",
+      "description": "Una caja de pinturas con un pincel de cerdas que mezcla los colores húmedos, pinceles con textura, palabras en varias letras y muchas más para descargar, un círculo cromático completo, dibujo con espejo, caleidoscopio, giro y mosaico, tres capas, zoom con dos dedos, una galería y retos de arte desde preescolar hasta octavo grado.",
+      "about": {
+        "concept": "Hacer marcas a propósito. Cada pincel se comporta como el real (el lápiz raya, la tiza se desmorona, la acuarela se encharca y el pincel se va secando y recoge el color húmedo que cruza), así el niño aprende que la herramienta y la presión cambian la marca, y que un cuadro se construye con decisiones sobre el color, el valor y la ubicación.",
+        "progression": "La pintura libre tiene desde el inicio todos los pinceles, el círculo cromático, palabras en varias letras (muchas más se descargan al elegirlas y se quedan en la tableta) y todos los modos de espejo, caleidoscopio, giro y mosaico. Desde tercer grado de arte la app agrega los controles que usa un pintor mayor: un código de color, colores guardados, suavidad y firmeza por pincel, y el bloqueo de una capa para que la pintura se quede dentro de lo ya pintado. La escalera de Retos empieza en el grado de arte del niño y sube desde formas y colores en preescolar, pasando por la simetría con el espejo, paletas cálidas y frías, el sombreado con Difuminar y Sombra, la composición y la perspectiva, hasta estudios de valor, teoría del color y principios de diseño en octavo grado. Tres retos terminados suben al niño un peldaño. Una pintura terminada puede ser el fondo de la pantalla de inicio.",
+        "lifeSkills": [
+          "Control motor fino",
+          "Ver la luz, la sombra y la forma",
+          "Planear un cuadro antes de pintarlo",
+          "Terminar una obra y conservarla"
+        ]
+      }
+    }
   }
 }
