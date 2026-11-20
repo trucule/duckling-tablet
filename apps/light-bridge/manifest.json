@@ -1,7 +1,7 @@
 {
   "id": "light-bridge",
   "name": "Light Bridge",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Connect matching orbs with bridges that never cross. Boards grow from 4 by 4 to 9 by 9, then add rocks, gems, length clues, bend counts, cross tiles and portals.",
   "subjects": [
     "logic"
@@ -21,5 +21,21 @@
       "Undoing and trying another way",
       "Patience with puzzles"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Puente de luz",
+      "description": "Une las luces del mismo color con puentes que nunca se cruzan. Los tableros crecen de 4 por 4 a 9 por 9, y luego llegan rocas, gemas, pistas de largo, conteo de curvas, cruces y portales.",
+      "about": {
+        "concept": "Planear en el espacio con reglas. Las luces iguales se unen con puentes que nunca se cruzan, así que el niño planea rutas, mira hacia adelante y corrige cuando dos caminos chocan.",
+        "progression": "Los tableros crecen de 4 por 4 con dos pares en preescolar a 9 por 9 con muchos pares en 4.º grado. De 5.º a 8.º grado crecen las reglas: las rocas bloquean casillas, por cada gema pasa el puente de su color, las luces llevan pistas de largo, los cruces dejan que un puente pase sobre otro, los portales saltan un puente al otro lado del tablero, y los peldaños más altos piden la menor cantidad de curvas, que la app comprueba con una búsqueda.",
+        "lifeSkills": [
+          "Planear antes de actuar",
+          "Tener varias metas en mente",
+          "Deshacer y probar otro camino",
+          "Paciencia con los acertijos"
+        ]
+      }
+    }
   }
 }
