@@ -1,5 +1,5 @@
 {
- "source": "7c36910fa918bb991a3996b756497bcc74a473b8b5a727edb6f9aae7219c6467",
+ "source": "4d32dc0bce3f739a060de4e93723192d3d82ef823c3b13aa78bb16d0da97628a",
  "lines": [
   {
    "text": "A full ten frame is ten. Count the tens: ten, twenty, thirty. Then count the ones.",
@@ -7,10 +7,6 @@
   },
   {
    "text": "Can you work it out? Tap the light bulb for help.",
-   "rate": -10
-  },
-  {
-   "text": "Give one to each plate, then go around again. Keep going until you cannot give every plate one more.",
    "rate": -10
   },
   {

@@ -238,6 +238,13 @@
   header h1 { font-size: 26px; margin: 0; font-weight: 900; }
   /* On a 1024 wide screen the title would push the mode pills onto a second row and steal height from the game. */
   @media (max-width: 1140px) { header h1 { display: none; } header { gap: 8px; } .pill { font-size: 17px; padding: 7px 12px; } #badge { font-size: 15px; } }
+  /* Spanish labels are longer: the header stays on one row and the badge gives way instead of a pill dropping onto the game. */
+  html[lang="es"] header { flex-wrap: nowrap; gap: 8px; }
+  html[lang="es"] .pill { font-size: 16px; padding: 7px 10px; }
+  html[lang="es"] #badge { font-size: 15px; white-space: normal; text-overflow: clip; line-height: 1.15; text-align: center; }
+  /* A centred absolute box only grows to half the width before it wraps; Spanish prompts need the whole max-width before a second line. */
+  html[lang="es"] #ask { width: max-content; }
+  html[lang="es"] main.pad #ask.long { font-size: 20px; }
   #badge { font-size: 17px; font-weight: 800; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 5px 12px; margin-right: auto; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .pill { border: 3px solid var(--ink); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 19px; font-weight: 800; cursor: pointer; flex: none; }
   #stars { flex: none; }
@@ -411,15 +418,54 @@ const VOICE = (() => {
   return { play, stop, has, key };
 })();
 
+// ---------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every prompt, level name, object name, feedback
+// line and number word is Spanish; the problems and the ladders are the same. Every string a child reads or hears goes
+// through T(), keyed by the English text with {name} placeholders. The ES dictionary sits after the helpers below.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+
 const THINGS = ['🍎', '🐥', '⭐', '🐸', '🎈', '🐟', '🍓', '🦋', '🐢', '🌼', '🚗', '🍪'];
 const NAMES = { '🍎': 'apples', '🐥': 'chicks', '⭐': 'stars', '🐸': 'frogs', '🎈': 'balloons', '🐟': 'fish', '🍓': 'strawberries', '🦋': 'butterflies', '🐢': 'turtles', '🌼': 'flowers', '🚗': 'cars', '🍪': 'cookies' };
+// The things in Spanish: plural, singular, gender. The story things (STUFF) are here too.
+const ES_THINGS = {
+  apples: ['manzanas', 'manzana', 'f'], chicks: ['pollitos', 'pollito', 'm'], stars: ['estrellas', 'estrella', 'f'], frogs: ['ranas', 'rana', 'f'], balloons: ['globos', 'globo', 'm'], fish: ['peces', 'pez', 'm'],
+  strawberries: ['fresas', 'fresa', 'f'], butterflies: ['mariposas', 'mariposa', 'f'], turtles: ['tortugas', 'tortuga', 'f'], flowers: ['flores', 'flor', 'f'], cars: ['carros', 'carro', 'm'], cookies: ['galletas', 'galleta', 'f'],
+  shells: ['conchas', 'concha', 'f'], stickers: ['calcomanías', 'calcomanía', 'f'], rocks: ['piedras', 'piedra', 'f'], crayons: ['crayones', 'crayón', 'm'], beads: ['canicas', 'canica', 'f'], cards: ['cartas', 'carta', 'f'],
+};
 const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
 const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
-function numWords(n) {
+function numWordsEn(n) {
   if (n < 20) return WORDS[n];
   if (n < 100) return TENS[Math.floor(n / 10)] + (n % 10 ? ' ' + WORDS[n % 10] : '');
-  if (n < 1000) return WORDS[Math.floor(n / 100)] + ' hundred' + (n % 100 ? ' ' + numWords(n % 100) : '');
-  return numWords(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + numWords(n % 1000) : '');
+  if (n < 1000) return WORDS[Math.floor(n / 100)] + ' hundred' + (n % 100 ? ' ' + numWordsEn(n % 100) : '');
+  return numWordsEn(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + numWordsEn(n % 1000) : '');
+}
+const WORDS_ES = ['cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve',
+  'veinte', 'veintiuno', 'veintidós', 'veintitrés', 'veinticuatro', 'veinticinco', 'veintiséis', 'veintisiete', 'veintiocho', 'veintinueve'];
+const TENS_ES = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+const HUNDREDS_ES = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
+function numWordsEs(n) {
+  if (n < 30) return WORDS_ES[n];
+  if (n < 100) return TENS_ES[Math.floor(n / 10)] + (n % 10 ? ' y ' + WORDS_ES[n % 10] : '');
+  if (n === 100) return 'cien';
+  if (n < 1000) return HUNDREDS_ES[Math.floor(n / 100)] + (n % 100 ? ' ' + numWordsEs(n % 100) : '');
+  const th = Math.floor(n / 1000);
+  return (th === 1 ? 'mil' : numWordsEs(th) + ' mil') + (n % 1000 ? ' ' + numWordsEs(n % 1000) : '');
+}
+const numWords = n => LANG === 'es' ? numWordsEs(n) : numWordsEn(n);
+// A count in front of a noun: in Spanish "uno" agrees with it (una manzana, veintiún carros). English is unchanged.
+function numWordsG(n, g) {
+  const w = numWords(n);
+  if (LANG !== 'es' || !g || !/uno$/.test(w)) return w;
+  return g === 'f' ? w.replace(/uno$/, 'una') : w.replace(/veintiuno$/, 'veintiún').replace(/uno$/, 'un');
 }
 // Numbers as text: 0.47 -> "0.47", -4 -> "-4", 3200 -> "3200". Never more than two decimals.
 const fmt = n => { const r = Math.round(n * 100) / 100; return String(Object.is(r, -0) ? 0 : r); };
@@ -427,20 +473,262 @@ const money = c => (c / 100).toFixed(2);
 // Numbers as speech, for negatives and decimals too: -4 -> "negative four", 2.35 -> "two point three five".
 function numSay(n) {
   n = Math.round(n * 100) / 100;
-  if (n < 0) return 'negative ' + numSay(-n);
+  if (n < 0) return T('negative {n}', { n: numSay(-n) });
   if (Number.isInteger(n)) return n < 1000000 ? numWords(n) : String(n);
   const [i, d] = fmt(n).split('.');
-  return numWords(+i) + ' point ' + d.split('').map(c => WORDS[+c]).join(' ');
+  return T('{i} point {d}', { i: numWords(+i), d: d.split('').map(c => numWords(+c)).join(' ') });
 }
 const FRACS = { 2: ['half', 'halves'], 3: ['third', 'thirds'], 4: ['fourth', 'fourths'], 5: ['fifth', 'fifths'], 6: ['sixth', 'sixths'], 8: ['eighth', 'eighths'], 10: ['tenth', 'tenths'], 12: ['twelfth', 'twelfths'] };
-const fracSay = (a, d) => numWords(a) + ' ' + FRACS[d][a === 1 ? 0 : 1];
+const FRACS_ES = { 2: ['medio', 'medios'], 3: ['tercio', 'tercios'], 4: ['cuarto', 'cuartos'], 5: ['quinto', 'quintos'], 6: ['sexto', 'sextos'], 8: ['octavo', 'octavos'], 10: ['décimo', 'décimos'], 12: ['doceavo', 'doceavos'] };
+const fracSay = (a, d) => LANG === 'es' ? numWordsG(a, 'm') + ' ' + FRACS_ES[d][a === 1 ? 0 : 1] : numWords(a) + ' ' + FRACS[d][a === 1 ? 0 : 1];
 const SUP = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '-': '⁻' };
 const sup = n => String(n).split('').map(c => SUP[c] || c).join('');
-const powSay = (b, e) => numSay(b) + (e === 2 ? ' squared' : e === 3 ? ' cubed' : ' to the ' + ['', '', '', '', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'][e] + ' power');
-const tenSay = e => e === 0 ? 'ten to the zero' : e === 1 ? 'ten' : e === 2 ? 'ten squared' : e === 3 ? 'ten cubed' : e === -1 ? 'ten to the negative one' : 'ten to the negative two';
+const powSay = (b, e) => e === 2 ? T('{b} squared', { b: numSay(b) }) : e === 3 ? T('{b} cubed', { b: numSay(b) }) : T('{b} to the {ord} power', { b: numSay(b), ord: T(['', '', '', '', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'][e]) });
+const tenSay = e => T(e === 0 ? 'ten to the zero' : e === 1 ? 'ten' : e === 2 ? 'ten squared' : e === 3 ? 'ten cubed' : e === -1 ? 'ten to the negative one' : 'ten to the negative two');
 const gcd = (a, b) => b ? gcd(b, a % b) : a;
 const one = nm => nm === 'fish' ? 'fish' : nm.replace(/ies$/, 'y').replace(/s$/, '');
-const noun = (n, nm) => n === 1 ? one(nm) : nm;
+// The things by their English name: plural, singular, and the words that agree with them in Spanish.
+const pl = nm => LANG === 'es' && ES_THINGS[nm] ? ES_THINGS[nm][0] : nm;
+const sg = nm => LANG === 'es' && ES_THINGS[nm] ? ES_THINGS[nm][1] : one(nm);
+const gen = nm => LANG === 'es' && ES_THINGS[nm] ? ES_THINGS[nm][2] : 'm';
+const noun = (n, nm) => n === 1 ? sg(nm) : pl(nm);
+const tv = nm => { const f = gen(nm) === 'f'; return { things: pl(nm), thing: sg(nm), cu: f ? 'Cuántas' : 'Cuántos', cul: f ? 'cuántas' : 'cuántos', las: f ? 'las' : 'los', cada: f ? 'cada una' : 'cada uno', una: f ? 'una' : 'uno', algunas: f ? 'algunas' : 'algunos' }; };
+// Spanish verbs and colour words that agree with a count the English line does not need to agree with.
+const agree = (n, one, many) => n === 1 ? one : many;
+const nwt = (n, nm) => numWordsG(n, gen(nm));
+// Place value names: singular, plural, gender. placeN(3, 'ten') is "three tens" or "tres decenas"; placeN('a', 'hundred') is "a hundred" or "una centena".
+const ES_PLACES = { one: ['unidad', 'unidades', 'f'], ten: ['decena', 'decenas', 'f'], hundred: ['centena', 'centenas', 'f'], thousand: ['millar', 'millares', 'm'], tenth: ['décimo', 'décimos', 'm'], hundredth: ['centésimo', 'centésimos', 'm'] };
+function placeN(n, name) {
+  if (LANG !== 'es') return n === 'a' ? 'a ' + name : numWords(n) + ' ' + name + (n === 1 ? '' : 's');
+  const p = ES_PLACES[name];
+  return n === 'a' ? (p[2] === 'f' ? 'una ' : 'un ') + p[0] : numWordsG(n, p[2]) + ' ' + (n === 1 ? p[0] : p[1]);
+}
+const placeS = name => LANG === 'es' ? ES_PLACES[name][0] : name;
+const placePl = name => LANG === 'es' ? ES_PLACES[name][1] : name + 's';
+
+// The Spanish lines, keyed by the English text. Placeholders a Spanish line can use beyond the English ones: {cu} and
+// {cul} (Cuántos or Cuántas for the thing), {las}, {cada}, {una}, {boxone}, {tens}, {ones}, {tenths}, {hundredths},
+// {have}, {ahi}, {Ahi}, {Item}, {sobra}. A pronoun the English needs ({she}) is left out where Spanish drops it.
+const ES = {
+  // The app, the modes, the footer
+  'Count With Me': 'Cuenta conmigo', 'Count With Me! {t}': '¡Cuenta conmigo! {t}', 'How many?': '¿Cuántos?', 'Give me': 'Dame', 'Build it': 'Construye', 'Story': 'Cuento',
+  'Hear it': 'Escúchalo', 'Help': 'Pista', 'New one': 'Otro', 'Level {n}: {name}': 'Nivel {n}: {name}', 'Story {n}': 'Cuento {n}',
+  'Yes! {t}': '¡Sí! {t}', 'Level up! {name}': '¡Subes de nivel! {name}', 'Level up! {name}!': '¡Subes de nivel! ¡{name}!', 'Let us try some easier ones.': 'Vamos a probar unos más fáciles.',
+  'Not {n}. Try again!': 'No es {n}. ¡Intenta otra vez!', '{n}. That is right!': '{n}. ¡Correcto!', '{n}!': '¡{n}!', 'Here is a hint. {eq}': 'Aquí hay una pista. {eq}', 'what': 'qué',
+  'point': 'punto', 'negative': 'negativo', 'positive': 'positivo', 'negative {n}': 'menos {n}', '{i} point {d}': '{i} punto {d}',
+  // Level names
+  'Count to 5': 'Cuenta hasta 5', 'Count to 10': 'Cuenta hasta 10', 'Count to 20': 'Cuenta hasta 20', 'Tens and ones': 'Decenas y unidades', 'Big numbers': 'Números grandes', 'Rows of': 'Filas de',
+  'Times tables': 'Tablas de multiplicar', 'Area model': 'Modelo de área', 'Groups of': 'Grupos de', 'How many groups?': '¿Cuántos grupos?', 'Hundredths': 'Centésimos', 'Percent': 'Porcentaje',
+  'Ratios': 'Razones', 'Scale up': 'Escala', 'Squares and cubes': 'Cuadrados y cubos', 'Square roots': 'Raíces cuadradas',
+  'Give me 5': 'Dame 5', 'Give me 10': 'Dame 10', 'Give me 12': 'Dame 12', 'Add to 20': 'Suma hasta 20', 'Add to 100': 'Suma hasta 100', 'Equal groups': 'Grupos iguales', 'Share it': 'Repártelo',
+  'Leftovers': 'Sobrantes', 'Part of a set': 'Parte de un conjunto', 'Decimal tokens': 'Fichas decimales', 'Make a ratio': 'Forma una razón', 'Percent of': 'Porcentaje de', 'Percent off': 'Descuento',
+  'Negative chips': 'Fichas negativas', 'Powers': 'Potencias',
+  'Build to 10': 'Construye hasta 10', 'Build tens and ones': 'Decenas y unidades', 'Build hundreds': 'Construye centenas', 'Number puzzles': 'Acertijos de números', 'Add and trade': 'Suma y cambia',
+  'Take away and trade': 'Quita y cambia', 'Big add and take away': 'Sumas y restas grandes', 'Build thousands': 'Construye millares', 'Thousand puzzles': 'Acertijos de millares',
+  'Build decimals': 'Construye decimales', 'Decimals and trade': 'Decimales y cambios', 'Powers of ten': 'Potencias de diez', 'Scientific notation': 'Notación científica', 'Small powers of ten': 'Exponentes negativos',
+  'Stories to 5': 'Cuentos hasta 5', 'Stories to 10': 'Cuentos hasta 10', 'Stories to 20': 'Cuentos hasta 20', 'Stories to 100': 'Cuentos hasta 100', 'Times stories': 'Cuentos de multiplicar',
+  'Sharing stories': 'Cuentos de repartir', 'Two steps': 'Dos pasos', 'Coins': 'Monedas', 'Four operations': 'Cuatro operaciones', 'Fractions': 'Fracciones', 'Decimals': 'Decimales',
+  'Ratios and rates': 'Razones y tasas', 'Percents': 'Porcentajes', 'Proportions': 'Proporciones', 'Equations in words': 'Ecuaciones en palabras', 'Chance': 'Probabilidad',
+  // Numbers read aloud
+  '{b} squared': '{b} al cuadrado', '{b} cubed': '{b} al cubo', '{b} to the {ord} power': '{b} a la {ord} potencia', 'fourth': 'cuarta', 'fifth': 'quinta', 'sixth': 'sexta', 'seventh': 'séptima', 'eighth': 'octava',
+  'ten to the zero': 'diez a la cero', 'ten': 'diez', 'ten squared': 'diez al cuadrado', 'ten cubed': 'diez al cubo', 'ten to the negative one': 'diez a la menos uno', 'ten to the negative two': 'diez a la menos dos',
+  'one': 'uno', 'one tenth': 'un décimo', 'one hundredth': 'un centésimo', 'red': 'roja', 'blue': 'azul', 'positive one': 'uno positivo', 'negative one': 'uno negativo',
+  'one quarter': 'un cuarto', 'one half': 'la mitad', 'three quarters': 'tres cuartos', ' plus ': ' más ', ', plus ': ', más ',
+  // How many?: counting
+  'How many {things}?': '¿{cu} {things}?', 'How many {things}? Tap each one to count.': '¿{cu} {things}? Toca {cada} para contar.', 'How many {things}? Tap a full ten frame to count ten.': '¿{cu} {things}? Toca un marco de diez lleno para contar diez.',
+  '{r} rows of {c}. How many?': '{r} filas de {c}. ¿Cuántos hay?', '{r} rows of {c}. How many {things}? Tap each row to count.': '{r} filas de {c}. ¿{cu} {things}? Toca cada fila para contar.', '{r} rows of {c}. How many {things}?': '{r} filas de {c}. ¿{cu} {things}?',
+  '{n} {noun}!': '¡{n} {noun}!', 'Not {n}. Count them again!': 'No es {n}. ¡Cuenta otra vez!', '{r} rows of {c} is {a}.': '{r} filas de {c} son {a}.',
+  '{t} tens and {o} ones = {a}': '{t} decenas y {o} unidades = {a}', '{t} tens and {o} ones is {a} {things}.': '{tens} y {ones} son {a} {things}.',
+  'Tap each {thing} once. Say the numbers with me.': 'Toca cada {thing} una vez. Di los números conmigo.', 'A full ten frame is ten. Count the tens: ten, twenty, thirty. Then count the ones.': 'Un marco de diez lleno es diez. Cuenta las decenas: diez, veinte, treinta. Luego cuenta las unidades.',
+  'Tap each row. Count by {c}s.': 'Toca cada fila. Cuenta de {c} en {c}.', 'Now you can tap the rows. Count by {c}s.': 'Ahora puedes tocar las filas. Cuenta de {c} en {c}.', 'Can you work it out? Tap the light bulb for help.': '¿Puedes resolverlo? Toca el foco para pedir ayuda.',
+  // How many?: pictures with a typed answer
+  '{r} × {c}. How many?': '{r} × {c}. ¿Cuántos hay?', '{r} rows of {c}. The blue part is {r} times ten. The green part is {r} times {o}. How many in all?': '{r} filas de {c}. La parte azul es {r} por diez. La parte verde es {r} por {o}. ¿Cuántos hay en total?',
+  '{r} times ten is {r10}. {r} times {o} is {ro}. Add them.': '{r} por diez es {r10}. {r} por {o} es {ro}. Súmalos.', '{a} times {b} is {c}.': '{a} por {b} es {c}.',
+  '{G} groups of {N}. How many?': '{G} grupos de {N}. ¿Cuántos hay?', '{G} groups of {N}. How many in all?': '{G} grupos de {N}. ¿Cuántos hay en total?',
+  'Count the tens first. {G} groups of {t} is {Gt}. Then add {G} groups of {o}.': 'Cuenta primero las decenas. {G} grupos de {t} son {Gt}. Luego suma {G} grupos de {o}.',
+  '{T} in groups of {N}. How many groups?': '{T} en grupos de {N}. ¿Cuántos grupos hay?', 'There are {T} in all, in groups of {N}. How many groups?': 'Hay {T} en total, en grupos de {N}. ¿Cuántos grupos hay?',
+  'Count the groups. Or think: {N} times what is {T}?': 'Cuenta los grupos. O piensa: ¿{N} por cuánto es {T}?', '{a} divided by {b} is {c}.': '{a} entre {b} es {c}.',
+  '{T} in {G} equal groups. How many in each?': '{T} en {G} grupos iguales. ¿Cuántos hay en cada uno?', 'There are {T} in all, in {G} equal groups. How many in each group?': 'Hay {T} en total, en {G} grupos iguales. ¿Cuántos hay en cada grupo?',
+  'Count one group. Or think: {G} times what is {T}?': 'Cuenta un grupo. O piensa: ¿{G} por cuánto es {T}?',
+  'What percent is shaded?': '¿Qué porcentaje está sombreado?', 'The whole grid is one hundred percent. What percent is shaded?': 'Toda la cuadrícula es el cien por ciento. ¿Qué porcentaje está sombreado?',
+  '{k} out of 100 = ? %': '{k} de 100 = ? %', 'Each square is one percent. Count the full rows by tens, then the rest.': 'Cada cuadrito es el uno por ciento. Cuenta las filas llenas de diez en diez y luego el resto.', '{k} percent is shaded.': 'El {k} por ciento está sombreado.',
+  'What decimal is shaded?': '¿Qué decimal está sombreado?', 'The whole grid is one. {k} of the one hundred squares are shaded. What decimal is that?': 'Toda la cuadrícula es uno. {k} de los cien cuadritos están sombreados. ¿Qué decimal es?',
+  'Each square is one hundredth. {k} hundredths is {d}. Type zero, point, then the digits.': 'Cada cuadrito es un centésimo. {k} centésimos es {d}. Escribe cero, punto y luego los dígitos.', '{d} is shaded.': '{d} está sombreado.',
+  '{r} red and {b} blue. ': '{r} rojos y {b} azules. ', 'There are {r} red dots and {b} blue dots. ': 'Hay {r} puntos rojos y {b} puntos azules. ',
+  'For every {p} red, how many blue?': 'Por cada {p} {redp}, ¿cuántos azules?', 'Make groups of {p} red. There are {m} groups. Share the blue dots into {m} groups too.': 'Forma grupos de {p} {redp}. Hay {m} grupos. Reparte los puntos azules en {m} grupos también.',
+  'For every {p} red there are {q} blue.': 'Por cada {p} {redp} hay {q} {blueq}.', 'For every {q} blue, how many red?': 'Por cada {q} {blueq}, ¿cuántos rojos?',
+  'Make groups of {q} blue. There are {m} groups. Share the red dots into {m} groups too.': 'Forma grupos de {q} {blueq}. Hay {m} grupos. Reparte los puntos rojos en {m} grupos también.', 'For every {q} blue there are {p} red.': 'Por cada {q} {blueq} hay {p} {redp}.',
+  'For every {p} red, how many dots in all?': 'Por cada {p} {redp}, ¿cuántos en total?', 'For every {p} red dots, how many dots in all?': 'Por cada {p} {dotp} {redp}, ¿cuántos puntos hay en total?',
+  'For every {p} red there are {q} blue. Add them.': 'Por cada {p} {redp} hay {q} {blueq}. Súmalos.', 'For every {p} red there are {n} dots in all.': 'Por cada {p} {redp} hay {n} puntos en total.',
+  '{a} rows are {ac}. How many in {n} rows?': '{a} filas son {ac}. ¿Cuántos hay en {n} filas?', '{a} rows make {ac}. How many in {n} rows?': '{a} filas forman {ac}. ¿Cuántos hay en {n} filas?',
+  '{ac} ÷ {a} = {c} in a row. {n} × {c} = ?': '{ac} ÷ {a} = {c} en una fila. {n} × {c} = ?', 'First find one row. {ac} divided by {a} is {c}. Then {n} rows of {c}.': 'Primero halla una fila. {ac} entre {a} es {c}. Luego {n} filas de {c}.',
+  '{n} rows make {nc}.': '{n} filas forman {nc}.', '{a} rows are {ac}. How many rows make {nc}?': '{a} filas son {ac}. ¿Cuántas filas forman {nc}?', '{a} rows make {ac}. How many rows make {nc}?': '{a} filas forman {ac}. ¿Cuántas filas forman {nc}?',
+  '{ac} ÷ {a} = {c} in a row. {nc} ÷ {c} = ?': '{ac} ÷ {a} = {c} en una fila. {nc} ÷ {c} = ?', 'First find one row. {ac} divided by {a} is {c}. How many rows of {c} make {nc}?': 'Primero halla una fila. {ac} entre {a} es {c}. ¿Cuántas filas de {c} forman {nc}?',
+  '{a} rows = {n}': '{a} filas = {n}', '{n} in all': '{n} en total',
+  '{e}. How many?': '{e}. ¿Cuántos hay?', '{b} squared. That is a square {b} by {b}. How many?': '{b} al cuadrado. Es un cuadrado de {b} por {b}. ¿Cuántos hay?',
+  'Count one row. Then count the rows. {b} rows of {b}.': 'Cuenta una fila. Luego cuenta las filas. {b} filas de {b}.', '{b} squared is {bb}.': '{b} al cuadrado es {bb}.',
+  '{b} cubed. That is {b} groups of {b} by {b}. How many?': '{b} al cubo. Son {b} grupos de {b} por {b}. ¿Cuántos hay?', 'One square is {b} times {b}, which is {bb}. There are {b} squares.': 'Un cuadrado es {b} por {b}, que es {bb}. Hay {b} cuadrados.',
+  '{b} cubed is {bbb}.': '{b} al cubo es {bbb}.', '√{n}. What is it?': '√{n}. ¿Cuánto es?', '{n} dots make a square. How long is a side?': '{n} puntos forman un cuadrado. ¿Cuánto mide un lado?',
+  'The square root of {n}. This square has {n} dots. How many dots are on one side?': 'La raíz cuadrada de {n}. Este cuadrado tiene {n} puntos. ¿Cuántos puntos hay en un lado?',
+  'Count the dots along the bottom row.': 'Cuenta los puntos de la fila de abajo.', 'The square root of {n} is {b}.': 'La raíz cuadrada de {n} es {b}.', '∛{n}. What is it?': '∛{n}. ¿Cuánto es?',
+  'The cube root of {n}. {n} dots make {b} equal squares. How many on one side?': 'La raíz cúbica de {n}. {n} puntos forman {b} cuadrados iguales. ¿Cuántos hay en un lado?',
+  'Count the dots along one side of one square.': 'Cuenta los puntos de un lado de un cuadrado.', 'The cube root of {n} is {b}.': 'La raíz cúbica de {n} es {b}.',
+  // Give me: baskets and plates
+  'Put {n} {noun} in the basket': 'Pon {n} {noun} en la canasta', 'Put {n} {noun} in the basket. Then tap the check.': 'Pon {n} {noun} en la canasta. Luego toca el botón verde.',
+  '{a} plus {b}': '{a} más {b}', 'Count {a} into the basket. Then count {b} more.': 'Cuenta {a} en la canasta. Luego cuenta {b} más.', '{num}/{d} of the {total}': '{num}/{d} de {total}', '{frac} of the {total}': '{frac} de {total}',
+  'Share the {total} into {d} equal groups. Each group is {each}. Put {num} group in the basket.': 'Reparte {total} en {d} grupos iguales. Cada grupo es {each}. Pon {num} grupo en la canasta.',
+  'Share the {total} into {d} equal groups. Each group is {each}. Put {num} groups in the basket.': 'Reparte {total} en {d} grupos iguales. Cada grupo es {each}. Pon {num} grupos en la canasta.',
+  'Drag them in one at a time and count.': 'Arrastra de uno en uno y cuenta.', 'Oops, {n}': 'Uy, {n}', '{n} {noun}. Perfect!': '{n} {noun}. ¡Perfecto!', '{say} is {n}.': '{say} es {n}.',
+  'Only {n}. We need {want}. Add some more!': 'Solo {n}. Necesitamos {want}. ¡Pon más!', 'That is {n}. Too many! Take some out.': 'Son {n}. ¡Es demasiado! Saca {algunas}.',
+  'Make {R} groups of {N}': 'Forma {R} grupos de {N}', 'Make {R} groups of {N}. Put {N2} {things} on each plate.': 'Forma {R} grupos de {N}. Pon {N2} {things} en cada plato.',
+  'Share {total} {things} on {R} plates': 'Reparte {total} {things} en {R} platos', 'Share {total} {things} on {R} plates. Every plate gets the same.': 'Reparte {total} {things} en {R} platos. Cada plato recibe lo mismo.',
+  'Share {total} {things} on {R} plates. Every plate gets the same. Some may be left over.': 'Reparte {total} {things} en {R} platos. Cada plato recibe lo mismo. Pueden sobrar {algunas}.',
+  '{R} groups of {N} = {total}': '{R} grupos de {N} = {total}', '{R} groups of {N} is {total} {things}.': '{R} grupos de {N} son {total} {things}.', 'Plate {p} has {n}. Every plate needs {N}.': 'El plato {p} tiene {n}. Cada plato necesita {N}.',
+  'The plates are not fair yet. Every plate needs the same number.': 'Los platos todavía no están parejos. Cada plato necesita la misma cantidad.', 'Put some on the plates.': 'Pon algo en los platos.',
+  'You can still give every plate one more.': 'Todavía puedes darle {una} más a cada plato.', 'Share all of them.': 'Reparte todo.',
+  '{total} ÷ {R} = {each}, {left} left over': '{total} ÷ {R} = {each}, residuo {left}', '{total} shared by {R} is {each} each, with {left} left over.': '{total} entre {R} es {each} para cada plato, y {sobra} {left}.',
+  '{total} shared by {R} is {each} each.': '{total} entre {R} es {each} para cada plato.', 'Put {N} on the first plate. Then do the next plate.': 'Pon {N} en el primer plato. Luego sigue con el siguiente.',
+  'Give one to each plate, then go around again. Keep going until you cannot give every plate one more.': 'Dale {una} a cada plato y vuelve a empezar. Sigue hasta que ya no puedas darle {una} más a cada plato.',
+  // Give me: tokens
+  'Tap a token to put it in. Tap a chip in the bin to take it out.': 'Toca una ficha para meterla. Toca una ficha en la caja para sacarla.', 'That is a lot of tokens. Try a bigger one.': 'Son muchas fichas. Prueba con una más grande.',
+  'Out': 'Fuera', '{r} red, {b} blue': '{r} {rojas}, {b} {azules}', 'The bin is empty. Tap a token to put it in.': 'La caja está vacía. Toca una ficha para meterla.',
+  'That is {n}. We need more.': 'Es {n}. Necesitamos más.', 'That is {n}. That is too many.': 'Es {n}. Es demasiado.',
+  'Make {a} + {b}': 'Forma {a} + {b}', 'Make {a} plus {b} with tens and ones.': 'Forma {a} más {b} con decenas y unidades.',
+  'Add the tens first, then the ones. {s} is {t} tens and {o} ones.': 'Suma primero las decenas y luego las unidades. {s} son {tens} y {ones}.', '{a} plus {b} is {s}.': '{a} más {b} es {s}.',
+  'Make {v}': 'Forma {v}', 'Make {v}. The big token is one. The middle one is a tenth. The small one is a hundredth.': 'Forma {v}. La ficha grande es uno. La mediana es un décimo. La pequeña es un centésimo.',
+  '{w} ones, {t} tenths and {h} hundredths.': '{ones}, {tenths} y {hundredths}.', '{v}. That is right.': '{v}. Correcto.',
+  'Make {p} red for every {q} blue. Use {total}.': 'Forma {p} {rojap} por cada {q} {azulq}. Usa {total}.', 'Make {p} red for every {q} blue. Use {total} tokens in all.': 'Forma {p} {rojap} por cada {q} {azulq}. Usa {total} fichas en total.',
+  '{r} red : {b} blue': '{r} rojas : {b} azules', 'Put in {p} red and {q} blue. Do that again until you have {total}.': 'Mete {p} {rojap} y {q} {azulq}. Repítelo hasta tener {total}.',
+  '{r} red and {b} blue. That is {p} to {q}.': '{r} rojas y {b} azules. Eso es {p} a {q}.', 'That is {n} in all. We need {total}. Add some more.': 'Son {n} en total. Necesitamos {total}. Pon más.',
+  'That is {n} in all. We need {total}. Take some out.': 'Son {n} en total. Necesitamos {total}. Saca algunas.', 'For every {p} red there should be {q} blue. Try again.': 'Por cada {p} {rojap} debe haber {q} {azulq}. Intenta otra vez.',
+  '{pct} percent is {frac}. One quarter of {A} is {q}.': '{pct} por ciento es {frac}. Un cuarto de {A} es {q}.', 'Ten percent of {A} is {t}. You need {k} of those.': 'El diez por ciento de {A} es {t}. Necesitas {k} de esos.',
+  'Make {pct}% of {A}': 'Forma el {pct}% de {A}', 'Make {pct} percent of {A}.': 'Forma el {pct} por ciento de {A}.', '{pct}% of {A} = {res}': '{pct}% de {A} = {res}', '{pct} percent of {A} is {res}.': 'El {pct} por ciento de {A} es {res}.',
+  '{pct}% off {P}. Make the new price.': '{pct}% de descuento en {P}. Forma el precio nuevo.', 'A toy costs {P}. It is {pct} percent off. Make the new price.': 'Un juguete cuesta {P}. Tiene {pct} por ciento de descuento. Forma el precio nuevo.',
+  '{pct} percent of {P} is {part}. Take that off {P}.': 'El {pct} por ciento de {P} es {part}. Quítaselo a {P}.', '{P} take away {part} is {ans}.': '{P} menos {part} es {ans}.',
+  '{P} plus a {pct}% tip. Make the total.': '{P} más una propina del {pct}%. Forma el total.', 'A meal costs {P}. Add a {pct} percent tip. Make the total.': 'Una comida cuesta {P}. Agrega una propina del {pct} por ciento. Forma el total.',
+  '{pct} percent of {P} is {part}. Add that to {P}.': 'El {pct} por ciento de {P} es {part}. Súmaselo a {P}.', '{P} plus {part} is {ans}.': '{P} más {part} es {ans}.',
+  '{a} minus {b}': '{a} menos {b}', 'negative {a} plus {b}': 'menos {a} más {b}', 'negative {a} minus {b}': 'menos {a} menos {b}', '{a} plus negative {b}': '{a} más, menos {b}', '{a} minus negative {b}': '{a} menos, menos {b}',
+  'Make {expr}': 'Forma {expr}', 'Make {said}. A positive chip and a negative chip cancel out.': 'Forma {said}. Una ficha positiva y una negativa se cancelan.',
+  'Start with the first number in chips. Then add or take away. A positive and a negative together make zero, so you can add a pair any time.': 'Empieza con el primer número en fichas. Luego suma o quita. Una positiva y una negativa juntas hacen cero, así que puedes agregar un par cuando quieras.',
+  '{said} is {ans}.': '{said} es {ans}.', '{b} squared plus {c}': '{b} al cuadrado más {c}', '{b} squared minus {c}': '{b} al cuadrado menos {c}', '{b} cubed plus {c}': '{b} al cubo más {c}',
+  '{p} plus {c}': '{p} más {c}', '{p} is {v}.': '{p} es {v}.', '{b} squared minus {d} squared': '{b} al cuadrado menos {d} al cuadrado', 'The answer is negative.': 'La respuesta es negativa.',
+  'Make {said}.': 'Forma {said}.', 'Then make the answer.': 'Luego forma la respuesta.',
+  // Build it
+  'Hundreds': 'Centenas', 'Tens': 'Decenas', 'Ones': 'Unidades', 'Thousands': 'Millares', 'Tenths': 'Décimos', 'ones': 'unidades', 'tens': 'decenas', 'hundreds': 'centenas', 'thousands': 'millares',
+  'Build {n}': 'Construye {n}', 'Build {n}.': 'Construye {n}.', 'Build {n}. Tap plus under the ones.': 'Construye {n}. Toca el más debajo de las unidades.',
+  'Build 10 more than {m}': 'Construye 10 más que {m}', 'Build ten more than {m}.': 'Construye diez más que {m}.', 'Build 10 less than {m}': 'Construye 10 menos que {m}', 'Build ten less than {m}.': 'Construye diez menos que {m}.',
+  'Build 100 more than {m}': 'Construye 100 más que {m}', 'Build 100 less than {m}': 'Construye 100 menos que {m}', 'Build one hundred more than {m}.': 'Construye cien más que {m}.', 'Build one hundred less than {m}.': 'Construye cien menos que {m}.',
+  'Build a number with {parts}.': 'Construye un número con {parts}.', 'You have {a}. Add {b}. Trade ten ones for a ten when you can.': 'Tienes {a}. Suma {b}. Cambia diez unidades por una decena cuando puedas.',
+  'You have {a}. Take away {b}. Break a ten into ones if you need more.': 'Tienes {a}. Quita {b}. Convierte una decena en unidades si necesitas más.',
+  'Build ten times {m}. Every digit moves up one place.': 'Construye diez por {m}. Cada dígito sube un lugar.', 'Build 1,000 more than {m}': 'Construye 1,000 más que {m}', 'Build 1,000 less than {m}': 'Construye 1,000 menos que {m}',
+  'Build one thousand more than {m}.': 'Construye mil más que {m}.', 'Build one thousand less than {m}.': 'Construye mil menos que {m}.',
+  'Build {m} rounded to the nearest hundred': 'Construye {m} redondeado a la centena más cercana', 'Build {m} rounded to the nearest thousand': 'Construye {m} redondeado al millar más cercano',
+  'Build {m} rounded to the nearest hundred.': 'Construye {m} redondeado a la centena más cercana.', 'Build {m} rounded to the nearest thousand.': 'Construye {m} redondeado al millar más cercano.',
+  ' The flat is one whole. The rod is one tenth. The small cube is one hundredth.': ' La placa es un entero. La barra es un décimo. El cubito es un centésimo.',
+  'You have {a}. Add {b}. Trade ten hundredths for a tenth when you can.': 'Tienes {a}. Suma {b}. Cambia diez centésimos por un décimo cuando puedas.',
+  'You have {a}. Take away {b}. Break a tenth into hundredths if you need more.': 'Tienes {a}. Quita {b}. Convierte un décimo en centésimos si necesitas más.',
+  '{x} times {ten}': '{x} por {ten}', 'Build {x} times {ten}.': 'Construye {x} por {ten}.', 'Build {x} times {ten}. {ten} is {v}.': 'Construye {x} por {ten}. {ten} es {v}.',
+  'Build {d} times ten to the negative one. That is {d} tenths.': 'Construye {d} por diez a la menos uno. {Son} {tenths}.', 'Build {d} times ten to the negative two. That is {d} hundredths.': 'Construye {d} por diez a la menos dos. {Son} {hundredths}.',
+  'Build {m} times ten to the negative one. Move the decimal point one place to the left.': 'Construye {m} por diez a la menos uno. Mueve el punto decimal un lugar a la izquierda.',
+  'Build {m} times ten to the zero. Ten to the zero is one.': 'Construye {m} por diez a la cero. Diez a la cero es uno.',
+  'There are none to take away.': 'No hay nada que quitar.', 'That is a lot. Try trading.': 'Eso es mucho. Intenta cambiar.', '10 {lo} → 1 {hi}': '10 {lo} → 1 {hi}', '1 {hi} → 10 {lo}': '1 {hi} → 10 {lo}',
+  'Ten {lo} make one {hi}.': 'Diez {lo} hacen {ahi}.', 'One {hi} is ten {lo}.': '{Ahi} son diez {lo}.',
+  'That is {v}, but you have {n} {lo}. Trade ten {lo} for a {hi}.': 'Es {v}, pero tienes {have}. Cambia diez {lo} por {ahi}.',
+  'Take away the small ones first. If there are not enough, break a bigger block.': 'Quita primero las piezas pequeñas. Si no alcanzan, convierte una pieza más grande.',
+  'Add the small ones first, then the bigger ones. Trade ten for one when you can.': 'Suma primero las piezas pequeñas y luego las grandes. Cambia diez por una cuando puedas.',
+  'Look at each digit. Start with the biggest place and work to the right.': 'Mira cada dígito. Empieza por el lugar más grande y sigue hacia la derecha.',
+  // Story: equations with words
+  '{a} out of {b} = ? %': '{a} de {b} = ? %', '{pct}% of {a} = ?': '{pct}% de {a} = ?', '{a} + {pct}% of {a} = ?': '{a} + {pct}% de {a} = ?',
+  // Story: adding and taking away
+  '{name} has {a} {things}. {she} finds {b} more. How many {things} does {name} have now?': '{name} tiene {a} {things}. Encuentra {b} más. ¿{cu} {things} tiene {name} ahora?',
+  '{name} had {a} {things}. {she} gave {b} to {other}. How many {things} are left?': '{name} tenía {a} {things}. Le dio {b} a {other}. ¿{cu} {things} quedan?',
+  '{name} has {a} {things}. {other} has {b}. How many more {things} does {name} have than {other}?': '{name} tiene {a} {things}. {other} tiene {b}. ¿{cu} {things} más tiene {name} que {other}?',
+  '{name} wants {a} {things}. {she} has {b} so far. How many more does {name} need?': '{name} quiere {a} {things}. Ya tiene {b}. ¿{cu} más necesita {name}?',
+  // Story: times and sharing
+  '{name} has {g} {box}. Each one has {n} {things} inside. How many {things} in all?': '{name} tiene {g} {box}. Cada {boxone} tiene {n} {things} adentro. ¿{cu} {things} hay en total?',
+  'The class puts chairs in {g} rows. There are {n} chairs in each row. How many chairs?': 'La clase pone sillas en {g} filas. Hay {n} sillas en cada fila. ¿Cuántas sillas hay?',
+  'There are {g} {animals} in the yard. Each one has {l} legs. How many legs in all?': 'Hay {g} {animals} en el patio. Cada animal tiene {l} patas. ¿Cuántas patas hay en total?',
+  '{name} has {t} {things} to share with {g} friends. Each friend gets the same number. How many does each friend get?': '{name} tiene {t} {things} para repartir entre {g} amigos. Cada amigo recibe la misma cantidad. ¿{cu} recibe cada amigo?',
+  'There are {t} kids at the park. They make teams of {each}. How many teams are there?': 'Hay {t} niños en el parque. Forman equipos de {each}. ¿Cuántos equipos hay?',
+  '{name} had {a} {things}. Then {sheL} got {p} packs with {n} in each pack. How many {things} now?': '{name} tenía {a} {things}. Luego consiguió {p} paquetes con {n} en cada paquete. ¿{cu} {things} tiene ahora?',
+  '{name} has {a} cents. {she} buys {n} pencils that cost {c} cents each. How many cents are left?': '{name} tiene {a} centavos. Compra {n} lápices que cuestan {c} centavos cada uno. ¿Cuántos centavos le quedan?',
+  '{name} picked {a} {things} in the morning and {b} in the afternoon. {she} gave away {c}. How many {things} does {name} have?': '{name} recogió {a} {things} en la mañana y {b} en la tarde. Regaló {c}. ¿{cu} {things} tiene {name}?',
+  '{name} has {list} and {last}. How many cents is that?': '{name} tiene {list} y {last}. ¿Cuántos centavos son?',
+  'A toy costs {price} cents. {name} pays with {q} quarters. How many cents of change does {name} get back?': 'Un juguete cuesta {price} centavos. {name} paga con {q} monedas de 25 centavos. ¿Cuántos centavos de cambio recibe {name}?',
+  // Story: four operations
+  '{name} buys {p} packs of {n} {things}. {she} shares them equally among {g} kids. How many does each kid get?': '{name} compra {p} paquetes de {n} {things}. Reparte todo en partes iguales entre {g} niños. ¿{cu} recibe cada niño?',
+  'A bus holds {s} kids. {b} buses take {t} kids on a trip. How many empty seats are there?': 'En un autobús caben {s} niños. {b} autobuses llevan a {t} niños de paseo. ¿Cuántos asientos vacíos hay?',
+  '{name} saves {w} dollars each week for {n} weeks. Then {sheL} spends {c} dollars. How many dollars are left?': '{name} ahorra {w} dólares cada semana durante {n} semanas. Luego gasta {c} dólares. ¿Cuántos dólares le quedan?',
+  'There are {r} rows of {c} chairs. {b} chairs are broken. How many good chairs are there?': 'Hay {r} filas de {c} sillas. {b} sillas están rotas. ¿Cuántas sillas buenas hay?',
+  '{name} has {a} {things}. {other} has {m} times as many. How many do they have together?': '{name} tiene {a} {things}. {other} tiene {m} veces esa cantidad. ¿{cu} tienen entre los dos?',
+  '{t} {things} are packed {n} to a box. {sold} boxes are sold. How many boxes are left?': 'Se empacan {t} {things} en cajas de {n}. Se venden {sold} cajas. ¿Cuántas cajas quedan?',
+  '{name} reads {a} pages a day for {d} days. The book has {p} pages. How many pages are left to read?': '{name} lee {a} páginas al día durante {d} días. El libro tiene {p} páginas. ¿Cuántas páginas le faltan por leer?',
+  // Story: fractions
+  '{name} read {num}/{d} of a {pages} page book. How many pages did {sheL} read?': '{name} leyó {num}/{d} de un libro de {pages} páginas. ¿Cuántas páginas leyó?',
+  '{name} read {frac} of a {pages} page book. How many pages did {sheL} read?': '{name} leyó {frac} de un libro de {pages} páginas. ¿Cuántas páginas leyó?',
+  'A pizza is cut into {s} equal slices. {name} eats {a}/{s} of it and {other} eats {b}/{s}. How many slices are left?': 'Una pizza se corta en {s} rebanadas iguales. {name} come {a}/{s} {y} {other} come {b}/{s}. ¿Cuántas rebanadas quedan?',
+  'A pizza is cut into {s} equal slices. {name} eats {af} of it and {other} eats {bf}. How many slices are left?': 'Una pizza se corta en {s} rebanadas iguales. {name} come {af} {y} {other} come {bf}. ¿Cuántas rebanadas quedan?',
+  'A recipe needs {num}/{d} cup of sugar for one batch. {name} makes {n} batches. How many cups of sugar?': 'Una receta necesita {num}/{d} de taza de azúcar para una tanda. {name} hace {n} tandas. ¿Cuántas tazas de azúcar necesita?',
+  'A recipe needs {frac} of a cup of sugar for one batch. {name} makes {n} batches. How many cups of sugar?': 'Una receta necesita {frac} de taza de azúcar para una tanda. {name} hace {n} tandas. ¿Cuántas tazas de azúcar necesita?',
+  '{name} has {total} {things}. {she} gives {num}/{d} of them to {other}. How many does {name} keep?': '{name} tiene {total} {things}. Le da {num}/{d} a {other}. ¿Con {cul} se queda {name}?',
+  '{name} has {total} {things}. {she} gives {frac} of them to {other}. How many does {name} keep?': '{name} tiene {total} {things}. Le da {frac} a {other}. ¿Con {cul} se queda {name}?',
+  '{num}/{d} of the {total} kids in a class walk to school. The rest ride the bus. How many ride the bus?': '{num}/{d} de los {total} niños de una clase van caminando a la escuela. Los demás van en autobús. ¿Cuántos van en autobús?',
+  '{Frac} of the {total} kids in a class walk to school. The rest ride the bus. How many ride the bus?': '{Frac} de los {total} niños de una clase van caminando a la escuela. Los demás van en autobús. ¿Cuántos van en autobús?',
+  'A tank holds {cap} gallons. It is {num}/{d} full. How many gallons are in it?': 'Un tanque tiene capacidad para {cap} galones. Está lleno a {num}/{d}. ¿Cuántos galones tiene?',
+  'A tank holds {cap} gallons. It is {frac} full. How many gallons are in it?': 'Un tanque tiene capacidad para {cap} galones. Está lleno a {frac}. ¿Cuántos galones tiene?',
+  // Story: decimals
+  '{name} buys a {i1} for ${a} and a {i2} for ${b}. How much does {sheL} spend in all?': '{name} compra {i1} por ${a} y {i2} por ${b}. ¿Cuánto gasta en total?',
+  '{name} buys a {i1} for {a} dollars and a {i2} for {b} dollars. How much does {sheL} spend in all?': '{name} compra {i1} por {a} dólares y {i2} por {b} dólares. ¿Cuánto gasta en total?',
+  '{name} has ${a}. {she} spends ${b}. How much is left?': '{name} tiene ${a}. Gasta ${b}. ¿Cuánto le queda?', '{name} has {a} dollars. {she} spends {b} dollars. How much is left?': '{name} tiene {a} dólares. Gasta {b} dólares. ¿Cuánto le queda?',
+  'One {item} costs ${a}. How much do {n} of them cost?': '{Item} cuesta ${a}. ¿Cuánto cuestan {n}?', 'One {item} costs {a} dollars. How much do {n} of them cost?': '{Item} cuesta {a} dólares. ¿Cuánto cuestan {n}?',
+  '{name} ran {a} km on Monday and {b} km on Tuesday. How far did {sheL} run in all?': '{name} corrió {a} km el lunes y {b} km el martes. ¿Cuánto corrió en total?',
+  '{name} ran {a} kilometers on Monday and {b} kilometers on Tuesday. How far did {sheL} run in all?': '{name} corrió {a} kilómetros el lunes y {b} kilómetros el martes. ¿Cuánto corrió en total?',
+  'A rope is {a} meters long. {name} cuts off {b} meters. How long is the rope now?': 'Una cuerda mide {a} metros. {name} corta {b} metros. ¿Cuánto mide la cuerda ahora?',
+  '{n} friends share a bill of ${t} equally. How much does each friend pay?': '{n} amigos se reparten una cuenta de ${t} en partes iguales. ¿Cuánto paga cada amigo?',
+  '{n} friends share a bill of {t} dollars equally. How much does each friend pay?': '{n} amigos se reparten una cuenta de {t} dólares en partes iguales. ¿Cuánto paga cada amigo?',
+  // Story: ratios and rates
+  'A recipe uses {p} cups of flour for every {q} cups of milk. {name} uses {pm} cups of flour. How many cups of milk?': 'Una receta usa {p} tazas de harina por cada {q} tazas de leche. {name} usa {pm} tazas de harina. ¿Cuántas tazas de leche necesita?',
+  'A car goes {d} miles in {h} hours. How far does it go in {h2} hours at the same speed?': 'Un carro recorre {d} millas en {h} horas. ¿Cuánto recorre en {h2} horas a la misma velocidad?',
+  '{n} {things} cost {c} dollars. How much do {n2} {things} cost?': '{n} {things} cuestan {c} dólares. ¿Cuánto cuestan {n2} {things}?',
+  'In a club there are {p} boys for every {q} girls. There are {qm} girls. How many boys?': 'En un club hay {p} niños por cada {q} niñas. Hay {qm} niñas. ¿Cuántos niños hay?',
+  '{name} types {w} words in {t} minutes. At that rate, how many words in {t2} minutes?': '{name} escribe {w} palabras en {t} minutos. A ese ritmo, ¿cuántas palabras escribe en {t2} minutos?',
+  'A paint mix uses {p} parts {c1} to {q} parts {c2}. {name} uses {pm} cups of {c1}. How many cups of {c2}?': 'Una mezcla de pintura usa {p} partes de {c1} por {q} partes de {c2}. {name} usa {pm} tazas de {c1}. ¿Cuántas tazas de {c2} necesita?',
+  // Story: percents
+  '{pct}% of the {total} kids in a class wear glasses. How many wear glasses?': 'El {pct}% de los {total} niños de una clase usa lentes. ¿Cuántos usan lentes?',
+  '{name} got {got} out of {total} on a quiz. What percent is that?': '{name} sacó {got} de {total} en un examen. ¿Qué porcentaje es?',
+  'A shirt costs {P} dollars. It is {pct}% off. How many dollars off is that?': 'Una camisa cuesta {P} dólares. Tiene {pct}% de descuento. ¿Cuántos dólares de descuento son?',
+  'A meal costs {P} dollars. {name} leaves a {tip}% tip. How many dollars is the tip?': 'Una comida cuesta {P} dólares. {name} deja {tip}% de propina. ¿Cuántos dólares es la propina?',
+  '{red} of the {total} {things} are red. What percent are red?': '{red} de {las} {total} {things} {son} de color rojo. ¿Qué porcentaje es de color rojo?',
+  // Story: proportions
+  'A photo is {w} by {h} inches. It is enlarged so the short side is {ws} inches. How long is the long side?': 'Una foto mide {w} por {h} pulgadas. Se agranda para que el lado corto mida {ws} pulgadas. ¿Cuánto mide el lado largo?',
+  'A price goes from {a} dollars to {b} dollars. What is the percent increase?': 'Un precio sube de {a} dólares a {b} dólares. ¿Cuál es el porcentaje de aumento?',
+  'A game costs {P} dollars. Sales tax is {pct}%. What is the total cost in dollars?': 'Un juego cuesta {P} dólares. El impuesto es {pct}%. ¿Cuál es el costo total en dólares?',
+  'On a map, 1 inch stands for {s} miles. Two towns are {d} inches apart on the map. How many miles apart are they?': 'En un mapa, 1 pulgada representa {s} millas. Dos pueblos están a {d} pulgadas en el mapa. ¿A cuántas millas están uno del otro?',
+  '{name} puts {a} dollars in a bank. It earns {pct}% interest in a year. How many dollars are in the account after one year?': '{name} pone {a} dólares en un banco. Gana {pct}% de interés en un año. ¿Cuántos dólares hay en la cuenta después de un año?',
+  'A {t} foot tree casts a {sh} foot shadow. At the same time a pole casts a {sh2} foot shadow. How tall is the pole in feet?': 'Un árbol de {t} pies proyecta una sombra de {sh} pies. A la misma hora, un poste proyecta una sombra de {sh2} pies. ¿Cuánto mide el poste en pies?',
+  'The number of club members went from {a} to {b}. What is the percent decrease?': 'El número de miembros de un club bajó de {a} a {b}. ¿Cuál es el porcentaje de disminución?',
+  '{name} mixes {p} parts juice with {q} parts water. {she} wants {t} cups of drink. How many cups of juice?': '{name} mezcla {p} partes de jugo con {q} partes de agua. Quiere {t} tazas de bebida. ¿Cuántas tazas de jugo necesita?',
+  // Story: equations in words
+  'A phone plan costs {f} dollars to start plus {r} dollars a month. After how many months is the total {t} dollars?': 'Un plan de teléfono cuesta {f} dólares al inicio más {r} dólares al mes. ¿Después de cuántos meses el total es {t} dólares?',
+  'A taxi charges {f} dollars plus {r} dollars a mile. A ride costs {t} dollars. How many miles was the ride?': 'Un taxi cobra {f} dólares más {r} dólares por milla. Un viaje cuesta {t} dólares. ¿Cuántas millas fue el viaje?',
+  '{name} has {a} {things} and gets {r} more each week. {other} has {t} and gets no more. After how many weeks do they have the same number?': '{name} tiene {a} {things} y consigue {r} más cada semana. {other} tiene {t} y no consigue más. ¿Después de cuántas semanas tienen la misma cantidad?',
+  'Two numbers add up to {s}. The bigger one is {d} more than the smaller one. What is the bigger number?': 'Dos números suman {s}. El mayor es {d} más que el menor. ¿Cuál es el número mayor?',
+  '{name} is thinking of a number. {she} doubles it and adds {c}. The result is {r}. What is the number?': '{name} piensa en un número. Lo duplica y le suma {c}. El resultado es {r}. ¿Cuál es el número?',
+  'A rectangle has a perimeter of {p} cm. Its width is {w} cm. What is its length in cm?': 'Un rectángulo tiene un perímetro de {p} cm. Su ancho es {w} cm. ¿Cuál es su largo en cm?',
+  '{name} and {other} have {t} dollars together. {name} has {d} dollars more than {other}. How many dollars does {other} have?': '{name} {y} {other} tienen {t} dólares entre los dos. {name} tiene {d} dólares más que {other}. ¿Cuántos dólares tiene {other}?',
+  'The sum of three numbers in a row, like 4, 5 and 6, is {s}. What is the smallest of the three?': 'La suma de tres números seguidos, como 4, 5 y 6, es {s}. ¿Cuál es el menor de los tres?',
+  'A plant is {h} cm tall and grows {r} cm a week. After how many weeks is it {t} cm tall?': 'Una planta mide {h} cm y crece {r} cm por semana. ¿Después de cuántas semanas mide {t} cm?',
+  'At noon it was {t} degrees. By night the temperature dropped {drop} degrees. What is the temperature now? Use the minus key if you need it.': 'Al mediodía había {t} grados. En la noche la temperatura bajó {drop} grados. ¿Cuál es la temperatura ahora? Usa la tecla de menos si la necesitas.',
+  // Story: chance
+  'A bag has {r} red and {b} blue marbles. You pick one without looking. What is the chance it is red, as a percent?': 'Una bolsa tiene {r} {rojas} y {b} {azules}. Sacas una sin mirar. ¿Cuál es la probabilidad de que sea roja, en porcentaje?',
+  'A spinner has {n} equal parts. {g} of them are green. What is the percent chance of landing on green?': 'Una ruleta tiene {n} partes iguales. {g} de ellas {son} {verdes}. ¿Cuál es la probabilidad en porcentaje de caer en verde?',
+  'You roll a fair die {n} times. About how many times should you expect to roll a {face}?': 'Lanzas un dado justo {n} veces. ¿Aproximadamente cuántas veces esperas sacar un {face}?',
+  'You flip a coin {n} times. How many different outcomes are possible?': 'Lanzas una moneda {n} veces. ¿Cuántos resultados distintos son posibles?',
+  'A lunch menu has {a} sandwiches and {b} drinks. How many different sandwich and drink pairs can you order?': 'Un menú tiene {a} sándwiches y {b} bebidas. ¿Cuántas combinaciones distintas de sándwich y bebida puedes pedir?',
+  'In a class of {t} students, {p} have a pet. One student is picked at random. What is the chance that student has a pet, as a percent?': 'En una clase de {t} estudiantes, {p} {tienen} mascota. Se elige un estudiante al azar. ¿Cuál es la probabilidad de que tenga mascota, en porcentaje?',
+  'A bag has {r} red, {b} blue and {g} green marbles. What is the percent chance of picking a marble that is not red?': 'Una bolsa tiene {r} {rojas}, {b} {azules} y {g} {verdes}. ¿Cuál es la probabilidad en porcentaje de sacar una canica que no sea roja?',
+  '{name} spins a spinner with {n} equal parts numbered 1 to {n}. {she} spins {t} times. About how many times should it land on 1?': '{name} gira una ruleta con {n} partes iguales numeradas del 1 al {n}. La gira {t} veces. ¿Aproximadamente cuántas veces debería caer en 1?',
+};
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -505,15 +793,15 @@ const LEVELS = {
     { name: 'Powers', gen: powerTokensTask },
   ],
   build: [
-    { name: 'Build to 10', gen: () => { const n = rnd(2, 9); return buildTask(n, [0, 0, 0], 'Build ' + n, 'Build ' + numWords(n) + '. Tap plus under the ones.'); } },
-    { name: 'Build tens and ones', gen: () => { const n = rnd(11, 99); return buildTask(n, [0, 0, 0], 'Build ' + n, 'Build ' + numWords(n) + '.'); } },
-    { name: 'Build hundreds', gen: () => { const n = rnd(101, 999); return buildTask(n, [0, 0, 0], 'Build ' + n, 'Build ' + numWords(n) + '.'); } },
+    { name: 'Build to 10', gen: () => { const n = rnd(2, 9); return buildTask(n, [0, 0, 0], T('Build {n}', { n }), T('Build {n}. Tap plus under the ones.', { n: numWords(n) })); } },
+    { name: 'Build tens and ones', gen: () => { const n = rnd(11, 99); return buildTask(n, [0, 0, 0], T('Build {n}', { n }), T('Build {n}.', { n: numWords(n) })); } },
+    { name: 'Build hundreds', gen: () => { const n = rnd(101, 999); return buildTask(n, [0, 0, 0], T('Build {n}', { n }), T('Build {n}.', { n: numWords(n) })); } },
     { name: 'Number puzzles', gen: puzzleTask },
     { name: 'Add and trade', gen: () => { let a, b; do { a = rnd(15, 69); b = rnd(12, 39); } while ((a % 10) + (b % 10) < 10 || a + b > 99); return addTask(a, b); } },
     { name: 'Take away and trade', gen: () => { let a, b; do { a = rnd(31, 95); b = rnd(12, a - 5); } while ((b % 10) <= (a % 10)); return subTask(a, b); } },
     { name: 'Big add and take away', gen: () => { if (Math.random() < .5) { let a, b; do { a = rnd(120, 680); b = rnd(110, 299); } while (a + b > 999 || ((a % 10) + (b % 10) < 10 && (Math.floor(a / 10) % 10) + (Math.floor(b / 10) % 10) < 10)); return addTask(a, b); }
                                                     let a, b; do { a = rnd(300, 950); b = rnd(110, a - 50); } while ((b % 10) <= (a % 10) && (Math.floor(b / 10) % 10) <= (Math.floor(a / 10) % 10)); return subTask(a, b); } },
-    { name: 'Build thousands', gen: () => { const n = rnd(1001, 9999); return buildTask(n, [0, 0, 0, 0], 'Build ' + n.toLocaleString('en-US'), 'Build ' + numWords(n) + '.', { cols: 'four' }); } },
+    { name: 'Build thousands', gen: () => { const n = rnd(1001, 9999); return buildTask(n, [0, 0, 0, 0], T('Build {n}', { n: n.toLocaleString('en-US') }), T('Build {n}.', { n: numWords(n) }), { cols: 'four' }); } },
     { name: 'Thousand puzzles', gen: thousandPuzzleTask },
     { name: 'Build decimals', gen: decimalBuildTask },
     { name: 'Decimals and trade', gen: decimalTradeTask },
@@ -565,74 +853,79 @@ function basketTask(lo, hi) { const n = rnd(lo, hi); return { kind: 'basket', an
 // --- How many? from 3rd grade up: typed answers with a picture to count from ---
 function areaTask() {
   const r = rnd(3, 9), o = rnd(2, 9), c = 10 + o;
-  return { kind: 'area', r, c, split: 10, answer: r * c, ask: `${r} × ${c}. How many?`,
-    speak: `${numWords(r)} rows of ${numWords(c)}. The blue part is ${numWords(r)} times ten. The green part is ${numWords(r)} times ${numWords(o)}. How many in all?`,
-    eq: `${r} × 10 + ${r} × ${o} = ?`, hint: `${numWords(r)} times ten is ${numWords(r * 10)}. ${numWords(r)} times ${numWords(o)} is ${numWords(r * o)}. Add them.`,
-    done: `${numWords(r)} times ${numWords(c)} is ${numWords(r * c)}.` };
+  const w = numWords;
+  return { kind: 'area', r, c, split: 10, answer: r * c, ask: T('{r} × {c}. How many?', { r, c }),
+    speak: T('{r} rows of {c}. The blue part is {r} times ten. The green part is {r} times {o}. How many in all?', { r: w(r), c: w(c), o: w(o) }),
+    eq: `${r} × 10 + ${r} × ${o} = ?`, hint: T('{r} times ten is {r10}. {r} times {o} is {ro}. Add them.', { r: w(r), r10: w(r * 10), o: w(o), ro: w(r * o) }),
+    done: T('{a} times {b} is {c}.', { a: w(r), b: w(c), c: w(r * c) }) };
 }
 function groupsOfTask() {
-  const G = rnd(3, 6), N = rnd(12, 29), t = Math.floor(N / 10), o = N % 10;
-  return { kind: 'eqgroups', G, N, answer: G * N, ask: `${G} groups of ${N}. How many?`, speak: `${numWords(G)} groups of ${numWords(N)}. How many in all?`,
-    eq: `${G} × ${N} = ?`, hint: `Count the tens first. ${numWords(G)} groups of ${numWords(t * 10)} is ${numWords(G * t * 10)}. Then add ${numWords(G)} groups of ${numWords(o)}.`,
-    done: `${numWords(G)} times ${numWords(N)} is ${numWords(G * N)}.` };
+  const G = rnd(3, 6), N = rnd(12, 29), t = Math.floor(N / 10), o = N % 10, w = numWords;
+  return { kind: 'eqgroups', G, N, answer: G * N, ask: T('{G} groups of {N}. How many?', { G, N }), speak: T('{G} groups of {N}. How many in all?', { G: w(G), N: w(N) }),
+    eq: `${G} × ${N} = ?`, hint: T('Count the tens first. {G} groups of {t} is {Gt}. Then add {G} groups of {o}.', { G: w(G), t: w(t * 10), Gt: w(G * t * 10), o: w(o) }),
+    done: T('{a} times {b} is {c}.', { a: w(G), b: w(N), c: w(G * N) }) };
 }
 function quotientTask() {
-  const N = rnd(6, 12), G = rnd(5, 12), T = N * G;
-  if (Math.random() < .5) return { kind: 'quotient', G, N, answer: G, ask: `${T} in groups of ${N}. How many groups?`, speak: `There are ${numWords(T)} in all, in groups of ${numWords(N)}. How many groups?`,
-    eq: `${T} ÷ ${N} = ?`, hint: `Count the groups. Or think: ${numWords(N)} times what is ${numWords(T)}?`, done: `${numWords(T)} divided by ${numWords(N)} is ${numWords(G)}.` };
-  return { kind: 'quotient', G, N, answer: N, ask: `${T} in ${G} equal groups. How many in each?`, speak: `There are ${numWords(T)} in all, in ${numWords(G)} equal groups. How many in each group?`,
-    eq: `${T} ÷ ${G} = ?`, hint: `Count one group. Or think: ${numWords(G)} times what is ${numWords(T)}?`, done: `${numWords(T)} divided by ${numWords(G)} is ${numWords(N)}.` };
+  const N = rnd(6, 12), G = rnd(5, 12), Tt = N * G, w = numWords;
+  if (Math.random() < .5) return { kind: 'quotient', G, N, answer: G, ask: T('{T} in groups of {N}. How many groups?', { T: Tt, N }), speak: T('There are {T} in all, in groups of {N}. How many groups?', { T: w(Tt), N: w(N) }),
+    eq: `${Tt} ÷ ${N} = ?`, hint: T('Count the groups. Or think: {N} times what is {T}?', { N: w(N), T: w(Tt) }), done: T('{a} divided by {b} is {c}.', { a: w(Tt), b: w(N), c: w(G) }) };
+  return { kind: 'quotient', G, N, answer: N, ask: T('{T} in {G} equal groups. How many in each?', { T: Tt, G }), speak: T('There are {T} in all, in {G} equal groups. How many in each group?', { T: w(Tt), G: w(G) }),
+    eq: `${Tt} ÷ ${G} = ?`, hint: T('Count one group. Or think: {G} times what is {T}?', { G: w(G), T: w(Tt) }), done: T('{a} divided by {b} is {c}.', { a: w(Tt), b: w(G), c: w(N) }) };
 }
 function gridTask(percent) {
   const k = Math.random() < .3 ? 10 * rnd(1, 9) : rnd(1, 99);
-  if (percent) return { kind: 'grid100', k, answer: k, ask: 'What percent is shaded?', speak: `The whole grid is one hundred percent. What percent is shaded?`,
-    eq: `${k} out of 100 = ? %`, hint: 'Each square is one percent. Count the full rows by tens, then the rest.', done: `${numWords(k)} percent is shaded.` };
-  return { kind: 'grid100', k, dot: true, answer: k / 100, ask: 'What decimal is shaded?', speak: `The whole grid is one. ${numWords(k)} of the one hundred squares are shaded. What decimal is that?`,
-    eq: `${k} ÷ 100 = ?`, hint: `Each square is one hundredth. ${numWords(k)} hundredths is ${numSay(k / 100)}. Type zero, point, then the digits.`, done: `${numSay(k / 100)} is shaded.` };
+  if (percent) return { kind: 'grid100', k, answer: k, ask: T('What percent is shaded?'), speak: T('The whole grid is one hundred percent. What percent is shaded?'),
+    eq: T('{k} out of 100 = ? %', { k }), hint: T('Each square is one percent. Count the full rows by tens, then the rest.'), done: T('{k} percent is shaded.', { k: numWords(k) }) };
+  return { kind: 'grid100', k, dot: true, answer: k / 100, ask: T('What decimal is shaded?'), speak: T('The whole grid is one. {k} of the one hundred squares are shaded. What decimal is that?', { k: numWords(k) }),
+    eq: `${k} ÷ 100 = ?`, hint: T('Each square is one hundredth. {k} hundredths is {d}. Type zero, point, then the digits.', { k: numWords(k), d: numSay(k / 100) }), done: T('{d} is shaded.', { d: numSay(k / 100) }) };
 }
 const RATIOS = [[1, 2], [1, 3], [1, 4], [1, 5], [2, 3], [2, 5], [3, 4], [3, 5], [4, 5], [2, 1], [3, 1], [4, 1], [5, 1], [3, 2], [5, 2], [4, 3], [5, 3], [5, 4]];
 function ratioTask() {
-  const [p, q] = pick(RATIOS), m = rnd(2, 4), r = p * m, b = q * m, k = rnd(0, 2);
-  const base = { kind: 'ratio', r, b, p, q }, lead = `${r} red and ${b} blue. `, said = `There are ${numWords(r)} red dots and ${numWords(b)} blue dots. `;
-  if (k === 0) return Object.assign(base, { answer: q, ask: lead + `For every ${p} red, how many blue?`, speak: said + `For every ${numWords(p)} red, how many blue?`, eq: `${r} : ${b} = ${p} : ?`,
-    hint: `Make groups of ${numWords(p)} red. There are ${numWords(m)} groups. Share the blue dots into ${numWords(m)} groups too.`, done: `For every ${numWords(p)} red there are ${numWords(q)} blue.` });
-  if (k === 1) return Object.assign(base, { answer: p, ask: lead + `For every ${q} blue, how many red?`, speak: said + `For every ${numWords(q)} blue, how many red?`, eq: `${r} : ${b} = ? : ${q}`,
-    hint: `Make groups of ${numWords(q)} blue. There are ${numWords(m)} groups. Share the red dots into ${numWords(m)} groups too.`, done: `For every ${numWords(q)} blue there are ${numWords(p)} red.` });
-  return Object.assign(base, { answer: p + q, ask: lead + `For every ${p} red, how many dots in all?`, speak: said + `For every ${numWords(p)} red dots, how many dots in all?`, eq: `${r} : ${r + b} = ${p} : ?`,
-    hint: `For every ${numWords(p)} red there are ${numWords(q)} blue. Add them.`, done: `For every ${numWords(p)} red there are ${numWords(p + q)} dots in all.` });
+  const [p, q] = pick(RATIOS), m = rnd(2, 4), r = p * m, b = q * m, k = rnd(0, 2), w = numWords;
+  // Spanish colour words agree with the count: "1 rojo", "3 rojos". The English line is the same either way.
+  const g = { redp: p === 1 ? 'rojo' : 'rojos', blueq: q === 1 ? 'azul' : 'azules', dotp: p === 1 ? 'punto' : 'puntos' }, V = o => Object.assign(o, g);
+  const base = { kind: 'ratio', r, b, p, q }, lead = T('{r} red and {b} blue. ', { r, b }), said = T('There are {r} red dots and {b} blue dots. ', { r: w(r), b: w(b) });
+  if (k === 0) return Object.assign(base, { answer: q, ask: lead + T('For every {p} red, how many blue?', V({ p })), speak: said + T('For every {p} red, how many blue?', V({ p: w(p) })), eq: `${r} : ${b} = ${p} : ?`,
+    hint: T('Make groups of {p} red. There are {m} groups. Share the blue dots into {m} groups too.', V({ p: w(p), m: w(m) })), done: T('For every {p} red there are {q} blue.', V({ p: w(p), q: w(q) })) });
+  if (k === 1) return Object.assign(base, { answer: p, ask: lead + T('For every {q} blue, how many red?', V({ q })), speak: said + T('For every {q} blue, how many red?', V({ q: w(q) })), eq: `${r} : ${b} = ? : ${q}`,
+    hint: T('Make groups of {q} blue. There are {m} groups. Share the red dots into {m} groups too.', V({ q: w(q), m: w(m) })), done: T('For every {q} blue there are {p} red.', V({ q: w(q), p: w(p) })) });
+  return Object.assign(base, { answer: p + q, ask: lead + T('For every {p} red, how many dots in all?', V({ p })), speak: said + T('For every {p} red dots, how many dots in all?', V({ p: w(p) })), eq: `${r} : ${r + b} = ${p} : ?`,
+    hint: T('For every {p} red there are {q} blue. Add them.', V({ p: w(p), q: w(q) })), done: T('For every {p} red there are {n} dots in all.', V({ p: w(p), n: w(p + q) })) });
 }
 function scaleTask() {
-  const a = rnd(2, 4), c = rnd(3, 9); let n; do { n = rnd(5, 12); } while (n === a);
-  if (Math.random() < .5) return { kind: 'scale', a, c, answer: n * c, ask: `${a} rows are ${a * c}. How many in ${n} rows?`, speak: `${numWords(a)} rows make ${numWords(a * c)}. How many in ${numWords(n)} rows?`,
-    eq: `${a * c} ÷ ${a} = ${c} in a row. ${n} × ${c} = ?`, hint: `First find one row. ${numWords(a * c)} divided by ${numWords(a)} is ${numWords(c)}. Then ${numWords(n)} rows of ${numWords(c)}.`, done: `${numWords(n)} rows make ${numWords(n * c)}.` };
-  return { kind: 'scale', a, c, answer: n, ask: `${a} rows are ${a * c}. How many rows make ${n * c}?`, speak: `${numWords(a)} rows make ${numWords(a * c)}. How many rows make ${numWords(n * c)}?`,
-    eq: `${a * c} ÷ ${a} = ${c} in a row. ${n * c} ÷ ${c} = ?`, hint: `First find one row. ${numWords(a * c)} divided by ${numWords(a)} is ${numWords(c)}. How many rows of ${numWords(c)} make ${numWords(n * c)}?`, done: `${numWords(n)} rows make ${numWords(n * c)}.` };
+  const a = rnd(2, 4), c = rnd(3, 9), w = numWords; let n; do { n = rnd(5, 12); } while (n === a);
+  if (Math.random() < .5) return { kind: 'scale', a, c, answer: n * c, ask: T('{a} rows are {ac}. How many in {n} rows?', { a, ac: a * c, n }), speak: T('{a} rows make {ac}. How many in {n} rows?', { a: w(a), ac: w(a * c), n: w(n) }),
+    eq: T('{ac} ÷ {a} = {c} in a row. {n} × {c} = ?', { ac: a * c, a, c, n }), hint: T('First find one row. {ac} divided by {a} is {c}. Then {n} rows of {c}.', { ac: w(a * c), a: w(a), c: w(c), n: w(n) }), done: T('{n} rows make {nc}.', { n: w(n), nc: w(n * c) }) };
+  return { kind: 'scale', a, c, answer: n, ask: T('{a} rows are {ac}. How many rows make {nc}?', { a, ac: a * c, nc: n * c }), speak: T('{a} rows make {ac}. How many rows make {nc}?', { a: w(a), ac: w(a * c), nc: w(n * c) }),
+    eq: T('{ac} ÷ {a} = {c} in a row. {nc} ÷ {c} = ?', { ac: a * c, a, c, nc: n * c }), hint: T('First find one row. {ac} divided by {a} is {c}. How many rows of {c} make {nc}?', { ac: w(a * c), a: w(a), c: w(c), nc: w(n * c) }), done: T('{n} rows make {nc}.', { n: w(n), nc: w(n * c) }) };
 }
 function powerTask() {
-  if (Math.random() < .55) { const b = rnd(3, 12); return { kind: 'square', b, answer: b * b, ask: `${b}${sup(2)}. How many?`, speak: `${numWords(b)} squared. That is a square ${numWords(b)} by ${numWords(b)}. How many?`,
-    eq: `${b}${sup(2)} = ${b} × ${b} = ?`, hint: `Count one row. Then count the rows. ${numWords(b)} rows of ${numWords(b)}.`, done: `${numWords(b)} squared is ${numWords(b * b)}.` }; }
+  const w = numWords;
+  if (Math.random() < .55) { const b = rnd(3, 12); return { kind: 'square', b, answer: b * b, ask: T('{e}. How many?', { e: b + sup(2) }), speak: T('{b} squared. That is a square {b} by {b}. How many?', { b: w(b) }),
+    eq: `${b}${sup(2)} = ${b} × ${b} = ?`, hint: T('Count one row. Then count the rows. {b} rows of {b}.', { b: w(b) }), done: T('{b} squared is {bb}.', { b: w(b), bb: w(b * b) }) }; }
   const b = rnd(2, 5);
-  return { kind: 'cube', b, answer: b ** 3, ask: `${b}${sup(3)}. How many?`, speak: `${numWords(b)} cubed. That is ${numWords(b)} groups of ${numWords(b)} by ${numWords(b)}. How many?`,
-    eq: `${b}${sup(3)} = ${b} × ${b} × ${b} = ?`, hint: `One square is ${numWords(b)} times ${numWords(b)}, which is ${numWords(b * b)}. There are ${numWords(b)} squares.`, done: `${numWords(b)} cubed is ${numWords(b ** 3)}.` };
+  return { kind: 'cube', b, answer: b ** 3, ask: T('{e}. How many?', { e: b + sup(3) }), speak: T('{b} cubed. That is {b} groups of {b} by {b}. How many?', { b: w(b) }),
+    eq: `${b}${sup(3)} = ${b} × ${b} × ${b} = ?`, hint: T('One square is {b} times {b}, which is {bb}. There are {b} squares.', { b: w(b), bb: w(b * b) }), done: T('{b} cubed is {bbb}.', { b: w(b), bbb: w(b ** 3) }) };
 }
 function rootTask() {
-  if (Math.random() < .7) { const b = rnd(4, 12), k = rnd(0, 1); return { kind: 'square', b, total: true, answer: b, ask: k ? `√${b * b}. What is it?` : `${b * b} dots make a square. How long is a side?`,
-    speak: `The square root of ${numWords(b * b)}. This square has ${numWords(b * b)} dots. How many dots are on one side?`, eq: `? × ? = ${b * b}`, hint: 'Count the dots along the bottom row.', done: `The square root of ${numWords(b * b)} is ${numWords(b)}.` }; }
+  const w = numWords;
+  if (Math.random() < .7) { const b = rnd(4, 12), k = rnd(0, 1); return { kind: 'square', b, total: true, answer: b, ask: k ? T('√{n}. What is it?', { n: b * b }) : T('{n} dots make a square. How long is a side?', { n: b * b }),
+    speak: T('The square root of {n}. This square has {n} dots. How many dots are on one side?', { n: w(b * b) }), eq: `? × ? = ${b * b}`, hint: T('Count the dots along the bottom row.'), done: T('The square root of {n} is {b}.', { n: w(b * b), b: w(b) }) }; }
   const b = rnd(2, 5);
-  return { kind: 'cube', b, total: true, answer: b, ask: `∛${b ** 3}. What is it?`, speak: `The cube root of ${numWords(b ** 3)}. ${numWords(b ** 3)} dots make ${numWords(b)} equal squares. How many on one side?`,
-    eq: `? × ? × ? = ${b ** 3}`, hint: 'Count the dots along one side of one square.', done: `The cube root of ${numWords(b ** 3)} is ${numWords(b)}.` };
+  return { kind: 'cube', b, total: true, answer: b, ask: T('∛{n}. What is it?', { n: b ** 3 }), speak: T('The cube root of {n}. {n} dots make {b} equal squares. How many on one side?', { n: w(b ** 3), b: w(b) }),
+    eq: `? × ? × ? = ${b ** 3}`, hint: T('Count the dots along one side of one square.'), done: T('The cube root of {n} is {b}.', { n: w(b ** 3), b: w(b) }) };
 }
 
 // --- Give me: baskets with an expression, then tokens ---
 function sumBasketTask() {
   const a = rnd(2, 12), b = rnd(1, Math.min(9, 20 - a)), n = a + b;
-  return { kind: 'basket', answer: n, total: n + rnd(1, 3), expr: `${a} + ${b}`, say: `${numWords(a)} plus ${numWords(b)}`, hint: `Count ${numWords(a)} into the basket. Then count ${numWords(b)} more.` };
+  return { kind: 'basket', answer: n, total: n + rnd(1, 3), expr: `${a} + ${b}`, say: T('{a} plus {b}', { a: numWords(a), b: numWords(b) }), hint: T('Count {a} into the basket. Then count {b} more.', { a: numWords(a), b: numWords(b) }) };
 }
 function fractionBasketTask() {
   const d = pick([2, 3, 4, 5, 6, 8, 10]); let num; do { num = rnd(1, d - 1); } while (gcd(num, d) !== 1);
-  const total = d * rnd(Math.max(1, Math.ceil(6 / d)), Math.floor(20 / d)), answer = total * num / d;
-  return { kind: 'basket', answer, total, exact: true, expr: `${num}/${d} of the ${total}`, say: `${fracSay(num, d)} of the ${numWords(total)}`,
-    hint: `Share the ${numWords(total)} into ${numWords(d)} equal groups. Each group is ${numWords(total / d)}. Put ${numWords(num)} ${num === 1 ? 'group' : 'groups'} in the basket.` };
+  const total = d * rnd(Math.max(1, Math.ceil(6 / d)), Math.floor(20 / d)), answer = total * num / d, w = numWords;
+  return { kind: 'basket', answer, total, exact: true, expr: T('{num}/{d} of the {total}', { num, d, total }), say: T('{frac} of the {total}', { frac: fracSay(num, d), total: w(total) }),
+    hint: T(num === 1 ? 'Share the {total} into {d} equal groups. Each group is {each}. Put {num} group in the basket.' : 'Share the {total} into {d} equal groups. Each group is {each}. Put {num} groups in the basket.', { total: w(total), d: w(d), each: w(total / d), num: w(num) }) };
 }
 const TOK = {
   tens: [{ id: 't', label: '10', v: 10, cls: 't10', say: 'ten' }, { id: 'o', label: '1', v: 1, cls: 't1', say: 'one' }],
@@ -645,57 +938,58 @@ function tokensTask(set, answer, scale, ask, speak, eq, hint, done, extra) {
 }
 function addTokensTask() {
   let a, b; do { a = rnd(12, 58); b = rnd(11, 99 - a); } while ((a % 10) + (b % 10) < 10 && Math.random() < .7);
-  const s = a + b;
-  return tokensTask('tens', s, 1, `Make ${a} + ${b}`, `Make ${numWords(a)} plus ${numWords(b)} with tens and ones.`, `${a} + ${b} = ${s}`,
-    `Add the tens first, then the ones. ${numWords(s)} is ${numWords(Math.floor(s / 10))} tens and ${numWords(s % 10)} ones.`, `${numWords(a)} plus ${numWords(b)} is ${numWords(s)}.`);
+  const s = a + b, w = numWords;
+  return tokensTask('tens', s, 1, T('Make {a} + {b}', { a, b }), T('Make {a} plus {b} with tens and ones.', { a: w(a), b: w(b) }), `${a} + ${b} = ${s}`,
+    T('Add the tens first, then the ones. {s} is {t} tens and {o} ones.', { s: w(s), t: w(Math.floor(s / 10)), o: w(s % 10), tens: placeN(Math.floor(s / 10), 'ten'), ones: placeN(s % 10, 'one') }), T('{a} plus {b} is {s}.', { a: w(a), b: w(b), s: w(s) }));
 }
 function decimalTokensTask() {
   let v; do { v = Math.random() < .3 ? 10 * rnd(1, 39) : rnd(5, 399); } while (v % 100 === 0);
   const w = Math.floor(v / 100), t = Math.floor(v / 10) % 10, h = v % 10;
-  return tokensTask('dec', v / 100, 100, `Make ${fmt(v / 100)}`, `Make ${numSay(v / 100)}. The big token is one. The middle one is a tenth. The small one is a hundredth.`,
-    `${fmt(v / 100)} = ${w} + ${t}/10 + ${h}/100`, `${numWords(w)} ones, ${numWords(t)} tenths and ${numWords(h)} hundredths.`, `${numSay(v / 100)}. That is right.`);
+  return tokensTask('dec', v / 100, 100, T('Make {v}', { v: fmt(v / 100) }), T('Make {v}. The big token is one. The middle one is a tenth. The small one is a hundredth.', { v: numSay(v / 100) }),
+    `${fmt(v / 100)} = ${w} + ${t}/10 + ${h}/100`, T('{w} ones, {t} tenths and {h} hundredths.', { w: numWords(w), t: numWords(t), h: numWords(h), ones: placeN(w, 'one'), tenths: placeN(t, 'tenth'), hundredths: placeN(h, 'hundredth') }), T('{v}. That is right.', { v: numSay(v / 100) }));
 }
 function ratioTokensTask() {
   let p, q, m; do { [p, q] = pick(RATIOS); m = rnd(2, 4); } while (m * (p + q) > 20);
-  const total = m * (p + q);
-  return tokensTask('ratio', p * m, 1, `Make ${p} red for every ${q} blue. Use ${total}.`, `Make ${numWords(p)} red for every ${numWords(q)} blue. Use ${numWords(total)} tokens in all.`,
-    `${p * m} red : ${q * m} blue`, `Put in ${numWords(p)} red and ${numWords(q)} blue. Do that again until you have ${numWords(total)}.`, `${numWords(p * m)} red and ${numWords(q * m)} blue. That is ${numWords(p)} to ${numWords(q)}.`,
+  const total = m * (p + q), w = n => numWordsG(n, 'f');
+  const g = { rojap: p === 1 ? 'roja' : 'rojas', azulq: q === 1 ? 'azul' : 'azules' }, V = o => Object.assign(o, g);
+  return tokensTask('ratio', p * m, 1, T('Make {p} red for every {q} blue. Use {total}.', V({ p, q, total })), T('Make {p} red for every {q} blue. Use {total} tokens in all.', V({ p: w(p), q: w(q), total: w(total) })),
+    T('{r} red : {b} blue', { r: p * m, b: q * m }), T('Put in {p} red and {q} blue. Do that again until you have {total}.', V({ p: w(p), q: w(q), total: w(total) })), T('{r} red and {b} blue. That is {p} to {q}.', { r: w(p * m), b: w(q * m), p: numWords(p), q: numWords(q) }),
     { check: 'ratio', p, q, total, answerB: q * m });
 }
 function percentTokensTask() {
-  const pct = pick([10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90]), A = pct % 25 === 0 ? 4 * rnd(3, 25) : 10 * rnd(2, 10), res = pct * A / 100;
-  const hint = pct % 25 === 0 ? `${numWords(pct)} percent is ${pct === 25 ? 'one quarter' : pct === 50 ? 'one half' : 'three quarters'}. One quarter of ${numWords(A)} is ${numWords(A / 4)}.` : `Ten percent of ${numWords(A)} is ${numWords(A / 10)}. You need ${numWords(pct / 10)} of those.`;
-  return tokensTask('tens', res, 1, `Make ${pct}% of ${A}`, `Make ${numWords(pct)} percent of ${numWords(A)}.`, `${pct}% of ${A} = ${res}`, hint, `${numWords(pct)} percent of ${numWords(A)} is ${numWords(res)}.`);
+  const pct = pick([10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90]), A = pct % 25 === 0 ? 4 * rnd(3, 25) : 10 * rnd(2, 10), res = pct * A / 100, w = numWords;
+  const hint = pct % 25 === 0 ? T('{pct} percent is {frac}. One quarter of {A} is {q}.', { pct: w(pct), frac: T(pct === 25 ? 'one quarter' : pct === 50 ? 'one half' : 'three quarters'), A: w(A), q: w(A / 4) }) : T('Ten percent of {A} is {t}. You need {k} of those.', { A: w(A), t: w(A / 10), k: w(pct / 10) });
+  return tokensTask('tens', res, 1, T('Make {pct}% of {A}', { pct, A }), T('Make {pct} percent of {A}.', { pct: w(pct), A: w(A) }), T('{pct}% of {A} = {res}', { pct, A, res }), hint, T('{pct} percent of {A} is {res}.', { pct: w(pct), A: w(A), res: w(res) }));
 }
 function percentChangeTokensTask() {
-  const pct = pick([10, 20, 25, 50]);
+  const pct = pick([10, 20, 25, 50]), w = numWords;
   if (Math.random() < .5) { const P = pct === 25 ? 4 * rnd(3, 24) : 10 * rnd(2, 9), part = pct * P / 100, ans = P - part;
-    return tokensTask('tens', ans, 1, `${pct}% off ${P}. Make the new price.`, `A toy costs ${numWords(P)}. It is ${numWords(pct)} percent off. Make the new price.`, `${P} - ${part} = ${ans}`,
-      `${numWords(pct)} percent of ${numWords(P)} is ${numWords(part)}. Take that off ${numWords(P)}.`, `${numWords(P)} take away ${numWords(part)} is ${numWords(ans)}.`); }
+    return tokensTask('tens', ans, 1, T('{pct}% off {P}. Make the new price.', { pct, P }), T('A toy costs {P}. It is {pct} percent off. Make the new price.', { P: w(P), pct: w(pct) }), `${P} - ${part} = ${ans}`,
+      T('{pct} percent of {P} is {part}. Take that off {P}.', { pct: w(pct), P: w(P), part: w(part) }), T('{P} take away {part} is {ans}.', { P: w(P), part: w(part), ans: w(ans) })); }
   const P = pct === 25 ? 4 * rnd(3, 18) : 10 * rnd(2, 6), part = pct * P / 100, ans = P + part;
-  return tokensTask('tens', ans, 1, `${P} plus a ${pct}% tip. Make the total.`, `A meal costs ${numWords(P)}. Add a ${numWords(pct)} percent tip. Make the total.`, `${P} + ${part} = ${ans}`,
-    `${numWords(pct)} percent of ${numWords(P)} is ${numWords(part)}. Add that to ${numWords(P)}.`, `${numWords(P)} plus ${numWords(part)} is ${numWords(ans)}.`);
+  return tokensTask('tens', ans, 1, T('{P} plus a {pct}% tip. Make the total.', { P, pct }), T('A meal costs {P}. Add a {pct} percent tip. Make the total.', { P: w(P), pct: w(pct) }), `${P} + ${part} = ${ans}`,
+    T('{pct} percent of {P} is {part}. Add that to {P}.', { pct: w(pct), P: w(P), part: w(part) }), T('{P} plus {part} is {ans}.', { P: w(P), part: w(part), ans: w(ans) }));
 }
 const neg = n => n < 0 ? '−' + (-n) : String(n);
 function chipsTask() {
-  const k = rnd(0, 4); let a, b, ans, expr, said;
-  if (k === 0) { a = rnd(1, 9); b = rnd(a + 1, 12); ans = a - b; expr = `${a} − ${b}`; said = `${numWords(a)} minus ${numWords(b)}`; }
-  else if (k === 1) { do { a = rnd(1, 9); b = rnd(1, 12); } while (a === b); ans = b - a; expr = `−${a} + ${b}`; said = `negative ${numWords(a)} plus ${numWords(b)}`; }
-  else if (k === 2) { a = rnd(1, 6); b = rnd(1, 6); ans = -a - b; expr = `−${a} − ${b}`; said = `negative ${numWords(a)} minus ${numWords(b)}`; }
-  else if (k === 3) { do { a = rnd(1, 9); b = rnd(1, 12); } while (a === b); ans = a - b; expr = `${a} + (−${b})`; said = `${numWords(a)} plus negative ${numWords(b)}`; }
-  else { a = rnd(1, 6); b = rnd(1, 6); ans = a + b; expr = `${a} − (−${b})`; said = `${numWords(a)} minus negative ${numWords(b)}`; }
-  return tokensTask('chips', ans, 1, `Make ${expr}`, `Make ${said}. A positive chip and a negative chip cancel out.`, `${expr} = ${neg(ans)}`,
-    `Start with the first number in chips. Then add or take away. A positive and a negative together make zero, so you can add a pair any time.`, `${said} is ${numSay(ans)}.`);
+  const k = rnd(0, 4), w = numWords; let a, b, ans, expr, said;
+  if (k === 0) { a = rnd(1, 9); b = rnd(a + 1, 12); ans = a - b; expr = `${a} − ${b}`; said = T('{a} minus {b}', { a: w(a), b: w(b) }); }
+  else if (k === 1) { do { a = rnd(1, 9); b = rnd(1, 12); } while (a === b); ans = b - a; expr = `−${a} + ${b}`; said = T('negative {a} plus {b}', { a: w(a), b: w(b) }); }
+  else if (k === 2) { a = rnd(1, 6); b = rnd(1, 6); ans = -a - b; expr = `−${a} − ${b}`; said = T('negative {a} minus {b}', { a: w(a), b: w(b) }); }
+  else if (k === 3) { do { a = rnd(1, 9); b = rnd(1, 12); } while (a === b); ans = a - b; expr = `${a} + (−${b})`; said = T('{a} plus negative {b}', { a: w(a), b: w(b) }); }
+  else { a = rnd(1, 6); b = rnd(1, 6); ans = a + b; expr = `${a} − (−${b})`; said = T('{a} minus negative {b}', { a: w(a), b: w(b) }); }
+  return tokensTask('chips', ans, 1, T('Make {expr}', { expr }), T('Make {said}. A positive chip and a negative chip cancel out.', { said }), `${expr} = ${neg(ans)}`,
+    T('Start with the first number in chips. Then add or take away. A positive and a negative together make zero, so you can add a pair any time.'), T('{said} is {ans}.', { said, ans: numSay(ans) }));
 }
 function powerTokensTask() {
-  const k = rnd(0, 5); let expr, said, ans, how;
-  if (k === 0) { const b = rnd(2, 9), c = rnd(1, 9); ans = b * b + c; expr = `${b}${sup(2)} + ${c}`; said = `${numWords(b)} squared plus ${numWords(c)}`; how = `${numWords(b)} squared is ${numWords(b * b)}.`; }
-  else if (k === 1) { const b = rnd(3, 9), c = rnd(1, Math.min(9, b * b - 1)); ans = b * b - c; expr = `${b}${sup(2)} − ${c}`; said = `${numWords(b)} squared minus ${numWords(c)}`; how = `${numWords(b)} squared is ${numWords(b * b)}.`; }
-  else if (k === 2) { const b = rnd(2, 4), c = rnd(1, 9); ans = b ** 3 + c; expr = `${b}${sup(3)} + ${c}`; said = `${numWords(b)} cubed plus ${numWords(c)}`; how = `${numWords(b)} cubed is ${numWords(b ** 3)}.`; }
-  else if (k === 3) { const e = rnd(3, 6), c = rnd(1, 9); ans = 2 ** e + c; expr = `2${sup(e)} + ${c}`; said = `${powSay(2, e)} plus ${numWords(c)}`; how = `${powSay(2, e)} is ${numWords(2 ** e)}.`; }
-  else if (k === 4) { const b = rnd(3, 9), d = rnd(1, b - 1); ans = b * b - d * d; expr = `${b}${sup(2)} − ${d}${sup(2)}`; said = `${numWords(b)} squared minus ${numWords(d)} squared`; how = `${numWords(b)} squared is ${numWords(b * b)}. ${numWords(d)} squared is ${numWords(d * d)}.`; }
-  else { const [d, b] = pick([[1, 2], [1, 3], [2, 3], [2, 4], [3, 4], [1, 4]]); ans = d * d - b * b; expr = `${d}${sup(2)} − ${b}${sup(2)}`; said = `${numWords(d)} squared minus ${numWords(b)} squared`; how = `${numWords(d)} squared is ${numWords(d * d)}. ${numWords(b)} squared is ${numWords(b * b)}. The answer is negative.`; }
-  return tokensTask(ans < 0 ? 'chips' : 'tens', ans, 1, `Make ${expr}`, `Make ${said}.`, `${expr} = ${neg(ans)}`, how + ' Then make the answer.', `${said} is ${numSay(ans)}.`);
+  const k = rnd(0, 5), w = numWords, sq = (b) => T('{b} squared is {bb}.', { b: w(b), bb: w(b * b) }); let expr, said, ans, how;
+  if (k === 0) { const b = rnd(2, 9), c = rnd(1, 9); ans = b * b + c; expr = `${b}${sup(2)} + ${c}`; said = T('{b} squared plus {c}', { b: w(b), c: w(c) }); how = sq(b); }
+  else if (k === 1) { const b = rnd(3, 9), c = rnd(1, Math.min(9, b * b - 1)); ans = b * b - c; expr = `${b}${sup(2)} − ${c}`; said = T('{b} squared minus {c}', { b: w(b), c: w(c) }); how = sq(b); }
+  else if (k === 2) { const b = rnd(2, 4), c = rnd(1, 9); ans = b ** 3 + c; expr = `${b}${sup(3)} + ${c}`; said = T('{b} cubed plus {c}', { b: w(b), c: w(c) }); how = T('{b} cubed is {bbb}.', { b: w(b), bbb: w(b ** 3) }); }
+  else if (k === 3) { const e = rnd(3, 6), c = rnd(1, 9); ans = 2 ** e + c; expr = `2${sup(e)} + ${c}`; said = T('{p} plus {c}', { p: powSay(2, e), c: w(c) }); how = T('{p} is {v}.', { p: powSay(2, e), v: w(2 ** e) }); }
+  else if (k === 4) { const b = rnd(3, 9), d = rnd(1, b - 1); ans = b * b - d * d; expr = `${b}${sup(2)} − ${d}${sup(2)}`; said = T('{b} squared minus {d} squared', { b: w(b), d: w(d) }); how = sq(b) + ' ' + sq(d); }
+  else { const [d, b] = pick([[1, 2], [1, 3], [2, 3], [2, 4], [3, 4], [1, 4]]); ans = d * d - b * b; expr = `${d}${sup(2)} − ${b}${sup(2)}`; said = T('{b} squared minus {d} squared', { b: w(d), d: w(b) }); how = sq(d) + ' ' + sq(b) + ' ' + T('The answer is negative.'); }
+  return tokensTask(ans < 0 ? 'chips' : 'tens', ans, 1, T('Make {expr}', { expr }), T('Make {said}.', { said }), `${expr} = ${neg(ans)}`, how + ' ' + T('Then make the answer.'), T('{said} is {ans}.', { said, ans: numSay(ans) }));
 }
 
 // --- Build it: place value in three or four columns, whole or decimal ---
@@ -707,57 +1001,58 @@ const COLSETS = {
 function buildTask(target, start, prompt, speak, extra) { return Object.assign({ kind: 'build', answer: target, start, prompt, speak, breakable: false, cols: 'three' }, extra || {}); }
 const digits = n => [Math.floor(n / 100), Math.floor(n / 10) % 10, n % 10];
 const digits4 = n => [Math.floor(n / 1000), Math.floor(n / 100) % 10, Math.floor(n / 10) % 10, n % 10];
+// "3 hundreds, 2 ones" on screen and "three hundreds, two ones" aloud; in Spanish the count agrees with the place name.
+const placeText = order => order.map(([w, d]) => d + ' ' + T(w)).join(', ');
+const placeSpeech = order => order.map(([w, d]) => LANG === 'es' ? placeN(d, w.slice(0, -1)) : numWords(d) + ' ' + w).join(', ');
 function puzzleTask() {
   const n = rnd(102, 989), [h, t, o] = digits(n), k = rnd(0, 4);
-  if (k === 0) { const parts = [h * 100, t * 10, o].filter(x => x); return buildTask(n, [0, 0, 0], 'Build ' + parts.join(' + '), 'Build ' + parts.map(numWords).join(' plus ') + '.'); }
-  if (k === 1) return buildTask(n, [0, 0, 0], 'Build ' + numWords(n), 'Build ' + numWords(n) + '.');
-  if (k === 2) { const m = rnd(11, 89); const up = Math.random() < .5 || m < 20; return up ? buildTask(m + 10, [0, 0, 0], 'Build 10 more than ' + m, 'Build ten more than ' + numWords(m) + '.') : buildTask(m - 10, [0, 0, 0], 'Build 10 less than ' + m, 'Build ten less than ' + numWords(m) + '.'); }
-  if (k === 3) { const m = rnd(150, 899), up = Math.random() < .5; const v = up ? m + 100 : m - 100; return buildTask(v, [0, 0, 0], (up ? 'Build 100 more than ' : 'Build 100 less than ') + m, 'Build one hundred ' + (up ? 'more' : 'less') + ' than ' + numWords(m) + '.'); }
+  if (k === 0) { const parts = [h * 100, t * 10, o].filter(x => x); return buildTask(n, [0, 0, 0], T('Build {n}', { n: parts.join(' + ') }), T('Build {n}.', { n: parts.map(numWords).join(T(' plus ')) })); }
+  if (k === 1) return buildTask(n, [0, 0, 0], T('Build {n}', { n: numWords(n) }), T('Build {n}.', { n: numWords(n) }));
+  if (k === 2) { const m = rnd(11, 89); const up = Math.random() < .5 || m < 20; return up ? buildTask(m + 10, [0, 0, 0], T('Build 10 more than {m}', { m }), T('Build ten more than {m}.', { m: numWords(m) })) : buildTask(m - 10, [0, 0, 0], T('Build 10 less than {m}', { m }), T('Build ten less than {m}.', { m: numWords(m) })); }
+  if (k === 3) { const m = rnd(150, 899), up = Math.random() < .5; const v = up ? m + 100 : m - 100; return buildTask(v, [0, 0, 0], T(up ? 'Build 100 more than {m}' : 'Build 100 less than {m}', { m }), T(up ? 'Build one hundred more than {m}.' : 'Build one hundred less than {m}.', { m: numWords(m) })); }
   const order = shuffle([['ones', o], ['hundreds', h], ['tens', t]]);
-  const text = order.map(([w, d]) => d + ' ' + w).join(', ');
-  return buildTask(n, [0, 0, 0], 'Build ' + text, 'Build a number with ' + order.map(([w, d]) => numWords(d) + ' ' + w).join(', ') + '.');
+  return buildTask(n, [0, 0, 0], T('Build {n}', { n: placeText(order) }), T('Build a number with {parts}.', { parts: placeSpeech(order) }));
 }
-function addTask(a, b) { return buildTask(a + b, digits(a), a + ' + ' + b + ' = ?', 'You have ' + numWords(a) + '. Add ' + numWords(b) + '. Trade ten ones for a ten when you can.', { eq: a + ' + ' + b, breakable: false }); }
-function subTask(a, b) { return buildTask(a - b, digits(a), a + ' - ' + b + ' = ?', 'You have ' + numWords(a) + '. Take away ' + numWords(b) + '. Break a ten into ones if you need more.', { eq: a + ' - ' + b, breakable: true }); }
+function addTask(a, b) { return buildTask(a + b, digits(a), a + ' + ' + b + ' = ?', T('You have {a}. Add {b}. Trade ten ones for a ten when you can.', { a: numWords(a), b: numWords(b) }), { eq: a + ' + ' + b, breakable: false }); }
+function subTask(a, b) { return buildTask(a - b, digits(a), a + ' - ' + b + ' = ?', T('You have {a}. Take away {b}. Break a ten into ones if you need more.', { a: numWords(a), b: numWords(b) }), { eq: a + ' - ' + b, breakable: true }); }
 const comma = n => n.toLocaleString('en-US');
 function thousandPuzzleTask() {
   const k = rnd(0, 4), four = { cols: 'four' };
-  if (k === 0) { const n = rnd(1001, 9999), [th, h, t, o] = digits4(n), parts = [th * 1000, h * 100, t * 10, o].filter(x => x); return buildTask(n, [0, 0, 0, 0], 'Build ' + parts.join(' + '), 'Build ' + parts.map(numWords).join(' plus ') + '.', four); }
-  if (k === 1) { const m = rnd(101, 999); return buildTask(m * 10, [0, 0, 0, 0], `Build 10 × ${m}`, 'Build ten times ' + numWords(m) + '. Every digit moves up one place.', four); }
-  if (k === 2) { const m = rnd(1200, 8800), up = Math.random() < .5, v = up ? m + 1000 : m - 1000; return buildTask(v, [0, 0, 0, 0], (up ? 'Build 1,000 more than ' : 'Build 1,000 less than ') + comma(m), 'Build one thousand ' + (up ? 'more' : 'less') + ' than ' + numWords(m) + '.', four); }
-  if (k === 3) { const m = rnd(1050, 9449), toH = Math.random() < .5, v = toH ? Math.round(m / 100) * 100 : Math.round(m / 1000) * 1000; return buildTask(v, [0, 0, 0, 0], `Build ${comma(m)} rounded to the nearest ${toH ? 'hundred' : 'thousand'}`, `Build ${numWords(m)} rounded to the nearest ${toH ? 'hundred' : 'thousand'}.`, four); }
+  if (k === 0) { const n = rnd(1001, 9999), [th, h, t, o] = digits4(n), parts = [th * 1000, h * 100, t * 10, o].filter(x => x); return buildTask(n, [0, 0, 0, 0], T('Build {n}', { n: parts.join(' + ') }), T('Build {n}.', { n: parts.map(numWords).join(T(' plus ')) }), four); }
+  if (k === 1) { const m = rnd(101, 999); return buildTask(m * 10, [0, 0, 0, 0], T('Build {n}', { n: `10 × ${m}` }), T('Build ten times {m}. Every digit moves up one place.', { m: numWords(m) }), four); }
+  if (k === 2) { const m = rnd(1200, 8800), up = Math.random() < .5, v = up ? m + 1000 : m - 1000; return buildTask(v, [0, 0, 0, 0], T(up ? 'Build 1,000 more than {m}' : 'Build 1,000 less than {m}', { m: comma(m) }), T(up ? 'Build one thousand more than {m}.' : 'Build one thousand less than {m}.', { m: numWords(m) }), four); }
+  if (k === 3) { const m = rnd(1050, 9449), toH = Math.random() < .5, v = toH ? Math.round(m / 100) * 100 : Math.round(m / 1000) * 1000; return buildTask(v, [0, 0, 0, 0], T(toH ? 'Build {m} rounded to the nearest hundred' : 'Build {m} rounded to the nearest thousand', { m: comma(m) }), T(toH ? 'Build {m} rounded to the nearest hundred.' : 'Build {m} rounded to the nearest thousand.', { m: numWords(m) }), four); }
   const n = rnd(1001, 9999), [th, h, t, o] = digits4(n), order = shuffle([['thousands', th], ['hundreds', h], ['tens', t], ['ones', o]]);
-  return buildTask(n, [0, 0, 0, 0], 'Build ' + order.map(([w, d]) => d + ' ' + w).join(', '), 'Build a number with ' + order.map(([w, d]) => numWords(d) + ' ' + w).join(', ') + '.', four);
+  return buildTask(n, [0, 0, 0, 0], T('Build {n}', { n: placeText(order) }), T('Build a number with {parts}.', { parts: placeSpeech(order) }), four);
 }
-const DEC_SPEAK = ' The flat is one whole. The rod is one tenth. The small cube is one hundredth.';
 function decimalBuildTask() {
   let v; do { v = Math.random() < .3 ? 10 * rnd(1, 39) : rnd(1, 399); } while (v % 100 === 0);
-  return buildTask(v, [0, 0, 0], 'Build ' + fmt(v / 100), 'Build ' + numSay(v / 100) + '.' + DEC_SPEAK, { cols: 'dec' });
+  return buildTask(v, [0, 0, 0], T('Build {n}', { n: fmt(v / 100) }), T('Build {n}.', { n: numSay(v / 100) }) + T(' The flat is one whole. The rod is one tenth. The small cube is one hundredth.'), { cols: 'dec' });
 }
 function decimalTradeTask() {
   if (Math.random() < .5) { let a, b; do { a = rnd(15, 250); b = rnd(11, 149); } while (a + b > 399 || ((a % 10) + (b % 10) < 10 && Math.random() < .7));
-    return buildTask(a + b, digits(a), `${fmt(a / 100)} + ${fmt(b / 100)} = ?`, `You have ${numSay(a / 100)}. Add ${numSay(b / 100)}. Trade ten hundredths for a tenth when you can.`, { cols: 'dec', eq: `${fmt(a / 100)} + ${fmt(b / 100)}` }); }
+    return buildTask(a + b, digits(a), `${fmt(a / 100)} + ${fmt(b / 100)} = ?`, T('You have {a}. Add {b}. Trade ten hundredths for a tenth when you can.', { a: numSay(a / 100), b: numSay(b / 100) }), { cols: 'dec', eq: `${fmt(a / 100)} + ${fmt(b / 100)}` }); }
   let a, b; do { a = rnd(120, 399); b = rnd(11, a - 10); } while ((b % 10) <= (a % 10) && Math.random() < .7);
-  return buildTask(a - b, digits(a), `${fmt(a / 100)} - ${fmt(b / 100)} = ?`, `You have ${numSay(a / 100)}. Take away ${numSay(b / 100)}. Break a tenth into hundredths if you need more.`, { cols: 'dec', eq: `${fmt(a / 100)} - ${fmt(b / 100)}`, breakable: true });
+  return buildTask(a - b, digits(a), `${fmt(a / 100)} - ${fmt(b / 100)} = ?`, T('You have {a}. Take away {b}. Break a tenth into hundredths if you need more.', { a: numSay(a / 100), b: numSay(b / 100) }), { cols: 'dec', eq: `${fmt(a / 100)} - ${fmt(b / 100)}`, breakable: true });
 }
 function powersOfTenTask() {
   const k = rnd(0, 2), four = { cols: 'four' };
   if (k === 0) { const n = rnd(1001, 9999), d = digits4(n), parts = d.map((x, i) => [x, 3 - i]).filter(([x]) => x);
-    return buildTask(n, [0, 0, 0, 0], 'Build ' + parts.map(([x, e]) => `${x} × 10${sup(e)}`).join(' + '), 'Build ' + parts.map(([x, e]) => `${numWords(x)} times ${tenSay(e)}`).join(', plus ') + '.', four); }
-  if (k === 1) { const m = rnd(11, 99), e = rnd(1, 2); return buildTask(m * 10 ** e, [0, 0, 0, 0], `Build ${m} × 10${sup(e)}`, `Build ${numWords(m)} times ${tenSay(e)}.`, four); }
-  const d = rnd(1, 9), e = rnd(1, 3); return buildTask(d * 10 ** e, [0, 0, 0, 0], `Build ${d} × 10${sup(e)}`, `Build ${numWords(d)} times ${tenSay(e)}.`, four);
+    return buildTask(n, [0, 0, 0, 0], T('Build {n}', { n: parts.map(([x, e]) => `${x} × 10${sup(e)}`).join(' + ') }), T('Build {n}.', { n: parts.map(([x, e]) => T('{x} times {ten}', { x: numWords(x), ten: tenSay(e) })).join(T(', plus ')) }), four); }
+  if (k === 1) { const m = rnd(11, 99), e = rnd(1, 2); return buildTask(m * 10 ** e, [0, 0, 0, 0], T('Build {n}', { n: `${m} × 10${sup(e)}` }), T('Build {x} times {ten}.', { x: numWords(m), ten: tenSay(e) }), four); }
+  const d = rnd(1, 9), e = rnd(1, 3); return buildTask(d * 10 ** e, [0, 0, 0, 0], T('Build {n}', { n: `${d} × 10${sup(e)}` }), T('Build {x} times {ten}.', { x: numWords(d), ten: tenSay(e) }), four);
 }
 function scientificTask() {
   const e = rnd(1, 3), m = Math.random() < .3 ? rnd(1, 9) * 10 : rnd(11, 99), v = m * 10 ** e / 10, ms = fmt(m / 10);
-  return buildTask(v, [0, 0, 0, 0], `Build ${ms} × 10${sup(e)}`, `Build ${numSay(m / 10)} times ${tenSay(e)}. ${tenSay(e)} is ${numWords(10 ** e)}.`, { cols: 'four', eq: `${ms} × 10${sup(e)}` });
+  return buildTask(v, [0, 0, 0, 0], T('Build {n}', { n: `${ms} × 10${sup(e)}` }), T('Build {x} times {ten}. {ten} is {v}.', { x: numSay(m / 10), ten: tenSay(e), v: numWords(10 ** e) }), { cols: 'four', eq: `${ms} × 10${sup(e)}` });
 }
 function smallPowersTask() {
   const k = rnd(0, 3); let v, text, said;
-  if (k === 0) { const d = rnd(1, 9); v = d * 10; text = `${d} × 10${sup(-1)}`; said = `${numWords(d)} times ten to the negative one. That is ${numWords(d)} tenths.`; }
-  else if (k === 1) { const d = rnd(1, 9); v = d; text = `${d} × 10${sup(-2)}`; said = `${numWords(d)} times ten to the negative two. That is ${numWords(d)} hundredths.`; }
-  else if (k === 2) { const m = rnd(11, 99); v = m; text = `${fmt(m / 10)} × 10${sup(-1)}`; said = `${numSay(m / 10)} times ten to the negative one. Move the decimal point one place to the left.`; }
-  else { const m = rnd(11, 39); v = m * 10; text = `${fmt(m / 10)} × 10${sup(0)}`; said = `${numSay(m / 10)} times ten to the zero. Ten to the zero is one.`; }
-  return buildTask(v, [0, 0, 0], 'Build ' + text, 'Build ' + said, { cols: 'dec', eq: text });
+  if (k === 0) { const d = rnd(1, 9); v = d * 10; text = `${d} × 10${sup(-1)}`; said = T('Build {d} times ten to the negative one. That is {d} tenths.', { d: numWords(d), tenths: placeN(d, 'tenth'), Son: agree(d, 'Es', 'Son') }); }
+  else if (k === 1) { const d = rnd(1, 9); v = d; text = `${d} × 10${sup(-2)}`; said = T('Build {d} times ten to the negative two. That is {d} hundredths.', { d: numWords(d), hundredths: placeN(d, 'hundredth'), Son: agree(d, 'Es', 'Son') }); }
+  else if (k === 2) { const m = rnd(11, 99); v = m; text = `${fmt(m / 10)} × 10${sup(-1)}`; said = T('Build {m} times ten to the negative one. Move the decimal point one place to the left.', { m: numSay(m / 10) }); }
+  else { const m = rnd(11, 39); v = m * 10; text = `${fmt(m / 10)} × 10${sup(0)}`; said = T('Build {m} times ten to the zero. Ten to the zero is one.', { m: numSay(m / 10) }); }
+  return buildTask(v, [0, 0, 0], T('Build {n}', { n: text }), said, { cols: 'dec', eq: text });
 }
 
 // Story problems. Each returns the text, the answer, an equation for the hint, and pictures when the numbers are small.
@@ -767,143 +1062,160 @@ const she = name => ['Mia', 'Ava', 'Zoe', 'Ivy', 'Nora', 'Ruby'].includes(name) 
 const pics = (emoji, ...groups) => groups.map(g => emoji.repeat(g)).join('   ');
 const story = (text, answer, eq, extra) => Object.assign({ kind: 'story', text, answer, eq, pic: '' }, extra || {});
 const twoKids = () => { const a = pick(KIDS); return [a, pick(KIDS.filter(k => k !== a))]; };
+// The words a story template can use: the children, the thing in the child's language with the Spanish words that
+// agree with it (tv), the pronoun for English, and whatever numbers the story adds.
+const sv = (name, other, thing, more) => Object.assign({ name, other, she: she(name), sheL: she(name).toLowerCase(), y: /^i/i.test(other) ? 'e' : 'y' }, thing ? tv(thing) : {}, more || {});
+// "{a} out of {b} = ? %" and the other equations with words in them.
+const eqOutOf = (a, b) => T('{a} out of {b} = ? %', { a, b });
+const eqPctOf = (pct, a) => T('{pct}% of {a} = ?', { pct, a });
 function storyAddSub(max, compare) {
   const [name, other] = twoKids(), [e, thing] = pick(STUFF), k = rnd(0, compare ? 3 : 1);
   const regroup = max > 20;
   let a, b;
   if (k === 0) { do { a = rnd(regroup ? 12 : 1, max - (regroup ? 12 : 1)); b = rnd(regroup ? 11 : 1, max - a); } while (regroup && (a % 10) + (b % 10) < 10 && Math.random() < .7);
-    return { kind: 'story', text: `${name} has ${a} ${thing}. ${she(name)} finds ${b} more. How many ${thing} does ${name} have now?`, answer: a + b, eq: `${a} + ${b} = ?`, pic: max <= 20 ? pics(e, a, b) : '' }; }
+    return { kind: 'story', text: T('{name} has {a} {things}. {she} finds {b} more. How many {things} does {name} have now?', sv(name, other, thing, { a, b })), answer: a + b, eq: `${a} + ${b} = ?`, pic: max <= 20 ? pics(e, a, b) : '' }; }
   if (k === 1) { do { a = rnd(regroup ? 30 : 3, max); b = rnd(regroup ? 11 : 1, a - 1); } while (regroup && (b % 10) <= (a % 10) && Math.random() < .7);
-    return { kind: 'story', text: `${name} had ${a} ${thing}. ${she(name)} gave ${b} to ${other}. How many ${thing} are left?`, answer: a - b, eq: `${a} - ${b} = ?`, pic: max <= 20 ? pics(e, a) : '' }; }
+    return { kind: 'story', text: T('{name} had {a} {things}. {she} gave {b} to {other}. How many {things} are left?', sv(name, other, thing, { a, b })), answer: a - b, eq: `${a} - ${b} = ?`, pic: max <= 20 ? pics(e, a) : '' }; }
   if (k === 2) { a = rnd(Math.ceil(max / 2), max); b = rnd(1, a - 1);
-    return { kind: 'story', text: `${name} has ${a} ${thing}. ${other} has ${b}. How many more ${thing} does ${name} have than ${other}?`, answer: a - b, eq: `${a} - ${b} = ?`, pic: max <= 20 ? pics(e, a) + '\n' + pics(e, b) : '' }; }
+    return { kind: 'story', text: T('{name} has {a} {things}. {other} has {b}. How many more {things} does {name} have than {other}?', sv(name, other, thing, { a, b })), answer: a - b, eq: `${a} - ${b} = ?`, pic: max <= 20 ? pics(e, a) + '\n' + pics(e, b) : '' }; }
   a = rnd(Math.ceil(max / 2), max); b = rnd(1, a - 1);
-  return { kind: 'story', text: `${name} wants ${a} ${thing}. ${she(name)} has ${b} so far. How many more does ${name} need?`, answer: a - b, eq: `${b} + ? = ${a}`, pic: max <= 20 ? pics(e, b) : '' };
+  return { kind: 'story', text: T('{name} wants {a} {things}. {she} has {b} so far. How many more does {name} need?', sv(name, other, thing, { a, b })), answer: a - b, eq: `${b} + ? = ${a}`, pic: max <= 20 ? pics(e, b) : '' };
 }
+const ES_BOXES = { bags: ['bolsas', 'bolsa'], boxes: ['cajas', 'caja'], jars: ['frascos', 'frasco'], cups: ['vasos', 'vaso'], baskets: ['canastas', 'canasta'] };
+const ES_ANIMALS = { birds: 'pájaros', dogs: 'perros', bugs: 'bichos', spiders: 'arañas' };
 function storyTimes() {
   const name = pick(KIDS), [e, thing] = pick(STUFF), g = rnd(2, 9), n = rnd(2, 10), k = rnd(0, 2);
   const box = pick(['bags', 'boxes', 'jars', 'cups', 'baskets']);
-  if (k === 0) return { kind: 'story', text: `${name} has ${g} ${box}. Each one has ${n} ${thing} inside. How many ${thing} in all?`, answer: g * n, eq: `${g} × ${n} = ?`, pic: g * n <= 40 ? Array.from({ length: g }, () => e.repeat(n)).join('   ') : '' };
-  if (k === 1) return { kind: 'story', text: `The class puts chairs in ${g} rows. There are ${n} chairs in each row. How many chairs?`, answer: g * n, eq: `${g} × ${n} = ?`, pic: g * n <= 40 ? Array.from({ length: g }, () => '🪑'.repeat(n)).join('\n') : '' };
+  if (k === 0) return { kind: 'story', text: T('{name} has {g} {box}. Each one has {n} {things} inside. How many {things} in all?', sv(name, '', thing, { g, n, box: LANG === 'es' ? ES_BOXES[box][0] : box, boxone: LANG === 'es' ? ES_BOXES[box][1] : box })), answer: g * n, eq: `${g} × ${n} = ?`, pic: g * n <= 40 ? Array.from({ length: g }, () => e.repeat(n)).join('   ') : '' };
+  if (k === 1) return { kind: 'story', text: T('The class puts chairs in {g} rows. There are {n} chairs in each row. How many chairs?', { g, n }), answer: g * n, eq: `${g} × ${n} = ?`, pic: g * n <= 40 ? Array.from({ length: g }, () => '🪑'.repeat(n)).join('\n') : '' };
   const legs = pick([[2, 'birds', '🐦'], [4, 'dogs', '🐶'], [6, 'bugs', '🐞'], [8, 'spiders', '🕷️']]);
-  return { kind: 'story', text: `There are ${g} ${legs[1]} in the yard. Each one has ${legs[0]} legs. How many legs in all?`, answer: g * legs[0], eq: `${g} × ${legs[0]} = ?`, pic: legs[2].repeat(g) };
+  return { kind: 'story', text: T('There are {g} {animals} in the yard. Each one has {l} legs. How many legs in all?', { g, animals: LANG === 'es' ? ES_ANIMALS[legs[1]] : legs[1], l: legs[0] }), answer: g * legs[0], eq: `${g} × ${legs[0]} = ?`, pic: legs[2].repeat(g) };
 }
 function storyShare() {
   const name = pick(KIDS), [e, thing] = pick(STUFF), g = rnd(2, 6), each = rnd(2, 9), k = rnd(0, 1);
-  if (k === 0) return { kind: 'story', text: `${name} has ${g * each} ${thing} to share with ${g} friends. Each friend gets the same number. How many does each friend get?`, answer: each, eq: `${g * each} ÷ ${g} = ?`, pic: g * each <= 40 ? e.repeat(g * each) : '' };
-  return { kind: 'story', text: `There are ${g * each} kids at the park. They make teams of ${each}. How many teams are there?`, answer: g, eq: `${g * each} ÷ ${each} = ?`, pic: '' };
+  if (k === 0) return { kind: 'story', text: T('{name} has {t} {things} to share with {g} friends. Each friend gets the same number. How many does each friend get?', sv(name, '', thing, { t: g * each, g })), answer: each, eq: `${g * each} ÷ ${g} = ?`, pic: g * each <= 40 ? e.repeat(g * each) : '' };
+  return { kind: 'story', text: T('There are {t} kids at the park. They make teams of {each}. How many teams are there?', { t: g * each, each }), answer: g, eq: `${g * each} ÷ ${each} = ?`, pic: '' };
 }
 function storyTwoStep() {
   const name = pick(KIDS), [e, thing] = pick(STUFF), k = rnd(0, 2);
-  if (k === 0) { const a = rnd(10, 40), p = rnd(2, 5), n = rnd(2, 6); return { kind: 'story', text: `${name} had ${a} ${thing}. Then ${she(name).toLowerCase()} got ${p} packs with ${n} in each pack. How many ${thing} now?`, answer: a + p * n, eq: `${a} + ${p} × ${n} = ?`, pic: '' }; }
-  if (k === 1) { const a = rnd(40, 90), n = rnd(2, 4), c = rnd(5, Math.floor((a - 5) / n)); return { kind: 'story', text: `${name} has ${a} cents. ${she(name)} buys ${n} pencils that cost ${c} cents each. How many cents are left?`, answer: a - n * c, eq: `${a} - ${n} × ${c} = ?`, pic: '' }; }
-  const a = rnd(20, 50), b = rnd(5, 20), c = rnd(3, Math.min(25, a + b - 1)); return { kind: 'story', text: `${name} picked ${a} ${thing} in the morning and ${b} in the afternoon. ${she(name)} gave away ${c}. How many ${thing} does ${name} have?`, answer: a + b - c, eq: `${a} + ${b} - ${c} = ?`, pic: '' };
+  if (k === 0) { const a = rnd(10, 40), p = rnd(2, 5), n = rnd(2, 6); return { kind: 'story', text: T('{name} had {a} {things}. Then {sheL} got {p} packs with {n} in each pack. How many {things} now?', sv(name, '', thing, { a, p, n })), answer: a + p * n, eq: `${a} + ${p} × ${n} = ?`, pic: '' }; }
+  if (k === 1) { const a = rnd(40, 90), n = rnd(2, 4), c = rnd(5, Math.floor((a - 5) / n)); return { kind: 'story', text: T('{name} has {a} cents. {she} buys {n} pencils that cost {c} cents each. How many cents are left?', sv(name, '', null, { a, n, c })), answer: a - n * c, eq: `${a} - ${n} × ${c} = ?`, pic: '' }; }
+  const a = rnd(20, 50), b = rnd(5, 20), c = rnd(3, Math.min(25, a + b - 1)); return { kind: 'story', text: T('{name} picked {a} {things} in the morning and {b} in the afternoon. {she} gave away {c}. How many {things} does {name} have?', sv(name, '', thing, { a, b, c })), answer: a + b - c, eq: `${a} + ${b} - ${c} = ?`, pic: '' };
 }
 const COINS = { q: 25, d: 10, n: 5, p: 1 }, COIN_NAMES = { q: ['quarter', 'quarters'], d: ['dime', 'dimes'], n: ['nickel', 'nickels'], p: ['penny', 'pennies'] };
+const COIN_NAMES_ES = { q: ['moneda de 25 centavos', 'monedas de 25 centavos'], d: ['moneda de 10 centavos', 'monedas de 10 centavos'], n: ['moneda de 5 centavos', 'monedas de 5 centavos'], p: ['moneda de 1 centavo', 'monedas de 1 centavo'] };
+const coinName = (c, k) => (LANG === 'es' ? COIN_NAMES_ES : COIN_NAMES)[c][k === 1 ? 0 : 1];
 function storyCoins() {
   const name = pick(KIDS);
   if (Math.random() < .6) {
     let have; do { have = { q: rnd(0, 3), d: rnd(0, 4), n: rnd(0, 3), p: rnd(0, 4) }; } while (Object.values(have).filter(x => x).length < 2);
     const total = Object.entries(have).reduce((s, [c, k]) => s + COINS[c] * k, 0);
-    const list = Object.entries(have).filter(([, k]) => k).map(([c, k]) => `${k} ${COIN_NAMES[c][k === 1 ? 0 : 1]}`);
-    const text = `${name} has ${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}. How many cents is that?`;
+    const list = Object.entries(have).filter(([, k]) => k).map(([c, k]) => `${k} ${coinName(c, k)}`);
+    const text = T('{name} has {list} and {last}. How many cents is that?', { name, list: list.slice(0, -1).join(', '), last: list[list.length - 1] });
     return { kind: 'story', text, answer: total, eq: Object.entries(have).filter(([, k]) => k).map(([c, k]) => `${k} × ${COINS[c]}`).join(' + ') + ' = ?', coins: have, pic: '' };
   }
   const q = rnd(2, 4), price = rnd(Math.max(10, q * 25 - 60), q * 25 - 5);
-  return { kind: 'story', text: `A toy costs ${price} cents. ${name} pays with ${q} quarters. How many cents of change does ${name} get back?`, answer: q * 25 - price, eq: `${q * 25} - ${price} = ?`, coins: { q, d: 0, n: 0, p: 0 }, pic: '' };
+  return { kind: 'story', text: T('A toy costs {price} cents. {name} pays with {q} quarters. How many cents of change does {name} get back?', { price, name, q }), answer: q * 25 - price, eq: `${q * 25} - ${price} = ?`, coins: { q, d: 0, n: 0, p: 0 }, pic: '' };
 }
 // 4th grade: several steps with all four operations.
 function storyFourOps() {
   const [name, other] = twoKids(), [, thing] = pick(STUFF), k = rnd(0, 6);
-  if (k === 0) { const g = rnd(2, 6), p = rnd(2, 6); let n; do { n = rnd(4, 12); } while ((p * n) % g); return story(`${name} buys ${p} packs of ${n} ${thing}. ${she(name)} shares them equally among ${g} kids. How many does each kid get?`, p * n / g, `${p} × ${n} ÷ ${g} = ?`); }
-  if (k === 1) { const s = rnd(30, 60), b = rnd(2, 4), empty = rnd(5, 40); return story(`A bus holds ${s} kids. ${b} buses take ${s * b - empty} kids on a trip. How many empty seats are there?`, empty, `${s} × ${b} - ${s * b - empty} = ?`); }
-  if (k === 2) { const w = rnd(3, 12), n = rnd(4, 10), c = rnd(5, w * n - 5); return story(`${name} saves ${w} dollars each week for ${n} weeks. Then ${she(name).toLowerCase()} spends ${c} dollars. How many dollars are left?`, w * n - c, `${w} × ${n} - ${c} = ?`); }
-  if (k === 3) { const r = rnd(6, 12), c = rnd(6, 12), b = rnd(3, 20); return story(`There are ${r} rows of ${c} chairs. ${b} chairs are broken. How many good chairs are there?`, r * c - b, `${r} × ${c} - ${b} = ?`); }
-  if (k === 4) { const a = rnd(5, 20), m = rnd(2, 5); return story(`${name} has ${a} ${thing}. ${other} has ${m} times as many. How many do they have together?`, a + a * m, `${a} + ${m} × ${a} = ?`); }
-  if (k === 5) { const n = rnd(4, 12), b = rnd(10, 30), sold = rnd(2, b - 2); return story(`${n * b} ${thing} are packed ${n} to a box. ${sold} boxes are sold. How many boxes are left?`, b - sold, `${n * b} ÷ ${n} - ${sold} = ?`); }
-  const a = rnd(10, 30), d = rnd(3, 6), left = rnd(10, 80); return story(`${name} reads ${a} pages a day for ${d} days. The book has ${a * d + left} pages. How many pages are left to read?`, left, `${a * d + left} - ${a} × ${d} = ?`);
+  if (k === 0) { const g = rnd(2, 6), p = rnd(2, 6); let n; do { n = rnd(4, 12); } while ((p * n) % g); return story(T('{name} buys {p} packs of {n} {things}. {she} shares them equally among {g} kids. How many does each kid get?', sv(name, other, thing, { p, n, g })), p * n / g, `${p} × ${n} ÷ ${g} = ?`); }
+  if (k === 1) { const s = rnd(30, 60), b = rnd(2, 4), empty = rnd(5, 40); return story(T('A bus holds {s} kids. {b} buses take {t} kids on a trip. How many empty seats are there?', { s, b, t: s * b - empty }), empty, `${s} × ${b} - ${s * b - empty} = ?`); }
+  if (k === 2) { const w = rnd(3, 12), n = rnd(4, 10), c = rnd(5, w * n - 5); return story(T('{name} saves {w} dollars each week for {n} weeks. Then {sheL} spends {c} dollars. How many dollars are left?', sv(name, other, null, { w, n, c })), w * n - c, `${w} × ${n} - ${c} = ?`); }
+  if (k === 3) { const r = rnd(6, 12), c = rnd(6, 12), b = rnd(3, 20); return story(T('There are {r} rows of {c} chairs. {b} chairs are broken. How many good chairs are there?', { r, c, b }), r * c - b, `${r} × ${c} - ${b} = ?`); }
+  if (k === 4) { const a = rnd(5, 20), m = rnd(2, 5); return story(T('{name} has {a} {things}. {other} has {m} times as many. How many do they have together?', sv(name, other, thing, { a, m })), a + a * m, `${a} + ${m} × ${a} = ?`); }
+  if (k === 5) { const n = rnd(4, 12), b = rnd(10, 30), sold = rnd(2, b - 2); return story(T('{t} {things} are packed {n} to a box. {sold} boxes are sold. How many boxes are left?', sv(name, other, thing, { t: n * b, n, sold })), b - sold, `${n * b} ÷ ${n} - ${sold} = ?`); }
+  const a = rnd(10, 30), d = rnd(3, 6), left = rnd(10, 80); return story(T('{name} reads {a} pages a day for {d} days. The book has {p} pages. How many pages are left to read?', { name, a, d, p: a * d + left }), left, `${a * d + left} - ${a} × ${d} = ?`);
 }
 // 5th grade: fractions of amounts, answers are whole numbers.
 function storyFractions() {
-  const [name, other] = twoKids(), [, thing] = pick(STUFF), k = rnd(0, 5);
+  const [name, other] = twoKids(), [, thing] = pick(STUFF), k = rnd(0, 5), w = numWords;
   const d = pick([2, 3, 4, 5, 6, 8, 10]); let num; do { num = rnd(1, d - 1); } while (gcd(num, d) !== 1);
-  if (k === 0) { const pages = d * rnd(5, 20); return story(`${name} read ${num}/${d} of a ${pages} page book. How many pages did ${she(name).toLowerCase()} read?`, pages * num / d, `${pages} ÷ ${d} × ${num} = ?`, { say: `${name} read ${fracSay(num, d)} of a ${numWords(pages)} page book. How many pages did ${she(name).toLowerCase()} read?` }); }
-  if (k === 1) { const s = pick([6, 8, 10, 12]), a = rnd(1, s - 3), b = rnd(1, s - a - 1); return story(`A pizza is cut into ${s} equal slices. ${name} eats ${a}/${s} of it and ${other} eats ${b}/${s}. How many slices are left?`, s - a - b, `${s} - ${a} - ${b} = ?`, { say: `A pizza is cut into ${numWords(s)} equal slices. ${name} eats ${numWords(a)} ${s === 6 ? 'sixths' : s === 8 ? 'eighths' : s === 10 ? 'tenths' : 'twelfths'} of it and ${other} eats ${numWords(b)} ${s === 6 ? 'sixths' : s === 8 ? 'eighths' : s === 10 ? 'tenths' : 'twelfths'}. How many slices are left?` }); }
-  if (k === 2) { const n = d * rnd(1, 3); return story(`A recipe needs ${num}/${d} cup of sugar for one batch. ${name} makes ${n} batches. How many cups of sugar?`, n * num / d, `${n} × ${num}/${d} = ?`, { say: `A recipe needs ${fracSay(num, d)} of a cup of sugar for one batch. ${name} makes ${numWords(n)} batches. How many cups of sugar?` }); }
-  if (k === 3) { const total = d * rnd(2, 6); return story(`${name} has ${total} ${thing}. ${she(name)} gives ${num}/${d} of them to ${other}. How many does ${name} keep?`, total - total * num / d, `${total} - ${total} × ${num}/${d} = ?`, { say: `${name} has ${numWords(total)} ${thing}. ${she(name)} gives ${fracSay(num, d)} of them to ${other}. How many does ${name} keep?` }); }
-  if (k === 4) { const total = d * rnd(2, 5); return story(`${num}/${d} of the ${total} kids in a class walk to school. The rest ride the bus. How many ride the bus?`, total - total * num / d, `${total} - ${total} × ${num}/${d} = ?`, { say: `${cap(fracSay(num, d))} of the ${numWords(total)} kids in a class walk to school. The rest ride the bus. How many ride the bus?` }); }
-  const cap_ = d * rnd(3, 12); return story(`A tank holds ${cap_} gallons. It is ${num}/${d} full. How many gallons are in it?`, cap_ * num / d, `${cap_} × ${num}/${d} = ?`, { say: `A tank holds ${numWords(cap_)} gallons. It is ${fracSay(num, d)} full. How many gallons are in it?` });
+  const frac = fracSay(num, d);
+  if (k === 0) { const pages = d * rnd(5, 20); return story(T('{name} read {num}/{d} of a {pages} page book. How many pages did {sheL} read?', sv(name, other, null, { num, d, pages })), pages * num / d, `${pages} ÷ ${d} × ${num} = ?`, { say: T('{name} read {frac} of a {pages} page book. How many pages did {sheL} read?', sv(name, other, null, { frac, pages: w(pages) })) }); }
+  if (k === 1) { const s = pick([6, 8, 10, 12]), a = rnd(1, s - 3), b = rnd(1, s - a - 1); const part = n => LANG === 'es' ? fracSay(n, s) : w(n) + ' ' + FRACS[s][1];
+    return story(T('A pizza is cut into {s} equal slices. {name} eats {a}/{s} of it and {other} eats {b}/{s}. How many slices are left?', { s, name, a, other, b, y: /^i/i.test(other) ? 'e' : 'y' }), s - a - b, `${s} - ${a} - ${b} = ?`, { say: T('A pizza is cut into {s} equal slices. {name} eats {af} of it and {other} eats {bf}. How many slices are left?', { s: w(s), name, af: part(a), other, bf: part(b), y: /^i/i.test(other) ? 'e' : 'y' }) }); }
+  if (k === 2) { const n = d * rnd(1, 3); return story(T('A recipe needs {num}/{d} cup of sugar for one batch. {name} makes {n} batches. How many cups of sugar?', { num, d, name, n }), n * num / d, `${n} × ${num}/${d} = ?`, { say: T('A recipe needs {frac} of a cup of sugar for one batch. {name} makes {n} batches. How many cups of sugar?', { frac, name, n: w(n) }) }); }
+  if (k === 3) { const total = d * rnd(2, 6); return story(T('{name} has {total} {things}. {she} gives {num}/{d} of them to {other}. How many does {name} keep?', sv(name, other, thing, { total, num, d })), total - total * num / d, `${total} - ${total} × ${num}/${d} = ?`, { say: T('{name} has {total} {things}. {she} gives {frac} of them to {other}. How many does {name} keep?', sv(name, other, thing, { total: nwt(total, thing), frac })) }); }
+  if (k === 4) { const total = d * rnd(2, 5); return story(T('{num}/{d} of the {total} kids in a class walk to school. The rest ride the bus. How many ride the bus?', { num, d, total }), total - total * num / d, `${total} - ${total} × ${num}/${d} = ?`, { say: T('{Frac} of the {total} kids in a class walk to school. The rest ride the bus. How many ride the bus?', { Frac: cap(frac), total: w(total) }) }); }
+  const cap_ = d * rnd(3, 12); return story(T('A tank holds {cap} gallons. It is {num}/{d} full. How many gallons are in it?', { cap: cap_, num, d }), cap_ * num / d, `${cap_} × ${num}/${d} = ?`, { say: T('A tank holds {cap} gallons. It is {frac} full. How many gallons are in it?', { cap: w(cap_), frac }) });
 }
 // 5th grade: decimals in context, mostly money. Answers may have decimals, so the pad shows a point.
 const ITEMS = ['pen', 'notebook', 'snack', 'juice', 'sticker pack', 'comic', 'ball', 'hat', 'puzzle', 'book'];
+// In Spanish the item carries its article, since the gender decides it: "una pluma", "un cuaderno".
+const ES_ITEMS = { pen: 'una pluma', notebook: 'un cuaderno', snack: 'una golosina', juice: 'un jugo', 'sticker pack': 'un paquete de calcomanías', comic: 'una historieta', ball: 'una pelota', hat: 'una gorra', puzzle: 'un rompecabezas', book: 'un libro' };
+const item = i => LANG === 'es' ? ES_ITEMS[i] : i;
 const cents = () => Math.random() < .2 ? 100 * rnd(1, 19) : rnd(105, 1995);
 function storyDecimals() {
-  const name = pick(KIDS), k = rnd(0, 5), dot = { dot: true };
-  if (k === 0) { const a = cents(), b = cents(), [i1, i2] = shuffle(ITEMS); return story(`${name} buys a ${i1} for $${money(a)} and a ${i2} for $${money(b)}. How much does ${she(name).toLowerCase()} spend in all?`, (a + b) / 100, `${money(a)} + ${money(b)} = ?`, Object.assign({ say: `${name} buys a ${i1} for ${numSay(a / 100)} dollars and a ${i2} for ${numSay(b / 100)} dollars. How much does ${she(name).toLowerCase()} spend in all?` }, dot)); }
-  if (k === 1) { const a = 100 * rnd(5, 20), b = rnd(105, a - 50); return story(`${name} has $${money(a)}. ${she(name)} spends $${money(b)}. How much is left?`, (a - b) / 100, `${money(a)} - ${money(b)} = ?`, Object.assign({ say: `${name} has ${numSay(a / 100)} dollars. ${she(name)} spends ${numSay(b / 100)} dollars. How much is left?` }, dot)); }
-  if (k === 2) { const a = rnd(105, 995), n = rnd(2, 5), item = pick(ITEMS); return story(`One ${item} costs $${money(a)}. How much do ${n} of them cost?`, a * n / 100, `${money(a)} × ${n} = ?`, Object.assign({ say: `One ${item} costs ${numSay(a / 100)} dollars. How much do ${numWords(n)} of them cost?` }, dot)); }
-  if (k === 3) { const a = rnd(11, 99), b = rnd(11, 99); return story(`${name} ran ${fmt(a / 10)} km on Monday and ${fmt(b / 10)} km on Tuesday. How far did ${she(name).toLowerCase()} run in all?`, (a + b) / 10, `${fmt(a / 10)} + ${fmt(b / 10)} = ?`, Object.assign({ say: `${name} ran ${numSay(a / 10)} kilometers on Monday and ${numSay(b / 10)} kilometers on Tuesday. How far did ${she(name).toLowerCase()} run in all?` }, dot)); }
-  if (k === 4) { const a = rnd(40, 120), b = rnd(5, a - 10); return story(`A rope is ${fmt(a / 10)} meters long. ${name} cuts off ${fmt(b / 10)} meters. How long is the rope now?`, (a - b) / 10, `${fmt(a / 10)} - ${fmt(b / 10)} = ?`, Object.assign({ say: `A rope is ${numSay(a / 10)} meters long. ${name} cuts off ${numSay(b / 10)} meters. How long is the rope now?` }, dot)); }
-  const n = rnd(2, 5), each = rnd(205, 1295); return story(`${n} friends share a bill of $${money(n * each)} equally. How much does each friend pay?`, each / 100, `${money(n * each)} ÷ ${n} = ?`, Object.assign({ say: `${numWords(n)} friends share a bill of ${numSay(n * each / 100)} dollars equally. How much does each friend pay?` }, dot));
+  const name = pick(KIDS), k = rnd(0, 5), dot = { dot: true }, w = numWords;
+  if (k === 0) { const a = cents(), b = cents(), [i1, i2] = shuffle(ITEMS); return story(T('{name} buys a {i1} for ${a} and a {i2} for ${b}. How much does {sheL} spend in all?', sv(name, '', null, { i1: item(i1), a: money(a), i2: item(i2), b: money(b) })), (a + b) / 100, `${money(a)} + ${money(b)} = ?`, Object.assign({ say: T('{name} buys a {i1} for {a} dollars and a {i2} for {b} dollars. How much does {sheL} spend in all?', sv(name, '', null, { i1: item(i1), a: numSay(a / 100), i2: item(i2), b: numSay(b / 100) })) }, dot)); }
+  if (k === 1) { const a = 100 * rnd(5, 20), b = rnd(105, a - 50); return story(T('{name} has ${a}. {she} spends ${b}. How much is left?', sv(name, '', null, { a: money(a), b: money(b) })), (a - b) / 100, `${money(a)} - ${money(b)} = ?`, Object.assign({ say: T('{name} has {a} dollars. {she} spends {b} dollars. How much is left?', sv(name, '', null, { a: numSay(a / 100), b: numSay(b / 100) })) }, dot)); }
+  if (k === 2) { const a = rnd(105, 995), n = rnd(2, 5), it = pick(ITEMS); return story(T('One {item} costs ${a}. How much do {n} of them cost?', { item: item(it), Item: cap(item(it)), a: money(a), n }), a * n / 100, `${money(a)} × ${n} = ?`, Object.assign({ say: T('One {item} costs {a} dollars. How much do {n} of them cost?', { item: item(it), Item: cap(item(it)), a: numSay(a / 100), n: w(n) }) }, dot)); }
+  if (k === 3) { const a = rnd(11, 99), b = rnd(11, 99); return story(T('{name} ran {a} km on Monday and {b} km on Tuesday. How far did {sheL} run in all?', sv(name, '', null, { a: fmt(a / 10), b: fmt(b / 10) })), (a + b) / 10, `${fmt(a / 10)} + ${fmt(b / 10)} = ?`, Object.assign({ say: T('{name} ran {a} kilometers on Monday and {b} kilometers on Tuesday. How far did {sheL} run in all?', sv(name, '', null, { a: numSay(a / 10), b: numSay(b / 10) })) }, dot)); }
+  if (k === 4) { const a = rnd(40, 120), b = rnd(5, a - 10); return story(T('A rope is {a} meters long. {name} cuts off {b} meters. How long is the rope now?', { a: fmt(a / 10), name, b: fmt(b / 10) }), (a - b) / 10, `${fmt(a / 10)} - ${fmt(b / 10)} = ?`, Object.assign({ say: T('A rope is {a} meters long. {name} cuts off {b} meters. How long is the rope now?', { a: numSay(a / 10), name, b: numSay(b / 10) }) }, dot)); }
+  const n = rnd(2, 5), each = rnd(205, 1295); return story(T('{n} friends share a bill of ${t} equally. How much does each friend pay?', { n, t: money(n * each) }), each / 100, `${money(n * each)} ÷ ${n} = ?`, Object.assign({ say: T('{n} friends share a bill of {t} dollars equally. How much does each friend pay?', { n: w(n), t: numSay(n * each / 100) }) }, dot));
 }
 // 6th grade: ratios and rates.
+const ES_COLORS = { red: 'rojo', blue: 'azul', yellow: 'amarillo', white: 'blanco', green: 'verde' };
 function storyRatios() {
   const name = pick(KIDS), [, thing] = pick(STUFF), k = rnd(0, 5), [p, q] = pick(RATIOS), m = rnd(2, 6);
-  if (k === 0) return story(`A recipe uses ${p} cups of flour for every ${q} cups of milk. ${name} uses ${p * m} cups of flour. How many cups of milk?`, q * m, `${p * m} ÷ ${p} × ${q} = ?`);
-  if (k === 1) { const rate = rnd(40, 70), h = rnd(2, 4); let h2; do { h2 = rnd(1, 6); } while (h2 === h); return story(`A car goes ${rate * h} miles in ${h} hours. How far does it go in ${h2} hours at the same speed?`, rate * h2, `${rate * h} ÷ ${h} × ${h2} = ?`); }
-  if (k === 2) { const unit = rnd(1, 5), n = rnd(2, 6), n2 = rnd(5, 20); return story(`${n} ${thing} cost ${unit * n} dollars. How much do ${n2} ${thing} cost?`, unit * n2, `${unit * n} ÷ ${n} × ${n2} = ?`); }
-  if (k === 3) return story(`In a club there are ${p} boys for every ${q} girls. There are ${q * m} girls. How many boys?`, p * m, `${q * m} ÷ ${q} × ${p} = ?`);
-  if (k === 4) { const rate = rnd(20, 60), t = rnd(2, 5), t2 = rnd(1, 10); return story(`${name} types ${rate * t} words in ${t} minutes. At that rate, how many words in ${t2} minutes?`, rate * t2, `${rate * t} ÷ ${t} × ${t2} = ?`); }
-  const [c1, c2] = shuffle(['red', 'blue', 'yellow', 'white', 'green']); return story(`A paint mix uses ${p} parts ${c1} to ${q} parts ${c2}. ${name} uses ${p * m} cups of ${c1}. How many cups of ${c2}?`, q * m, `${p * m} ÷ ${p} × ${q} = ?`);
+  if (k === 0) return story(T('A recipe uses {p} cups of flour for every {q} cups of milk. {name} uses {pm} cups of flour. How many cups of milk?', { p, q, name, pm: p * m }), q * m, `${p * m} ÷ ${p} × ${q} = ?`);
+  if (k === 1) { const rate = rnd(40, 70), h = rnd(2, 4); let h2; do { h2 = rnd(1, 6); } while (h2 === h); return story(T('A car goes {d} miles in {h} hours. How far does it go in {h2} hours at the same speed?', { d: rate * h, h, h2 }), rate * h2, `${rate * h} ÷ ${h} × ${h2} = ?`); }
+  if (k === 2) { const unit = rnd(1, 5), n = rnd(2, 6), n2 = rnd(5, 20); return story(T('{n} {things} cost {c} dollars. How much do {n2} {things} cost?', sv(name, '', thing, { n, c: unit * n, n2 })), unit * n2, `${unit * n} ÷ ${n} × ${n2} = ?`); }
+  if (k === 3) return story(T('In a club there are {p} boys for every {q} girls. There are {qm} girls. How many boys?', { p, q, qm: q * m }), p * m, `${q * m} ÷ ${q} × ${p} = ?`);
+  if (k === 4) { const rate = rnd(20, 60), t = rnd(2, 5), t2 = rnd(1, 10); return story(T('{name} types {w} words in {t} minutes. At that rate, how many words in {t2} minutes?', { name, w: rate * t, t, t2 }), rate * t2, `${rate * t} ÷ ${t} × ${t2} = ?`); }
+  const [c1, c2] = shuffle(['red', 'blue', 'yellow', 'white', 'green']), col = c => LANG === 'es' ? ES_COLORS[c] : c; return story(T('A paint mix uses {p} parts {c1} to {q} parts {c2}. {name} uses {pm} cups of {c1}. How many cups of {c2}?', { p, c1: col(c1), q, c2: col(c2), name, pm: p * m }), q * m, `${p * m} ÷ ${p} × ${q} = ?`);
 }
 // 6th grade: percents of amounts and amounts as percents.
 const PCTS = [10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90];
 const pctBase = pct => pct % 25 === 0 ? 4 * rnd(3, 25) : 10 * rnd(2, 10);
 function storyPercents() {
   const name = pick(KIDS), [, thing] = pick(STUFF), k = rnd(0, 4), pct = pick(PCTS);
-  if (k === 0) { const total = pctBase(pct); return story(`${pct}% of the ${total} kids in a class wear glasses. How many wear glasses?`, pct * total / 100, `${pct}% of ${total} = ?`); }
-  if (k === 1) { const total = pick([10, 20, 25, 50]), got = rnd(1, total - 1); return story(`${name} got ${got} out of ${total} on a quiz. What percent is that?`, got * 100 / total, `${got} out of ${total} = ? %`); }
-  if (k === 2) { const P = pctBase(pct); return story(`A shirt costs ${P} dollars. It is ${pct}% off. How many dollars off is that?`, pct * P / 100, `${pct}% of ${P} = ?`); }
-  if (k === 3) { const P = pick([20, 40, 60, 80]), tip = pick([10, 15, 20]); return story(`A meal costs ${P} dollars. ${name} leaves a ${tip}% tip. How many dollars is the tip?`, tip * P / 100, `${tip}% of ${P} = ?`); }
-  const total = pick([10, 20, 25, 50]), red = rnd(1, total - 1); return story(`${red} of the ${total} ${thing} are red. What percent are red?`, red * 100 / total, `${red} out of ${total} = ? %`);
+  if (k === 0) { const total = pctBase(pct); return story(T('{pct}% of the {total} kids in a class wear glasses. How many wear glasses?', { pct, total }), pct * total / 100, eqPctOf(pct, total)); }
+  if (k === 1) { const total = pick([10, 20, 25, 50]), got = rnd(1, total - 1); return story(T('{name} got {got} out of {total} on a quiz. What percent is that?', { name, got, total }), got * 100 / total, eqOutOf(got, total)); }
+  if (k === 2) { const P = pctBase(pct); return story(T('A shirt costs {P} dollars. It is {pct}% off. How many dollars off is that?', { P, pct }), pct * P / 100, eqPctOf(pct, P)); }
+  if (k === 3) { const P = pick([20, 40, 60, 80]), tip = pick([10, 15, 20]); return story(T('A meal costs {P} dollars. {name} leaves a {tip}% tip. How many dollars is the tip?', { P, name, tip }), tip * P / 100, eqPctOf(tip, P)); }
+  const total = pick([10, 20, 25, 50]), red = rnd(1, total - 1); return story(T('{red} of the {total} {things} are red. What percent are red?', sv(name, '', thing, { red, total, son: agree(red, 'es', 'son') })), red * 100 / total, eqOutOf(red, total));
 }
 // 7th grade: proportions, scale and percent change.
 function storyProportions() {
   const name = pick(KIDS), k = rnd(0, 7);
-  if (k === 0) { const w = rnd(2, 6), h = rnd(w + 1, 9), s = rnd(2, 5); return story(`A photo is ${w} by ${h} inches. It is enlarged so the short side is ${w * s} inches. How long is the long side?`, h * s, `${w * s} ÷ ${w} × ${h} = ?`); }
-  if (k === 1) { const pct = pick([10, 20, 25, 50, 100]), a = pct === 25 ? pick([20, 40, 80, 100]) : pick([20, 40, 60, 80, 100]); return story(`A price goes from ${a} dollars to ${a + a * pct / 100} dollars. What is the percent increase?`, pct, `${a * pct / 100} ÷ ${a} × 100 = ? %`); }
-  if (k === 2) { const pct = pick([5, 8, 10]), P = pct === 5 ? 20 * rnd(1, 5) : pct === 8 ? 25 * rnd(1, 4) : 10 * rnd(2, 9); return story(`A game costs ${P} dollars. Sales tax is ${pct}%. What is the total cost in dollars?`, P + P * pct / 100, `${P} + ${pct}% of ${P} = ?`); }
-  if (k === 3) { const s = pick([5, 10, 20, 25, 50]), d = rnd(2, 9); return story(`On a map, 1 inch stands for ${s} miles. Two towns are ${d} inches apart on the map. How many miles apart are they?`, s * d, `${d} × ${s} = ?`); }
-  if (k === 4) { const a = 100 * rnd(1, 9), pct = rnd(1, 5); return story(`${name} puts ${a} dollars in a bank. It earns ${pct}% interest in a year. How many dollars are in the account after one year?`, a + a * pct / 100, `${a} + ${pct}% of ${a} = ?`); }
-  if (k === 5) { const sh = rnd(2, 5), r = rnd(2, 5), sh2 = rnd(1, 8); return story(`A ${sh * r} foot tree casts a ${sh} foot shadow. At the same time a pole casts a ${sh2} foot shadow. How tall is the pole in feet?`, r * sh2, `${sh * r} ÷ ${sh} × ${sh2} = ?`); }
-  if (k === 6) { const pct = pick([10, 20, 25, 50]), a = pct === 25 ? pick([20, 40, 80, 100]) : pick([20, 40, 60, 80, 100]); return story(`The number of club members went from ${a} to ${a - a * pct / 100}. What is the percent decrease?`, pct, `${a * pct / 100} ÷ ${a} × 100 = ? %`); }
-  const [p, q] = pick(RATIOS), m = rnd(2, 5); return story(`${name} mixes ${p} parts juice with ${q} parts water. ${she(name)} wants ${m * (p + q)} cups of drink. How many cups of juice?`, p * m, `${m * (p + q)} ÷ ${p + q} × ${p} = ?`);
+  if (k === 0) { const w = rnd(2, 6), h = rnd(w + 1, 9), s = rnd(2, 5); return story(T('A photo is {w} by {h} inches. It is enlarged so the short side is {ws} inches. How long is the long side?', { w, h, ws: w * s }), h * s, `${w * s} ÷ ${w} × ${h} = ?`); }
+  if (k === 1) { const pct = pick([10, 20, 25, 50, 100]), a = pct === 25 ? pick([20, 40, 80, 100]) : pick([20, 40, 60, 80, 100]); return story(T('A price goes from {a} dollars to {b} dollars. What is the percent increase?', { a, b: a + a * pct / 100 }), pct, `${a * pct / 100} ÷ ${a} × 100 = ? %`); }
+  if (k === 2) { const pct = pick([5, 8, 10]), P = pct === 5 ? 20 * rnd(1, 5) : pct === 8 ? 25 * rnd(1, 4) : 10 * rnd(2, 9); return story(T('A game costs {P} dollars. Sales tax is {pct}%. What is the total cost in dollars?', { P, pct }), P + P * pct / 100, T('{a} + {pct}% of {a} = ?', { a: P, pct })); }
+  if (k === 3) { const s = pick([5, 10, 20, 25, 50]), d = rnd(2, 9); return story(T('On a map, 1 inch stands for {s} miles. Two towns are {d} inches apart on the map. How many miles apart are they?', { s, d }), s * d, `${d} × ${s} = ?`); }
+  if (k === 4) { const a = 100 * rnd(1, 9), pct = rnd(1, 5); return story(T('{name} puts {a} dollars in a bank. It earns {pct}% interest in a year. How many dollars are in the account after one year?', { name, a, pct }), a + a * pct / 100, T('{a} + {pct}% of {a} = ?', { a, pct })); }
+  if (k === 5) { const sh = rnd(2, 5), r = rnd(2, 5), sh2 = rnd(1, 8); return story(T('A {t} foot tree casts a {sh} foot shadow. At the same time a pole casts a {sh2} foot shadow. How tall is the pole in feet?', { t: sh * r, sh, sh2 }), r * sh2, `${sh * r} ÷ ${sh} × ${sh2} = ?`); }
+  if (k === 6) { const pct = pick([10, 20, 25, 50]), a = pct === 25 ? pick([20, 40, 80, 100]) : pick([20, 40, 60, 80, 100]); return story(T('The number of club members went from {a} to {b}. What is the percent decrease?', { a, b: a - a * pct / 100 }), pct, `${a * pct / 100} ÷ ${a} × 100 = ? %`); }
+  const [p, q] = pick(RATIOS), m = rnd(2, 5); return story(T('{name} mixes {p} parts juice with {q} parts water. {she} wants {t} cups of drink. How many cups of juice?', sv(name, '', null, { p, q, t: m * (p + q) })), p * m, `${m * (p + q)} ÷ ${p + q} × ${p} = ?`);
 }
 // 8th grade: linear equations told as stories.
 function storyEquations() {
   const [name, other] = twoKids(), [, thing] = pick(STUFF), k = rnd(0, 9);
-  if (k === 0) { const f = rnd(10, 40), r = rnd(2, 12), n = rnd(3, 12); return story(`A phone plan costs ${f} dollars to start plus ${r} dollars a month. After how many months is the total ${f + r * n} dollars?`, n, `${f} + ${r} × ? = ${f + r * n}`); }
-  if (k === 1) { const f = rnd(2, 6), r = rnd(2, 4), n = rnd(3, 15); return story(`A taxi charges ${f} dollars plus ${r} dollars a mile. A ride costs ${f + r * n} dollars. How many miles was the ride?`, n, `${f} + ${r} × ? = ${f + r * n}`); }
-  if (k === 2) { const a = rnd(5, 30), r = rnd(2, 6), n = rnd(3, 10); return story(`${name} has ${a} ${thing} and gets ${r} more each week. ${other} has ${a + r * n} and gets no more. After how many weeks do they have the same number?`, n, `${a} + ${r} × ? = ${a + r * n}`); }
-  if (k === 3) { const x = rnd(3, 30), d = rnd(2, 20); return story(`Two numbers add up to ${2 * x + d}. The bigger one is ${d} more than the smaller one. What is the bigger number?`, x + d, `? + (? - ${d}) = ${2 * x + d}`); }
-  if (k === 4) { const x = rnd(2, 40), c = rnd(1, 15); return story(`${name} is thinking of a number. ${she(name)} doubles it and adds ${c}. The result is ${2 * x + c}. What is the number?`, x, `2 × ? + ${c} = ${2 * x + c}`); }
-  if (k === 5) { const w = rnd(3, 12), l = rnd(w + 1, 30); return story(`A rectangle has a perimeter of ${2 * (l + w)} cm. Its width is ${w} cm. What is its length in cm?`, l, `2 × (? + ${w}) = ${2 * (l + w)}`); }
-  if (k === 6) { const x = rnd(5, 40), d = rnd(2, 20); return story(`${name} and ${other} have ${2 * x + d} dollars together. ${name} has ${d} dollars more than ${other}. How many dollars does ${other} have?`, x, `? + (? + ${d}) = ${2 * x + d}`); }
-  if (k === 7) { const n = rnd(5, 40); return story(`The sum of three numbers in a row, like 4, 5 and 6, is ${3 * n + 3}. What is the smallest of the three?`, n, `? + (? + 1) + (? + 2) = ${3 * n + 3}`); }
-  if (k === 8) { const h = rnd(5, 30), r = rnd(2, 6), n = rnd(3, 12); return story(`A plant is ${h} cm tall and grows ${r} cm a week. After how many weeks is it ${h + r * n} cm tall?`, n, `${h} + ${r} × ? = ${h + r * n}`); }
-  const t = rnd(2, 12), drop = rnd(t + 1, t + 15); return story(`At noon it was ${t} degrees. By night the temperature dropped ${drop} degrees. What is the temperature now? Use the minus key if you need it.`, t - drop, `${t} - ${drop} = ?`, { neg: true });
+  if (k === 0) { const f = rnd(10, 40), r = rnd(2, 12), n = rnd(3, 12); return story(T('A phone plan costs {f} dollars to start plus {r} dollars a month. After how many months is the total {t} dollars?', { f, r, t: f + r * n }), n, `${f} + ${r} × ? = ${f + r * n}`); }
+  if (k === 1) { const f = rnd(2, 6), r = rnd(2, 4), n = rnd(3, 15); return story(T('A taxi charges {f} dollars plus {r} dollars a mile. A ride costs {t} dollars. How many miles was the ride?', { f, r, t: f + r * n }), n, `${f} + ${r} × ? = ${f + r * n}`); }
+  if (k === 2) { const a = rnd(5, 30), r = rnd(2, 6), n = rnd(3, 10); return story(T('{name} has {a} {things} and gets {r} more each week. {other} has {t} and gets no more. After how many weeks do they have the same number?', sv(name, other, thing, { a, r, t: a + r * n })), n, `${a} + ${r} × ? = ${a + r * n}`); }
+  if (k === 3) { const x = rnd(3, 30), d = rnd(2, 20); return story(T('Two numbers add up to {s}. The bigger one is {d} more than the smaller one. What is the bigger number?', { s: 2 * x + d, d }), x + d, `? + (? - ${d}) = ${2 * x + d}`); }
+  if (k === 4) { const x = rnd(2, 40), c = rnd(1, 15); return story(T('{name} is thinking of a number. {she} doubles it and adds {c}. The result is {r}. What is the number?', sv(name, other, null, { c, r: 2 * x + c })), x, `2 × ? + ${c} = ${2 * x + c}`); }
+  if (k === 5) { const w = rnd(3, 12), l = rnd(w + 1, 30); return story(T('A rectangle has a perimeter of {p} cm. Its width is {w} cm. What is its length in cm?', { p: 2 * (l + w), w }), l, `2 × (? + ${w}) = ${2 * (l + w)}`); }
+  if (k === 6) { const x = rnd(5, 40), d = rnd(2, 20); return story(T('{name} and {other} have {t} dollars together. {name} has {d} dollars more than {other}. How many dollars does {other} have?', { name, other, t: 2 * x + d, d, y: /^i/i.test(other) ? 'e' : 'y' }), x, `? + (? + ${d}) = ${2 * x + d}`); }
+  if (k === 7) { const n = rnd(5, 40); return story(T('The sum of three numbers in a row, like 4, 5 and 6, is {s}. What is the smallest of the three?', { s: 3 * n + 3 }), n, `? + (? + 1) + (? + 2) = ${3 * n + 3}`); }
+  if (k === 8) { const h = rnd(5, 30), r = rnd(2, 6), n = rnd(3, 12); return story(T('A plant is {h} cm tall and grows {r} cm a week. After how many weeks is it {t} cm tall?', { h, r, t: h + r * n }), n, `${h} + ${r} × ? = ${h + r * n}`); }
+  const t = rnd(2, 12), drop = rnd(t + 1, t + 15); return story(T('At noon it was {t} degrees. By night the temperature dropped {drop} degrees. What is the temperature now? Use the minus key if you need it.', { t, drop }), t - drop, `${t} - ${drop} = ?`, { neg: true });
 }
 // 8th grade: simple probability, answered as a percent or a count.
 function storyChance() {
   const name = pick(KIDS), k = rnd(0, 7), total = pick([4, 5, 10, 20, 25, 50]);
-  if (k === 0) { const r = rnd(1, total - 1); return story(`A bag has ${r} red and ${total - r} blue marbles. You pick one without looking. What is the chance it is red, as a percent?`, r * 100 / total, `${r} out of ${total} = ? %`); }
-  if (k === 1) { const n = pick([4, 5, 10, 20]), g = rnd(1, n - 1); return story(`A spinner has ${n} equal parts. ${g} of them are green. What is the percent chance of landing on green?`, g * 100 / n, `${g} out of ${n} = ? %`); }
-  if (k === 2) { const n = pick([30, 60, 120, 300]), face = rnd(1, 6); return story(`You roll a fair die ${n} times. About how many times should you expect to roll a ${face}?`, n / 6, `${n} ÷ 6 = ?`); }
-  if (k === 3) { const n = rnd(2, 6); return story(`You flip a coin ${n} times. How many different outcomes are possible?`, 2 ** n, `2${sup(n)} = ?`); }
-  if (k === 4) { const a = rnd(3, 8), b = rnd(2, 6); return story(`A lunch menu has ${a} sandwiches and ${b} drinks. How many different sandwich and drink pairs can you order?`, a * b, `${a} × ${b} = ?`); }
-  if (k === 5) { const t = pick([20, 25, 50]), p = rnd(1, t - 1); return story(`In a class of ${t} students, ${p} have a pet. One student is picked at random. What is the chance that student has a pet, as a percent?`, p * 100 / t, `${p} out of ${t} = ? %`); }
-  if (k === 6) { const t = pick([10, 20, 25, 50]), r = rnd(1, t - 2), b = rnd(1, t - r - 1); return story(`A bag has ${r} red, ${b} blue and ${t - r - b} green marbles. What is the percent chance of picking a marble that is not red?`, (t - r) * 100 / t, `${t - r} out of ${t} = ? %`); }
-  const n = rnd(4, 10), m = rnd(5, 20); return story(`${name} spins a spinner with ${n} equal parts numbered 1 to ${n}. ${she(name)} spins ${n * m} times. About how many times should it land on 1?`, m, `${n * m} ÷ ${n} = ?`);
+  const marbles = (r, b, g) => ({ r, b, g, rojas: agree(r, 'canica roja', 'canicas rojas'), azules: agree(b, 'azul', 'azules'), verdes: agree(g, 'verde', 'verdes') });
+  if (k === 0) { const r = rnd(1, total - 1); return story(T('A bag has {r} red and {b} blue marbles. You pick one without looking. What is the chance it is red, as a percent?', marbles(r, total - r, 0)), r * 100 / total, eqOutOf(r, total)); }
+  if (k === 1) { const n = pick([4, 5, 10, 20]), g = rnd(1, n - 1); return story(T('A spinner has {n} equal parts. {g} of them are green. What is the percent chance of landing on green?', { n, g, son: agree(g, 'es', 'son'), verdes: agree(g, 'verde', 'verdes') }), g * 100 / n, eqOutOf(g, n)); }
+  if (k === 2) { const n = pick([30, 60, 120, 300]), face = rnd(1, 6); return story(T('You roll a fair die {n} times. About how many times should you expect to roll a {face}?', { n, face }), n / 6, `${n} ÷ 6 = ?`); }
+  if (k === 3) { const n = rnd(2, 6); return story(T('You flip a coin {n} times. How many different outcomes are possible?', { n }), 2 ** n, `2${sup(n)} = ?`); }
+  if (k === 4) { const a = rnd(3, 8), b = rnd(2, 6); return story(T('A lunch menu has {a} sandwiches and {b} drinks. How many different sandwich and drink pairs can you order?', { a, b }), a * b, `${a} × ${b} = ?`); }
+  if (k === 5) { const t = pick([20, 25, 50]), p = rnd(1, t - 1); return story(T('In a class of {t} students, {p} have a pet. One student is picked at random. What is the chance that student has a pet, as a percent?', { t, p, tienen: agree(p, 'tiene', 'tienen') }), p * 100 / t, eqOutOf(p, t)); }
+  if (k === 6) { const t = pick([10, 20, 25, 50]), r = rnd(1, t - 2), b = rnd(1, t - r - 1); return story(T('A bag has {r} red, {b} blue and {g} green marbles. What is the percent chance of picking a marble that is not red?', marbles(r, b, t - r - b)), (t - r) * 100 / t, eqOutOf(t - r, t)); }
+  const n = rnd(4, 10), m = rnd(5, 20); return story(T('{name} spins a spinner with {n} equal parts numbered 1 to {n}. {she} spins {t} times. About how many times should it land on 1?', sv(name, '', null, { n, t: n * m })), m, `${n * m} ÷ ${n} = ?`);
 }
 
 // ---------------------------------------------------------------------------
@@ -926,7 +1238,13 @@ function record(m, right) {
   persist(); return change;
 }
 
-function say(t) { try { speechSynthesis.cancel(); } catch (e) {} VOICE.stop(); if (VOICE.play(t)) return; try { const u = new SpeechSynthesisUtterance(String(t).replace(/×/g, ' times ').replace(/÷/g, ' divided by ').replace(/ [-−] /g, ' minus ').replace(/−/g, 'negative ').replace(/√/g, 'the square root of ').replace(/∛/g, 'the cube root of ').replace(/%/g, ' percent').replace(/\$/g, '')); u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+// Symbols read aloud, in the child's language.
+const SPOKEN = LANG === 'es'
+  ? { times: ' por ', divided: ' entre ', minus: ' menos ', negative: 'menos ', sqrt: 'la raíz cuadrada de ', cbrt: 'la raíz cúbica de ', percent: ' por ciento' }
+  : { times: ' times ', divided: ' divided by ', minus: ' minus ', negative: 'negative ', sqrt: 'the square root of ', cbrt: 'the cube root of ', percent: ' percent' };
+function say(t) { try { speechSynthesis.cancel(); } catch (e) {} VOICE.stop(); if (VOICE.play(t)) return; try { const u = new SpeechSynthesisUtterance(String(t).replace(/×/g, SPOKEN.times).replace(/÷/g, SPOKEN.divided).replace(/ [-−] /g, SPOKEN.minus).replace(/−/g, SPOKEN.negative).replace(/√/g, SPOKEN.sqrt).replace(/∛/g, SPOKEN.cbrt).replace(/%/g, SPOKEN.percent).replace(/\$/g, '')); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+// A fixed line, by its English key: tools/phrases.mjs reads these literals and has the narrator record them ahead of time.
+const tell = s => say(T(s));
 
 // ---------------------------------------------------------------------------
 // Round state and rendering
@@ -954,28 +1272,28 @@ function render(speak) {
   $('basket').classList.toggle('on', task.kind === 'basket'); $('basket').querySelector('.count').textContent = '0';
   $('check').classList.toggle('on', ['basket', 'groups', 'share', 'build', 'tokens'].includes(task.kind));
   const lvl = LEVELS[mode][P.lv[mode]];
-  $('badge').textContent = 'Level ' + (P.lv[mode] + 1) + ': ' + lvl.name;
-  const e = emojiOf(), nm = NAMES[e];
+  $('badge').textContent = T('Level {n}: {name}', { n: P.lv[mode] + 1, name: T(lvl.name) });
+  const e = emojiOf(), nm = NAMES[e], v = tv(nm);
   const talk = t => { if (speak) say(t); };
   switch (task.kind) {
     case 'tap':
       scatter(task.answer, false);
-      setAsk('How many ' + nm + '?');
+      setAsk(T('How many {things}?', v));
       for (const n of task.choices) { const b = document.createElement('button'); b.textContent = n; b.onclick = () => choose(n, b); $('answers').appendChild(b); }
-      talk('How many ' + nm + '? Tap each one to count.');
+      talk(T('How many {things}? Tap each one to count.', v));
       break;
-    case 'frames': renderFrames(); setAsk('How many ' + nm + '?'); talk('How many ' + nm + '? Tap a full ten frame to count ten.'); break;
-    case 'array': renderArray(); setAsk(task.r + ' rows of ' + task.c + '. How many?'); talk(numWords(task.r) + ' rows of ' + numWords(task.c) + '. How many ' + nm + '?' + (task.tapRows ? ' Tap each row to count.' : '')); break;
+    case 'frames': renderFrames(); setAsk(T('How many {things}?', v)); talk(T('How many {things}? Tap a full ten frame to count ten.', v)); break;
+    case 'array': renderArray(); setAsk(T('{r} rows of {c}. How many?', { r: task.r, c: task.c })); talk(T(task.tapRows ? '{r} rows of {c}. How many {things}? Tap each row to count.' : '{r} rows of {c}. How many {things}?', Object.assign({ r: numWords(task.r), c: numWords(task.c) }, v))); break;
     case 'basket':
       scatter(task.total, true);
-      setAsk('Put ' + (task.expr || task.answer) + ' ' + noun(task.expr ? 2 : task.answer, nm) + ' in the basket');
-      talk('Put ' + (task.say || numWords(task.answer)) + ' ' + noun(task.expr ? 2 : task.answer, nm) + ' in the basket. Then tap the check.');
+      setAsk(T('Put {n} {noun} in the basket', { n: task.expr || task.answer, noun: noun(task.expr ? 2 : task.answer, nm) }));
+      talk(T('Put {n} {noun} in the basket. Then tap the check.', { n: task.say || nwt(task.answer, nm), noun: noun(task.expr ? 2 : task.answer, nm) }));
       break;
-    case 'groups': renderPlates(task.R); scatter(task.total, true, true); setAsk('Make ' + task.R + ' groups of ' + task.N); talk('Make ' + numWords(task.R) + ' groups of ' + numWords(task.N) + '. Put ' + numWords(task.N) + ' ' + nm + ' on each plate.'); break;
+    case 'groups': renderPlates(task.R); scatter(task.total, true, true); setAsk(T('Make {R} groups of {N}', { R: task.R, N: task.N })); talk(T('Make {R} groups of {N}. Put {N2} {things} on each plate.', Object.assign({ R: numWords(task.R), N: numWords(task.N), N2: nwt(task.N, nm) }, v))); break;
     case 'share':
       renderPlates(task.R); scatter(task.total, true, true);
-      setAsk('Share ' + task.total + ' ' + nm + ' on ' + task.R + ' plates');
-      talk('Share ' + numWords(task.total) + ' ' + nm + ' on ' + numWords(task.R) + ' plates. Every plate gets the same.' + (task.left ? ' Some may be left over.' : ''));
+      setAsk(T('Share {total} {things} on {R} plates', Object.assign({ total: task.total, R: task.R }, v)));
+      talk(T(task.left ? 'Share {total} {things} on {R} plates. Every plate gets the same. Some may be left over.' : 'Share {total} {things} on {R} plates. Every plate gets the same.', Object.assign({ total: nwt(task.total, nm), R: numWords(task.R) }, v)));
       break;
     case 'build':
       blocks = task.start.slice(); renderBuild();
@@ -983,7 +1301,7 @@ function render(speak) {
       talk(task.speak);
       break;
     case 'tokens': renderTokens(); setAsk(task.ask); talk(task.speak); break;
-    case 'story': renderStory(); setAsk('Story ' + (P.lv[mode] + 1)); talk(task.say || task.text); break;
+    case 'story': renderStory(); setAsk(T('Story {n}', { n: P.lv[mode] + 1 })); talk(task.say || task.text); break;
     default: renderPicture(); setAsk(task.ask); talk(task.speak); break;
   }
 }
@@ -1046,7 +1364,7 @@ function renderArray() {
     const sum = document.createElement('span'); sum.className = 'sum'; row.appendChild(sum);
     row.addEventListener('pointerdown', () => {
       if (busy || row.classList.contains('counted')) return;
-      if (!task.tapRows && !hinted) { say('Can you work it out? Tap the light bulb for help.'); return; }
+      if (!task.tapRows && !hinted) { tell('Can you work it out? Tap the light bulb for help.'); return; }
       row.classList.add('counted'); rowsDone++; counted += c; sum.textContent = counted; say(numWords(counted));
     });
     arr.appendChild(row);
@@ -1083,13 +1401,13 @@ function renderPicture() {
     row.append(reds, blues); wrap.appendChild(row);
   } else if (t.kind === 'scale') {
     const s = Math.floor(Math.max(20, Math.min(44, (W - 140) / t.c - 4, (H - 20) / t.a - 4)));
-    const row = el('row'); row.append(gridOf(t.a, t.c, s, null, emojiOf()), el('side', `${t.a} rows = ${t.a * t.c}`)); wrap.appendChild(row);
+    const row = el('row'); row.append(gridOf(t.a, t.c, s, null, emojiOf()), el('side', T('{a} rows = {n}', { a: t.a, n: t.a * t.c }))); wrap.appendChild(row);
   } else if (t.kind === 'square') {
     const s = Math.floor(Math.max(14, Math.min(60, (W - 140) / t.b - 4, (H - 20) / t.b - 4)));
-    const row = el('row'); row.appendChild(gridOf(t.b, t.b, s, null, emojiOf())); if (t.total) row.appendChild(el('side', `${t.b * t.b} in all`)); wrap.appendChild(row);
+    const row = el('row'); row.appendChild(gridOf(t.b, t.b, s, null, emojiOf())); if (t.total) row.appendChild(el('side', T('{n} in all', { n: t.b * t.b }))); wrap.appendChild(row);
   } else if (t.kind === 'cube') {
     const s = Math.floor(Math.max(12, Math.min(40, (W - 40) / (t.b * (t.b + 1)) - 4, (H - 60) / t.b - 4)));
-    const stack = el('stack'); const row = el('row'); for (let g = 0; g < t.b; g++) row.appendChild(gridOf(t.b, t.b, s, null, emojiOf())); stack.appendChild(row); if (t.total) stack.appendChild(el('side', `${t.b ** 3} in all`)); wrap.appendChild(stack);
+    const stack = el('stack'); const row = el('row'); for (let g = 0; g < t.b; g++) row.appendChild(gridOf(t.b, t.b, s, null, emojiOf())); stack.appendChild(row); if (t.total) stack.appendChild(el('side', T('{n} in all', { n: t.b ** 3 }))); wrap.appendChild(stack);
   }
 }
 function renderPlates(R) {
@@ -1101,8 +1419,8 @@ function renderPlates(R) {
 const tokById = id => task.toks.find(t => t.id === id);
 function renderTokens() {
   const field = $('field'); const tray = el('tray');
-  for (const tk of task.toks) { const b = document.createElement('button'); b.className = 'tok ' + tk.cls; b.textContent = tk.label; b.onclick = () => { if (busy) return; if (placed.length >= 40) { say('That is a lot of tokens. Try a bigger one.'); return; } placed.push(tk.id); drawTokens(); say(tk.say); }; tray.appendChild(b); }
-  tray.appendChild(el('tip', 'Tap a token to put it in. Tap a chip in the bin to take it out.'));
+  for (const tk of task.toks) { const b = document.createElement('button'); b.className = 'tok ' + tk.cls; b.textContent = tk.label; b.onclick = () => { if (busy) return; if (placed.length >= 40) { tell('That is a lot of tokens. Try a bigger one.'); return; } placed.push(tk.id); drawTokens(); say(T(tk.say)); }; tray.appendChild(b); }
+  tray.appendChild(el('tip', T('Tap a token to put it in. Tap a chip in the bin to take it out.')));
   const count = el('count', '0'); count.id = 'tokCount'; tray.appendChild(count);
   const bin = el('bin'); bin.id = 'bin';
   field.append(tray, bin); drawTokens();
@@ -1110,9 +1428,9 @@ function renderTokens() {
 function tokenTotals() { const counts = {}; let total = 0; for (const id of placed) { counts[id] = (counts[id] || 0) + 1; total += tokById(id).v; } return { counts, total }; }
 function drawTokens() {
   const bin = $('bin'); if (!bin) return; bin.querySelectorAll('.chip').forEach(c => c.remove());
-  placed.forEach((id, i) => { const tk = tokById(id); const c = document.createElement('button'); c.className = 'chip ' + tk.cls; c.textContent = tk.label; c.onclick = () => { if (busy) return; placed.splice(i, 1); drawTokens(); say('Out'); }; bin.appendChild(c); });
+  placed.forEach((id, i) => { const tk = tokById(id); const c = document.createElement('button'); c.className = 'chip ' + tk.cls; c.textContent = tk.label; c.onclick = () => { if (busy) return; placed.splice(i, 1); drawTokens(); tell('Out'); }; bin.appendChild(c); });
   const { counts, total } = tokenTotals();
-  $('tokCount').textContent = task.check === 'ratio' ? `${counts.r || 0} red, ${counts.b || 0} blue` : fmt(total / task.scale).replace('-', '−');
+  $('tokCount').textContent = task.check === 'ratio' ? T('{r} red, {b} blue', { r: counts.r || 0, b: counts.b || 0, rojas: agree(counts.r || 0, 'roja', 'rojas'), azules: agree(counts.b || 0, 'azul', 'azules') }) : fmt(total / task.scale).replace('-', '−');
 }
 function renderBuild() {
   const field = $('field'), set = COLSETS[task.cols];
@@ -1120,8 +1438,8 @@ function renderBuild() {
   set.cols.forEach(([k, label], i) => {
     const max = i === 0 ? 9 : 19;
     const col = document.createElement('div'); col.className = 'col ' + k;
-    col.innerHTML = `<h3>${label}</h3><div class="blocks"></div><div class="ctl"><button data-d="-1">−</button><span class="digit">0</span><button data-d="1">+</button></div>`;
-    col.querySelectorAll('.ctl button').forEach(b => b.onclick = () => { if (busy) return; const d = +b.dataset.d; const v = blocks[i] + d; if (v < 0 || v > max) { say(v < 0 ? 'There are none to take away.' : 'That is a lot. Try trading.'); return; } blocks[i] = v; drawBlocks(); say(numWords(v) + ' ' + set.names[i] + (v === 1 ? '' : 's')); });
+    col.innerHTML = `<h3>${T(label)}</h3><div class="blocks"></div><div class="ctl"><button data-d="-1">−</button><span class="digit">0</span><button data-d="1">+</button></div>`;
+    col.querySelectorAll('.ctl button').forEach(b => b.onclick = () => { if (busy) return; const d = +b.dataset.d; const v = blocks[i] + d; if (v < 0 || v > max) { say(T(v < 0 ? 'There are none to take away.' : 'That is a lot. Try trading.')); return; } blocks[i] = v; drawBlocks(); say(placeN(v, set.names[i])); });
     cols.appendChild(col);
   });
   drawBlocks();
@@ -1140,8 +1458,8 @@ function drawBlocks() {
   const add = (text, fn) => { const b = document.createElement('button'); b.textContent = text; b.onclick = () => { if (!busy) fn(); }; tr.appendChild(b); };
   for (let i = set.cols.length - 1; i >= 1; i--) {
     const lo = set.names[i], hi = set.names[i - 1];
-    if (blocks[i] >= 10) add(`10 ${lo}s → 1 ${hi}`, () => { blocks[i] -= 10; blocks[i - 1]++; drawBlocks(); say(`Ten ${lo}s make one ${hi}.`); });
-    if (task.breakable && blocks[i - 1] > 0 && blocks[i] <= 9) add(`1 ${hi} → 10 ${lo}s`, () => { blocks[i - 1]--; blocks[i] += 10; drawBlocks(); say(`One ${hi} is ten ${lo}s.`); });
+    if (blocks[i] >= 10) add(T('10 {lo} → 1 {hi}', { lo: placePl(lo), hi: placeS(hi) }), () => { blocks[i] -= 10; blocks[i - 1]++; drawBlocks(); say(T('Ten {lo} make one {hi}.', { lo: placePl(lo), hi: placeS(hi), ahi: placeN('a', hi) })); });
+    if (task.breakable && blocks[i - 1] > 0 && blocks[i] <= 9) add(T('1 {hi} → 10 {lo}', { lo: placePl(lo), hi: placeS(hi) }), () => { blocks[i - 1]--; blocks[i] += 10; drawBlocks(); say(T('One {hi} is ten {lo}.', { lo: placePl(lo), hi: placeS(hi), Ahi: cap(placeN('a', hi)) })); });
   }
 }
 function renderStory() {
@@ -1160,22 +1478,22 @@ function renderStory() {
 // Answers
 // ---------------------------------------------------------------------------
 function miss(text) {
-  if (!missed) { missed = true; const ch = record(mode, false); if (ch < 0) setTimeout(() => { say('Let us try some easier ones.'); }, 1800); }
+  if (!missed) { missed = true; const ch = record(mode, false); if (ch < 0) setTimeout(() => { tell('Let us try some easier ones.'); }, 1800); }
   say(text);
 }
 function win(text, spoken) {
   busy = true; P.stars++; persist(); $('stars').textContent = '⭐ ' + P.stars;
   const ch = missed ? 0 : record(mode, true);
-  $('winText').textContent = text; $('win').classList.add('on'); say('Yes! ' + (spoken || text));
+  $('winText').textContent = text; $('win').classList.add('on'); say(T('Yes! {t}', { t: spoken || text }));
   for (let i = 0; i < 12; i++) { const s = document.createElement('div'); s.className = 'thing'; s.style.pointerEvents = 'none'; s.textContent = ['⭐', '✨', '🌟'][i % 3]; s.style.left = rnd(0, 90) + '%'; s.style.top = rnd(0, 90) + '%'; s.style.transition = 'opacity 1.2s'; $('field').appendChild(s); setTimeout(() => s.style.opacity = 0, 50); setTimeout(() => s.remove(), 1300); }
   let wait = 2800 + Math.min(2500, (spoken || text).length * 25);
-  if (ch > 0) { const name = LEVELS[mode][P.lv[mode]].name; setTimeout(() => { $('winText').textContent = 'Level up! ' + name; say('Level up! ' + name + '!'); }, wait - 400); wait += 2200; }
+  if (ch > 0) { const name = T(LEVELS[mode][P.lv[mode]].name); setTimeout(() => { $('winText').textContent = T('Level up! {name}', { name }); say(T('Level up! {name}!', { name })); }, wait - 400); wait += 2200; }
   pending = setTimeout(newRound, wait);
 }
 function choose(n, btn) {
   if (busy) return;
-  if (n === task.answer) win(cap(numWords(n)) + ' ' + noun(n, NAMES[emojiOf()]) + '!');
-  else { btn.classList.add('no'); setTimeout(() => btn.classList.remove('no'), 500); miss('Not ' + numWords(n) + '. Count them again!'); }
+  if (n === task.answer) win(T('{n} {noun}!', { n: cap(nwt(n, NAMES[emojiOf()])), noun: noun(n, NAMES[emojiOf()]) }));
+  else { btn.classList.add('no'); setTimeout(() => btn.classList.remove('no'), 500); miss(T('Not {n}. Count them again!', { n: numWords(n) })); }
 }
 const same = (a, b) => Math.abs(a - b) < 1e-6;
 function submitTyped() {
@@ -1183,16 +1501,16 @@ function submitTyped() {
   const n = Number(typed), a = task.answer, nm = NAMES[emojiOf()];
   if (!isFinite(n)) return;
   if (same(n, a)) {
-    if (task.kind === 'array') win(`${task.r} × ${task.c} = ${a}`, `${numWords(task.r)} rows of ${numWords(task.c)} is ${numWords(a)}.`);
-    else if (task.kind === 'frames') { const t = Math.floor(a / 10), o = a % 10; win(`${t} tens and ${o} ones = ${a}`, `${numWords(t)} tens and ${numWords(o)} ones is ${numWords(a)} ${nm}.`); }
-    else if (task.kind === 'story') win(task.eq.split('?').join(fmt(a)), cap(numSay(a)) + '. That is right!');
-    else win(task.eq.split('?').join(fmt(a)), task.done || cap(numSay(a)) + '. That is right!');
+    if (task.kind === 'array') win(`${task.r} × ${task.c} = ${a}`, T('{r} rows of {c} is {a}.', { r: numWords(task.r), c: numWords(task.c), a: numWords(a) }));
+    else if (task.kind === 'frames') { const t = Math.floor(a / 10), o = a % 10; win(T('{t} tens and {o} ones = {a}', { t, o, a }), T('{t} tens and {o} ones is {a} {things}.', Object.assign({ t: numWords(t), o: numWords(o), a: nwt(a, nm), tens: placeN(t, 'ten'), ones: placeN(o, 'one') }, tv(nm)))); }
+    else if (task.kind === 'story') win(task.eq.split('?').join(fmt(a)), T('{n}. That is right!', { n: cap(numSay(a)) }));
+    else win(task.eq.split('?').join(fmt(a)), task.done || T('{n}. That is right!', { n: cap(numSay(a)) }));
     return;
   }
   $('padShow').classList.add('no'); setTimeout(() => $('padShow').classList.remove('no'), 500);
   typed = ''; showTyped();
   const wasMissed = missed;
-  miss('Not ' + numSay(n) + '. Try again!');
+  miss(T('Not {n}. Try again!', { n: numSay(n) }));
   if (wasMissed) showHint();
 }
 function showTyped() { $('padShow').textContent = typed.replace('-', '−') || ' '; }
@@ -1209,8 +1527,8 @@ function buildPad(wide) {
       if (busy) return;
       if (k === '⌫') typed = typed.slice(0, -1);
       else if (k === '✔') return submitTyped();
-      else if (k === '−') { typed = typed.startsWith('-') ? typed.slice(1) : '-' + typed; say(typed.startsWith('-') ? 'negative' : 'positive'); }
-      else if (k === '.') { if (!typed.includes('.')) { typed += (typed === '' || typed === '-') ? '0.' : '.'; say('point'); } }
+      else if (k === '−') { typed = typed.startsWith('-') ? typed.slice(1) : '-' + typed; say(T(typed.startsWith('-') ? 'negative' : 'positive')); }
+      else if (k === '.') { if (!typed.includes('.')) { typed += (typed === '' || typed === '-') ? '0.' : '.'; tell('point'); } }
       else if (typed.replace(/[-.]/g, '').length < 6) { typed = (typed + k).replace(/^(-?)0+(?=\d)/, '$1'); say(k); }
       showTyped();
     };
@@ -1236,67 +1554,67 @@ function settle(t) {
   t.dataset.in = now;
   for (const z of zones()) z.querySelector('.count').textContent = zoneCount(z);
   if (hit) say(numWords(zoneCount(hit)));
-  else { const from = zones().find(z => (z.dataset.zone || 'basket') === was); if (from) say('Oops, ' + numWords(zoneCount(from))); }
+  else { const from = zones().find(z => (z.dataset.zone || 'basket') === was); if (from) say(T('Oops, {n}', { n: numWords(zoneCount(from)) })); }
 }
 function checkPlaced() {
   if (busy) return;
   const nm = NAMES[emojiOf()];
   if (task.kind === 'basket') {
     const n = zoneCount($('basket')), want = task.answer;
-    if (n === want) win(task.expr ? `${task.expr} = ${want}` : cap(numWords(want)) + ' ' + noun(want, nm) + '. Perfect!', task.expr ? `${task.say} is ${numWords(want)}.` : '');
-    else miss(n < want ? 'Only ' + numWords(n) + '. We need ' + numWords(want) + '. Add some more!' : 'That is ' + numWords(n) + '. Too many! Take some out.');
+    if (n === want) win(task.expr ? `${task.expr} = ${want}` : T('{n} {noun}. Perfect!', { n: cap(nwt(want, nm)), noun: noun(want, nm) }), task.expr ? T('{say} is {n}.', { say: task.say, n: numWords(want) }) : '');
+    else miss(n < want ? T('Only {n}. We need {want}. Add some more!', { n: nwt(n, nm), want: nwt(want, nm) }) : T('That is {n}. Too many! Take some out.', Object.assign({ n: nwt(n, nm) }, tv(nm))));
     return;
   }
   const counts = [...document.querySelectorAll('.plate')].map(zoneCount);
   const loose = [...document.querySelectorAll('.thing')].filter(t => !t.dataset.in).length;
   if (task.kind === 'groups') {
     const bad = counts.findIndex(c => c !== task.N);
-    if (bad < 0) return win(`${task.R} groups of ${task.N} = ${task.R * task.N}`, `${numWords(task.R)} groups of ${numWords(task.N)} is ${numWords(task.R * task.N)} ${nm}.`);
-    return miss(`Plate ${bad + 1} has ${numWords(counts[bad])}. Every plate needs ${numWords(task.N)}.`);
+    if (bad < 0) return win(T('{R} groups of {N} = {total}', { R: task.R, N: task.N, total: task.R * task.N }), T('{R} groups of {N} is {total} {things}.', Object.assign({ R: numWords(task.R), N: numWords(task.N), total: nwt(task.R * task.N, nm) }, tv(nm))));
+    return miss(T('Plate {p} has {n}. Every plate needs {N}.', { p: bad + 1, n: nwt(counts[bad], nm), N: nwt(task.N, nm) }));
   }
   // share
   const fair = counts.every(c => c === counts[0]);
-  if (!fair) return miss('The plates are not fair yet. Every plate needs the same number.');
-  if (loose >= task.R) return miss(counts[0] === 0 ? 'Put some on the plates.' : 'You can still give every plate one more.');
-  if (task.left === 0 && loose) return miss('Share all of them.');
+  if (!fair) return miss(T('The plates are not fair yet. Every plate needs the same number.'));
+  if (loose >= task.R) return miss(counts[0] === 0 ? T('Put some on the plates.') : T('You can still give every plate one more.', tv(nm)));
+  if (task.left === 0 && loose) return miss(T('Share all of them.'));
   const each = counts[0];
-  if (task.left) win(`${task.total} ÷ ${task.R} = ${each}, ${task.left} left over`, `${numWords(task.total)} shared by ${numWords(task.R)} is ${numWords(each)} each, with ${numWords(task.left)} left over.`);
-  else win(`${task.total} ÷ ${task.R} = ${each}`, `${numWords(task.total)} shared by ${numWords(task.R)} is ${numWords(each)} each.`);
+  if (task.left) win(T('{total} ÷ {R} = {each}, {left} left over', { total: task.total, R: task.R, each, left: task.left }), T('{total} shared by {R} is {each} each, with {left} left over.', { total: nwt(task.total, nm), R: numWords(task.R), each: nwt(each, nm), left: nwt(task.left, nm), sobra: task.left === 1 ? 'sobra' : 'sobran' }));
+  else win(`${task.total} ÷ ${task.R} = ${each}`, T('{total} shared by {R} is {each} each.', { total: nwt(task.total, nm), R: numWords(task.R), each: nwt(each, nm) }));
 }
 function checkTokens() {
   if (busy) return;
   const { counts, total } = tokenTotals();
   if (task.check === 'ratio') {
     const r = counts.r || 0, b = counts.b || 0, n = r + b;
-    if (n !== task.total) return miss(`That is ${numWords(n)} in all. We need ${numWords(task.total)}.` + (n < task.total ? ' Add some more.' : ' Take some out.'));
-    if (r * task.q !== b * task.p) return miss(`For every ${numWords(task.p)} red there should be ${numWords(task.q)} blue. Try again.`);
+    if (n !== task.total) return miss(T(n < task.total ? 'That is {n} in all. We need {total}. Add some more.' : 'That is {n} in all. We need {total}. Take some out.', { n: numWordsG(n, 'f'), total: numWordsG(task.total, 'f') }));
+    if (r * task.q !== b * task.p) return miss(T('For every {p} red there should be {q} blue. Try again.', { p: numWordsG(task.p, 'f'), q: numWordsG(task.q, 'f'), rojap: task.p === 1 ? 'roja' : 'rojas', azulq: task.q === 1 ? 'azul' : 'azules' }));
     return win(task.eq, task.done);
   }
-  if (!placed.length) return miss('The bin is empty. Tap a token to put it in.');
+  if (!placed.length) return miss(T('The bin is empty. Tap a token to put it in.'));
   if (Math.round(total) === Math.round(task.answer * task.scale)) return win(task.eq, task.done);
-  miss('That is ' + numSay(total / task.scale) + '. ' + (total < task.answer * task.scale ? 'We need more.' : 'That is too many.'));
+  miss(T(total < task.answer * task.scale ? 'That is {n}. We need more.' : 'That is {n}. That is too many.', { n: numSay(total / task.scale) }));
 }
 function checkBuild() {
   if (busy) return;
   const v = valueOf(blocks), a = task.answer, set = COLSETS[task.cols];
   const over = blocks.findIndex((x, i) => i > 0 && x > 9);
-  if (v === a && over < 0) return win(task.eq ? task.eq + ' = ' + buildFmt(a) : buildFmt(a), cap(buildSay(a)) + '!');
-  if (v === a) return miss('That is ' + buildSay(a) + ', but you have ' + numWords(blocks[over]) + ' ' + set.names[over] + 's. Trade ten ' + set.names[over] + 's for a ' + set.names[over - 1] + '.');
-  miss('That is ' + buildSay(v) + '. ' + (v < a ? 'We need more.' : 'That is too many.'));
+  if (v === a && over < 0) return win(task.eq ? task.eq + ' = ' + buildFmt(a) : buildFmt(a), T('{n}!', { n: cap(buildSay(a)) }));
+  if (v === a) return miss(T('That is {v}, but you have {n} {lo}. Trade ten {lo} for a {hi}.', { v: buildSay(a), n: numWords(blocks[over]), lo: placePl(set.names[over]), hi: placeS(set.names[over - 1]), have: placeN(blocks[over], set.names[over]), ahi: placeN('a', set.names[over - 1]) }));
+  miss(T(v < a ? 'That is {n}. We need more.' : 'That is {n}. That is too many.', { n: buildSay(v) }));
 }
 $('check').onclick = () => (task.kind === 'build' ? checkBuild() : task.kind === 'tokens' ? checkTokens() : checkPlaced());
 
 function showHint() {
   hinted = true;
   switch (task.kind) {
-    case 'tap': say('Tap each ' + one(NAMES[emojiOf()]) + ' once. Say the numbers with me.'); break;
-    case 'frames': say('A full ten frame is ten. Count the tens: ten, twenty, thirty. Then count the ones.'); break;
-    case 'array': say(task.tapRows ? 'Tap each row. Count by ' + numWords(task.c) + 's.' : 'Now you can tap the rows. Count by ' + numWords(task.c) + 's.'); break;
-    case 'basket': say(task.hint || 'Drag them in one at a time and count.'); break;
-    case 'groups': say('Put ' + numWords(task.N) + ' on the first plate. Then do the next plate.'); break;
-    case 'share': say('Give one to each plate, then go around again. Keep going until you cannot give every plate one more.'); break;
-    case 'build': say(task.eq ? (task.breakable ? 'Take away the small ones first. If there are not enough, break a bigger block.' : 'Add the small ones first, then the bigger ones. Trade ten for one when you can.') : 'Look at each digit. Start with the biggest place and work to the right.'); break;
-    case 'story': { const pic = $('pic'); if (pic) { pic.textContent = (task.pic ? task.pic + '\n' : '') + task.eq; pic.classList.add('on'); } say('Here is a hint. ' + task.eq.replace('?', 'what')); break; }
+    case 'tap': say(T('Tap each {thing} once. Say the numbers with me.', tv(NAMES[emojiOf()]))); break;
+    case 'frames': tell('A full ten frame is ten. Count the tens: ten, twenty, thirty. Then count the ones.'); break;
+    case 'array': say(T(task.tapRows ? 'Tap each row. Count by {c}s.' : 'Now you can tap the rows. Count by {c}s.', { c: numWords(task.c) })); break;
+    case 'basket': say(task.hint || T('Drag them in one at a time and count.')); break;
+    case 'groups': say(T('Put {N} on the first plate. Then do the next plate.', { N: nwt(task.N, NAMES[emojiOf()]) })); break;
+    case 'share': say(T('Give one to each plate, then go around again. Keep going until you cannot give every plate one more.', tv(NAMES[emojiOf()]))); break;
+    case 'build': say(T(task.eq ? (task.breakable ? 'Take away the small ones first. If there are not enough, break a bigger block.' : 'Add the small ones first, then the bigger ones. Trade ten for one when you can.') : 'Look at each digit. Start with the biggest place and work to the right.')); break;
+    case 'story': { const pic = $('pic'); if (pic) { pic.textContent = (task.pic ? task.pic + '\n' : '') + task.eq; pic.classList.add('on'); } say(T('Here is a hint. {eq}', { eq: task.eq.replace('?', T('what')) })); break; }
     default: say(task.hint || task.speak); break;
   }
 }
@@ -1306,11 +1624,19 @@ $('again').onclick = () => newRound();
 $('hint').onclick = () => { if (!busy) showHint(); };
 $('hear').onclick = () => say(task.kind === 'story' ? (task.say || task.text) : task.speak || $('ask').textContent);
 $('stars').textContent = '⭐ ' + P.stars;
+// The markup is written in English; on a Spanish tablet it is translated once here.
+if (LANG === 'es') {
+  document.documentElement.lang = 'es';
+  document.title = T('Count With Me');
+  document.querySelector('header h1').textContent = T('Count With Me');
+  document.querySelectorAll('.pill[data-mode]').forEach(b => { b.textContent = T(b.textContent.trim()); });
+  document.querySelectorAll('footer button[title]').forEach(b => { b.title = T(b.title); });
+}
 buildPad(false);
 let resizeTimer = null;
 addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (!busy) { counted = 0; render(false); } }, 200); });
 newRound(false);
-addEventListener('pointerdown', () => say('Count With Me! ' + (task.kind === 'story' ? (task.say || task.text) : task.speak || $('ask').textContent)), { once: true });
+addEventListener('pointerdown', () => say(T('Count With Me! {t}', { t: task.kind === 'story' ? (task.say || task.text) : task.speak || $('ask').textContent })), { once: true });
 
 // ---------------------------------------------------------------------------
 // Self-check hook for tools/ladder-check.mjs. The four ladders are flattened in order: How many?, Give me,
@@ -1361,10 +1687,14 @@ const describe = t => (t.ask || t.prompt || t.text || (t.kind + ' ' + (t.total |
 window.DucklingLadder = {
   levels: () => FLAT.length,
   start: () => START[mode],
-  label: () => LEVELS[mode][P.lv[mode]].name,
+  label: () => T(LEVELS[mode][P.lv[mode]].name),
   rung: i => FLAT[i].m + ' ' + FLAT[i].i + ' ' + LEVELS[FLAT[i].m][FLAT[i].i].name,
   exercise: (i, n) => { const { m, i: r } = FLAT[i]; const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[m][r].gen(); checkTask(m, r, t); out.push(describe(t)); } return out; },
 };
+
+// Language hook for tools/ladder-check.mjs --lang es: every key with a Spanish line, the keys asked for without one,
+// and the English words that are right on a Spanish screen (none here).
+window.DucklingLang = { keys: () => Object.keys(ES), missing: () => [...USED].filter(k => ES[k] == null), allow: [] };
 
 // Test hook.
 window.CWM = { LEVELS, START, numWords, record, P: () => P, current: () => task, mode: () => mode, setMode: m => document.querySelector(`.pill[data-mode="${m}"]`).click(), blocks: () => blocks, valueOf, placed: () => placed, setTyped: s => { typed = s; showTyped(); }, submit: submitTyped };
