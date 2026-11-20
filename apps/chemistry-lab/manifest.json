@@ -1,7 +1,7 @@
 {
   "id": "chemistry-lab",
   "name": "Chemistry Lab",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Safe experiments followed step by step, each step read aloud, with stars for the ones finished.",
   "subjects": [
     "science"
@@ -21,5 +21,21 @@
       "Noticing details",
       "Safe handling of materials"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Laboratorio de química",
+      "description": "Experimentos seguros que se siguen paso a paso, con cada paso leído en voz alta y estrellas por los que se terminan.",
+      "about": {
+        "concept": "Seguir un procedimiento y observar causa y efecto. Cada experimento es una secuencia corta de pasos, leídos en voz alta, con un cambio que notar al final: un color cambia, se forma un gas, algo flota o se hunde.",
+        "progression": "El juego libre abre el laboratorio con todos los estantes, la perilla de calor y el libro de experimentos para explorar a gusto. La escalera de Retos sube desde clasificar líquidos y polvos y mezclar colores en preescolar, pasando por los estados de la materia, la disolución, los cambios físicos y químicos y los ácidos y bases, hasta las reacciones, la conservación de la masa y el balanceo de ecuaciones en octavo grado.",
+        "lifeSkills": [
+          "Seguir instrucciones en orden",
+          "Predecir y luego comprobar",
+          "Notar los detalles",
+          "Manejar materiales con cuidado"
+        ]
+      }
+    }
   }
 }
