@@ -1,6 +1,31 @@
 {
- "source": "c2bc578d4861877af18a63e0f09caf8d16a74e4aa35608fac4d1e9e972dee474",
+ "source": "2626e371fa563b05d74d62e2c6163fbed2cda9b3ca8aeee08c27d491cd102d6e",
  "lines": [
+  {
+   "text": "Arrastra desde una luz hasta la luz del mismo color. Los puentes no pueden cruzarse. Llena todas las casillas de luz.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Arrastra desde una luz hasta la luz del mismo color. Los puentes no pueden cruzarse. Llena todas las casillas de luz. Dos portales con el mismo anillo son gemelos. Un puente que entra en un portal sale por el otro y sigue su camino.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Arrastra desde una luz hasta la luz del mismo color. Los puentes no pueden cruzarse. Llena todas las casillas de luz. Las rocas cierran el paso. Planea una ruta que las rodee y enciende todas las demás casillas.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Arrastra desde una luz hasta la luz del mismo color. Los puentes no pueden cruzarse. Llena todas las casillas de luz. Llena el tablero con las menos curvas que puedas. El tablero te dice el mínimo de curvas que funciona. Recto es mejor que torcido.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Arrastra desde una luz hasta la luz del mismo color. Los puentes no pueden cruzarse. Llena todas las casillas de luz. Llena el tablero con las menos curvas. La app ya revisó todas las respuestas, así que el número del tablero es el mínimo verdadero. Hay cruces y rocas en juego.",
+   "rate": -10,
+   "lang": "es"
+  },
   {
    "text": "Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light.",
    "rate": -10

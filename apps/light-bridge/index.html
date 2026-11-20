@@ -246,7 +246,13 @@
   #badge { font-size: 18px; font-weight: 900; background: var(--sun); border: 3px solid var(--ink); border-radius: 999px; padding: 6px 14px; white-space: nowrap; }
   #badge.pop { animation: pop .6s; }
   #badge.small { font-size: 15px; padding: 5px 12px; }
-  #stars { font-size: 22px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px; margin-right: auto; }
+  #stars { font-size: 22px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px; margin-right: auto; white-space: nowrap; }
+  /* Spanish labels run longer; the header shrinks a little so it still ends before the Home pill at 1024 wide. */
+  html[lang="es"] header h1 { font-size: 24px; }
+  html[lang="es"] #badge { font-size: 16px; padding: 6px 12px; }
+  html[lang="es"] #badge.small { font-size: 14px; padding: 5px 10px; }
+  html[lang="es"] #stars { font-size: 20px; padding: 4px 10px; }
+  html[lang="es"] .pill { font-size: 18px; padding: 8px 12px; }
   .pill { border: 3px solid var(--ink); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 20px; font-weight: 900; white-space: nowrap; }
   .pill:active, .tool:active { transform: scale(.94); }
   main { position: relative; min-height: 0; }
@@ -281,15 +287,15 @@
   </header>
   <main>
     <div id="stage"></div>
-    <div id="ask">Connect the matching lights!</div>
-    <div id="meter">Light <span id="pct">0</span>%<div class="bar"><i id="fill"></i></div><div id="bendline" hidden>Bends <span id="bendsNow">0</span> · fewest <span id="bendsMax">0</span></div></div>
+    <div id="ask" data-t>Connect the matching lights!</div>
+    <div id="meter"><span data-t>Light</span> <span id="pct">0</span>%<div class="bar"><i id="fill"></i></div><div id="bendline" hidden><span data-t>Bends</span> <span id="bendsNow">0</span> · <span data-t>fewest</span> <span id="bendsMax">0</span></div></div>
     <div id="tools">
-      <button class="tool" id="hint" title="Hint">💡<small>Hint</small></button>
-      <button class="tool" id="clear" title="Clear">🧽<small>Clear</small></button>
-      <button class="tool" id="skip" title="New board">⏭<small>New</small></button>
+      <button class="tool" id="hint" title="Hint">💡<small data-t>Hint</small></button>
+      <button class="tool" id="clear" title="Clear">🧽<small data-t>Clear</small></button>
+      <button class="tool" id="skip" title="New board">⏭<small data-t>New</small></button>
     </div>
     <div id="toast"></div>
-    <div id="nogl">This game needs 3D graphics, which are not working on this device right now.</div>
+    <div id="nogl" data-t>This game needs 3D graphics, which are not working on this device right now.</div>
   </main>
 </div>
 <script>
@@ -305,6 +311,62 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const pick = a => a[Math.floor(Math.random() * a.length)];
+
+// ---------------------------------------------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every line the child reads or hears comes from
+// ES through T(); the English text is the key. The boards, the generator and the ladder do not change.
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  'Light Bridge': 'Puente de luz', 'Hear it': 'Escucha', 'Hint': 'Pista', 'Clear': 'Borrar', 'New board': 'Tablero nuevo', 'New': 'Nuevo',
+  'Light': 'Luz', 'Bends': 'Curvas', 'fewest': 'mínimo', 'Connect the matching lights!': '¡Une las luces iguales!',
+  'This game needs 3D graphics, which are not working on this device right now.': 'Este juego necesita gráficos 3D, y en este dispositivo no están funcionando ahora.',
+  // Level names.
+  'First glow': 'Primer brillo', 'Tiny lights': 'Lucecitas', 'Little bridges': 'Puentes chicos', 'Glow grid': 'Red de luz', 'Twisty six': 'Seis con curvas',
+  'Big glow': 'Gran brillo', 'Long bridges': 'Puentes largos', 'Huge glow': 'Brillo enorme', 'Snake lights': 'Luces serpiente', 'Giant glow': 'Brillo gigante',
+  'Light master': 'Dominio de la luz', 'Rock garden': 'Jardín de rocas', 'Crystal path': 'Camino de cristal', 'Count the squares': 'Cuenta las casillas',
+  'Fewest bends': 'Menos curvas', 'Over and under': 'Arriba y abajo', 'Portal jump': 'Salto de portal', 'Mixed signals': 'Señales mixtas', 'Proof of light': 'Prueba de luz',
+  // The rule shown at the top of the board.
+  'Rocks block the way.': 'Las rocas cierran el paso.', 'Pass through your gem.': 'Pasa por tu gema.', 'Each number is a bridge length.': 'Cada número es el largo de un puente.',
+  'Use the fewest bends.': 'Usa la menor cantidad de curvas.', 'Bridges cross on a cross tile.': 'Los puentes se cruzan en un cruce.', 'A portal jumps to its twin.': 'Un portal salta a su gemelo.',
+  'Every rule at once.': 'Todas las reglas a la vez.', 'Fewest bends, with a cross tile.': 'Menos curvas, con un cruce.',
+  // The rule spoken.
+  'Rocks block the way. Plan a route around them, and light every other square.': 'Las rocas cierran el paso. Planea una ruta que las rodee y enciende todas las demás casillas.',
+  'A gem belongs to one color. That bridge must pass through its gem. Other bridges go around it.': 'Cada gema es de un color. Ese puente debe pasar por su gema. Los otros puentes la rodean.',
+  'The number on a light is how many squares its bridge must cover, counting both lights. Make every bridge the right length.': 'El número de una luz dice cuántas casillas debe cubrir su puente, contando las dos luces. Haz cada puente del largo correcto.',
+  'Fill the board with the fewest bends you can. The board tells you the fewest bends that work. Straight is better than wiggly.': 'Llena el tablero con las menos curvas que puedas. El tablero te dice el mínimo de curvas que funciona. Recto es mejor que torcido.',
+  'A cross tile lets two bridges cross, one going across and one going up and down. A bridge must go straight over a cross tile.': 'Un cruce deja que dos puentes se crucen, uno de lado a lado y otro de arriba abajo. Un puente debe pasar recto por el cruce.',
+  'Two portals with the same ring are twins. A bridge that enters one portal comes out of the other and keeps going.': 'Dos portales con el mismo anillo son gemelos. Un puente que entra en un portal sale por el otro y sigue su camino.',
+  'Rocks block. A gem must be passed by its color. A cross tile lets bridges cross. A portal jumps to its twin. A number is a bridge length.': 'Las rocas bloquean. Por cada gema pasa el puente de su color. Un cruce deja que los puentes se crucen. Un portal salta a su gemelo. Un número es el largo de un puente.',
+  'Fill the board with the fewest bends. The app has searched every answer, so the number on the board is the true fewest. Cross tiles and rocks are in play.': 'Llena el tablero con las menos curvas. La app ya revisó todas las respuestas, así que el número del tablero es el mínimo verdadero. Hay cruces y rocas en juego.',
+  // Why a board is not finished yet.
+  'Not every light is joined.': 'Falta unir alguna luz.', 'A bridge is on a rock.': 'Un puente está sobre una roca.', 'A bridge has a gap.': 'Un puente tiene un hueco.',
+  'A bridge cannot stop on a cross tile.': 'Un puente no puede terminar en un cruce.', 'A bridge must go straight over a cross tile.': 'Un puente debe pasar recto por el cruce.',
+  'Two bridges share one side of a cross tile.': 'Dos puentes usan el mismo lado de un cruce.', 'Two bridges share a square.': 'Dos puentes comparten una casilla.',
+  'A bridge must jump through the portal.': 'Un puente debe saltar por el portal.', 'Only the {color} bridge may touch the {color} gem.': 'Solo el puente {color} puede tocar la gema {colorF}.',
+  'Fill every square!': '¡Llena todas las casillas!', 'The {color} bridge must pass through its gem.': 'El puente {color} debe pasar por su gema.',
+  'The {color} bridge needs {n} squares. It has {m}.': 'El puente {color} necesita {n} casillas. Tiene {m}.',
+  'Lit with {b} bend. It can be done in {max}.': 'Encendido con {b} curva. Se puede hacer con {max}.', 'Lit with {b} bends. It can be done in {max}.': 'Encendido con {b} curvas. Se puede hacer con {max}.',
+  'All the lights are joined. Now fill every square. Bridges can wiggle.': 'Todas las luces están unidas. Ahora llena todas las casillas. Los puentes pueden dar vueltas.',
+  // Feedback and the badge.
+  'All lit up! ⭐': '¡Todo encendido! ⭐', 'You did it! ⭐': '¡Lo lograste! ⭐', 'All lit up!': '¡Todo encendido!', 'You did it!': '¡Lo lograste!',
+  'Level up! {name}.': '¡Subes de nivel! {name}.', 'Level {n} of {total} · {name} {size}': 'Nivel {n} de {total} · {name} {size}',
+  'Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light.': 'Arrastra desde una luz hasta la luz del mismo color. Los puentes no pueden cruzarse. Llena todas las casillas de luz.',
+  'Here is an easier one.': 'Aquí tienes uno más fácil.', 'Here is a new one.': 'Aquí tienes uno nuevo.', 'Here is the {color} bridge.': 'Aquí está el puente {color}.',
+  // Colors, as they follow a masculine noun (puente) and a feminine one (gema).
+  'red': 'rojo', 'yellow': 'amarillo', 'blue': 'azul', 'green': 'verde', 'pink': 'rosa', 'orange': 'naranja', 'aqua': 'turquesa', 'purple': 'morado', 'white': 'blanco',
+  'red (f)': 'roja', 'yellow (f)': 'amarilla', 'blue (f)': 'azul', 'green (f)': 'verde', 'pink (f)': 'rosa', 'orange (f)': 'naranja', 'aqua (f)': 'turquesa', 'purple (f)': 'morada', 'white (f)': 'blanca',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+// A color name for a bridge (masculine) and for a gem (feminine). In English both are the plain name.
+const colorM = c => T(CNAMES[c]);
+const colorF = c => LANG === 'es' ? T(CNAMES[c] + ' (f)') : CNAMES[c];
+window.DucklingLang = { keys: () => Object.keys(ES), missing: () => [...USED].filter(k => ES[k] == null), allow: [] };
 
 // Levels from young (bottom) to hard (top). Each rung and the grade band it is meant for:
 //   0  First glow        pre-K       4 by 4, two pairs
@@ -415,34 +477,34 @@ const bendsTotal = (n, paths) => paths.reduce((s, p) => s + bendsOf(n, p), 0);
 // would notice them: joined, full, through gems, right lengths, within the bend budget.
 function verdict(pz, paths) {
   const n = pz.n, N = n * n, L = layout(pz), seen = new Int8Array(N).fill(-1), sh = new Int8Array(N).fill(-1), sv = new Int8Array(N).fill(-1);
-  if (!paths || paths.length !== pz.k) return 'Not every light is joined.';
+  if (!paths || paths.length !== pz.k) return T('Not every light is joined.');
   for (let c = 0; c < pz.k; c++) {
     const p = paths[c], [a, b] = pz.ends[c];
-    if (!p || p.length < 2) return 'Not every light is joined.';
-    if (!((p[0] === a && p[p.length - 1] === b) || (p[0] === b && p[p.length - 1] === a))) return 'Not every light is joined.';
+    if (!p || p.length < 2) return T('Not every light is joined.');
+    if (!((p[0] === a && p[p.length - 1] === b) || (p[0] === b && p[p.length - 1] === a))) return T('Not every light is joined.');
     for (let j = 0; j < p.length; j++) {
       const i = p[j], kd = L.kind[i];
-      if (kd === 1) return 'A bridge is on a rock.';
-      if (j) { const d = dirTo(n, p[j - 1], i); if (d < 0 && !(L.kind[p[j - 1]] === 3 && L.partner[p[j - 1]] === i)) return 'A bridge has a gap.'; }
+      if (kd === 1) return T('A bridge is on a rock.');
+      if (j) { const d = dirTo(n, p[j - 1], i); if (d < 0 && !(L.kind[p[j - 1]] === 3 && L.partner[p[j - 1]] === i)) return T('A bridge has a gap.'); }
       if (kd === 2) {
-        if (j === 0 || j === p.length - 1) return 'A bridge cannot stop on a cross tile.';
+        if (j === 0 || j === p.length - 1) return T('A bridge cannot stop on a cross tile.');
         const d1 = dirTo(n, p[j - 1], i), d2 = dirTo(n, i, p[j + 1]);
-        if (d1 < 0 || d1 !== d2) return 'A bridge must go straight over a cross tile.';
-        const slot = d1 % 2 ? sh : sv; if (slot[i] !== -1) return 'Two bridges share one side of a cross tile.'; slot[i] = c;
-      } else { if (seen[i] !== -1) return 'Two bridges share a square.'; seen[i] = c; }
-      if (kd === 3) { const q = L.partner[i]; if (p[j - 1] !== q && p[j + 1] !== q) return 'A bridge must jump through the portal.'; }
-      if (L.gemAt[i] >= 0 && L.gemAt[i] !== c) return `Only the ${CNAMES[L.gemAt[i]]} bridge may touch the ${CNAMES[L.gemAt[i]]} gem.`;
+        if (d1 < 0 || d1 !== d2) return T('A bridge must go straight over a cross tile.');
+        const slot = d1 % 2 ? sh : sv; if (slot[i] !== -1) return T('Two bridges share one side of a cross tile.'); slot[i] = c;
+      } else { if (seen[i] !== -1) return T('Two bridges share a square.'); seen[i] = c; }
+      if (kd === 3) { const q = L.partner[i]; if (p[j - 1] !== q && p[j + 1] !== q) return T('A bridge must jump through the portal.'); }
+      if (L.gemAt[i] >= 0 && L.gemAt[i] !== c) return T('Only the {color} bridge may touch the {color} gem.', { color: colorM(L.gemAt[i]), colorF: colorF(L.gemAt[i]) });
     }
   }
   for (let i = 0; i < N; i++) {
     if (L.kind[i] === 1) continue;
-    if (L.kind[i] === 2 ? (sh[i] < 0 || sv[i] < 0) : seen[i] < 0) return 'Fill every square!';
+    if (L.kind[i] === 2 ? (sh[i] < 0 || sv[i] < 0) : seen[i] < 0) return T('Fill every square!');
   }
   for (let c = 0; c < pz.k; c++) {
-    if (pz.gem[c] >= 0 && !paths[c].includes(pz.gem[c])) return `The ${CNAMES[c]} bridge must pass through its gem.`;
-    if (pz.lens[c] && paths[c].length !== pz.lens[c]) return `The ${CNAMES[c]} bridge needs ${pz.lens[c]} squares. It has ${paths[c].length}.`;
+    if (pz.gem[c] >= 0 && !paths[c].includes(pz.gem[c])) return T('The {color} bridge must pass through its gem.', { color: colorM(c) });
+    if (pz.lens[c] && paths[c].length !== pz.lens[c]) return T('The {color} bridge needs {n} squares. It has {m}.', { color: colorM(c), n: pz.lens[c], m: paths[c].length });
   }
-  if (pz.maxBends != null) { const b = bendsTotal(n, paths); if (b > pz.maxBends) return `Lit with ${b} ${b === 1 ? 'bend' : 'bends'}. It can be done in ${pz.maxBends}.`; }
+  if (pz.maxBends != null) { const b = bendsTotal(n, paths); if (b > pz.maxBends) return T(b === 1 ? 'Lit with {b} bend. It can be done in {max}.' : 'Lit with {b} bends. It can be done in {max}.', { b, max: pz.maxBends }); }
   return null;
 }
 const validSolution = (pz, paths) => verdict(pz, paths) === null;
@@ -774,7 +836,7 @@ const SFX = {
   win: () => [523, 659, 784, 1046, 1318, 1568].forEach((f, i) => tone(f, 0.3, 'triangle', 0.14, i * 0.08)),
   up: () => [392, 523, 659, 784, 1046, 1318, 1568].forEach((f, i) => tone(f, 0.2, 'square', 0.06, i * 0.06)),
 };
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
 
 // ---------------------------------------------------------------------------------------------------------------
 // 3D scene.
@@ -1038,15 +1100,15 @@ function checkWin() {
   const why = verdict(puzzle, paths);
   if (why) {
     tell(why, true, why.length > 24 ? 2600 : 1500);
-    say(why === 'Fill every square!' ? 'All the lights are joined. Now fill every square. Bridges can wiggle.' : why);
+    say(why === T('Fill every square!') ? T('All the lights are joined. Now fill every square. Bridges can wiggle.') : why);
     return;
   }
   solvedFlag = true; solved++; P.stars++;
   const first = !missed, change = first ? record(true) : 0; showBadge();
-  SFX.win(); tell(first ? 'All lit up! ⭐' : 'You did it! ⭐');
+  SFX.win(); tell(first ? T('All lit up! ⭐') : T('You did it! ⭐'));
   orbs.forEach((o, j) => setTimeout(() => { o.userData.jump = 1; burst(o.position.clone().add(new THREE.Vector3(0, 0.4, 0)), COLORS[o.userData.c], 10, 3); }, j * 60 / SPEED));
-  if (change === 1) { setTimeout(() => { SFX.up(); const b = $('badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }, 600 / SPEED); say(`Level up! ${LEVELS[P.lv].name}.`); }
-  else say(first ? 'All lit up!' : 'You did it!');
+  if (change === 1) { setTimeout(() => { SFX.up(); const b = $('badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }, 600 / SPEED); say(T('Level up! {name}.', { name: T(LEVELS[P.lv].name) })); }
+  else say(first ? T('All lit up!') : T('You did it!'));
   setTimeout(newPuzzle, 2200 / SPEED);
 }
 function miss() { if (!missed) { missed = true; const change = record(false); showBadge(); return change; } return 0; }
@@ -1057,16 +1119,16 @@ function tell(text, bad = false, ms = 1500) {
 }
 function showBadge() {
   const L = LEVELS[P.lv], b = $('badge');
-  b.textContent = `Level ${P.lv + 1} of ${LEVELS.length} · ${L.name} ${puzzle ? puzzle.n + '×' + puzzle.n : ''}`;
-  b.classList.toggle('small', L.name.length > 14);
+  b.textContent = T('Level {n} of {total} · {name} {size}', { n: P.lv + 1, total: LEVELS.length, name: T(L.name), size: puzzle ? puzzle.n + '×' + puzzle.n : '' });
+  b.classList.toggle('small', T(L.name).length > 14);
   $('stars').textContent = '⭐ ' + P.stars;
 }
-const speakText = () => `Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light.` + (LEVELS[P.lv].rule ? ' ' + LEVELS[P.lv].rule : '');
+const speakText = () => T('Drag from a light to the light with the same color. Bridges cannot cross. Fill every square with light.') + (LEVELS[P.lv].rule ? ' ' + T(LEVELS[P.lv].rule) : '');
 
 function newPuzzle() {
   puzzle = generate(P.lv); paths = puzzle.ends.map(() => []); missed = false; solvedFlag = false; drawing = -1;
   const L = LEVELS[P.lv];
-  $('ask').textContent = L.ask || 'Connect the matching lights!';
+  $('ask').textContent = T(L.ask || 'Connect the matching lights!');
   $('bendline').hidden = puzzle.maxBends == null;
   if (puzzle.maxBends != null) { $('bendsMax').textContent = puzzle.maxBends; $('bendsNow').textContent = 0; }
   rebuildOwner(); buildBoard(puzzle); paint(); showBadge();
@@ -1093,7 +1155,7 @@ if (renderer) {
 
 $('hear').onclick = () => say(speakText());
 $('clear').onclick = () => { if (solvedFlag) return; paths = puzzle.ends.map(() => []); rebuildOwner(); paint(); tone(400, 0.15, 'triangle', 0.12, 0, 0.5); };
-$('skip').onclick = () => { if (solvedFlag) return; const change = miss(); say(change === -1 ? "Here is an easier one." : "Here is a new one."); newPuzzle(); };
+$('skip').onclick = () => { if (solvedFlag) return; const change = miss(); say(change === -1 ? T('Here is an easier one.') : T('Here is a new one.')); newPuzzle(); };
 // Where path q first collides with the answer path s: a shared square, or a cross tile used the same way.
 function firstClash(q, s) {
   const n = puzzle.n, lay = layout(puzzle), used = new Map();
@@ -1108,7 +1170,7 @@ $('hint').onclick = () => {
   if (c < 0) return;
   paths.forEach((p, j) => { if (j === c) return; const k = firstClash(p, sol[c]); if (k >= 0) cutBefore(p, k); });
   paths[c] = sol[c].slice(); rebuildOwner(); paint(); SFX.link(c);
-  miss(); say(`Here is the ${CNAMES[c]} bridge.`);
+  miss(); say(T('Here is the {color} bridge.', { color: colorM(c) }));
   checkWin();
 };
 
@@ -1117,7 +1179,7 @@ $('hint').onclick = () => {
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START,
-  label: () => LEVELS[P.lv].name,
+  label: () => T(LEVELS[P.lv].name),
   exercise: (i, n) => { const out = []; for (let k = 0; k < n; k++) out.push(checkBoard(i, generate(i))); return out; },
 };
 
@@ -1133,6 +1195,13 @@ window.LIGHT_BRIDGE = {
   newPuzzle,
 };
 
+// The markup is written in English and translated once here; T() returns the English text on an English tablet.
+document.documentElement.lang = LANG;
+document.title = T('Light Bridge');
+document.querySelector('header h1').textContent = '✨ ' + T('Light Bridge');
+$('hear').textContent = '🔈 ' + T('Hear it');
+document.querySelectorAll('[data-t]').forEach(el => { el.textContent = T(el.textContent.trim()); });
+document.querySelectorAll('.tool[title]').forEach(b => { b.title = T(b.title); });
 newPuzzle();
 </script>
 </body>
