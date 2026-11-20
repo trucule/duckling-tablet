@@ -1,7 +1,7 @@
 {
   "id": "robot-path",
   "name": "Robot Path",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Program a toy robot with cards to collect gems. The ladder runs from arrow cards to repeats, ifs, whiles, a stamp, variables, debugging and one program for three mazes.",
   "subjects": [
     "logic"
@@ -21,5 +21,21 @@
       "Thinking about efficiency",
       "Giving clear instructions"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Camino del robot",
+      "description": "Programa un robot de juguete con tarjetas para recoger gemas. La escalera va de las tarjetas de flechas a repetir, si, mientras, un sello, variables, arreglar errores y un programa para tres laberintos.",
+      "about": {
+        "concept": "Secuencias y abstracción, las bases de la programación. Las tarjetas de flechas mueven un robot; el niño planea todo el camino antes de ejecutarlo y luego lo acorta con repeticiones y condiciones.",
+        "progression": "Las tarjetas de flechas en tableros pequeños llevan a tableros con rocas, una tarjeta Repetir con un límite de tarjetas, una tarjeta Si rosa y retos de menos pasos. Luego las tarjetas de avanzar y girar traen un Repetir dentro de un Repetir, un Sello que el niño define una vez y usa dos veces, un número n del tablero, Si pared con si no, Mientras queden gemas, arreglar un programa con una tarjeta mal, menos tarjetas por estrellas extra, un programa que resuelve tres laberintos con la regla de la mano derecha y gemas numeradas recogidas en orden.",
+        "lifeSkills": [
+          "Planear una secuencia de acciones",
+          "Encontrar y corregir errores",
+          "Pensar en la eficiencia",
+          "Dar instrucciones claras"
+        ]
+      }
+    }
   }
 }

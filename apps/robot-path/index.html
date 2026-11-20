@@ -248,6 +248,10 @@
   #stars { font-size: 22px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px; margin-right: auto; }
   .pill { border: 3px solid var(--ink); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 20px; font-weight: 900; white-space: nowrap; }
   .pill:active { transform: scale(.94); }
+  /* Spanish names are longer: the title shrinks a little and the level badge wraps, so the header never grows into the pill zone. */
+  html[lang="es"] header h1 { font-size: 24px; }
+  html[lang="es"] #badge { white-space: normal; text-align: center; line-height: 1.15; font-size: 16px; padding: 5px 12px; }
+  html[lang="es"] #toast { font-size: 40px; }
   main { position: relative; min-height: 0; }
   #stage { position: absolute; inset: 0; }
   #stage canvas { display: block; width: 100%; height: 100%; }
@@ -255,7 +259,7 @@
     border-radius: 999px; padding: 6px 24px; white-space: nowrap; box-shadow: 0 6px 0 #0003; z-index: 2; max-width: 92%; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
   #ask.long { font-size: 22px; }
   #toast { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: .25s; font-size: 46px; font-weight: 900;
-    background: var(--sun); border: 5px solid var(--ink); border-radius: 30px; padding: 14px 34px; pointer-events: none; z-index: 3; white-space: nowrap; }
+    background: var(--sun); border: 5px solid var(--ink); border-radius: 30px; padding: 14px 34px; pointer-events: none; z-index: 3; width: max-content; max-width: 90%; box-sizing: border-box; text-align: center; }
   #toast.on { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   #toast.bad { background: #FFB3C9; }
   #nogl { position: absolute; inset: 0; display: none; place-items: center; font-size: 30px; font-weight: 900; color: #fff; text-align: center; padding: 40px; }
@@ -292,7 +296,7 @@
   .card.ifk { background: #fff; padding: 0; overflow: hidden; gap: 0; }
   .card.ifk button { border: 0; height: 100%; font-size: 30px; font-weight: 900; padding: 0 8px; background: none; }
   .card.ifk .yes { background: var(--pink); color: #fff; text-shadow: 0 2px 0 var(--ink); }
-  .card.ifk .no { background: #E8F7FF; border-left: 3px solid var(--ink); }
+  .card.ifk .no { background: #E8F7FF; border-left: 3px solid var(--ink); padding-right: 24px; }  /* the label clears the remove button */
   .card.ifk .lbl { font-size: 15px; display: block; line-height: 1; }
   .card .cb { border: 0; background: none; font: inherit; color: inherit; height: 100%; min-width: 48px; padding: 0 6px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; gap: 2px; }
   .card .cb .lab { font-size: 11px; font-weight: 800; }
@@ -378,6 +382,88 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const key = (x, y) => x + ',' + y;
 const copy = v => JSON.parse(JSON.stringify(v));
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every line the child reads or hears comes from
+// the ES map through T(), keyed by the English text. The puzzles, the ladder, the ids and the English text do not
+// change. docs/languages-brief.md.
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  // Screen furniture.
+  'Robot Path': 'Camino del robot', 'Hear it': 'Escucha', 'Go': 'Ir', 'Clear': 'Borrar', 'Show me': 'Muéstrame', 'Remove': 'Quitar',
+  'This game needs 3D graphics, which are not working on this device right now.': 'Este juego necesita gráficos 3D, y en este dispositivo no están funcionando ahora.',
+  'Level {n} of {total} · {name}': 'Nivel {n} de {total} · {name}',
+  'Your program goes here. Tap a card above.': 'Tu programa va aquí. Toca una tarjeta de arriba.',
+  'Cards {n} / {limit}': 'Tarjetas {n} / {limit}', 'Moves {n} / {limit}': 'Pasos {n} / {limit}', 'Cards {n}': 'Tarjetas {n}',
+  'Tap to change': 'Toca para cambiar', 'Open or close': 'Abrir o cerrar',
+  // Level names.
+  'First steps': 'Primeros pasos', 'Walk around': 'Rodea las rocas', 'Rocky road': 'Camino rocoso', 'Maze runner': 'Laberinto',
+  'Repeat': 'Repetir', 'Stairs': 'Escaleras', 'Two loops': 'Dos bucles', 'If pink': 'Si rosa', 'If maze': 'Si en el laberinto',
+  'Fewest moves': 'Menos pasos', 'Gem master': 'Maestro de gemas', 'Loop in a loop': 'Bucle en un bucle', 'Stamp': 'Sello', 'Go n': 'Avanzar n',
+  'If wall': 'Si pared', 'While': 'Mientras', 'Fix the bug': 'Arregla el error', 'Fewest cards': 'Menos tarjetas', 'Any maze': 'Cualquier laberinto',
+  'Gems in order': 'Gemas en orden',
+  // Cards and the words drawn on them.
+  'Arrow': 'Flecha', 'forward': 'avanzar', 'turn left': 'izquierda', 'turn right': 'derecha', 'repeat': 'repetir', 'stamp': 'sello', 'go n': 'avanzar n',
+  'if': 'si', 'while': 'mientras', 'pink': 'rosa', 'else': 'si no', 'then': 'entonces', 'tap': 'toca', 'cards go in here': 'las tarjetas van aquí',
+  'wall ahead': 'pared adelante', 'wall left': 'pared a la izquierda', 'wall right': 'pared a la derecha', 'way is clear': 'camino libre', 'gems left': 'quedan gemas',
+  'wall ahead and wall right': 'pared adelante y a la derecha', 'wall ahead and wall left': 'pared adelante y a la izquierda',
+  // Tasks.
+  'the gem': 'la gema', 'all {n} gems': 'las {n} gemas', 'Get the gem!': '¡Recoge la gema!', 'Get all {n} gems!': '¡Recoge las {n} gemas!', 'Get {gems}.': 'Recoge {gems}.',
+  'Tap the arrow cards to plan a path for the robot. Get {gems}, then press Go.': 'Toca las tarjetas de flechas para planear el camino del robot. Recoge {gems} y luego toca Ir.',
+  'Get {gems}. Only {limit} cards!': 'Recoge {gems}. ¡Solo {limit} tarjetas!',
+  'Get {gems} using only {limit} cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.': 'Recoge {gems} usando solo {limit} tarjetas. Una tarjeta Repetir hace las tarjetas de adentro una y otra vez. Toca el número para elegir cuántas veces.',
+  'Only {limit} cards! Use the pink tiles.': '¡Solo {limit} tarjetas! Usa las casillas rosas.',
+  'Get {gems} using only {limit} cards. Put an If pink card inside a Repeat. On a pink tile the robot goes the pink way. On other tiles it goes the other way.': 'Recoge {gems} usando solo {limit} tarjetas. Pon una tarjeta Si rosa dentro de un Repetir. En una casilla rosa el robot va por el camino rosa. En las otras casillas va por el otro camino.',
+  'Get {gems} in {moves} moves!': '¡Recoge {gems} en {moves} pasos!',
+  'Find the shortest way. Get {gems} in {moves} moves or less.': 'Encuentra el camino más corto. Recoge {gems} en {moves} pasos o menos.',
+  'Get {gems}. Only {limit} cards.': 'Recoge {gems}. Solo {limit} tarjetas.',
+  'Get {gems} using only {limit} cards. The robot goes forward the way it faces and can turn. Put a Repeat inside a Repeat.': 'Recoge {gems} usando solo {limit} tarjetas. El robot avanza hacia donde mira y puede girar. Pon un Repetir dentro de otro Repetir.',
+  'Only {limit} cards. Make a Stamp.': 'Solo {limit} tarjetas. Haz un Sello.',
+  'Put some moves in the Stamp box once. Then play the Stamp with a Stamp card, turn, and play it again. Only {limit} cards.': 'Pon algunos movimientos en la caja del Sello una sola vez. Luego usa el Sello con una tarjeta Sello, gira y úsalo otra vez. Solo {limit} tarjetas.',
+  'n = {n}. Board {cur} of {total}. Use go n.': 'n = {n}. Tablero {cur} de {total}. Usa avanzar n.',
+  'Each board has its own number n. Go n moves the robot n steps. Write one program that gets the gems on all {total} boards. Only {limit} cards.': 'Cada tablero tiene su propio número n. Avanzar n mueve el robot n pasos. Escribe un solo programa que recoja las gemas en los {total} tableros. Solo {limit} tarjetas.',
+  'Only {limit} cards. Use If wall.': 'Solo {limit} tarjetas. Usa Si pared.',
+  'Get {gems} using only {limit} cards. Put an If card in a Repeat. If a wall is ahead, turn. Else, go forward.': 'Recoge {gems} usando solo {limit} tarjetas. Pon una tarjeta Si dentro de un Repetir. Si hay una pared adelante, gira. Si no, avanza.',
+  'Only {limit} cards. Use While.': 'Solo {limit} tarjetas. Usa Mientras.',
+  'This path is long. A While card keeps going while gems are left. Inside it, turn at a wall, else go forward. Only {limit} cards.': 'Este camino es largo. Una tarjeta Mientras sigue mientras queden gemas. Adentro, gira en una pared y si no, avanza. Solo {limit} tarjetas.',
+  'One card is wrong. Fix it.': 'Una tarjeta está mal. Arréglala.',
+  'This program has one wrong card. Tap a card to change it. Fix it with one change for an extra star, then press Go.': 'Este programa tiene una tarjeta mal. Toca una tarjeta para cambiarla. Arréglalo con un solo cambio para ganar una estrella extra y luego toca Ir.',
+  'Get {gems}. {best} cards earns 3 stars.': 'Recoge {gems}. {best} tarjetas dan 3 estrellas.',
+  'Get {gems} with {limit} cards or fewer. Fewer cards earn more stars. {best} cards earns three stars.': 'Recoge {gems} con {limit} tarjetas o menos. Menos tarjetas dan más estrellas. {best} tarjetas dan tres estrellas.',
+  'Maze {cur} of {total}. One program for all.': 'Laberinto {cur} de {total}. Un programa para todos.',
+  'Write one program that finds the gem in all {total} mazes. Keep a hand on the right wall. If the right is open, turn right and go. Else if a wall is ahead, turn left. Else go forward. Put it in a While. Only {limit} cards.': 'Escribe un solo programa que encuentre la gema en los {total} laberintos. Mantén una mano en la pared derecha. Si la derecha está libre, gira a la derecha y avanza. Si no, y hay una pared adelante, gira a la izquierda. Si no, avanza. Ponlo dentro de un Mientras. Solo {limit} tarjetas.',
+  'Get the gems in number order. {limit} cards.': 'Recoge las gemas en orden. {limit} tarjetas.',
+  'Collect gem 1 first, then 2, then 3, in number order. Use {limit} cards or fewer. A Repeat can shorten a straight run.': 'Recoge primero la gema 1, luego la 2 y luego la 3, en orden. Usa {limit} tarjetas o menos. Un Repetir puede acortar un tramo recto.',
+  // Feedback and hints.
+  'Only {limit} cards this time. {help}': 'Solo {limit} tarjetas esta vez. {help}', 'A Repeat card can help.': 'Una tarjeta Repetir puede ayudar.', 'The program is full.': 'El programa está lleno.',
+  'The Stamp cannot use itself. Tap outside the Stamp box first.': 'El Sello no puede usarse a sí mismo. Primero toca fuera de la caja del Sello.',
+  'Tap some cards first.': 'Primero toca algunas tarjetas.', 'Here is one way. Press Go to watch it.': 'Aquí hay una forma. Toca Ir para verla.',
+  'Board {n} done! ⭐': '¡Tablero {n} listo! ⭐', 'Great coding! {stars}': '¡Qué bien programas! {stars}', 'You did it! {stars}': '¡Lo lograste! {stars}',
+  'Three stars. The shortest program.': 'Tres estrellas. El programa más corto.', 'Fixed in one change. Two stars.': 'Arreglado con un solo cambio. Dos estrellas.',
+  'Two stars. A short program.': 'Dos estrellas. Un programa corto.', 'Great coding!': '¡Qué bien programas!', 'You did it!': '¡Lo lograste!', 'Level up! {name}.': '¡Subiste de nivel! {name}.',
+  'Maze {n}: ': 'Laberinto {n}: ', 'Board {n}: ': 'Tablero {n}: ', 'Bonk! Fix your program.': '¡Pum! Arregla tu programa.', 'Gem {n} too soon! Go in order.': '¡La gema {n} muy pronto! Ve en orden.',
+  'The robot never finished!': '¡El robot nunca terminó!', '{n} more gem to get!': '¡Falta {n} gema!', '{n} more gems to get!': '¡Faltan {n} gemas!', 'Missed the gems!': '¡Te faltaron las gemas!',
+  '{moves} moves. Try {limit}!': '{moves} pasos. ¡Intenta con {limit}!', 'Too many cards!': '¡Demasiadas tarjetas!', "{why} Let's try an easier one next.": '{why} Ahora intentemos uno más fácil.',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+// The same line without its exclamation marks, for the narrator.
+const calm = s => s.replace(/¡/g, '').replace(/!/g, '.');
+window.DucklingLang = { keys: () => Object.keys(ES), missing: () => [...USED].filter(k => ES[k] == null), allow: [] };
+if (LANG === 'es') {
+  document.documentElement.lang = 'es';
+  document.title = T('Robot Path');
+  $('nogl').textContent = T('This game needs 3D graphics, which are not working on this device right now.');
+  $('hear').textContent = '🔈 ' + T('Hear it');
+  $('go').textContent = '▶ ' + T('Go');
+  $('clear').title = T('Clear'); $('hint').title = T('Show me');
+  document.querySelector('header h1').textContent = '🤖 ' + T('Robot Path');
+}
 
 // Cards. mv: an arrow step in a fixed direction. fwd, tl, tr: forward, turn left, turn right from where the robot
 // faces. rep: repeat a body n times. if: the pink-tile card (a on pink, b elsewhere). ifs: a sensor test with a then
@@ -985,7 +1071,7 @@ const SFX = {
   win: () => [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.25, 'triangle', 0.15, i * 0.08)),
   up: () => [392, 523, 659, 784, 1046, 1318, 1568].forEach((f, i) => tone(f, 0.2, 'square', 0.07, i * 0.06)),
 };
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
 
 // ---------------------------------------------------------------------------------------------------------------
 // 3D scene.
@@ -1120,25 +1206,26 @@ function tell(text, bad = false, ms = 1400) {
   clearTimeout(tell.h); tell.h = setTimeout(() => { t.className = bad ? 'bad' : ''; }, ms / SPEED);
 }
 function instructions(p = puzzle, cur = p.cur || 0) {
-  const b = p.boards ? p.boards[cur] : p, n = b.gems.length, gems = n === 1 ? 'the gem' : `all ${n} gems`;
+  const b = p.boards ? p.boards[cur] : p, n = b.gems.length, gems = n === 1 ? T('the gem') : T('all {n} gems', { n });
+  const v = { gems, n: b.n, limit: p.limit, moves: p.moveLimit, best: p.best, cur: cur + 1, total: p.boards ? p.boards.length : 1 };
   switch (p.kind) {
-    case 'arrows': return { short: n === 1 ? 'Get the gem!' : `Get all ${n} gems!`, speak: `Tap the arrow cards to plan a path for the robot. Get ${gems}, then press Go.` };
-    case 'loop': return { short: `Get ${gems}. Only ${p.limit} cards!`, speak: `Get ${gems} using only ${p.limit} cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.` };
-    case 'if': return { short: `Only ${p.limit} cards! Use the pink tiles.`, speak: `Get ${gems} using only ${p.limit} cards. Put an If pink card inside a Repeat. On a pink tile the robot goes the pink way. On other tiles it goes the other way.` };
-    case 'fewest': return { short: `Get ${gems} in ${p.moveLimit} moves!`, speak: `Find the shortest way. Get ${gems} in ${p.moveLimit} moves or less.` };
-    case 'nested': return { short: `Get ${gems}. Only ${p.limit} cards.`, speak: `Get ${gems} using only ${p.limit} cards. The robot goes forward the way it faces and can turn. Put a Repeat inside a Repeat.` };
-    case 'stamp': return { short: `Only ${p.limit} cards. Make a Stamp.`, speak: `Put some moves in the Stamp box once. Then play the Stamp with a Stamp card, turn, and play it again. Only ${p.limit} cards.` };
-    case 'varn': return { short: `n = ${b.n}. Board ${cur + 1} of ${p.boards.length}. Use go n.`, speak: `Each board has its own number n. Go n moves the robot n steps. Write one program that gets the gems on all ${p.boards.length} boards. Only ${p.limit} cards.` };
-    case 'ifwall': return { short: `Only ${p.limit} cards. Use If wall.`, speak: `Get ${gems} using only ${p.limit} cards. Put an If card in a Repeat. If a wall is ahead, turn. Else, go forward.` };
-    case 'whilegems': return { short: `Only ${p.limit} cards. Use While.`, speak: `This path is long. A While card keeps going while gems are left. Inside it, turn at a wall, else go forward. Only ${p.limit} cards.` };
-    case 'debug': return { short: 'One card is wrong. Fix it.', speak: 'This program has one wrong card. Tap a card to change it. Fix it with one change for an extra star, then press Go.' };
-    case 'fewcards': return { short: `Get ${gems}. ${p.best} cards earns 3 stars.`, speak: `Get ${gems} with ${p.limit} cards or fewer. Fewer cards earn more stars. ${p.best} cards earns three stars.` };
-    case 'maze': return { short: `Maze ${cur + 1} of ${p.boards.length}. One program for all.`, speak: `Write one program that finds the gem in all ${p.boards.length} mazes. Keep a hand on the right wall. If the right is open, turn right and go. Else if a wall is ahead, turn left. Else go forward. Put it in a While. Only ${p.limit} cards.` };
-    case 'order': return { short: `Get the gems in number order. ${p.limit} cards.`, speak: `Collect gem 1 first, then 2, then 3, in number order. Use ${p.limit} cards or fewer. A Repeat can shorten a straight run.` };
-    default: return { short: `Get ${gems}.`, speak: `Get ${gems}.` };
+    case 'arrows': return { short: n === 1 ? T('Get the gem!') : T('Get all {n} gems!', { n }), speak: T('Tap the arrow cards to plan a path for the robot. Get {gems}, then press Go.', v) };
+    case 'loop': return { short: T('Get {gems}. Only {limit} cards!', v), speak: T('Get {gems} using only {limit} cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.', v) };
+    case 'if': return { short: T('Only {limit} cards! Use the pink tiles.', v), speak: T('Get {gems} using only {limit} cards. Put an If pink card inside a Repeat. On a pink tile the robot goes the pink way. On other tiles it goes the other way.', v) };
+    case 'fewest': return { short: T('Get {gems} in {moves} moves!', v), speak: T('Find the shortest way. Get {gems} in {moves} moves or less.', v) };
+    case 'nested': return { short: T('Get {gems}. Only {limit} cards.', v), speak: T('Get {gems} using only {limit} cards. The robot goes forward the way it faces and can turn. Put a Repeat inside a Repeat.', v) };
+    case 'stamp': return { short: T('Only {limit} cards. Make a Stamp.', v), speak: T('Put some moves in the Stamp box once. Then play the Stamp with a Stamp card, turn, and play it again. Only {limit} cards.', v) };
+    case 'varn': return { short: T('n = {n}. Board {cur} of {total}. Use go n.', v), speak: T('Each board has its own number n. Go n moves the robot n steps. Write one program that gets the gems on all {total} boards. Only {limit} cards.', v) };
+    case 'ifwall': return { short: T('Only {limit} cards. Use If wall.', v), speak: T('Get {gems} using only {limit} cards. Put an If card in a Repeat. If a wall is ahead, turn. Else, go forward.', v) };
+    case 'whilegems': return { short: T('Only {limit} cards. Use While.', v), speak: T('This path is long. A While card keeps going while gems are left. Inside it, turn at a wall, else go forward. Only {limit} cards.', v) };
+    case 'debug': return { short: T('One card is wrong. Fix it.'), speak: T('This program has one wrong card. Tap a card to change it. Fix it with one change for an extra star, then press Go.') };
+    case 'fewcards': return { short: T('Get {gems}. {best} cards earns 3 stars.', v), speak: T('Get {gems} with {limit} cards or fewer. Fewer cards earn more stars. {best} cards earns three stars.', v) };
+    case 'maze': return { short: T('Maze {cur} of {total}. One program for all.', v), speak: T('Write one program that finds the gem in all {total} mazes. Keep a hand on the right wall. If the right is open, turn right and go. Else if a wall is ahead, turn left. Else go forward. Put it in a While. Only {limit} cards.', v) };
+    case 'order': return { short: T('Get the gems in number order. {limit} cards.', v), speak: T('Collect gem 1 first, then 2, then 3, in number order. Use {limit} cards or fewer. A Repeat can shorten a straight run.', v) };
+    default: return { short: T('Get {gems}.', v), speak: T('Get {gems}.', v) };
   }
 }
-function showBadge() { $('badge').textContent = `Level ${P.lv + 1} of ${LEVELS.length} · ${LEVELS[P.lv].name}`; $('stars').textContent = '⭐ ' + P.stars; }
+function showBadge() { $('badge').textContent = T('Level {n} of {total} · {name}', { n: P.lv + 1, total: LEVELS.length, name: T(LEVELS[P.lv].name) }); $('stars').textContent = '⭐ ' + P.stars; }
 function showAsk(cur) { const ins = instructions(puzzle, cur); const a = $('ask'); a.textContent = ins.short; a.classList.toggle('long', ins.short.length > 26); return ins; }
 function startProgram(p) { return p.given ? copy(p.given) : p.def ? [{ t: 'def', body: [] }] : []; }
 
@@ -1158,10 +1245,10 @@ function renderPalette() {
   const pal = $('palette'); pal.innerHTML = '';
   const btn = (cls, html, fn, title) => { const b = document.createElement('button'); b.className = 'pc ' + cls; b.innerHTML = html; b.title = title; b.onclick = fn; pal.append(b); };
   for (const k of puzzle.palette) {
-    if (k === 'mv') for (const d of [0, 3, 2, 1]) btn('arrow', ARROW[d], () => add({ t: 'mv', d }), 'Arrow');
-    else if (k === 'rep' && !puzzle.adv) btn('rep', '🔁 Repeat', () => add({ t: 'rep', n: 3, body: [] }), 'Repeat');
-    else if (k === 'if') btn('ifc', '🟪 If pink', () => add({ t: 'if', a: 0, b: 1 }), 'If pink');
-    else btn('sm ' + k, `<span>${PCARD[k][0]}</span><span class="lab">${PCARD[k][1]}</span>`, () => add(NEW[k]()), PCARD[k][1]);
+    if (k === 'mv') for (const d of [0, 3, 2, 1]) btn('arrow', ARROW[d], () => add({ t: 'mv', d }), T('Arrow'));
+    else if (k === 'rep' && !puzzle.adv) btn('rep', '🔁 ' + T('Repeat'), () => add({ t: 'rep', n: 3, body: [] }), T('Repeat'));
+    else if (k === 'if') btn('ifc', '🟪 ' + T('If pink'), () => add({ t: 'if', a: 0, b: 1 }), T('If pink'));
+    else btn('sm ' + k, `<span>${PCARD[k][0]}</span><span class="lab">${T(PCARD[k][1])}</span>`, () => add(NEW[k]()), T(PCARD[k][1]));
   }
   const lim = document.createElement('span'); lim.id = 'limit'; pal.append(lim);
 }
@@ -1177,11 +1264,11 @@ function add(b) {
   const cap = puzzle.limit || MAXCARDS;
   if (cardCount(prog) + 1 > cap) {
     SFX.no(); const l = $('limit'); l.classList.remove('full'); void l.offsetWidth; l.classList.add('full');
-    say(puzzle.limit ? `Only ${puzzle.limit} cards this time. ${puzzle.palette.includes('rep') ? 'A Repeat card can help.' : ''}` : 'The program is full.');
+    say(puzzle.limit ? T('Only {limit} cards this time. {help}', { limit: puzzle.limit, help: puzzle.palette.includes('rep') ? T('A Repeat card can help.') : '' }) : T('The program is full.'));
     return;
   }
   const isBox = b.t === 'rep' || b.t === 'ifs' || b.t === 'while';
-  if (b.t === 'call' && inDef(openPath)) { SFX.no(); say('The Stamp cannot use itself. Tap outside the Stamp box first.'); return; }
+  if (b.t === 'call' && inDef(openPath)) { SFX.no(); say(T('The Stamp cannot use itself. Tap outside the Stamp box first.')); return; }
   let list = openPath ? listAt(openPath) : null;
   if (list && list.length >= BODYMAX) { list = null; openPath = null; }
   if (isBox && !puzzle.nest) { prog.push(b); openPath = [prog.length - 1, 'b']; }
@@ -1206,7 +1293,7 @@ function removeAt(path) {
 }
 
 const CYCLE = { fwd: 'tr', tr: 'tl', tl: 'fwd' };
-function xBtn(fn) { const x = document.createElement('button'); x.className = 'x'; x.textContent = '✖'; x.title = 'Remove'; x.onclick = fn; return x; }
+function xBtn(fn) { const x = document.createElement('button'); x.className = 'x'; x.textContent = '✖'; x.title = T('Remove'); x.onclick = fn; return x; }
 function cardEl(b, path) {
   const ps = path.join('.');
   if (b.t === 'mv') {
@@ -1214,23 +1301,23 @@ function cardEl(b, path) {
   }
   if (b.t === 'if') {
     const el = document.createElement('div'); el.className = 'card ifk'; el.dataset.path = ps;
-    const yes = document.createElement('button'); yes.className = 'yes'; yes.innerHTML = `<span class="lbl">pink</span>${ARROW[b.a]}`;
+    const yes = document.createElement('button'); yes.className = 'yes'; yes.innerHTML = `<span class="lbl">${T('pink')}</span>${ARROW[b.a]}`;
     yes.onclick = () => { if (running) return; b.a = (b.a + 1) % 4; SFX.tap(); renderProgram(); };
-    const no = document.createElement('button'); no.className = 'no'; no.innerHTML = `<span class="lbl">else</span>${ARROW[b.b]}`;
+    const no = document.createElement('button'); no.className = 'no'; no.innerHTML = `<span class="lbl">${T('else')}</span>${ARROW[b.b]}`;
     no.onclick = () => { if (running) return; b.b = (b.b + 1) % 4; SFX.tap(); renderProgram(); };
     el.append(yes, no, xBtn(() => removeAt(path))); return el;
   }
   if (b.body || b.yes) return boxEl(b, path);
   const el = document.createElement('div'); el.className = 'card ' + b.t; el.dataset.path = ps;
-  const cb = document.createElement('button'); cb.className = 'cb'; cb.innerHTML = `<span>${PCARD[b.t][0]}</span><span class="lab">${PCARD[b.t][1]}</span>`;
-  cb.title = CYCLE[b.t] ? 'Tap to change' : PCARD[b.t][1];
+  const cb = document.createElement('button'); cb.className = 'cb'; cb.innerHTML = `<span>${PCARD[b.t][0]}</span><span class="lab">${T(PCARD[b.t][1])}</span>`;
+  cb.title = CYCLE[b.t] ? T('Tap to change') : T(PCARD[b.t][1]);
   cb.onclick = () => { if (running || !CYCLE[b.t]) return; b.t = CYCLE[b.t]; SFX.tap(); renderProgram(); resetRobot(); };
   el.append(cb, xBtn(() => removeAt(path))); return el;
 }
 function slotEl(list, spath, label) {
   const rb = document.createElement('div'); rb.className = 'rb' + (samePath(openPath, spath) ? ' open' : ''); rb.dataset.slot = spath.join('.');
   if (label) { const l = document.createElement('span'); l.className = 'sl'; l.textContent = label; rb.append(l); }
-  if (!list.length) { const h = document.createElement('span'); h.className = 'hint'; h.textContent = label ? 'tap' : 'cards go in here'; rb.append(h); }
+  if (!list.length) { const h = document.createElement('span'); h.className = 'hint'; h.textContent = label ? T('tap') : T('cards go in here'); rb.append(h); }
   list.forEach((c, j) => rb.append(cardEl(c, spath.concat(j))));
   rb.onclick = e => { if (running || (e.target !== rb && !e.target.classList.contains('hint') && !e.target.classList.contains('sl'))) return; openPath = samePath(openPath, spath) ? null : spath; SFX.tap(); renderProgram(); };
   return rb;
@@ -1242,26 +1329,26 @@ function boxEl(b, path) {
   const rh = document.createElement('div'); rh.className = 'rh';
   const head = (txt, cls) => { const t = document.createElement('button'); t.className = cls || ''; t.textContent = txt; t.onclick = () => { if (running) return; openPath = samePath(openPath, bodyPath) ? null : bodyPath; SFX.tap(); renderProgram(); }; return t; };
   if (b.t === 'rep') {
-    const tg = head('🔁'); tg.title = 'Open or close';
+    const tg = head('🔁'); tg.title = T('Open or close');
     const rn = document.createElement('button'); rn.className = 'rn'; rn.textContent = '×' + b.n; rn.onclick = () => { if (!running) openPicker(b); };
     rh.append(tg, rn);
-  } else if (b.t === 'def') { rh.append(head('🔖'), head('Stamp', 'kw')); }
+  } else if (b.t === 'def') { rh.append(head('🔖'), head(T('Stamp'), 'kw')); }
   else {
-    rh.append(head(b.t === 'while' ? '🔄' : '❓'), head(b.t === 'while' ? 'while' : 'if', 'kw'));
-    const c = document.createElement('button'); c.className = 'cnd'; c.textContent = CNAME[b.c] || b.c; c.title = 'Tap to change'; c.onclick = () => { if (!running) cycleCond(b); }; rh.append(c);
+    rh.append(head(b.t === 'while' ? '🔄' : '❓'), head(T(b.t === 'while' ? 'while' : 'if'), 'kw'));
+    const c = document.createElement('button'); c.className = 'cnd'; c.textContent = T(CNAME[b.c] || b.c); c.title = T('Tap to change'); c.onclick = () => { if (!running) cycleCond(b); }; rh.append(c);
   }
   box.append(rh);
-  if (b.t === 'ifs') box.append(slotEl(b.yes, path.concat('y'), 'then'), slotEl(b.no, path.concat('n'), 'else'));
+  if (b.t === 'ifs') box.append(slotEl(b.yes, path.concat('y'), T('then')), slotEl(b.no, path.concat('n'), T('else')));
   else box.append(slotEl(b.body, path.concat('b'), null));
   if (b.t !== 'def') box.append(xBtn(() => removeAt(path)));
   return box;
 }
 function renderProgram() {
   const s = $('strip'); s.innerHTML = '';
-  if (!prog.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Your program goes here. Tap a card above.'; s.append(e); }
+  if (!prog.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = T('Your program goes here. Tap a card above.'); s.append(e); }
   prog.forEach((b, i) => s.append(cardEl(b, [i])));
   const l = $('limit');
-  if (l) { const n = cardCount(prog); l.textContent = puzzle.limit ? `Cards ${n} / ${puzzle.limit}` : puzzle.moveLimit ? `Moves ${countMoves(prog)} / ${puzzle.moveLimit}` : `Cards ${n}`; l.classList.toggle('full', !!puzzle.limit && n >= puzzle.limit); }
+  if (l) { const n = cardCount(prog); l.textContent = puzzle.limit ? T('Cards {n} / {limit}', { n, limit: puzzle.limit }) : puzzle.moveLimit ? T('Moves {n} / {limit}', { n: countMoves(prog), limit: puzzle.moveLimit }) : T('Cards {n}', { n }); l.classList.toggle('full', !!puzzle.limit && n >= puzzle.limit); }
 }
 function countMoves(list) { let n = 0; list.forEach(b => { n += b.t === 'rep' ? b.n * countMoves(b.body) : b.t === 'mv' || b.t === 'if' || b.t === 'fwd' ? 1 : 0; }); return n; }
 function openPicker(b) {
@@ -1286,7 +1373,7 @@ const hasMoves = list => cardCount(list) > (list[0] && list[0].t === 'def' ? 1 :
 async function go() {
   if (running || !puzzle) return;
   ac();
-  if (!hasMoves(prog)) { SFX.no(); say('Tap some cards first.'); return; }
+  if (!hasMoves(prog)) { SFX.no(); say(T('Tap some cards first.')); return; }
   running = true; result = null; $('go').disabled = true;
   const boards = puzzle.boards || [puzzle], results = [];
   const total = boards.reduce((n, b) => n + simulate(b, prog, 400).steps.length, 0);
@@ -1297,7 +1384,7 @@ async function go() {
     const r = simulate(boards[bi], prog, 400); results.push(r);
     await animate(boards[bi], r);
     if (!r.win) break;
-    if (bi < boards.length - 1) { tell(`Board ${bi + 1} done! ⭐`, false, 900); SFX.gem(); await tween(1.0, () => {}); }
+    if (bi < boards.length - 1) { tell(T('Board {n} done! ⭐', { n: bi + 1 }), false, 900); SFX.gem(); await tween(1.0, () => {}); }
   }
   RUN = 1; highlight(null);
   await finish(results, boards);
@@ -1345,9 +1432,9 @@ async function finish(results, boards) {
     const first = !missed; P.stars += 1 + bonus; solved++;
     const change = first ? record(true) : 0; persist(); showBadge();
     const stars = '⭐'.repeat(1 + bonus);
-    tell(first ? `Great coding! ${stars}` : `You did it! ${stars}`);
-    const praise = bonus === 2 ? 'Three stars. The shortest program.' : bonus === 1 && p.kind === 'debug' ? 'Fixed in one change. Two stars.' : bonus === 1 ? 'Two stars. A short program.' : first ? 'Great coding!' : 'You did it!';
-    if (change === 1) { setTimeout(() => { SFX.up(); const b = $('badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }, 500 / SPEED); say(`Level up! ${LEVELS[P.lv].name}.`); }
+    tell(first ? T('Great coding! {stars}', { stars }) : T('You did it! {stars}', { stars }));
+    const praise = bonus === 2 ? T('Three stars. The shortest program.') : bonus === 1 && p.kind === 'debug' ? T('Fixed in one change. Two stars.') : bonus === 1 ? T('Two stars. A short program.') : first ? T('Great coding!') : T('You did it!');
+    if (change === 1) { setTimeout(() => { SFX.up(); const b = $('badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }, 500 / SPEED); say(T('Level up! {name}.', { name: T(LEVELS[P.lv].name) })); }
     else say(praise);
     await tween(0.9, k => { robot.position.y = Math.sin(k * Math.PI) * 0.7; robot.rotation.y += 0.12; });
     await tween(0.6, () => {});
@@ -1355,18 +1442,18 @@ async function finish(results, boards) {
     newPuzzle();
     return;
   }
-  const b = boards[bi], where = multi ? `${p.kind === 'maze' ? 'Maze' : 'Board'} ${bi + 1}: ` : '';
+  const b = boards[bi], where = multi ? T(p.kind === 'maze' ? 'Maze {n}: ' : 'Board {n}: ', { n: bi + 1 }) : '', left = b.gems.length - r.got;
   let why;
-  if (r.crash) why = 'Bonk! Fix your program.';
-  else if (r.wrong >= 0) why = `Gem ${r.wrong + 1} too soon! Go in order.`;
-  else if (r.stuck) why = 'The robot never finished!';
-  else if (r.got < b.gems.length) why = r.got ? `${b.gems.length - r.got} more ${b.gems.length - r.got === 1 ? 'gem' : 'gems'} to get!` : 'Missed the gems!';
-  else if (b.moveLimit && r.moves > b.moveLimit) why = `${r.moves} moves. Try ${b.moveLimit}!`;
-  else why = `Too many cards!`;
+  if (r.crash) why = T('Bonk! Fix your program.');
+  else if (r.wrong >= 0) why = T('Gem {n} too soon! Go in order.', { n: r.wrong + 1 });
+  else if (r.stuck) why = T('The robot never finished!');
+  else if (r.got < b.gems.length) why = r.got ? T(left === 1 ? '{n} more gem to get!' : '{n} more gems to get!', { n: left }) : T('Missed the gems!');
+  else if (b.moveLimit && r.moves > b.moveLimit) why = T('{moves} moves. Try {limit}!', { moves: r.moves, limit: b.moveLimit });
+  else why = T('Too many cards!');
   result = r.crash ? 'crash' : 'miss';
   if (!r.crash) SFX.no();
-  tell(where + why, true, 1800); say((where + why).replace(/!/g, '.'));
-  if (!missed) { missed = true; const change = record(false); showBadge(); if (change === -1) say(`${why.replace(/!/g, '.')} Let's try an easier one next.`); }
+  tell(where + why, true, 1800); say(calm(where + why));
+  if (!missed) { missed = true; const change = record(false); showBadge(); if (change === -1) say(T("{why} Let's try an easier one next.", { why: calm(why) })); }
   await tween(1.1, () => {});
   resetRobot(); running = false; $('go').disabled = false;
 }
@@ -1377,7 +1464,7 @@ $('hint').onclick = () => {
   if (running) return;
   prog = copy(puzzle.intended); openPath = null; renderProgram(); resetRobot(); SFX.tap();
   if (!missed) { missed = true; record(false); showBadge(); }
-  say('Here is one way. Press Go to watch it.');
+  say(T('Here is one way. Press Go to watch it.'));
 };
 $('hear').onclick = () => say(instructions().speak);
 $('stage').addEventListener('pointerdown', () => { if (running) return; ac(); tone(880, 0.1, 'sine', 0.1, 0, 1.5); tween(0.35, k => { robot.userData.body.position.y = Math.sin(k * Math.PI) * 0.25; }); });
@@ -1396,7 +1483,7 @@ window.ROBOT_PATH = {
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START_LEVEL,
-  label: () => LEVELS[P.lv].name,
+  label: () => T(LEVELS[P.lv].name),
   exercise(i, n) {
     const out = [];
     for (let k = 0; k < n; k++) {
