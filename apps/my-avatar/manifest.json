@@ -1,7 +1,7 @@
 {
   "id": "my-avatar",
   "name": "My Avatar",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Design your own character: hair, eyes, outfits, hats and places. Stars earned in the other apps buy new items, and your portrait shows on the home screen.",
   "subjects": [
     "art"
@@ -21,5 +21,21 @@
       "Self-expression",
       "Connecting effort to reward"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Mi avatar",
+      "description": "Diseña tu propio personaje: cabello, ojos, ropa, sombreros y lugares. Las estrellas que ganas en las otras apps compran cosas nuevas, y tu retrato aparece en la pantalla de inicio.",
+      "about": {
+        "concept": "Identidad, elección y recompensa que espera. El niño diseña un personaje que lo representa, y las estrellas ganadas en las otras apps son la moneda para las cosas nuevas, así que el esfuerzo en otro lugar tiene un resultado visible aquí.",
+        "progression": "Todo lo básico es gratis. El cabello, la ropa, los sombreros, los lentes, los fondos y los marcos cuestan estrellas, con precios que suben para las cosas más elaboradas, así que ahorrar para algo se vuelve una decisión del niño.",
+        "lifeSkills": [
+          "Ahorrar para una meta",
+          "Tomar decisiones propias",
+          "Expresarse",
+          "Conectar el esfuerzo con la recompensa"
+        ]
+      }
+    }
   }
 }
