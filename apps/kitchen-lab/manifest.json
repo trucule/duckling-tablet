@@ -1,7 +1,7 @@
 {
   "id": "kitchen-lab",
   "name": "Kitchen Lab",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Recipes as experiments: measure, mix and watch what changes, with each step read aloud.",
   "subjects": [
     "science"
@@ -21,5 +21,21 @@
       "Kitchen safety habits",
       "Noticing how things change when combined"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Laboratorio de cocina",
+      "description": "Recetas como experimentos: mide, mezcla y mira qué cambia, con cada paso leído en voz alta.",
+      "about": {
+        "concept": "Medición y cambios de estado. Una receta es un procedimiento con cantidades; mezclar, calentar y enfriar cambian la textura, el volumen y el color de formas que el niño puede predecir y ver.",
+        "progression": "El juego libre es una cocina abierta para mezclar, calentar, enfriar, licuar y hornear, con un libro de recetas guiadas. La escalera de retos sube desde mezclar, caliente y frío, y flotar o hundirse en preescolar, pasando por derretir, medir tazas y el movimiento del calor, hasta ácidos y bases, gas leudante, reacciones de dorado, conservación de la masa y proporciones a escala en séptimo y octavo grado.",
+        "lifeSkills": [
+          "Medir con precisión",
+          "Leer y seguir una receta",
+          "Hábitos de seguridad en la cocina",
+          "Notar cómo cambian las cosas al combinarlas"
+        ]
+      }
+    }
   }
 }
