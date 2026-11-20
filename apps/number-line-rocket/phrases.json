@@ -1,49 +1,95 @@
 {
- "source": "49a24a5640fc7f747f2c5aba73fb809615f66dfb16e303b741d713319af59d4f",
+ "source": "f79f96f2804ce7b27c94ab94260d59a2fb7d502ffeff672207bb08311b9ffd83",
  "lines": [
   {
-   "text": "Count by tens from zero, then look between the marks.",
+   "text": "Las marcas van de 10 en 10. Toca la línea donde va 6. ¡Luego lanza el cohete!",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Las marcas van de 10 en 10. Toca la línea donde va menos 39. ¡Luego lanza el cohete!",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Las marcas van de 25 en 25. Toca la línea donde va 94. ¡Luego lanza el cohete!",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Tap the line where 1 point 8 5 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where 0 point 8 5 goes. Then launch!",
+   "text": "Tap the line where 2 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where 1 goes. Then launch!",
+   "text": "Tap the line where 300 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where 600 goes. Then launch!",
+   "text": "Tap the line where 5 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where 9 goes. Then launch!",
+   "text": "Tap the line where negative 4 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where negative 8 goes. Then launch!",
+   "text": "Tap the line where seven eighths goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where the square root of 99 goes. Then launch!",
+   "text": "Tap the line where the square root of 12 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "Tap the line where two thirds goes. Then launch!",
+   "text": "The marks count by 10. Tap the line where 28 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "The marks count by 10. Tap the line where 72 goes. Then launch!",
+   "text": "The marks count by 10. Tap the line where negative 16 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "The marks count by 10. Tap the line where negative 3 goes. Then launch!",
+   "text": "The marks count by 250. Tap the line where 1400 goes. Then launch!",
    "rate": -10
   },
   {
-   "text": "The marks count by 25. Tap the line where 32 goes. Then launch!",
-   "rate": -10
+   "text": "Toca la línea donde va 14. ¡Luego lanza el cohete!",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Toca la línea donde va 3 coma 2. ¡Luego lanza el cohete!",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Toca la línea donde va 600. ¡Luego lanza el cohete!",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Toca la línea donde va 7. ¡Luego lanza el cohete!",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Toca la línea donde va 8. ¡Luego lanza el cohete!",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Toca la línea donde va cinco octavos. ¡Luego lanza el cohete!",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Toca la línea donde va la raíz cuadrada de 74. ¡Luego lanza el cohete!",
+   "rate": -10,
+   "lang": "es"
   }
  ]
 }

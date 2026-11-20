@@ -1,7 +1,7 @@
 {
   "id": "number-line-rocket",
   "name": "Number Line Rocket",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Tap a spot on the number line and the rocket flies there, from 0 to 10 up to fractions, decimals, negatives, inequalities, square roots and powers of ten.",
   "subjects": [
     "math"
@@ -21,5 +21,21 @@
       "Understanding bigger and smaller",
       "Mental arithmetic as movement"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Cohete numérico",
+      "description": "Toca un punto en la recta numérica y el cohete vuela hasta ahí, desde 0 a 10 hasta fracciones, decimales, negativos, desigualdades, raíces cuadradas y potencias de diez.",
+      "about": {
+        "concept": "Magnitud y posición. Los números viven en lugares de una recta; tocar donde debería estar el 37 y ver aterrizar el cohete forma un sentido interno de la distancia entre los números.",
+        "progression": "La recta empieza de 0 a 10 para preescolar y crece a 20, 100 y 1000 hasta segundo grado; luego muestra fracciones, números bajo cero, décimos, centésimos y números mixtos hasta quinto. Desde sexto agrega negativos hasta 50, saltos de enteros que cruzan el cero, escalas que cambian, desigualdades y valor absoluto, raíces cuadradas entre números enteros y potencias de diez en una escala logarítmica para octavo.",
+        "lifeSkills": [
+          "Estimar",
+          "Leer escalas, reglas y termómetros",
+          "Entender qué es mayor y qué es menor",
+          "Aritmética mental como movimiento"
+        ]
+      }
+    }
   }
 }
