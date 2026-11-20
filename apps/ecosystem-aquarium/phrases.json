@@ -1,24 +1,31 @@
 {
- "source": "966b81695e8b3924e3ffacd9a218590afd4873c29fb35b0a360373e7176dadc0",
+ "source": "91905eaf76dc404bf7dcbff6789cade0027628d74187ecd08a209db634bedb85",
  "lines": [
   {
-   "text": "Balance the whole tank! Keep 7 fish, 3 snails and the plants healthy for 5 days.",
+   "text": "¡Equilibra toda la pecera! Mantén sanos 7 peces, 3 caracoles y las plantas por 5 días.",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Alimenta a los 3 peces para que sigan sanos por 2 días. Cada pizca alimenta a 2 peces.",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Balance the whole tank! Keep 6 fish, 3 snails and the plants healthy for 5 days.",
    "rate": -8
   },
   {
-   "text": "Carrying capacity is the most fish a tank can hold over time. Room here is 3 fish plus 2 for every plant. This tank has 5 plants. What is its carrying capacity?",
+   "text": "Carrying capacity is the most fish a tank can hold over time. Room here is 3 fish plus 2 for every plant. This tank has 4 plants. What is its carrying capacity?",
    "rate": -8
   },
   {
-   "text": "Eli wants to know if more plants make more air. Which plan is a fair test?",
-   "rate": -8
+   "text": "Esta pecera está junto a una ventana con sol. ¡Mantén 6 peces sanos por 4 días con el agua clara!",
+   "rate": -8,
+   "lang": "es"
   },
   {
-   "text": "Feed the 2 fish so they stay healthy for 2 days. Each pinch feeds 2 fish.",
-   "rate": -8
-  },
-  {
-   "text": "Keep 10 fish healthy for 3 days. Give them room to hide!",
+   "text": "Feed the 3 fish so they stay healthy for 2 days. Each pinch feeds 2 fish.",
    "rate": -8
   },
   {
@@ -26,7 +33,41 @@
    "rate": -8
   },
   {
-   "text": "The graph shows the small fish and the big fish for 5 days. What will the big fish do in the next 3 days?",
+   "text": "Keep 7 fish healthy for 3 days. Give them room to hide!",
+   "rate": -8
+  },
+  {
+   "text": "La capacidad de carga es la mayor cantidad de peces que una pecera puede mantener con el tiempo. Aquí el espacio es de 3 peces más 2 por cada planta. Esta pecera tiene 3 plantas. ¿Cuál es su capacidad de carga?",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "La gráfica muestra los peces pequeños y los peces grandes durante 5 días. ¿Qué harán los peces grandes en los próximos 3 días?",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Las plantas se ven tristes. ¡Prende la luz para que sigan verdes por 2 días!",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Las truchas necesitan más aire. Las plantas hacen aire con la luz y los peces lo usan. Mantén el aire arriba de la línea por 10 días con la menor cantidad de plantas que funcione.",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Mantén 4 peces sanos por 3 días. ¡Los peces necesitan aire!",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Mantén 7 peces sanos por 3 días. ¡Dales espacio para esconderse!",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "The graph shows the small fish and the big fish for 7 days. What will the small fish do in the next 3 days?",
    "rate": -8
   },
   {
@@ -34,11 +75,20 @@
    "rate": -8
   },
   {
-   "text": "This tank sits by a sunny window. Keep 6 fish healthy for 4 days with clear water!",
+   "text": "This tank sits by a sunny window. Keep 3 fish healthy for 4 days with clear water!",
    "rate": -8
   },
   {
    "text": "Trout need extra air. Plants make air in the light and fish use it. Keep the air above the line for 10 days with the fewest plants that work.",
+   "rate": -8
+  },
+  {
+   "text": "Zoe quiere saber si más plantas producen más aire. ¿Qué plan es una prueba justa?",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Zoe wants to know if more plants make more air. Which plan is a fair test?",
    "rate": -8
   }
  ]

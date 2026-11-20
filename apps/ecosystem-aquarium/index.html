@@ -351,15 +351,15 @@
     <h1>🐠 Ecosystem Aquarium</h1>
     <span id="badge"></span>
     <span id="stars">⭐ 0</span>
-    <button class="pill" id="skip" title="New tank">🔀 New</button>
+    <button class="pill" id="skip" title="New tank">🔀 <span data-t>New</span></button>
   </header>
   <main id="main">
     <canvas id="gl"></canvas>
     <div id="askRow"><div id="ask"></div><button id="hear" title="Hear it again">🔈</button></div>
     <div id="gauges">
       <div id="locked" style="display:flex;flex-direction:column;gap:6px"></div>
-      <div class="g">🫧 Air <div class="bar"><i id="gO" style="background:#58C7F0"></i></div></div>
-      <div class="g">💧 Clear <div class="bar"><i id="gA" style="background:#5CD38B"></i></div></div>
+      <div class="g">🫧 <span data-t>Air</span> <div class="bar"><i id="gO" style="background:#58C7F0"></i></div></div>
+      <div class="g">💧 <span data-t>Clear</span> <div class="bar"><i id="gA" style="background:#5CD38B"></i></div></div>
       <div class="g" id="room">🏠 Room for 3 fish</div>
     </div>
     <div id="dayBox"></div>
@@ -379,6 +379,173 @@
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
+// ---------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every prompt, level name, creature name, label
+// and spoken line is Spanish. The simulation, the goals, the ladder and the English text do not change. Keys are the
+// English text with {placeholders}; a Spanish line may use an extra placeholder the English line does not (the same
+// thing with its article, or a capitalized form), so sentences agree in gender and number. docs/languages-brief.md.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  'Ecosystem Aquarium': 'Acuario ecosistema', 'New': 'Nueva', 'New tank': 'Pecera nueva', 'Hear it again': 'Escúchalo otra vez',
+  'Air': 'Aire', 'Clear': 'Agua clara', 'Room for {n} fish': 'Espacio para {n} peces', 'Level {n}: {name}': 'Nivel {n}: {name}',
+  // Level names
+  'Plants need light': 'Las plantas necesitan luz', 'Feed the fish': 'Alimenta a los peces', 'Fish need air': 'Los peces necesitan aire',
+  'Clean the glass': 'Limpia el vidrio', 'Hungry snails': 'Caracoles hambrientos', 'Room to swim': 'Espacio para nadar', 'Baby fish': 'Peces bebé',
+  'Food chain': 'Cadena alimentaria', 'Balanced tank': 'Pecera equilibrada', 'Big food chain': 'Gran cadena alimentaria', 'Food web': 'Red alimentaria',
+  'Read the graph': 'Lee la gráfica', 'What is the limit?': '¿Cuál es el límite?', 'Air for trout': 'Aire para las truchas', 'Invaders': 'Invasores',
+  'Carrying capacity': 'Capacidad de carga', 'Energy pyramid': 'Pirámide de energía', 'Toxin in the chain': 'Toxina en la cadena', 'Fair test': 'Prueba justa',
+  'What the data say': 'Lo que dicen los datos',
+  // Living things, resources and light. Lowercase keys are the names used inside sentences; the article comes from ES_ART.
+  'fish': 'peces', 'snails': 'caracoles', 'plants': 'plantas', 'light': 'luz', 'food': 'comida', 'space': 'espacio', 'air': 'aire', 'algae': 'algas',
+  'small fish': 'peces pequeños', 'big fish': 'pez grande', 'shrimp': 'camarones', 'heron': 'garza', 'water fleas': 'pulgas de agua', 'minnows': 'carpitas',
+  'trout': 'trucha', 'tadpoles': 'renacuajos', 'otter': 'nutria', 'eagle': 'águila',
+  'Fish': 'Peces', 'Snails': 'Caracoles', 'Plants': 'Plantas', 'Light': 'Luz', 'Food a day': 'Comida al día', 'Shrimp': 'Camarones', 'Big fish': 'Peces grandes',
+  'Small fish': 'Peces pequeños', 'Algae': 'Algas', 'Food': 'Comida', 'Space': 'Espacio', 'Tank': 'Pecera', 'Water': 'Agua',
+  'more air': 'más aire', 'less air': 'menos aire', 'more algae': 'más algas', 'less algae': 'menos algas',
+  'Off': 'Apagada', 'Dim': 'Tenue', 'Sunny': 'Soleada', 'Very bright': 'Muy brillante',
+  'Off light': 'luz apagada', 'Dim light': 'luz tenue', 'Sunny light': 'luz soleada', 'Very bright light': 'luz muy brillante',
+  '{n} fish': '{n} peces', '{n} snail': '{n} caracol', '{n} snails': '{n} caracoles', '{n} plant': '{n} planta', '{n} plants': '{n} plantas',
+  '{n} pinch of food a day': '{n} pizca de comida al día', '{n} pinches of food a day': '{n} pizcas de comida al día',
+  // Invaders
+  'mitten crabs': 'cangrejos de mitones', 'crabs': 'cangrejos', 'bullfrog tadpoles': 'renacuajos de rana toro', 'duckweed mats': 'mantos de lenteja de agua', 'duckweed': 'lenteja de agua',
+  'They eat the fish food, 1 pinch each.': 'Se comen la comida de los peces, 1 pizca cada uno.',
+  'They graze algae, as much as a snail each.': 'Comen algas, tanto como un caracol cada uno.',
+  'They float on top and shade the tank. Every 2 mats dim the light one step.': 'Flotan en la superficie y dan sombra a la pecera. Cada 2 mantos bajan la luz un paso.',
+  'Big fish eat crabs.': 'Los peces grandes se comen a los cangrejos.', 'Big fish eat tadpoles.': 'Los peces grandes se comen a los renacuajos.',
+  'Big fish do not eat plants. Scoop the mats out.': 'Los peces grandes no comen plantas. Saca los mantos con una red.',
+  'The crabs are still eating the fish food.': 'Los cangrejos siguen comiéndose la comida de los peces.',
+  'The tadpoles are still grazing the algae.': 'Los renacuajos siguen comiéndose las algas.',
+  'The duckweed is still shading the tank.': 'La lenteja de agua sigue dando sombra a la pecera.',
+  // Tank tasks
+  'The plants look sad. Turn on the light so they stay green for 2 days!': 'Las plantas se ven tristes. ¡Prende la luz para que sigan verdes por 2 días!',
+  'Feed the {n} fish so they stay healthy for 2 days. Each pinch feeds 2 fish.': 'Alimenta a los {n} peces para que sigan sanos por 2 días. Cada pizca alimenta a 2 peces.',
+  'Keep {n} fish healthy for 3 days. Fish need air!': 'Mantén {n} peces sanos por 3 días. ¡Los peces necesitan aire!',
+  'This tank sits by a sunny window. Keep {n} fish healthy for 4 days with clear water!': 'Esta pecera está junto a una ventana con sol. ¡Mantén {n} peces sanos por 4 días con el agua clara!',
+  'Keep {n} snails, 2 fish and the plants happy for 3 days. What do snails eat?': 'Mantén felices a {n} caracoles, 2 peces y las plantas por 3 días. ¿Qué comen los caracoles?',
+  'Keep {n} fish healthy for 3 days. Give them room to hide!': 'Mantén {n} peces sanos por 3 días. ¡Dales espacio para esconderse!',
+  'Grow from 2 fish to {n} fish in 4 days. Happy fish have babies!': 'Pasa de 2 peces a {n} peces en 4 días. ¡Los peces felices tienen bebés!',
+  'Food chain! The big fish eats 1 small fish a day. Keep it fed for 4 days, with 2 small fish left at the end.': '¡Cadena alimentaria! El pez grande se come 1 pez pequeño al día. Mantenlo alimentado por 4 días y que queden 2 peces pequeños al final.',
+  'Balance the whole tank! Keep {F} fish, {S} snails and the plants healthy for 5 days.': '¡Equilibra toda la pecera! Mantén sanos {F} peces, {S} caracoles y las plantas por 5 días.',
+  '2 big fish eat 2 small fish a day. Keep everyone healthy for 5 days, with 3 small fish left at the end.': '2 peces grandes se comen 2 peces pequeños al día. Mantén a todos sanos por 5 días y que queden 3 peces pequeños al final.',
+  'Balance this food web for 30 days. The big fish eats 1 small fish a day. Shrimp are the decomposers: each eats 1 leftover pinch.': 'Equilibra esta red alimentaria por 30 días. El pez grande se come 1 pez pequeño al día. Los camarones son los descomponedores: cada uno se come 1 pizca sobrante.',
+  'Trout need extra air. Plants make air in the light and fish use it. Keep the air above the line for 10 days with the fewest plants that work.': 'Las truchas necesitan más aire. Las plantas hacen aire con la luz y los peces lo usan. Mantén el aire arriba de la línea por 10 días con la menor cantidad de plantas que funcione.',
+  'Fill the tank to its carrying capacity of {n} fish and hold it there for 10 days. No crash. Set the fish and the food.': 'Llena la pecera hasta su capacidad de carga de {n} peces y mantenla ahí por 10 días. Sin colapsos. Ajusta los peces y la comida.',
+  'Now fix that limit. Grow the fish to {n} in 6 days.': 'Ahora arregla ese límite. Haz crecer los peces hasta {n} en 6 días.',
+  'Watch what the {inv} do. Then fix it: remove them, or add a big fish. {fix} Keep the natives healthy from day 3 to day 6.': 'Mira lo que hacen los {inv}. Luego arréglalo: quítalos o agrega un pez grande. {fix} Mantén sanas a las especies nativas del día 3 al día 6.',
+  // Graph
+  'The graph shows the small fish and the big fish for {shown} days. What will the {name} do in the next {ahead} days?': 'La gráfica muestra los peces pequeños y los peces grandes durante {shown} días. ¿Qué harán los {name} en los próximos {ahead} días?',
+  'They go up': 'Suben', 'They go down': 'Bajan', 'They stay about the same': 'Se quedan más o menos igual',
+  'The {name} line kept going the way it was heading.': 'La línea de los {name} siguió en la dirección que llevaba.',
+  'Follow the {name} line and see which way it was heading.': 'Sigue la línea de los {name} y mira hacia dónde iba.',
+  // Limiting factor
+  'The fish grew, then stopped at {n}. Look at the three resources. Which one is limiting the fish?': 'Los peces crecieron y luego se detuvieron en {n}. Mira los tres recursos. ¿Cuál está limitando a los peces?',
+  '{name} is the limiting factor. It runs out first.': '{Name} es el factor limitante. Se acaba primero.',
+  'Compare each resource with the fish count. The smallest one is the limit.': 'Compara cada recurso con la cantidad de peces. El más pequeño es el límite.',
+  // Invaders
+  '{n} {inv} got into the tank. {eats} Which native will drop first?': '{n} {inv} entraron en la pecera. {eats} ¿Qué especie nativa bajará primero?',
+  'The {victim} lose out first. Let us watch it happen.': '{Victim} pierden primero. Veamos cómo pasa.',
+  'Think about what the {inv} take, and who needed that.': 'Piensa en lo que se llevan los {inv} y quién lo necesitaba.',
+  // Carrying capacity
+  'Carrying capacity is the most fish a tank can hold over time. Room here is 3 fish plus 2 for every plant. This tank has {n} plants. What is its carrying capacity?': 'La capacidad de carga es la mayor cantidad de peces que una pecera puede mantener con el tiempo. Aquí el espacio es de 3 peces más 2 por cada planta. Esta pecera tiene {n} plantas. ¿Cuál es su capacidad de carga?',
+  '3 plus 2 times {n} is {k}.': '3 más 2 por {n} es {k}.', 'Start with 3. Then add 2 for each of the {n} plants.': 'Empieza con 3. Luego suma 2 por cada una de las {n} plantas.',
+  // Energy pyramid
+  'Only 10 percent of the energy moves up each level of the pyramid. It takes 10 kg of {a} to grow 1 kg of {b}. How many kg of {c} does it take to grow {t} kg of {b}?': 'Solo el 10 por ciento de la energía sube en cada nivel de la pirámide. Se necesitan 10 kg de {a} para producir 1 kg de {b}. ¿Cuántos kg de {c} se necesitan para producir {t} kg de {b}?',
+  'Each level down needs 10 times more. {t} kg at the top needs {n} kg of {c}.': 'Cada nivel hacia abajo necesita 10 veces más. Para {t} kg arriba se necesitan {n} kg de {c}.',
+  'Go down the pyramid one level at a time. Multiply by 10 at each step.': 'Baja la pirámide un nivel a la vez. Multiplica por 10 en cada paso.',
+  'Only 10 percent of the energy moves up each level. This pond grows {base} kg of {a} a year. How many kg of {b} can that feed?': 'Solo el 10 por ciento de la energía sube en cada nivel. Este estanque produce {base} kg de {a} al año. ¿Cuántos kg de {b} puede alimentar eso?',
+  'Each level up keeps 10 percent. {base} kg of {a} feeds {n} kg of {b}.': 'Cada nivel hacia arriba conserva el 10 por ciento. {base} kg de {a} alimentan {n} kg de {b}.',
+  'Go up the pyramid one level at a time. Divide by 10 at each step.': 'Sube la pirámide un nivel a la vez. Divide entre 10 en cada paso.',
+  '{name}: {kg} kg': '{name}: {kg} kg', '{name}: ?': '{name}: ?', '10% up': '10% sube',
+  // Toxin
+  'A toxin leaked into the water. Each step up the food chain holds 10 times more of it in the body. After 20 days, which living thing has the most toxin?': 'Una toxina se filtró en el agua. Cada paso hacia arriba en la cadena alimentaria guarda 10 veces más en el cuerpo. Después de 20 días, ¿qué ser vivo tiene más toxina?',
+  'A toxin leaked into the water. Each step up the food chain holds 10 times more of it in the body. After 20 days, which living thing has the least toxin?': 'Una toxina se filtró en el agua. Cada paso hacia arriba en la cadena alimentaria guarda 10 veces más en el cuerpo. Después de 20 días, ¿qué ser vivo tiene menos toxina?',
+  'The {x} is at the top of the chain, so it holds the most. ': '{X} está en lo más alto de la cadena, así que tiene más. ',
+  'The {x} are at the bottom, so they hold the least. ': '{X} están en lo más bajo, así que tienen menos. ',
+  'This is called biomagnification.': 'Esto se llama biomagnificación.',
+  'Find the top of the food chain. Each step up holds 10 times more.': 'Busca lo más alto de la cadena alimentaria. Cada paso hacia arriba guarda 10 veces más.',
+  'Find the bottom of the food chain. Each step up holds 10 times more.': 'Busca lo más bajo de la cadena alimentaria. Cada paso hacia arriba guarda 10 veces más.',
+  'The toxin in the water is {x}. The {a} hold {x}. Each step up the chain holds 10 times more. How much toxin is in the {b}?': 'La toxina en el agua es {x}. {A} tienen {x}. Cada paso hacia arriba en la cadena guarda 10 veces más. ¿Cuánta toxina hay en {B}?',
+  'Toxin in the {b}: {n}. That is {k} step up, and each step is 10 times more.': 'Toxina en {B}: {n}. Eso es {k} paso hacia arriba, y cada paso es 10 veces más.',
+  'Toxin in the {b}: {n}. That is {k} steps up, and each step is 10 times more.': 'Toxina en {B}: {n}. Eso son {k} pasos hacia arriba, y cada paso es 10 veces más.',
+  'Count the steps from the {a} to the {b}. Multiply by 10 for each step.': 'Cuenta los pasos de {A} a {B}. Multiplica por 10 en cada paso.',
+  '💧 Water: toxin {x}': '💧 Agua: toxina {x}', '→ eaten by →': '→ alimenta a →', 'Day {d} of {D}': 'Día {d} de {D}',
+  // Fair test
+  'if more light makes more algae': 'si más luz produce más algas', 'if more food makes more algae': 'si más comida produce más algas',
+  'if more plants make more air': 'si más plantas producen más aire', 'if snails keep the water clearer': 'si los caracoles mantienen el agua más clara',
+  'if more fish use up the air': 'si más peces gastan el aire',
+  '{who} wants to know {q}. Which plan is a fair test?': '{who} quiere saber {q}. ¿Qué plan es una prueba justa?',
+  'Tank A: {a}. Tank B: {b}. Compare the {m} after 30 days.': 'Pecera A: {a}. Pecera B: {b}. Compara {M} después de 30 días.',
+  'One tank: {a}. Measure the {m} after 30 days.': 'Una pecera: {a}. Mide {M} después de 30 días.',
+  'That plan changes two things at once. If the {m} changes, you cannot tell which one did it. A fair test changes one thing only.': 'Ese plan cambia dos cosas a la vez. Si hay un cambio en {M}, no puedes saber cuál lo causó. Una prueba justa cambia una sola cosa.',
+  'One tank has nothing to compare against. A fair test keeps a control tank that differs in one thing only.': 'Una sola pecera no tiene con qué compararse. Una prueba justa tiene una pecera de control que se diferencia en una sola cosa.',
+  'Each plan runs for 30 days.': 'Cada plan dura 30 días.',
+  'Only the {v} differ, so any change in the {m} comes from the {v}.': 'Solo {V} cambian, así que cualquier cambio en {M} viene de {V}.',
+  'Only the {v} differs, so any change in the {m} comes from the {v}.': 'Solo {V} cambia, así que cualquier cambio en {M} viene de {V}.',
+  'Tank A': 'Pecera A', 'Tank B': 'Pecera B', 'After 30 days: average {m}': 'Después de 30 días: promedio de {m}',
+  // Data table
+  'More {v} means {mm}.': 'Más {v} significa {mm}.',
+  'Read the {m} column again as the {v} go up.': 'Lee otra vez la columna de {m} a medida que hay más {v}.',
+  'The {v} do not change the {m}.': '{Vc} no cambian {M}.', 'The {v} does not change the {m}.': '{Vc} no cambia {M}.',
+  'The {m} changed every time the {v} changed.': 'La columna de {m} cambió con cada cambio en {V}.',
+  'The {u} were the same in every tank. These data say nothing about {u}.': '{Uc} fueron iguales en todas las peceras. Estos datos no dicen nada sobre {U}.',
+  'The {u} was the same in every tank. These data say nothing about {u}.': '{Uc} fue igual en todas las peceras. Estos datos no dicen nada sobre {U}.',
+  'Three tanks ran for 30 days. Only the {v} were different. Which conclusion do the data support?': 'Tres peceras funcionaron por 30 días. Solo {V} fueron diferentes. ¿Qué conclusión apoyan los datos?',
+  'Three tanks ran for 30 days. Only the {v} was different. Which conclusion do the data support?': 'Tres peceras funcionaron por 30 días. Solo {V} fue diferente. ¿Qué conclusión apoyan los datos?',
+  'The {m} moved the same way each time the {v} changed, and nothing else changed.': 'La columna de {m} se movió en la misma dirección con cada cambio en {V}, y nada más cambió.',
+  'Air (avg)': 'Aire (prom.)', 'Algae (avg)': 'Algas (prom.)',
+  // Controls and panels
+  'Less': 'Menos', 'More': 'Más', '▶ Run {n} days': '▶ Pasar {n} días', 'days': 'días', 'next?': '¿después?', 'room': 'espacio', 'line': 'línea', 'capacity': 'capacidad',
+  '🍤 Food feeds {n} fish': '🍤 Comida para {n} peces', '🏠 Room for {n} fish': '🏠 Espacio para {n} peces', '🫧 Air for {n} fish': '🫧 Aire para {n} peces', '🐟 Fish now: {n}': '🐟 Peces ahora: {n}',
+  // Rounds
+  '☀️ Day {d} of {D}': '☀️ Día {d} de {D}', 'Day {d}: ': 'Día {d}: ', '😟 {who} not well': '😟 {who} no están bien', '😊 all well': '😊 todo bien',
+  ', 🦈 ate {n} {inv}': ', 🦈 comió {n} {inv}', ', 🦈 ate {n}': ', 🦈 comió {n}', ', 🐣 {n} born': ', 🐣 nacieron {n}',
+  'Day {d}: {who} dropped': 'Día {d}: {who} bajaron', '{who} dropped. {why} Now fix the tank.': '{who} bajaron. {why} Ahora arregla la pecera.',
+  ' You called it.': ' Lo predijiste.', ' Now fix the tank.': ' Ahora arregla la pecera.', 'Uh oh! Day {d}': '¡Ay! Día {d}', 'Uh oh. {why}': 'Ay. {why}',
+  'Your tank is thriving!': '¡Tu pecera está llena de vida!', 'Happy tank!': '¡Pecera feliz!', 'Great balance!': '¡Buen equilibrio!',
+  'You got it!': '¡Lo lograste!', 'Nice thinking!': '¡Bien pensado!', 'That is right!': '¡Correcto!',
+  'The fish reached {n} and everyone stayed well.': 'Los peces llegaron a {n} y todos siguieron bien.', 'Everyone stayed healthy for {n} days.': 'Todos siguieron sanos durante {n} días.',
+  ' Level up!': ' ¡Subiste de nivel!', 'Yes.': 'Sí.', 'Right.': 'Correcto.', 'Good thinking.': 'Bien pensado.',
+  'Look again.': 'Mira otra vez.', 'Try again.': 'Intenta otra vez.', 'Not quite': 'Casi', 'Not quite. {why}': 'Casi. {why}', 'Try again': 'Intenta otra vez',
+  'Next ▶': 'Siguiente ▶', '🔧 Fix the tank': '🔧 Arreglar la pecera', 'OK': 'Listo',
+  // Why a tank failed
+  'The air fell under the line. Each plant makes 5 air for every step of light. Add a plant.': 'El aire cayó debajo de la línea. Cada planta hace 5 de aire por cada paso de luz. Agrega una planta.',
+  'The fish stopped short. Raise the resource that caps them. Each pinch feeds 2 fish, each plant adds room for 2, and plants in the light make air.': 'Los peces se quedaron cortos. Sube el recurso que los limita. Cada pizca alimenta a 2 peces, cada planta da espacio para 2, y las plantas con luz hacen aire.',
+  'The fish ran out of air. Plants make air when the light is on.': 'A los peces se les acabó el aire. Las plantas hacen aire cuando la luz está prendida.',
+  'The big fish ran out of air. Big fish need lots of air, so add plants and light.': 'A los peces grandes se les acabó el aire. Los peces grandes necesitan mucho aire, así que agrega plantas y luz.',
+  'The snails ran out of air. Plants make air when the light is on.': 'A los caracoles se les acabó el aire. Las plantas hacen aire cuando la luz está prendida.',
+  'The shrimp ran out of air. Plants make air when the light is on.': 'A los camarones se les acabó el aire. Las plantas hacen aire cuando la luz está prendida.',
+  'The fish were hungry. Each pinch of food feeds 2 fish.': 'Los peces tenían hambre. Cada pizca de comida alimenta a 2 peces.',
+  'The water turned green with algae. Snails and plants keep it clear. Too much light or food makes algae grow.': 'El agua se puso verde por las algas. Los caracoles y las plantas la mantienen clara. Demasiada luz o comida hace crecer las algas.',
+  'Algae covered the plants. Snails and plants keep it clear. Too much light or food makes algae grow.': 'Las algas cubrieron las plantas. Los caracoles y las plantas mantienen el agua clara. Demasiada luz o comida hace crecer las algas.',
+  'Too crowded! The tank holds 3 fish, plus 2 more for every plant.': '¡Demasiados peces! La pecera tiene espacio para 3 peces, más 2 por cada planta.',
+  'The snails were hungry. Snails eat algae, and algae needs a little light. Fewer snails need less.': 'Los caracoles tenían hambre. Los caracoles comen algas, y las algas necesitan un poco de luz. Menos caracoles necesitan menos.',
+  'The shrimp had nothing to clean up. Decomposers need some leftover food or algae.': 'Los camarones no tenían nada que limpiar. Los descomponedores necesitan algo de comida sobrante o algas.',
+  'The plants need light to grow.': 'Las plantas necesitan luz para crecer.',
+  'The air stayed up, but that is more plants than needed. Find the fewest plants that keep the air above the line.': 'El aire se mantuvo alto, pero son más plantas de las necesarias. Encuentra la menor cantidad de plantas que mantenga el aire arriba de la línea.',
+  'The big fish had no small fish to eat. Start with more small fish.': 'Los peces grandes se quedaron sin peces pequeños para comer. Empieza con más peces pequeños.',
+  'Not enough baby fish yet. Happy fish have babies when there is room and food for everyone.': 'Todavía no hay suficientes peces bebé. Los peces felices tienen bebés cuando hay espacio y comida para todos.',
+  'The small fish ran out. Start with more small fish, and give the babies room and food.': 'Los peces pequeños se acabaron. Empieza con más peces pequeños y dales a los bebés espacio y comida.',
+  'Something went wrong in the tank.': 'Algo salió mal en la pecera.',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+window.DucklingLang = {
+  keys: () => Object.keys(ES),
+  missing: () => [...USED].filter(k => ES[k] == null),
+  allow: [],
+};
+// The definite article of each Spanish name, so a line can say "las algas" or "el pez grande".
+const ES_ART = { fish: 'los', snails: 'los', plants: 'las', light: 'la', food: 'la', space: 'el', air: 'el', algae: 'las', 'small fish': 'los', 'big fish': 'el',
+  shrimp: 'los', heron: 'la', 'water fleas': 'las', minnows: 'las', trout: 'la', tadpoles: 'los', otter: 'la', eagle: 'el' };
+const nm = c => T(c);
+const the = c => LANG === 'es' ? (ES_ART[c] || 'los') + ' ' + T(c) : 'the ' + c;
+const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
 // PURE START
 // Everything from here to PURE END is DOM-free: the simulation, the ladder and the problem generators.
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -497,7 +664,7 @@ const fill = (o, lock, adj) => {
 };
 const NATIVE = ['fish', 'snail', 'plant'], NATIVE_NAME = { fish: 'Small fish', snail: 'Snails', plant: 'Plants' };
 const VNAME = { F: 'fish', S: 'snails', P: 'plants', L: 'light', f: 'food' }, isPl = v => v === 'F' || v === 'S' || v === 'P';
-const describeTank = (s, keys) => keys.map(v => v === 'L' ? LIGHTS[s.L] + ' light' : v === 'F' ? s.F + ' fish' : v === 'S' ? s.S + (s.S === 1 ? ' snail' : ' snails') : v === 'P' ? s.P + (s.P === 1 ? ' plant' : ' plants') : s.f + (s.f === 1 ? ' pinch' : ' pinches') + ' of food a day').join(', ');
+const describeTank = (s, keys) => keys.map(v => v === 'L' ? T(LIGHTS[s.L] + ' light') : v === 'F' ? T('{n} fish', { n: s.F }) : v === 'S' ? T(s.S === 1 ? '{n} snail' : '{n} snails', { n: s.S }) : v === 'P' ? T(s.P === 1 ? '{n} plant' : '{n} plants', { n: s.P }) : T(s.f === 1 ? '{n} pinch of food a day' : '{n} pinches of food a day', { n: s.f })).join(', ');
 const UP = ['They go up', 'They go down', 'They stay about the same'], UPKEY = ['up', 'down', 'same'];
 const KIDS = ['Ava', 'Ben', 'Mia', 'Leo', 'Zoe', 'Sam', 'Noor', 'Eli'];
 
@@ -506,7 +673,7 @@ function genFoodWeb() {
   for (let k = 0; k < 60; k++) {
     const S = rnd(1, 3), P = rnd(2, 4), L = rnd(1, 2);
     const t = fill({ D: 30, B: 1, breed: true, goal: { groups: ['fish', 'big', 'snail', 'plant', 'shrimp'], minEnd: 2 }, chart: { series: ['F'], hline: { y: roomOf(P), label: 'room' } },
-      text: 'Balance this food web for 30 days. The big fish eats 1 small fish a day. Shrimp are the decomposers: each eats 1 leftover pinch.' },
+      text: T('Balance this food web for 30 days. The big fish eats 1 small fish a day. Shrimp are the decomposers: each eats 1 leftover pinch.') },
       { S, P, L }, { F: [[1, 10], 1], f: [[0, 5], 0], W: [[0, 4], 0] });
     if (solutions(t).length) return t;
   }
@@ -524,12 +691,12 @@ function genGraph() {
     if ((k < 500 && ans !== want) || trend !== ans) continue;
     if (Math.max(...vals.slice(0, shown)) === 0) continue;
     if (ans === 'same' && Math.max(...vals.slice(0, shown)) !== Math.min(...vals.slice(0, shown)) && Math.random() < 0.5) continue;
-    const name = who === 'F' ? 'small fish' : 'big fish', order = shuffle([0, 1, 2]);
-    return { kind: 'choice', setup, text: 'The graph shows the small fish and the big fish for ' + shown + ' days. What will the ' + name + ' do in the next ' + ahead + ' days?',
-      choices: order.map(i => UP[i]), answer: order.indexOf(UPKEY.indexOf(ans)), who, shown, ahead, days,
+    const name = T(who === 'F' ? 'Small fish' : 'Big fish').toLowerCase(), order = shuffle([0, 1, 2]);
+    return { kind: 'choice', setup, text: T('The graph shows the small fish and the big fish for {shown} days. What will the {name} do in the next {ahead} days?', { shown, name, ahead }),
+      choices: order.map(i => T(UP[i])), answer: order.indexOf(UPKEY.indexOf(ans)), who, shown, ahead, days,
       panel: { type: 'lines', series: ['F', 'B'], days: days.slice(0, shown), xmax: shown + ahead, now: shown, ymax: Math.max(10, ...days.map(d => Math.max(d.F, d.B))) + 1 },
-      done: 'The ' + name + ' line kept going the way it was heading.',
-      wrong: 'Follow the ' + name + ' line and see which way it was heading.',
+      done: T('The {name} line kept going the way it was heading.', { name }),
+      wrong: T('Follow the {name} line and see which way it was heading.', { name }),
       reveal: { days },
       verify() { return cls(vals[shown - 1], vals[shown - 1 + ahead]) === UPKEY[order[this.answer]]; } };
   }
@@ -546,12 +713,12 @@ function genLimit() {
     const start = { F: low, S, P, L, f, W: 0, I: 0, B };
     if (NUM.A_LIGHT * L + NUM.A_FOOD * Math.max(0, 2 * f - low) - NUM.A_SNAIL * S - NUM.A_PLANT * P > 8) continue;
     const names = { food: 'Food', space: 'Space', air: 'Air' }, order = shuffle(['food', 'space', 'air']);
-    const fix = fill({ D: 6, model: 'cap', goal: { grow: second }, panel: { type: 'caps' }, text: 'Now fix that limit. Grow the fish to ' + second + ' in 6 days.' },
+    const fix = fill({ D: 6, model: 'cap', goal: { grow: second }, panel: { type: 'caps' }, text: T('Now fix that limit. Grow the fish to {n} in 6 days.', { n: second }) },
       { F: low, S, B }, { f: [[0, 9], f], P: [[0, 6], P], L: [[0, 3], L] });
-    return { kind: 'choice', setup: start, text: 'The fish grew, then stopped at ' + low + '. Look at the three resources. Which one is limiting the fish?',
-      choices: order.map(c => names[c]), answer: order.indexOf(lowKey), panel: { type: 'caps' }, caps, grid: true,
-      done: names[lowKey] + ' is the limiting factor. It runs out first.',
-      wrong: 'Compare each resource with the fish count. The smallest one is the limit.',
+    return { kind: 'choice', setup: start, text: T('The fish grew, then stopped at {n}. Look at the three resources. Which one is limiting the fish?', { n: low }),
+      choices: order.map(c => T(names[c])), answer: order.indexOf(lowKey), panel: { type: 'caps' }, caps, grid: true,
+      done: T('{name} is the limiting factor. It runs out first.', { name: T(names[lowKey]), Name: cap1(the(lowKey)) }),
+      wrong: T('Compare each resource with the fish count. The smallest one is the limit.'),
       then: fix, verify() { return caps[lowKey] === Math.min(caps.food, caps.space, caps.air); } };
   }
   throw new Error('no limit');
@@ -561,7 +728,7 @@ function genAir() {
   for (let k = 0; k < 100; k++) {
     const F = rnd(3, 6), S = rnd(0, 2), L = rnd(1, 3), line = pick([14, 16, 18, 20]);
     const t = fill({ D: 10, goal: { groups: ['fish', 'snail', 'plant'], airLine: line, minimal: 'P' }, chart: { series: ['O'], hline: { y: line, label: 'line' }, ymax: 60 },
-      text: 'Trout need extra air. Plants make air in the light and fish use it. Keep the air above the line for 10 days with the fewest plants that work.' },
+      text: T('Trout need extra air. Plants make air in the light and fish use it. Keep the air above the line for 10 days with the fewest plants that work.') },
       { F, S, L, f: half(F) }, { P: [[0, 6], 0] });
     const sols = solutions(t); if (!sols.length) continue;
     if (Math.min(...sols.map(s => s.P)) < 1) continue;
@@ -582,13 +749,14 @@ function genInvader() {
     const unwell = NATIVE.filter(g => r.days[r.day - 1].why[g]); if (unwell.length !== 1) continue;
     const victim = unwell[0], lock = Object.assign({}, base); delete lock.I; delete lock.B;
     const fix = fill({ D: 6, inv: kind, observe: true, goal: { groups: NATIVE, after: 3 }, chart: { series: ['F', 'I'] },
-      text: 'Watch what the ' + inv.name + ' do. Then fix it: remove them, or add a big fish. ' + inv.fix + ' Keep the natives healthy from day 3 to day 6.' },
+      text: T('Watch what the {inv} do. Then fix it: remove them, or add a big fish. {fix} Keep the natives healthy from day 3 to day 6.', { inv: T(inv.name), fix: T(inv.fix) }) },
       lock, { I: [[0, I0], I0], B: [[0, 2], 0] });
     if (!solutions(fix).length) continue;
-    return { kind: 'choice', setup: invaded, inv: kind, text: I0 + ' ' + inv.name + ' got into the tank. ' + inv.eats + ' Which native will drop first?',
-      choices: NATIVE.map(g => NATIVE_NAME[g]), answer: NATIVE.indexOf(victim), grid: true,
-      done: 'The ' + NATIVE_NAME[victim].toLowerCase() + ' lose out first. Let us watch it happen.',
-      wrong: 'Think about what the ' + inv.name + ' take, and who needed that.',
+    const vic = NATIVE_NAME[victim].toLowerCase();
+    return { kind: 'choice', setup: invaded, inv: kind, text: T('{n} {inv} got into the tank. {eats} Which native will drop first?', { n: I0, inv: T(inv.name), eats: T(inv.eats) }),
+      choices: NATIVE.map(g => T(NATIVE_NAME[g])), answer: NATIVE.indexOf(victim), grid: true,
+      done: T('The {victim} lose out first. Let us watch it happen.', { victim: T(NATIVE_NAME[victim]).toLowerCase(), Victim: cap1(the(vic)) }),
+      wrong: T('Think about what the {inv} take, and who needed that.', { inv: T(inv.name) }),
       then: fix, verify() { const q = judge(invaded, lv0); return !q.ok && q.who === victim; } };
   }
   throw new Error('no invader');
@@ -598,12 +766,12 @@ function genCapacity() {
   for (let k = 0; k < 100; k++) {
     const P = rnd(2, 6), K = roomOf(P), L = rnd(2, 3), S = rnd(2, 3);
     const fix = fill({ D: 10, breed: true, goal: { groups: ['fish', 'snail', 'plant'], grow: K }, chart: { series: ['F'], hline: { y: K, label: 'capacity' }, ymax: 18 },
-      text: 'Fill the tank to its carrying capacity of ' + K + ' fish and hold it there for 10 days. No crash. Set the fish and the food.' },
+      text: T('Fill the tank to its carrying capacity of {n} fish and hold it there for 10 days. No crash. Set the fish and the food.', { n: K }) },
       { P, L, S }, { F: [[1, 16], 1], f: [[0, 9], 0] });
     if (!solutions(fix).length) continue;
     return { kind: 'number', setup: fix.start, answer: K, panel: { type: 'room', P },
-      text: 'Carrying capacity is the most fish a tank can hold over time. Room here is 3 fish plus 2 for every plant. This tank has ' + P + ' plants. What is its carrying capacity?',
-      done: '3 plus 2 times ' + P + ' is ' + K + '.', wrong: 'Start with 3. Then add 2 for each of the ' + P + ' plants.', then: fix };
+      text: T('Carrying capacity is the most fish a tank can hold over time. Room here is 3 fish plus 2 for every plant. This tank has {n} plants. What is its carrying capacity?', { n: P }),
+      done: T('3 plus 2 times {n} is {k}.', { n: P, k: K }), wrong: T('Start with 3. Then add 2 for each of the {n} plants.', { n: P }), then: fix };
   }
   throw new Error('no capacity');
 }
@@ -614,16 +782,16 @@ function genPyramid() {
   if (Math.random() < 0.6) {
     const t = pick([1, 2, 3, 5]), answer = t * Math.pow(10, n - 1), kg = chain.map((c, i) => i === n - 1 ? t : '?');
     return { kind: 'number', answer, setup: { F: 3, S: 1, P: 2, L: 2, f: 2, W: 0, I: 0, B: 1 }, panel: { type: 'pyramid', chain, kg },
-      text: 'Only 10 percent of the energy moves up each level of the pyramid. It takes 10 kg of ' + chain[n - 2] + ' to grow 1 kg of ' + chain[n - 1] + '. How many kg of ' + chain[0] + ' does it take to grow ' + t + ' kg of ' + chain[n - 1] + '?',
-      done: 'Each level down needs 10 times more. ' + t + ' kg at the top needs ' + answer + ' kg of ' + chain[0] + '.',
-      wrong: 'Go down the pyramid one level at a time. Multiply by 10 at each step.' };
+      text: T('Only 10 percent of the energy moves up each level of the pyramid. It takes 10 kg of {a} to grow 1 kg of {b}. How many kg of {c} does it take to grow {t} kg of {b}?', { a: nm(chain[n - 2]), b: nm(chain[n - 1]), c: nm(chain[0]), t }),
+      done: T('Each level down needs 10 times more. {t} kg at the top needs {n} kg of {c}.', { t, n: answer, c: nm(chain[0]) }),
+      wrong: T('Go down the pyramid one level at a time. Multiply by 10 at each step.') };
   }
   const base = pick(n === 3 ? [100, 200, 500, 1000] : [1000, 2000, 5000, 10000]), answer = base / Math.pow(10, n - 1);
   const kg = chain.map((c, i) => i === 0 ? base : '?');
   return { kind: 'number', answer, setup: { F: 3, S: 1, P: 2, L: 2, f: 2, W: 0, I: 0, B: 1 }, panel: { type: 'pyramid', chain, kg },
-    text: 'Only 10 percent of the energy moves up each level. This pond grows ' + base + ' kg of ' + chain[0] + ' a year. How many kg of ' + chain[n - 1] + ' can that feed?',
-    done: 'Each level up keeps 10 percent. ' + base + ' kg of ' + chain[0] + ' feeds ' + answer + ' kg of ' + chain[n - 1] + '.',
-    wrong: 'Go up the pyramid one level at a time. Divide by 10 at each step.' };
+    text: T('Only 10 percent of the energy moves up each level. This pond grows {base} kg of {a} a year. How many kg of {b} can that feed?', { base, a: nm(chain[0]), b: nm(chain[n - 1]) }),
+    done: T('Each level up keeps 10 percent. {base} kg of {a} feeds {n} kg of {b}.', { base, a: nm(chain[0]), n: answer, b: nm(chain[n - 1]) }),
+    wrong: T('Go up the pyramid one level at a time. Divide by 10 at each step.') };
 }
 // 7th/8th grade: biomagnification. A toxin enters the water.
 const TOXCHAINS = [['algae', 'small fish', 'big fish', 'heron'], ['algae', 'water fleas', 'minnows', 'otter'], ['plants', 'snails', 'small fish', 'big fish'], ['algae', 'shrimp', 'trout', 'eagle']];
@@ -632,18 +800,18 @@ function genToxin() {
   const setup = { F: 3, S: 1, P: 2, L: 2, f: 2, W: 0, I: 0, B: 1 };
   if (Math.random() < 0.65) {
     const most = Math.random() < 0.7, order = shuffle(chain.map((c, i) => i)), top = most ? n - 1 : 0;
-    return { kind: 'choice', setup, choices: order.map(i => chain[i].charAt(0).toUpperCase() + chain[i].slice(1)), answer: order.indexOf(top), grid: true, chain, x,
-      text: 'A toxin leaked into the water. Each step up the food chain holds 10 times more of it in the body. After 20 days, which living thing has the ' + (most ? 'most' : 'least') + ' toxin?',
+    return { kind: 'choice', setup, choices: order.map(i => cap1(nm(chain[i]))), answer: order.indexOf(top), grid: true, chain, x,
+      text: T(most ? 'A toxin leaked into the water. Each step up the food chain holds 10 times more of it in the body. After 20 days, which living thing has the most toxin?' : 'A toxin leaked into the water. Each step up the food chain holds 10 times more of it in the body. After 20 days, which living thing has the least toxin?'),
       panel: { type: 'chain', chain, x },
-      done: (most ? 'The ' + chain[n - 1] + ' is at the top of the chain, so it holds the most. ' : 'The ' + chain[0] + ' are at the bottom, so they hold the least. ') + 'This is called biomagnification.',
-      wrong: 'Find the ' + (most ? 'top' : 'bottom') + ' of the food chain. Each step up holds 10 times more.',
+      done: (most ? T('The {x} is at the top of the chain, so it holds the most. ', { x: chain[n - 1], X: cap1(the(chain[n - 1])) }) : T('The {x} are at the bottom, so they hold the least. ', { x: chain[0], X: cap1(the(chain[0])) })) + T('This is called biomagnification.'),
+      wrong: T(most ? 'Find the top of the food chain. Each step up holds 10 times more.' : 'Find the bottom of the food chain. Each step up holds 10 times more.'),
       reveal: { toxin: { chain, x, D: 20 } } };
   }
   const k = rnd(1, n - 1), answer = x * Math.pow(10, k);
   return { kind: 'number', setup, answer, chain, x, panel: { type: 'toxin', chain, x, day: 20, D: 20, hide: k },
-    text: 'The toxin in the water is ' + x + '. The ' + chain[0] + ' hold ' + x + '. Each step up the chain holds 10 times more. How much toxin is in the ' + chain[k] + '?',
-    done: 'Toxin in the ' + chain[k] + ': ' + answer + '. That is ' + k + (k === 1 ? ' step' : ' steps') + ' up, and each step is 10 times more.',
-    wrong: 'Count the steps from the ' + chain[0] + ' to the ' + chain[k] + '. Multiply by 10 for each step.', reveal: { toxin: { chain, x, D: 20 } } };
+    text: T('The toxin in the water is {x}. The {a} hold {x}. Each step up the chain holds 10 times more. How much toxin is in the {b}?', { x, a: chain[0], A: cap1(the(chain[0])), b: chain[k], B: the(chain[k]) }),
+    done: T(k === 1 ? 'Toxin in the {b}: {n}. That is {k} step up, and each step is 10 times more.' : 'Toxin in the {b}: {n}. That is {k} steps up, and each step is 10 times more.', { b: chain[k], B: the(chain[k]), n: answer, k }),
+    wrong: T('Count the steps from the {a} to the {b}. Multiply by 10 for each step.', { a: chain[0], A: the(chain[0]), b: chain[k], B: the(chain[k]) }), reveal: { toxin: { chain, x, D: 20 } } };
 }
 // What a tank measured over its run: the average air or algae, rounded.
 const measure = (days, M) => Math.round(days.reduce((a, d) => a + d[M], 0) / days.length);
@@ -661,18 +829,19 @@ function genExperiment() {
   const keys = ORDER.filter(v => [V, U, C].includes(v)), who = pick(KIDS);
   const base = { F: 3, S: 2, P: 2, L: 2, f: 2, W: 0, I: 0, B: 0 }; base[V] = LOWHIGH[V][0]; base[U] = LOWHIGH[U][0];
   const high = Object.assign({}, base, { [V]: LOWHIGH[V][1] }), both = Object.assign({}, high, { [U]: LOWHIGH[U][1] });
+  const m = MEASURE[Q.M].name, mv = { m: nm(m), M: the(m) };
   const plans = [
-    { key: 'fair', text: 'Tank A: ' + describeTank(base, keys) + '. Tank B: ' + describeTank(high, keys) + '. Compare the ' + MEASURE[Q.M].name + ' after 30 days.' },
-    { key: 'two', text: 'Tank A: ' + describeTank(base, keys) + '. Tank B: ' + describeTank(both, keys) + '. Compare the ' + MEASURE[Q.M].name + ' after 30 days.', why: 'That plan changes two things at once. If the ' + MEASURE[Q.M].name + ' changes, you cannot tell which one did it. A fair test changes one thing only.' },
-    { key: 'one', text: 'One tank: ' + describeTank(high, keys) + '. Measure the ' + MEASURE[Q.M].name + ' after 30 days.', why: 'One tank has nothing to compare against. A fair test keeps a control tank that differs in one thing only.' },
+    { key: 'fair', text: T('Tank A: {a}. Tank B: {b}. Compare the {m} after 30 days.', Object.assign({ a: describeTank(base, keys), b: describeTank(high, keys) }, mv)) },
+    { key: 'two', text: T('Tank A: {a}. Tank B: {b}. Compare the {m} after 30 days.', Object.assign({ a: describeTank(base, keys), b: describeTank(both, keys) }, mv)), why: T('That plan changes two things at once. If the {m} changes, you cannot tell which one did it. A fair test changes one thing only.', mv) },
+    { key: 'one', text: T('One tank: {a}. Measure the {m} after 30 days.', Object.assign({ a: describeTank(high, keys) }, mv)), why: T('One tank has nothing to compare against. A fair test keeps a control tank that differs in one thing only.') },
   ];
   const order = shuffle([0, 1, 2]), lv = { D: 30, model: 'cap', still: true };
   const endA = measure(simulateCap(base, lv), Q.M), endB = measure(simulateCap(high, lv), Q.M);
   return { kind: 'choice', setup: base, choices: order.map(i => plans[i].text), answer: order.indexOf(0), plans, order,
-    text: who + ' wants to know ' + Q.q + '. Which plan is a fair test?', panel: { type: 'note', text: 'Each plan runs for 30 days.' },
-    done: 'Only the ' + VNAME[V] + (isPl(V) ? ' differ' : ' differs') + ', so any change in the ' + MEASURE[Q.M].name + ' comes from the ' + VNAME[V] + '.',
+    text: T('{who} wants to know {q}. Which plan is a fair test?', { who, q: T(Q.q) }), panel: { type: 'note', text: T('Each plan runs for 30 days.') },
+    done: T(isPl(V) ? 'Only the {v} differ, so any change in the {m} comes from the {v}.' : 'Only the {v} differs, so any change in the {m} comes from the {v}.', Object.assign({ v: VNAME[V], V: the(VNAME[V]) }, mv)),
     wrongFor(i) { return plans[order[i]].why; },
-    reveal: { compare: { M: Q.M, a: endA, b: endB, labels: ['Tank A', 'Tank B'] } } };
+    reveal: { compare: { M: Q.M, a: endA, b: endB, labels: [T('Tank A'), T('Tank B')] } } };
 }
 // 8th grade: read a table of three tanks and pick the conclusion the data support.
 const DATA_PAIRS = [['P', 'O', 1], ['P', 'A', -1], ['L', 'O', 1], ['L', 'A', 1], ['S', 'A', -1], ['f', 'A', 1]];
@@ -686,16 +855,17 @@ function genData() {
     if (!(dir * (ends[1] - ends[0]) >= gap && dir * (ends[2] - ends[1]) >= gap)) continue;
     if (ends.some(e => e >= 100)) continue;
     const m = MEASURE[M], U = pick(['F', 'S', 'P', 'L', 'f'].filter(v => v !== V));
+    const vv = { v: nm(VNAME[V]), V: the(VNAME[V]), Vc: cap1(the(VNAME[V])), m: nm(m.name), M: the(m.name), u: nm(VNAME[U]), U: the(VNAME[U]), Uc: cap1(the(VNAME[U])) };
     const opts = [
-      { text: 'More ' + VNAME[V] + ' means ' + (dir > 0 ? m.more : m.less) + '.', ok: true },
-      { text: 'More ' + VNAME[V] + ' means ' + (dir > 0 ? m.less : m.more) + '.', why: 'Read the ' + m.name + ' column again as the ' + VNAME[V] + ' go up.' },
-      { text: 'The ' + VNAME[V] + (isPl(V) ? ' do not change the ' : ' does not change the ') + m.name + '.', why: 'The ' + m.name + ' changed every time the ' + VNAME[V] + ' changed.' },
-      { text: 'More ' + VNAME[U] + ' means ' + pick([m.more, m.less]) + '.', why: 'The ' + VNAME[U] + (isPl(U) ? ' were' : ' was') + ' the same in every tank. These data say nothing about ' + VNAME[U] + '.' },
+      { text: T('More {v} means {mm}.', Object.assign({ mm: T(dir > 0 ? m.more : m.less) }, vv)), ok: true },
+      { text: T('More {v} means {mm}.', Object.assign({ mm: T(dir > 0 ? m.less : m.more) }, vv)), why: T('Read the {m} column again as the {v} go up.', vv) },
+      { text: T(isPl(V) ? 'The {v} do not change the {m}.' : 'The {v} does not change the {m}.', vv), why: T('The {m} changed every time the {v} changed.', vv) },
+      { text: T('More {v} means {mm}.', { v: vv.u, mm: T(pick([m.more, m.less])) }), why: T(isPl(U) ? 'The {u} were the same in every tank. These data say nothing about {u}.' : 'The {u} was the same in every tank. These data say nothing about {u}.', vv) },
     ];
     const order = shuffle([0, 1, 2, 3]);
     return { kind: 'choice', setup: tanks[1], choices: order.map(i => opts[i].text), answer: order.indexOf(0),
-      text: 'Three tanks ran for 30 days. Only the ' + VNAME[V] + (isPl(V) ? ' were' : ' was') + ' different. Which conclusion do the data support?',
-      panel: { type: 'table', tanks, ends, M }, done: 'The ' + m.name + ' moved the same way each time the ' + VNAME[V] + ' changed, and nothing else changed.',
+      text: T(isPl(V) ? 'Three tanks ran for 30 days. Only the {v} were different. Which conclusion do the data support?' : 'Three tanks ran for 30 days. Only the {v} was different. Which conclusion do the data support?', vv),
+      panel: { type: 'table', tanks, ends, M }, done: T('The {m} moved the same way each time the {v} changed, and nothing else changed.', vv),
       wrongFor(i) { return opts[order[i]].why; },
       verify() { const e = tanks.map(t => measure(simulateCap(t, lv), M)); return dir * (e[2] - e[0]) > 0; } };
   }
@@ -709,16 +879,16 @@ function genData() {
 //   12 What is the limit (5th), 13 Air for trout (6th), 14 Invaders (6th), 15 Carrying capacity (7th),
 //   16 Energy pyramid (7th), 17 Toxin in the chain (7th), 18 Fair test (8th), 19 What the data say (8th)
 const LEVELS = [
-  { g: -1, name: 'Plants need light', gen() { return fill({ D: 2, goal: { groups: ['plant'] }, text: 'The plants look sad. Turn on the light so they stay green for 2 days!' }, { F: 2, S: 0, P: 2, f: 1 }, { L: [[0, 3], 0] }); } },
-  { g: 0, name: 'Feed the fish', gen() { const F = rnd(2, 4); return fill({ D: 2, goal: { groups: ['fish'] }, text: 'Feed the ' + F + ' fish so they stay healthy for 2 days. Each pinch feeds 2 fish.' }, { F, S: 0, P: 2, L: 2 }, { f: [[0, 5], 0] }); } },
-  { g: 1, name: 'Fish need air', gen() { const F = rnd(4, 7); return fill({ D: 3, goal: { groups: ['fish', 'plant'] }, text: 'Keep ' + F + ' fish healthy for 3 days. Fish need air!' }, { F, S: 0 }, { P: [[0, 6], 1], L: [[0, 3], 1], f: [[0, 5], half(F)] }); } },
-  { g: 2, name: 'Clean the glass', gen() { const F = rnd(3, 6); return fill({ D: 4, goal: { groups: ['fish', 'snail', 'plant'] }, text: 'This tank sits by a sunny window. Keep ' + F + ' fish healthy for 4 days with clear water!' }, { F, L: 3 }, { S: [[0, 6], 0], P: [[0, 6], 2], f: [[0, 5], half(F)] }); } },
-  { g: 2, name: 'Hungry snails', gen() { const S = rnd(3, 5); return fill({ D: 3, goal: { groups: ['snail', 'fish', 'plant'] }, text: 'Keep ' + S + ' snails, 2 fish and the plants happy for 3 days. What do snails eat?' }, { S, F: 2 }, { L: [[0, 3], 0], P: [[0, 6], 2], f: [[0, 5], 1] }); } },
-  { g: 3, name: 'Room to swim', gen() { const F = rnd(7, 10); return fill({ D: 3, goal: { groups: ['fish', 'snail', 'plant'] }, text: 'Keep ' + F + ' fish healthy for 3 days. Give them room to hide!' }, { F, S: 1 }, { P: [[0, 6], 1], L: [[0, 3], 2], f: [[0, 5], half(F)] }); } },
-  { g: 3, name: 'Baby fish', gen() { const T = rnd(5, 7); return fill({ D: 4, breed: true, goal: { groups: ['fish', 'snail', 'plant'], grow: T }, text: 'Grow from 2 fish to ' + T + ' fish in 4 days. Happy fish have babies!' }, { F: 2, S: 1 }, { P: [[0, 6], 0], L: [[0, 3], 2], f: [[0, 5], 1] }); } },
-  { g: 3, name: 'Food chain', gen() { return fill({ D: 4, B: 1, breed: true, goal: { groups: ['fish', 'big', 'snail', 'plant'], minEnd: 2 }, text: 'Food chain! The big fish eats 1 small fish a day. Keep it fed for 4 days, with 2 small fish left at the end.' }, { S: 1 }, { F: [[1, 8], 1], P: [[0, 6], 2], L: [[0, 3], 2], f: [[0, 5], 1] }); } },
-  { g: 4, name: 'Balanced tank', gen() { const F = rnd(5, 7), S = rnd(2, 3); return fill({ D: 5, goal: { groups: ['fish', 'snail', 'plant'] }, text: 'Balance the whole tank! Keep ' + F + ' fish, ' + S + ' snails and the plants healthy for 5 days.' }, { F, S }, { P: [[0, 6], 1], L: [[0, 3], 0], f: [[0, 5], 0] }); } },
-  { g: 4, name: 'Big food chain', gen() { return fill({ D: 5, B: 2, breed: true, goal: { groups: ['fish', 'big', 'snail', 'plant'], minEnd: 3 }, text: '2 big fish eat 2 small fish a day. Keep everyone healthy for 5 days, with 3 small fish left at the end.' }, { S: 2 }, { F: [[1, 10], 2], P: [[0, 6], 1], L: [[0, 3], 1], f: [[0, 5], 1] }); } },
+  { g: -1, name: 'Plants need light', gen() { return fill({ D: 2, goal: { groups: ['plant'] }, text: T('The plants look sad. Turn on the light so they stay green for 2 days!') }, { F: 2, S: 0, P: 2, f: 1 }, { L: [[0, 3], 0] }); } },
+  { g: 0, name: 'Feed the fish', gen() { const F = rnd(2, 4); return fill({ D: 2, goal: { groups: ['fish'] }, text: T('Feed the {n} fish so they stay healthy for 2 days. Each pinch feeds 2 fish.', { n: F }) }, { F, S: 0, P: 2, L: 2 }, { f: [[0, 5], 0] }); } },
+  { g: 1, name: 'Fish need air', gen() { const F = rnd(4, 7); return fill({ D: 3, goal: { groups: ['fish', 'plant'] }, text: T('Keep {n} fish healthy for 3 days. Fish need air!', { n: F }) }, { F, S: 0 }, { P: [[0, 6], 1], L: [[0, 3], 1], f: [[0, 5], half(F)] }); } },
+  { g: 2, name: 'Clean the glass', gen() { const F = rnd(3, 6); return fill({ D: 4, goal: { groups: ['fish', 'snail', 'plant'] }, text: T('This tank sits by a sunny window. Keep {n} fish healthy for 4 days with clear water!', { n: F }) }, { F, L: 3 }, { S: [[0, 6], 0], P: [[0, 6], 2], f: [[0, 5], half(F)] }); } },
+  { g: 2, name: 'Hungry snails', gen() { const S = rnd(3, 5); return fill({ D: 3, goal: { groups: ['snail', 'fish', 'plant'] }, text: T('Keep {n} snails, 2 fish and the plants happy for 3 days. What do snails eat?', { n: S }) }, { S, F: 2 }, { L: [[0, 3], 0], P: [[0, 6], 2], f: [[0, 5], 1] }); } },
+  { g: 3, name: 'Room to swim', gen() { const F = rnd(7, 10); return fill({ D: 3, goal: { groups: ['fish', 'snail', 'plant'] }, text: T('Keep {n} fish healthy for 3 days. Give them room to hide!', { n: F }) }, { F, S: 1 }, { P: [[0, 6], 1], L: [[0, 3], 2], f: [[0, 5], half(F)] }); } },
+  { g: 3, name: 'Baby fish', gen() { const G = rnd(5, 7); return fill({ D: 4, breed: true, goal: { groups: ['fish', 'snail', 'plant'], grow: G }, text: T('Grow from 2 fish to {n} fish in 4 days. Happy fish have babies!', { n: G }) }, { F: 2, S: 1 }, { P: [[0, 6], 0], L: [[0, 3], 2], f: [[0, 5], 1] }); } },
+  { g: 3, name: 'Food chain', gen() { return fill({ D: 4, B: 1, breed: true, goal: { groups: ['fish', 'big', 'snail', 'plant'], minEnd: 2 }, text: T('Food chain! The big fish eats 1 small fish a day. Keep it fed for 4 days, with 2 small fish left at the end.') }, { S: 1 }, { F: [[1, 8], 1], P: [[0, 6], 2], L: [[0, 3], 2], f: [[0, 5], 1] }); } },
+  { g: 4, name: 'Balanced tank', gen() { const F = rnd(5, 7), S = rnd(2, 3); return fill({ D: 5, goal: { groups: ['fish', 'snail', 'plant'] }, text: T('Balance the whole tank! Keep {F} fish, {S} snails and the plants healthy for 5 days.', { F, S }) }, { F, S }, { P: [[0, 6], 1], L: [[0, 3], 0], f: [[0, 5], 0] }); } },
+  { g: 4, name: 'Big food chain', gen() { return fill({ D: 5, B: 2, breed: true, goal: { groups: ['fish', 'big', 'snail', 'plant'], minEnd: 3 }, text: T('2 big fish eat 2 small fish a day. Keep everyone healthy for 5 days, with 3 small fish left at the end.') }, { S: 2 }, { F: [[1, 10], 2], P: [[0, 6], 1], L: [[0, 3], 1], f: [[0, 5], 1] }); } },
   { g: 4, name: 'Food web', gen: genFoodWeb },
   { g: 5, name: 'Read the graph', gen: genGraph },
   { g: 5, name: 'What is the limit?', gen: genLimit },
@@ -789,7 +959,7 @@ function record(right) {
 // ---------------------------------------------------------------------------
 // Sound and speech
 // ---------------------------------------------------------------------------
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.92; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.92; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
 let AC = null;
 function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
 function tone(f, d = 0.15, type = 'sine', vol = 0.16, when = 0, slide = 0) {
@@ -1028,26 +1198,26 @@ function tickTank(dt, t) {
 const CTL = { F: ['🐟', 'Fish'], S: ['🐌', 'Snails'], P: ['🌿', 'Plants'], L: ['💡', 'Light'], f: ['🍤', 'Food a day'], W: ['🦐', 'Shrimp'], I: ['🦀', 'Invaders'], B: ['🦈', 'Big fish'] };
 let task = null, step = null, setup = null, missed = false, won = false, running = false, speed = 1, runTimer = null, animTimer = null;
 let lastRes = null, shownDay = 0, typed = '';
-function ctlOf(v) { if (v === 'I' && step && step.inv) { const i = INVADERS[step.inv]; return [i.icon, capWord(i.short)]; } return CTL[v]; }
+function ctlOf(v) { if (v === 'I' && step && step.inv) { const i = INVADERS[step.inv]; return [i.icon, capWord(T(i.short))]; } return [CTL[v][0], T(CTL[v][1])]; }
 function renderControls() {
   // Settings the child can change sit in the bottom bar. Settings fixed by the level show as chips by the gauges.
   const box = $('controls'), lk = $('locked'), locked = running || (step && step.observe); box.innerHTML = ''; lk.innerHTML = ''; box.classList.remove('off');
   for (const v of VARS) {
-    const val = v === 'L' ? LIGHTS[setup.L] : setup[v], [icon, name] = ctlOf(v);
+    const val = v === 'L' ? T(LIGHTS[setup.L]) : setup[v], [icon, name] = ctlOf(v);
     if (v in step.lock) {
       if (!step.lock[v] && v !== 'L') continue;
       const c = document.createElement('div'); c.className = 'g lockchip'; c.dataset.v = v; c.textContent = '🔒 ' + icon + ' ' + name + ': ' + val; lk.appendChild(c); continue;
     }
     const c = document.createElement('div'); c.className = 'ctl' + (v === 'L' ? ' light' : ''); c.dataset.v = v;
-    c.innerHTML = '<div class="lab">' + icon + ' ' + name + '</div><div class="row"><button data-d="-1" title="Less">−</button><span class="val">' + val + '</span><button data-d="1" title="More">+</button></div>';
+    c.innerHTML = '<div class="lab">' + icon + ' ' + name + '</div><div class="row"><button data-d="-1" title="' + T('Less') + '">−</button><span class="val">' + val + '</span><button data-d="1" title="' + T('More') + '">+</button></div>';
     box.appendChild(c);
     c.querySelectorAll('button').forEach(b => {
       const [lo, hi] = step.range[v], d = +b.dataset.d; b.disabled = locked || (d < 0 ? setup[v] <= lo : setup[v] >= hi);
       b.onclick = () => change(v, d);
     });
   }
-  const r = document.createElement('button'); r.id = 'run'; r.textContent = '▶ Run ' + step.D + ' days'; r.disabled = locked; r.onclick = run; box.appendChild(r);
-  $('room').textContent = '🏠 Room for ' + roomOf(setup.P) + ' fish';
+  const r = document.createElement('button'); r.id = 'run'; r.textContent = T('▶ Run {n} days', { n: step.D }); r.disabled = locked; r.onclick = run; box.appendChild(r);
+  $('room').textContent = '🏠 ' + T('Room for {n} fish', { n: roomOf(setup.P) });
 }
 function change(v, d) {
   if (running || won || step.observe) return; const [lo, hi] = step.range[v]; const x = clamp(setup[v] + d, lo, hi); if (x === setup[v]) return;
@@ -1065,7 +1235,7 @@ function gauges(d) {
 function renderNumpad() {
   const box = $('controls'); box.innerHTML = ''; box.classList.remove('off'); $('locked').innerHTML = ''; typed = '';
   const d = document.createElement('div'); d.className = 'npv'; d.id = 'npv'; box.appendChild(d);
-  for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '⌫', 'OK']) { const b = document.createElement('button'); b.className = 'key' + (k === 'OK' ? ' ok' : ''); b.textContent = k; b.onclick = () => key(k); box.appendChild(b); }
+  for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '⌫', 'OK']) { const b = document.createElement('button'); b.className = 'key' + (k === 'OK' ? ' ok' : ''); b.textContent = k === 'OK' ? T('OK') : k; b.onclick = () => key(k); box.appendChild(b); }
 }
 function key(k) {
   if (won || !step || step.kind !== 'number') return; ac(); SND.tick();
@@ -1110,23 +1280,28 @@ function drawLines(g, w, h, o) {
   g.textAlign = 'center'; g.textBaseline = 'top'; g.fillStyle = '#2B2140';
   const xs = xmax <= 12 ? 1 : 5;
   for (let d = 1; d <= xmax; d++) if (d === 1 || d % xs === 0) g.fillText(String(d), X(d), padT + H + 4);
-  g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText('days', padL + W, small ? 7 : 10);
+  const unit = T('days'), unitW = g.measureText(unit).width;
   if (o.now && o.now < xmax) {
     g.fillStyle = 'rgba(255,201,60,.22)'; g.fillRect(X(o.now), padT, X(xmax) - X(o.now), H);
     g.setLineDash([6, 4]); g.strokeStyle = '#2B2140'; g.lineWidth = 2; g.beginPath(); g.moveTo(X(o.now), padT); g.lineTo(X(o.now), padT + H); g.stroke(); g.setLineDash([]);
-    g.fillStyle = '#2B2140'; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText('next?', X(o.now) + 6, padT + 2);
+    g.fillStyle = '#2B2140'; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(T('next?'), X(o.now) + 6, padT + 2);
   }
   if (o.hline) {
     g.setLineDash([8, 6]); g.strokeStyle = '#FF4F8B'; g.lineWidth = 3; g.beginPath(); g.moveTo(padL, Y(o.hline.y)); g.lineTo(padL + W, Y(o.hline.y)); g.stroke(); g.setLineDash([]);
-    g.fillStyle = '#FF4F8B'; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText(o.hline.label + ' ' + o.hline.y, padL + W - 2, Y(o.hline.y) - 2);
+    g.fillStyle = '#FF4F8B'; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText(T(o.hline.label) + ' ' + o.hline.y, padL + W - 2, Y(o.hline.y) - 2);
   }
+  let lx = padL + 6;
   o.series.forEach((k, i) => {
-    const [name, col] = k === 'I' && step && step.inv ? [capWord(INVADERS[step.inv].short), META.I[1]] : META[k];
+    const [name, col] = k === 'I' && step && step.inv ? [capWord(T(INVADERS[step.inv].short)), META.I[1]] : [T(META[k][0]), META[k][1]];
     g.strokeStyle = col; g.fillStyle = col; g.lineWidth = small ? 3 : 4; g.lineJoin = 'round'; g.beginPath();
     o.days.forEach((d, j) => { const x = X(d.day), y = Y(d[k]); j ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
     o.days.forEach(d => { g.beginPath(); g.arc(X(d.day), Y(d[k]), small ? 3 : 4, 0, 7); g.fill(); });
-    g.textAlign = 'left'; g.textBaseline = 'middle'; const lx = padL + 6 + i * (small ? 90 : 120); g.fillRect(lx, small ? 5 : 8, 16, 5); g.fillStyle = '#2B2140'; g.fillText(name, lx + 20, small ? 7 : 10);
+    g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillRect(lx, small ? 5 : 8, 16, 5); g.fillStyle = '#2B2140'; g.fillText(name, lx + 20, small ? 7 : 10);
+    lx += 20 + g.measureText(name).width + (small ? 14 : 24);
   });
+  // The axis unit sits at the right of the legend row when the legend leaves room for it.
+  g.font = '700 ' + (small ? 11 : 13) + 'px ' + FONT; g.fillStyle = '#2B2140'; g.textAlign = 'right'; g.textBaseline = 'middle';
+  if (lx + unitW <= padL + W) g.fillText(unit, padL + W, small ? 7 : 10);
 }
 const DRAW = {
   lines(g, w, h, spec) { drawLines(g, w, h, spec); },
@@ -1138,16 +1313,18 @@ const DRAW = {
       const yb = h - pad - i * lh, yt = yb - lh + 4, wb = maxW * (1 - i / (n + 0.6)), wt = maxW * (1 - (i + 1) / (n + 0.6));
       g.fillStyle = cols[i % 4]; g.strokeStyle = '#2B2140'; g.beginPath(); g.moveTo(cx - wb / 2, yb); g.lineTo(cx + wb / 2, yb); g.lineTo(cx + wt / 2, yt); g.lineTo(cx - wt / 2, yt); g.closePath(); g.fill(); g.stroke();
       g.fillStyle = '#2B2140'; g.font = '800 ' + (lh > 56 ? 20 : 17) + 'px ' + FONT; const kg = spec.kg[i];
-      g.fillText(capWord(spec.chain[i]) + ': ' + (kg === '?' ? '?' : kg + ' kg'), cx, (yb + yt) / 2);
-      if (i < n - 1) { g.font = '800 15px ' + FONT; g.textAlign = 'left'; g.fillText('10% up', cx + wt / 2 + 10, yt + 2); g.textAlign = 'center'; }
+      g.fillText(kg === '?' ? T('{name}: ?', { name: capWord(nm(spec.chain[i])) }) : T('{name}: {kg} kg', { name: capWord(nm(spec.chain[i])), kg }), cx, (yb + yt) / 2);
+      if (i < n - 1) { g.font = '800 15px ' + FONT; g.textAlign = 'left'; g.fillText(T('10% up'), cx + wt / 2 + 10, yt + 2); g.textAlign = 'center'; }
     }
   },
   toxin(g, w, h, spec) {
-    const n = spec.chain.length, rows = n + 1, pad = 6, rh = (h - 2 * pad) / rows, labW = 118, barW = w - labW - 90, vals = toxinLevels(spec.x, n, spec.day, spec.D);
-    const top = Math.log10(spec.x * Math.pow(10, n - 1)) + 1;
+    const n = spec.chain.length, rows = n + 1, pad = 6, rh = (h - 2 * pad) / rows, vals = toxinLevels(spec.x, n, spec.day, spec.D);
+    const names = [T('Water'), ...spec.chain.map(c => capWord(nm(c)))];
     g.textBaseline = 'middle'; g.font = '800 16px ' + FONT;
+    const labW = Math.max(118, ...names.map(t => g.measureText(t).width + 16)), barW = w - labW - 90;
+    const top = Math.log10(spec.x * Math.pow(10, n - 1)) + 1;
     for (let i = 0; i < rows; i++) {
-      const y = h - pad - (i + 0.5) * rh, name = i === 0 ? 'Water' : capWord(spec.chain[i - 1]), v = i === 0 ? spec.x : vals[i - 1];
+      const y = h - pad - (i + 0.5) * rh, name = names[i], v = i === 0 ? spec.x : vals[i - 1];
       const hidden = !!spec.hide && i >= 2;
       g.fillStyle = '#2B2140'; g.textAlign = 'right'; g.fillText(name, labW - 8, y);
       const frac = v > 0 ? (Math.log10(v) + 1) / top : 0, bw = hidden ? 0 : Math.max(0, Math.min(barW, barW * frac));
@@ -1155,11 +1332,11 @@ const DRAW = {
       g.fillStyle = i === 0 ? '#58C7F0' : ['#5CD38B', '#FFC93C', '#FF8A3D', '#FF4F8B'][(i - 1) % 4]; if (bw > 0) g.fillRect(labW, y - rh * 0.3, bw, rh * 0.6);
       g.fillStyle = '#2B2140'; g.textAlign = 'left'; g.fillText(hidden ? '?' : String(v), labW + barW + 8, y);
     }
-    g.font = '700 14px ' + FONT; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillStyle = '#2B2140'; g.fillText('Day ' + spec.day + ' of ' + spec.D, labW, 2);
+    g.font = '700 14px ' + FONT; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillStyle = '#2B2140'; g.fillText(T('Day {d} of {D}', { d: spec.day, D: spec.D }), labW, 2);
   },
   compare(g, w, h, spec) {
     const d = spec.data, m = MEASURE[d.M].name, mx = Math.max(10, d.a, d.b) * 1.2, bw = Math.min(140, w / 4), base = h - 30, top = 40;
-    g.font = '800 18px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillStyle = '#2B2140'; g.fillText('After 30 days: average ' + m, w / 2, 6);
+    g.font = '800 18px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillStyle = '#2B2140'; g.fillText(T('After 30 days: average {m}', { m: nm(m) }), w / 2, 6);
     [[d.labels[0], d.a, '#58C7F0'], [d.labels[1], d.b, '#FF4F8B']].forEach(([lab, v, col], i) => {
       const x = w / 2 + (i ? 30 : -30 - bw), bh = (base - top) * v / mx; g.fillStyle = col; g.fillRect(x, base - bh, bw, bh); g.strokeStyle = '#2B2140'; g.lineWidth = 3; g.strokeRect(x, base - bh, bw, bh);
       g.fillStyle = '#2B2140'; g.textBaseline = 'bottom'; g.fillText(String(v), x + bw / 2, base - bh - 4); g.textBaseline = 'top'; g.fillText(lab, x + bw / 2, base + 6);
@@ -1170,21 +1347,21 @@ function capsOf(s) { return { food: 2 * s.f, space: roomOf(s.P), air: Math.max(0
 const HTMLFIG = {
   caps(el) {
     const c = capsOf(setup), now = lastRes && shownDay ? lastRes.days[shownDay - 1].Fend : setup.F;
-    const rows = [['🍤 Food feeds', c.food, '#FFC93C'], ['🏠 Room for', c.space, '#58C7F0'], ['🫧 Air for', c.air, '#9B6BFF']];
-    el.innerHTML = '<div class="caps">' + rows.map(([n, v, col]) => '<div class="cap"><span>' + n + ' ' + v + ' fish</span><div class="bar"><i style="width:' + Math.min(100, v / 16 * 100) + '%;background:' + col + '"></i></div></div>').join('') + '<div class="cap now">🐟 Fish now: ' + now + '</div></div>';
+    const rows = [['🍤 Food feeds {n} fish', c.food, '#FFC93C'], ['🏠 Room for {n} fish', c.space, '#58C7F0'], ['🫧 Air for {n} fish', c.air, '#9B6BFF']];
+    el.innerHTML = '<div class="caps">' + rows.map(([n, v, col]) => '<div class="cap"><span>' + T(n, { n: v }) + '</span><div class="bar"><i style="width:' + Math.min(100, v / 16 * 100) + '%;background:' + col + '"></i></div></div>').join('') + '<div class="cap now">' + T('🐟 Fish now: {n}', { n: now }) + '</div></div>';
   },
   room(el, spec) {
     let s = '<span>🐟🐟🐟</span>'; for (let k = 0; k < spec.P; k++) s += '<span>🌿 → 🐟🐟</span>';
     el.innerHTML = '<div class="roomfig">' + s + '</div>';
   },
   table(el, spec) {
-    const head = ['Tank', 'Plants', 'Light', 'Fish', 'Snails', 'Food', 'Air (avg)', 'Algae (avg)'];
+    const head = ['Tank', 'Plants', 'Light', 'Fish', 'Snails', 'Food', 'Air (avg)', 'Algae (avg)'].map(h => T(h));
     const lvS = { D: 30, model: 'cap', still: true };
-    const rows = spec.tanks.map((t, i) => [String.fromCharCode(65 + i), t.P, LIGHTS[t.L], t.F, t.S, t.f, measure(simulateCap(t, lvS), 'O'), measure(simulateCap(t, lvS), 'A')]);
+    const rows = spec.tanks.map((t, i) => [String.fromCharCode(65 + i), t.P, T(LIGHTS[t.L]), t.F, t.S, t.f, measure(simulateCap(t, lvS), 'O'), measure(simulateCap(t, lvS), 'A')]);
     el.innerHTML = '<table><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr>' + rows.map(r => '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') + '</table>';
   },
   note(el, spec) { el.innerHTML = '<div class="note">' + spec.text + '</div>'; },
-  chain(el, spec) { el.innerHTML = '<div class="chain"><span class="water">💧 Water: toxin ' + spec.x + '</span>' + spec.chain.map((c, i) => (i ? '<b>→ eaten by →</b>' : '') + '<span>' + capWord(c) + '</span>').join('') + '</div>'; },
+  chain(el, spec) { el.innerHTML = '<div class="chain"><span class="water">' + T('💧 Water: toxin {x}', { x: spec.x }) + '</span>' + spec.chain.map((c, i) => (i ? '<b>' + T('→ eaten by →') + '</b>' : '') + '<span>' + capWord(nm(c)) + '</span>').join('') + '</div>'; },
 };
 function renderChoices(t) {
   const p = $('panel'); if (!p.classList.contains('on')) p.className = 'on fitc';
@@ -1202,11 +1379,13 @@ function reveal() {
 // Rounds
 // ---------------------------------------------------------------------------
 const WHO = { fish: 'fish', snail: 'snails', plant: 'plants', big: 'big fish', shrimp: 'shrimp' };
+// The group's name in a day line or a card: plural in both languages ("big fish" is "peces grandes" here, not the chain's "pez grande").
+const who = g => g === 'big' ? T('Big fish').toLowerCase() : T(WHO[g]);
 function explain(r) {
   const k = r.who + ':' + r.why, g = step.goal || {};
-  if (k === 'fish:air' && g.airLine) return 'The air fell under the line. Each plant makes 5 air for every step of light. Add a plant.';
-  if (r.why === 'grow' && step.model === 'cap') return 'The fish stopped short. Raise the resource that caps them. Each pinch feeds 2 fish, each plant adds room for 2, and plants in the light make air.';
-  const T = {
+  if (k === 'fish:air' && g.airLine) return T('The air fell under the line. Each plant makes 5 air for every step of light. Add a plant.');
+  if (r.why === 'grow' && step.model === 'cap') return T('The fish stopped short. Raise the resource that caps them. Each pinch feeds 2 fish, each plant adds room for 2, and plants in the light make air.');
+  const WHY = {
     'fish:air': 'The fish ran out of air. Plants make air when the light is on.',
     'big:air': 'The big fish ran out of air. Big fish need lots of air, so add plants and light.',
     'snail:air': 'The snails ran out of air. Plants make air when the light is on.',
@@ -1223,15 +1402,17 @@ function explain(r) {
     'fish:grow': 'Not enough baby fish yet. Happy fish have babies when there is room and food for everyone.',
     'fish:chainEnd': 'The small fish ran out. Start with more small fish, and give the babies room and food.',
   };
-  let t = T[k] || 'Something went wrong in the tank.';
-  if (step.inv && setup.I > 0 && r.who !== 'big' && r.why !== 'extra') t += ' ' + INVADERS[step.inv].note;
+  let t = T(WHY[k] || 'Something went wrong in the tank.');
+  if (step.inv && setup.I > 0 && r.who !== 'big' && r.why !== 'extra') t += ' ' + T(INVADERS[step.inv].note);
   return t;
 }
 function newRound(speak = true) {
   clearTimeout(runTimer); runTimer = null; clearTimeout(animTimer); animTimer = null; hideCard();
   missed = false; won = false; running = false;
   task = genLevel(P.lv);
-  $('badge').textContent = 'Level ' + (P.lv + 1) + ': ' + LEVELS[P.lv].name; $('stars').textContent = '⭐ ' + P.stars;
+  const badge = $('badge'); badge.textContent = T('Level {n}: {name}', { n: P.lv + 1, name: T(LEVELS[P.lv].name) }); $('stars').textContent = '⭐ ' + P.stars;
+  // A long level name shrinks to fit the badge instead of being cut off.
+  badge.style.fontSize = ''; for (const px of [15, 13]) { if (badge.scrollWidth <= badge.clientWidth) break; badge.style.fontSize = px + 'px'; }
   startStep(task, speak);
 }
 function startStep(t, speak = true) {
@@ -1239,8 +1420,11 @@ function startStep(t, speak = true) {
   step = t; running = false; shownDay = 0; lastRes = null;
   setup = Object.assign({}, EMPTY, t.kind === 'tank' ? t.start : (t.setup || {}));
   syncCreatures(EMPTY); syncCreatures(setup); resetView();
-  const ask = $('ask'); ask.textContent = t.text; ask.className = t.text.length > 200 ? 'xl' : t.text.length > 110 ? 'l' : '';
-  $('dayBox').classList.remove('on'); $('log').innerHTML = ''; $('room').textContent = '🏠 Room for ' + roomOf(setup.P) + ' fish';
+  const ask = $('ask'); ask.textContent = t.text; ask.className = t.text.length > 200 ? 'xl' : t.text.length > 110 ? 'l' : ''; ask.style.fontSize = '';
+  // A longer prompt (Spanish runs long) steps down a size until it fits in two lines, so it never covers the gauges.
+  const lines = el => { const cs = getComputedStyle(el); return Math.round((el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) / parseFloat(cs.lineHeight)); };
+  for (const px of [20, 18, 16, 15, 14]) { if (lines(ask) <= 2) break; ask.style.fontSize = px + 'px'; }
+  $('dayBox').classList.remove('on'); $('log').innerHTML = ''; $('room').textContent = '🏠 ' + T('Room for {n} fish', { n: roomOf(setup.P) });
   const foot = $('controls'); $('gauges').classList.toggle('off', t.kind !== 'tank');
   if (t.kind === 'tank') { renderControls(); showPanel(t.panel ? t.panel : t.chart ? { type: 'chart' } : null, true); }
   else if (t.kind === 'choice') { foot.innerHTML = ''; foot.classList.add('off'); $('locked').innerHTML = ''; showPanel(t.panel, false); renderChoices(t); }
@@ -1253,21 +1437,21 @@ function logLine(t) { const d = document.createElement('div'); d.textContent = t
 function run() {
   if (running || won) return; ac(); running = true; renderControls(); $('log').innerHTML = '';
   const res = judge(setup, step), stop = res.ok ? step.D : res.day; lastRes = res; shownDay = 0; let d = 0;
-  const T = (step.D > 6 ? Math.max(380, 13000 / step.D) : 2200) * speed, from = (step.goal && step.goal.after) || 1;
+  const MS = (step.D > 6 ? Math.max(380, 13000 / step.D) : 2200) * speed, from = (step.goal && step.goal.after) || 1;
   const tick = () => {
     if (d >= stop) { finish(res); return; }
     const day = res.days[d]; d++; shownDay = d;
-    $('dayBox').textContent = '☀️ Day ' + d + ' of ' + step.D; $('dayBox').classList.add('on'); SND.day(); dropFood(T < 900 ? Math.min(setup.f, 1) : setup.f);
+    $('dayBox').textContent = T('☀️ Day {d} of {D}', { d, D: step.D }); $('dayBox').classList.add('on'); SND.day(); dropFood(MS < 900 ? Math.min(setup.f, 1) : setup.f);
     view.night = 0; view.algae = day.A; gauges(day);
     syncCreatures({ F: day.Fend, S: setup.S, P: setup.P, W: setup.W, B: day.Bend, I: day.Iend });
     const bad = (step.goal.groups || []).filter(g => day.why[g]);
     view.sick = { fish: false, snail: false, plant: false, big: false, shrimp: false }; bad.forEach(g => { view.sick[g] = true; }); if (bad.length && d >= from) SND.sad();
-    let line = 'Day ' + d + ': ' + (bad.length ? '😟 ' + bad.map(g => WHO[g]).join(', ') + ' not well' : '😊 all well');
+    let line = T('Day {d}: ', { d }) + (bad.length ? T('😟 {who} not well', { who: bad.map(who).join(', ') }) : T('😊 all well'));
     if (step.model === 'cap') line += ', 🐟 ' + day.Fend;
-    if (day.eatenI) line += ', 🦈 ate ' + day.eatenI + ' ' + INVADERS[step.inv].short; if (day.eaten) line += ', 🦈 ate ' + day.eaten; if (day.born) line += ', 🐣 ' + day.born + ' born';
+    if (day.eatenI) line += T(', 🦈 ate {n} {inv}', { n: day.eatenI, inv: T(INVADERS[step.inv].short) }); if (day.eaten) line += T(', 🦈 ate {n}', { n: day.eaten }); if (day.born) line += T(', 🐣 {n} born', { n: day.born });
     logLine(line); drawPanel();
-    setTimeout(() => { view.night = 1; }, T * 0.7);
-    runTimer = setTimeout(tick, T);
+    setTimeout(() => { view.night = 1; }, MS * 0.7);
+    runTimer = setTimeout(tick, MS);
   };
   tick();
 }
@@ -1277,18 +1461,18 @@ function finish(res) {
   const why = explain(res);
   if (step.observe) {
     step.observe = false; SND.sad();
-    showCard('Day ' + res.day + ': ' + WHO[res.who] + ' dropped', why + (step.predictedRight ? ' You called it.' : '') + ' Now fix the tank.', { bad: true, again: retry });
-    say(WHO[res.who] + ' dropped. ' + why + ' Now fix the tank.'); renderControls(); return;
+    showCard(T('Day {d}: {who} dropped', { d: res.day, who: who(res.who) }), why + (step.predictedRight ? T(' You called it.') : '') + T(' Now fix the tank.'), { bad: true, again: retry });
+    say(T('{who} dropped. {why} Now fix the tank.', { who: cap1(who(res.who)), why })); renderControls(); return;
   }
   if (!missed) { missed = true; record(false); }
-  SND.miss(); showCard('Uh oh! Day ' + res.day, why, { bad: true, again: retry }); say('Uh oh. ' + why); renderControls();
+  SND.miss(); showCard(T('Uh oh! Day {d}', { d: res.day }), why, { bad: true, again: retry }); say(T('Uh oh. {why}', { why })); renderControls();
 }
 function win() {
   won = true; const right = !missed; let ch = 0; if (right) ch = record(true);
   P.stars++; persist(); $('stars').textContent = '⭐ ' + P.stars; SND.win(); confetti();
-  const msg = pick(step.kind === 'tank' ? ['Your tank is thriving!', 'Happy tank!', 'Great balance!'] : ['You got it!', 'Nice thinking!', 'That is right!']);
-  const sub = step.kind !== 'tank' ? (step.done || '') : step.goal.grow ? 'The fish reached ' + step.goal.grow + ' and everyone stayed well.' : 'Everyone stayed healthy for ' + step.D + ' days.';
-  showCard(msg + ' ⭐', sub + (ch > 0 ? ' Level up!' : ''), { next: () => newRound() }); say(msg);
+  const msg = T(pick(step.kind === 'tank' ? ['Your tank is thriving!', 'Happy tank!', 'Great balance!'] : ['You got it!', 'Nice thinking!', 'That is right!']));
+  const sub = step.kind !== 'tank' ? (step.done || '') : step.goal.grow ? T('The fish reached {n} and everyone stayed well.', { n: step.goal.grow }) : T('Everyone stayed healthy for {n} days.', { n: step.D });
+  showCard(msg + ' ⭐', sub + (ch > 0 ? T(' Level up!') : ''), { next: () => newRound() }); say(msg);
   reveal();
   runTimer = setTimeout(() => newRound(), step.reveal ? 9000 : 5200);
 }
@@ -1296,7 +1480,7 @@ function win() {
 function stepDone() {
   if (!step.then) { win(); return; }
   const nxt = step.then; nxt.predictedRight = !missed; SND.day();
-  showCard(pick(['Yes.', 'Right.', 'Good thinking.']), step.done || '', { next: () => startStep(nxt) }); say(step.done || 'Yes.');
+  showCard(T(pick(['Yes.', 'Right.', 'Good thinking.'])), step.done || '', { next: () => startStep(nxt) }); say(step.done || T('Yes.'));
   runTimer = setTimeout(() => startStep(nxt), 7000);
 }
 // A tap on an answer button or OK on the number pad.
@@ -1305,14 +1489,14 @@ function answer(i) {
   if (step.kind === 'choice') {
     const btns = [...document.querySelectorAll('#panel .choice')];
     if (i === step.answer) { btns.forEach((b, k) => { b.disabled = true; if (k === i) b.classList.add('yes'); }); stepDone(); }
-    else { if (btns[i]) { btns[i].disabled = true; btns[i].classList.add('no'); } miss(step.wrongFor ? step.wrongFor(i) : step.wrong || 'Look again.'); }
+    else { if (btns[i]) { btns[i].disabled = true; btns[i].classList.add('no'); } miss(step.wrongFor ? step.wrongFor(i) : step.wrong || T('Look again.')); }
   } else {
-    if (i === step.answer) { stepDone(); } else { typed = ''; const v = $('npv'); if (v) v.textContent = ''; miss(step.wrong || 'Try again.'); }
+    if (i === step.answer) { stepDone(); } else { typed = ''; const v = $('npv'); if (v) v.textContent = ''; miss(step.wrong || T('Try again.')); }
   }
 }
 function miss(why) {
   if (!missed) { missed = true; record(false); }
-  SND.miss(); showCard('Not quite', why, { bad: true, again: retry, againLabel: 'Try again' }); say('Not quite. ' + why);
+  SND.miss(); showCard(T('Not quite'), why, { bad: true, again: retry, againLabel: T('Try again') }); say(T('Not quite. {why}', { why }));
 }
 function retry() {
   hideCard(); if (step.kind !== 'tank') return;
@@ -1320,7 +1504,7 @@ function retry() {
 }
 function showCard(t, sub, o = {}) {
   const c = $('card'); c.className = 'on' + (o.bad ? ' bad' : o.next ? ' win' : '');
-  c.innerHTML = '<div class="c">' + t + (sub ? '<small>' + sub + '</small>' : '') + (o.next ? '<button class="pill" id="nextBtn">Next ▶</button>' : '') + (o.again ? '<button class="pill" id="againBtn">' + (o.againLabel || '🔧 Fix the tank') + '</button>' : '') + '</div>';
+  c.innerHTML = '<div class="c">' + t + (sub ? '<small>' + sub + '</small>' : '') + (o.next ? '<button class="pill" id="nextBtn">' + T('Next ▶') + '</button>' : '') + (o.again ? '<button class="pill" id="againBtn">' + (o.againLabel || T('🔧 Fix the tank')) + '</button>' : '') + '</div>';
   if (o.next) $('nextBtn').onclick = () => { clearTimeout(runTimer); runTimer = null; o.next(); };
   if (o.again) $('againBtn').onclick = o.again;
 }
@@ -1360,7 +1544,7 @@ window.addEventListener('pointerdown', () => ac(), { once: true });
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START,
-  label: () => LEVELS[P.lv].name,
+  label: () => T(LEVELS[P.lv].name),
   exercise: (i, n) => { const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); t.level = i; validate(t); out.push(describe(t)); } return out; },
 };
 window.ECOSYSTEM_AQUARIUM = {
@@ -1370,6 +1554,13 @@ window.ECOSYSTEM_AQUARIUM = {
   set fast(on) { speed = on ? 0.01 : 1; },
   get state() { return { level: P.lv, streak: P.st.streak, miss: P.st.miss, stars: P.stars, task, step, setup: Object.assign({}, setup), missed, won, running, fish: fishes.length, view }; },
 };
+if (LANG === 'es') {
+  document.documentElement.lang = 'es';
+  document.title = T('Ecosystem Aquarium');
+  document.querySelector('header h1').textContent = '🐠 ' + T('Ecosystem Aquarium');
+  $('skip').title = T('New tank'); $('hear').title = T('Hear it again');
+  document.querySelectorAll('[data-t]').forEach(el => { el.textContent = T(el.textContent); });
+}
 fit(); newRound(false); requestAnimationFrame(frame);
 setTimeout(() => say(step.text), 600);
 </script>

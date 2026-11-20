@@ -1,7 +1,7 @@
 {
   "id": "ecosystem-aquarium",
   "name": "Ecosystem Aquarium",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Set fish, snails, plants, light and food, then run the days and watch oxygen, algae and the food chain. Higher levels add food webs, population graphs, invaders, energy pyramids and fair tests.",
   "subjects": [
     "science"
@@ -21,5 +21,21 @@
       "Reading a chart",
       "Adjusting a plan from evidence"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Acuario ecosistema",
+      "description": "Ajusta los peces, los caracoles, las plantas, la luz y la comida, deja pasar los días y observa el oxígeno, las algas y la cadena alimentaria. Los niveles más altos agregan redes alimentarias, gráficas de población, invasores, pirámides de energía y pruebas justas.",
+      "about": {
+        "concept": "Ciclos de retroalimentación y equilibrio. Los peces, los caracoles, las plantas, la luz y la comida afectan el oxígeno, las algas y a los demás; el niño cambia una cosa, deja pasar los días y lee lo que pasó.",
+        "progression": "Las primeras peceras piden un solo cambio, como prender la luz o alimentar a los peces, y las peceras intermedias equilibran el aire, las algas, el espacio, los peces bebé y una cadena alimentaria. Los niveles superiores piden equilibrar una red alimentaria por 30 días, leer gráficas de población, encontrar un factor limitante, mantener el oxígeno arriba de una línea, predecir y corregir una especie invasora, llenar una pecera hasta su capacidad de carga, aplicar la regla del 10 por ciento en una pirámide de energía, seguir una toxina por una cadena alimentaria, elegir una prueba justa y sacar la conclusión que apoya una tabla de datos.",
+        "lifeSkills": [
+          "Cuidar seres vivos",
+          "Pensar en las consecuencias con el tiempo",
+          "Leer una gráfica",
+          "Ajustar un plan según la evidencia"
+        ]
+      }
+    }
   }
 }
