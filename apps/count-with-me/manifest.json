@@ -1,7 +1,7 @@
 {
   "id": "count-with-me",
   "name": "Count With Me",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Four hands-on math games: counting and ten frames, making amounts with tokens, place value blocks, and word problems read aloud, from pre-K to 8th grade.",
   "subjects": [
     "math"
@@ -21,5 +21,21 @@
       "Handling money and quantities",
       "Listening to a problem and picking what to do"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Cuenta conmigo",
+      "description": "Cuatro juegos de matemáticas para manipular: contar y marcos de diez, formar cantidades con fichas, bloques de valor posicional y problemas en palabras leídos en voz alta, de preescolar a octavo grado.",
+      "about": {
+        "concept": "Sentido numérico: las cantidades como grupos que se pueden ver y mover, no solo como símbolos. Los marcos de diez, las fichas, los bloques de valor posicional y los problemas hablados construyen la misma idea desde lados distintos, y las mismas piezas siguen hacia decimales, razones, potencias y probabilidad.",
+        "progression": "Cada juego sube su propia escalera de preescolar a octavo grado. Contar hasta cinco crece a marcos de diez, arreglos, modelos de área, cuadrículas de cien, razones y raíces cuadradas; formar cinco crece a decenas y unidades, fichas decimales, razones, porcentajes y fichas negativas; construir unidades crece a millares, decimales, potencias de diez y notación científica; y los cuentos hablados crecen de sumar hasta cinco a fracciones, tasas, cambio porcentual, ecuaciones en palabras y probabilidad.",
+        "lifeSkills": [
+          "Contar y estimar cantidades",
+          "Repartir de forma justa",
+          "Manejar dinero y cantidades",
+          "Escuchar un problema y decidir qué hacer"
+        ]
+      }
+    }
   }
 }
