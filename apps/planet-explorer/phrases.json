@@ -1,44 +1,94 @@
 {
- "source": "3150a8a4010498721fc17054491b18457b3c26506e1476704f54e1c7ac1fb0f1",
+ "source": "73be560ddb3142e56d4770079b356777c2b30ea340df72cddcdbb0a13bd629cd",
  "lines": [
   {
-   "text": "Fly to Mercury! Tap it.",
+   "text": "¡Planeta misterioso! Soy el planeta más lejano al Sol. Tengo los vientos más rápidos de todos los planetas. ¿Quién soy?",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "¡Vuela a Neptuno! Toca el planeta.",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "¡Vuela al planeta más lejano al Sol!",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "¿Cuál es más pequeño, Venus o Neptuno?",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "¿Qué hay en el centro de la Vía Láctea?",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Count out from the Sun. Fly to the fourth planet!",
    "rate": -8
   },
   {
-   "text": "Fly to the planet closest to the Sun!",
+   "text": "Count out from the Sun. Fly to the seventh planet!",
    "rate": -8
   },
   {
-   "text": "Fly to the planet farthest from the Sun!",
+   "text": "Cuenta desde el Sol. ¡Vuela al quinto planeta!",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Earth is 1 AU from the Sun. Read the strip. About how many AU is Neptune?",
    "rate": -8
   },
   {
-   "text": "If the Sun were a basketball in your town, the nearest other star would be ...",
+   "text": "En la Tierra saltas 1 pie de alto. ¿Qué tan alto saltas en la Luna?",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Fly to Mars! Tap it.",
    "rate": -8
   },
   {
-   "text": "Mystery planet! I am the hottest planet. I am the second planet from the Sun. Who am I?",
+   "text": "How fast does light travel?",
    "rate": -8
   },
   {
-   "text": "Stars look like tiny dots at night because ...",
+   "text": "La corriente de partículas diminutas que sale del Sol se llama ...",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "La Tierra está a 1 UA del Sol. Lee la tira. ¿A cuántas UA está Júpiter?",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Mystery planet! I spin backwards, so my Sun rises in the west. I am the hottest planet. Who am I?",
    "rate": -8
   },
   {
-   "text": "Tap them from nearest to farthest from Earth.",
+   "text": "Una bolsa de manzanas pesa 267 libras en Urano, donde la gravedad es 0.89 veces la de la Tierra. ¿Cuánto pesa en la Tierra? Escribe las libras.",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "What sits at the center of the Milky Way?",
    "rate": -8
   },
   {
-   "text": "Which is bigger, the Moon or Jupiter?",
+   "text": "Which is smaller, Neptune or Earth?",
    "rate": -8
   },
   {
-   "text": "You drop a feather and a hammer on the Moon, where there is no air. Which lands first?",
+   "text": "You fly to Neptune. What stays the same?",
    "rate": -8
   },
   {
-   "text": "You jump 1 foot high on Earth. About how high on Uranus?",
+   "text": "You jump 1 foot high on Earth. About how high on the Moon?",
    "rate": -8
   }
  ]

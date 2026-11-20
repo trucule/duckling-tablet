@@ -1,7 +1,7 @@
 {
   "id": "planet-explorer",
   "name": "Planet Explorer",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Fly to each planet, land and jump. Gravity, day length and size come from the NASA fact sheet.",
   "subjects": [
     "science"
@@ -21,5 +21,21 @@
       "Curiosity about how the world works",
       "Connecting numbers to experience"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Explorador de planetas",
+      "description": "Vuela a cada planeta, aterriza y salta. La gravedad, el largo del día y el tamaño vienen de la hoja de datos de la NASA.",
+      "about": {
+        "concept": "Escala y leyes físicas. La gravedad, el tamaño y el largo del día de cada planeta vienen de la hoja de datos de la NASA, así que saltar en Marte o esperar un día en Venus muestra las diferencias como sensaciones y no solo como números.",
+        "progression": "La escalera empieza en preescolar con encontrar y ordenar planetas, pasa por comparar tamaño, gravedad, largo del día y del año y peso en segundo y tercer grado, y luego sube a la inclinación y las estaciones, las fases de la Luna, el peso a partir de un factor de gravedad, las órbitas, la escala del sistema solar, los eclipses, el Sol y la velocidad de la luz, los cometas y los planetas enanos, la vida de las estrellas y las galaxias, y las leyes de Kepler con curvas de tránsito de exoplanetas en octavo grado. Cada peldaño toma preguntas de un banco y de montajes en 3D o gráficas, y cuatro aciertos seguidos suben de nivel.",
+        "lifeSkills": [
+          "Comparar y ordenar",
+          "Leer información de referencia",
+          "Curiosidad por cómo funciona el mundo",
+          "Conectar los números con la experiencia"
+        ]
+      }
+    }
   }
 }
