@@ -1,17 +1,52 @@
 {
- "source": "5efc6386c924fca85af167274d3b546265434183877aa5c2da3d2f9c677ebe04",
+ "source": "c0c5cdf98ad95daa959e512367ee50d22c1563f95c70eed6860e3483f8251ba6",
  "lines": [
   {
-   "text": "6 volts push through 3 ohms. How many amps flow?",
+   "text": "¡Arma un timbre! Agrega un interruptor para que el zumbador suene.",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "¡Arrastra un cable al hueco para iluminar el cuarto!",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "¿Qué bobina levanta más clips?",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "¿Qué casa brillará más? ¡Adivina antes de que se prendan las luces!",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "10 volts push through 5 ohms. How many amps flow?",
    "rate": -8
+  },
+  {
+   "text": "20 voltios empujan a través de 4 ohmios. ¿Cuántos amperios pasan?",
+   "rate": -8,
+   "lang": "es"
   },
   {
    "text": "Add a switch to the loop, then tap it to turn the light on.",
    "rate": -8
   },
   {
+   "text": "Agrega un interruptor al circuito y tócalo para encender la luz.",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
    "text": "Build a doorbell! Add a switch so the buzzer can ring.",
    "rate": -8
+  },
+  {
+   "text": "Conecta la pila al foco con cables. ¡Haz un circuito completo!",
+   "rate": -8,
+   "lang": "es"
   },
   {
    "text": "Connect the battery to the bulb with wires. Make a full loop!",
@@ -22,11 +57,17 @@
    "rate": -8
   },
   {
-   "text": "Let us try an easier one.",
-   "rate": -8
+   "text": "Enciende 2 focos. Después uno de ellos se quita.",
+   "rate": -8,
+   "lang": "es"
   },
   {
-   "text": "Light 2 bulbs. Then one of them comes out.",
+   "text": "Ilumina bien los dos cuartos. ¡Dale a cada cuarto su propio interruptor!",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Light both bulbs. Then we test the wiring.",
    "rate": -8
   },
   {
@@ -38,7 +79,12 @@
    "rate": -8
   },
   {
-   "text": "Which coil picks up more paper clips?",
+   "text": "Mira las pilas. ¿Qué casa brilla más?",
+   "rate": -8,
+   "lang": "es"
+  },
+  {
+   "text": "Which coil picks up more paper clips? One has an iron core.",
    "rate": -8
   },
   {
