@@ -1,33 +1,55 @@
 {
- "source": "f65540c87d9ea635bd5d4fd6499c3d0413123e6c6f5424c70b183a500811ad9a",
+ "source": "522a0fa6ca8b1da0c9c7dffcfd19054b9575033df0ab376d41ab25b6534575f4",
  "lines": [
   {
-   "text": "Find the shortest way. Get all 3 gems in 11 moves or less.",
+   "text": "Encuentra el camino más corto. Recoge las 3 gemas en 10 pasos o menos.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Este camino es largo. Una tarjeta Mientras sigue mientras queden gemas. Adentro, gira en una pared y si no, avanza. Solo 4 tarjetas.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Find the shortest way. Get all 3 gems in 9 moves or less.",
    "rate": -10
   },
   {
-   "text": "Get all 2 gems using only 5 cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.",
+   "text": "Get all 2 gems using only 3 cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.",
    "rate": -10
   },
   {
-   "text": "Get all 3 gems using only 3 cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.",
+   "text": "Get all 3 gems using only 5 cards. A Repeat card does the cards inside it again and again. Tap the number to pick how many times.",
    "rate": -10
   },
   {
-   "text": "Get all 3 gems with 11 cards or fewer. Fewer cards earn more stars. 7 cards earns three stars.",
+   "text": "Get all 3 gems with 12 cards or fewer. Fewer cards earn more stars. 8 cards earns three stars.",
    "rate": -10
   },
   {
-   "text": "Here is one way. Press Go to watch it.",
-   "rate": -10
+   "text": "Pon algunos movimientos en la caja del Sello una sola vez. Luego usa el Sello con una tarjeta Sello, gira y úsalo otra vez. Solo 8 tarjetas.",
+   "rate": -10,
+   "lang": "es"
   },
   {
    "text": "Put some moves in the Stamp box once. Then play the Stamp with a Stamp card, turn, and play it again. Only 8 cards.",
    "rate": -10
   },
   {
-   "text": "Tap some cards first.",
-   "rate": -10
+   "text": "Recoge las 2 gemas usando solo 3 tarjetas. Una tarjeta Repetir hace las tarjetas de adentro una y otra vez. Toca el número para elegir cuántas veces.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Recoge las 2 gemas usando solo 5 tarjetas. Una tarjeta Repetir hace las tarjetas de adentro una y otra vez. Toca el número para elegir cuántas veces.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Recoge las 3 gemas con 8 tarjetas o menos. Menos tarjetas dan más estrellas. 4 tarjetas dan tres estrellas.",
+   "rate": -10,
+   "lang": "es"
   },
   {
    "text": "Tap the arrow cards to plan a path for the robot. Get all 2 gems, then press Go.",
@@ -42,12 +64,23 @@
    "rate": -10
   },
   {
-   "text": "The Stamp cannot use itself. Tap outside the Stamp box first.",
+   "text": "This path is long. A While card keeps going while gems are left. Inside it, turn at a wall, else go forward. Only 4 cards.",
    "rate": -10
   },
   {
-   "text": "This path is long. A While card keeps going while gems are left. Inside it, turn at a wall, else go forward. Only 4 cards.",
-   "rate": -10
+   "text": "Toca las tarjetas de flechas para planear el camino del robot. Recoge la gema y luego toca Ir.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Toca las tarjetas de flechas para planear el camino del robot. Recoge las 2 gemas y luego toca Ir.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Toca las tarjetas de flechas para planear el camino del robot. Recoge las 3 gemas y luego toca Ir.",
+   "rate": -10,
+   "lang": "es"
   }
  ]
 }
