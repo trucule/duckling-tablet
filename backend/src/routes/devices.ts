@@ -282,16 +282,24 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
   });
 
   // The tablet's launchable apps, reported at check-in (apps no longer there are kept, marked absent, so a parent's
-  // settings survive a reinstall). Labels and small icons only.
+  // settings survive a reinstall). Labels and small icons only. The iPad cannot list its apps or open one, so there a
+  // parent picks the allowed apps and their minutes on the iPad itself (Screen Time), and the report carries that
+  // choice: `allowed` and `dailyMinutes` are applied when present and left to the portal when absent.
   app.post('/device/apps-installed', async (req) => {
     const dv = await deviceAuth(ctx, req);
-    const b = z.object({ apps: z.array(z.object({ package: z.string().regex(PACKAGE).max(200), label: z.string().trim().min(1).max(80), icon: z.string().regex(/^data:image\/(png|webp);base64,[A-Za-z0-9+/=]+$/).max(12_000).optional() })).max(300) }).parse(req.body);
+    const b = z.object({ apps: z.array(z.object({
+      package: z.string().regex(PACKAGE).max(200), label: z.string().trim().min(1).max(80),
+      icon: z.string().regex(/^data:image\/(png|webp);base64,[A-Za-z0-9+/=]+$/).max(12_000).optional(),
+      allowed: z.boolean().optional(), dailyMinutes: z.number().int().min(1).max(1440).nullable().optional(),
+    })).max(300) }).parse(req.body);
     return ctx.db.family(dv.familyId, async (q) => {
       await q.run('UPDATE device_other_app SET present = false WHERE device_id = $1', [dv.deviceId]);
       for (const a of b.apps) {
-        await q.run(`INSERT INTO device_other_app (family_id, device_id, package, label, icon, present) VALUES ($1, $2, $3, $4, $5, true)
-          ON CONFLICT (device_id, package) DO UPDATE SET label = excluded.label, icon = COALESCE(excluded.icon, device_other_app.icon), present = true, updated_at = now()`,
-          [dv.familyId, dv.deviceId, a.package, a.label, a.icon ?? null]);
+        await q.run(`INSERT INTO device_other_app (family_id, device_id, package, label, icon, present, allowed, daily_minutes)
+          VALUES ($1, $2, $3, $4, $5, true, COALESCE($6::boolean, false), CASE WHEN $7::boolean THEN $8::integer ELSE NULL END)
+          ON CONFLICT (device_id, package) DO UPDATE SET label = excluded.label, icon = COALESCE(excluded.icon, device_other_app.icon), present = true, updated_at = now(),
+            allowed = COALESCE($6::boolean, device_other_app.allowed), daily_minutes = CASE WHEN $7::boolean THEN $8::integer ELSE device_other_app.daily_minutes END`,
+          [dv.familyId, dv.deviceId, a.package, a.label, a.icon ?? null, a.allowed ?? null, a.dailyMinutes !== undefined, a.dailyMinutes ?? null]);
       }
       return { otherApps: await otherAppsFor(q, dv.deviceId, dv.familyId, true) };
     });

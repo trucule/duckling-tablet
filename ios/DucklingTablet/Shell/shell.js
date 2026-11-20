@@ -79,7 +79,10 @@
     setChildId: function (id) { post('setChildId', [id]); },
     setAppAccountToken: function (t) { post('setAppAccountToken', [String(t || '')]); },
     release: function () { post('release'); },
-    installedPackages: function () { return '[]'; },
+    // Other apps on the iPad: the parent picks them in Apple's picker (chooseOtherApps opens it), so the list the page
+    // reports to the server is the picks, by id with minutes and no names. Duckling cannot launch them.
+    installedPackages: function () { return JSON.stringify((S.otherApps || []).map(function (a) { return { package: a.package, label: 'App chosen on the iPad', allowed: true, dailyMinutes: a.dailyMinutes }; })); },
+    chooseOtherApps: function (lang) { post('chooseOtherApps', [String(lang || 'en')]); },
     launchPackage: function () {},
     canDrawOverlays: function () { return false; },
     openOverlaySettings: function () {},

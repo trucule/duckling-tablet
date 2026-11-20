@@ -1,4 +1,5 @@
 import AVFoundation
+import SwiftUI
 import UIKit
 import WebKit
 
@@ -87,6 +88,8 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
             "network": NetworkStatus.shared.current,
             "price": Billing.shared.displayPrice,
             "media": ["microphone": Self.access(.audio), "camera": Self.access(.video)],
+            // The apps a parent picked on this iPad, by id with their minutes; names stay on the iPad (OtherApps.swift).
+            "otherApps": OtherApps.shared.summary,
         ]
         if let h = prefs.pinHash { s["pinHash"] = h }
         if let d = AppViewController.pendingLocalBackground { s["localBackground"] = d }
@@ -171,6 +174,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         case "tookLocalBackground": if AppViewController.pendingLocalBackground != nil { AppViewController.pendingLocalBackground = nil; installScripts() }
         case "openSettings":
             if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
+        case "chooseOtherApps": chooseOtherApps(spanish: str(0) == "es")
         case "setLockdown":
             prefs.lockdownOn = (a.first as? Bool) ?? (str(0) == "true")
             Lockdown.shared.apply(on: prefs.lockdownOn, allowedHosts: prefs.allowedHosts)
@@ -225,6 +229,21 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
             self.js("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()")
         }
         present(vc, animated: false)
+    }
+
+    /// The parent's other-apps screen (OtherAppsSheet). Every change goes straight to the lockdown and into the
+    /// state the page reads, so the parent area and the server's list follow.
+    private func chooseOtherApps(spanish: Bool) {
+        guard presentedViewController == nil else { return }
+        let apply = { [weak self] in
+            guard let self else { return }
+            Lockdown.shared.apply(on: self.prefs.lockdownOn, allowedHosts: self.prefs.allowedHosts)
+            self.pushState()
+        }
+        let sheet = OtherAppsSheet(spanish: spanish, onChange: apply, onDone: { [weak self] in self?.dismiss(animated: true); apply(); self?.js("window.DucklingWeb && DucklingWeb.onOtherApps && DucklingWeb.onOtherApps()") })
+        let host = UIHostingController(rootView: sheet)
+        host.modalPresentationStyle = .formSheet
+        present(host, animated: true)
     }
 
     /// Lifts the lockdown and forgets everything. iOS lets no app delete itself, so the web app then asks the parent

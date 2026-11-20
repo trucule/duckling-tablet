@@ -23,11 +23,16 @@ targets:
       - package: ZIPFoundation
       - sdk: FamilyControls.framework
       - sdk: ManagedSettings.framework
+      - sdk: DeviceActivity.framework
       - sdk: StoreKit.framework
+      - target: DucklingMonitor
+        embed: true
     entitlements:
       path: DucklingTablet/DucklingTablet.entitlements
       properties:
         com.apple.developer.family-controls: true
+        com.apple.security.application-groups:
+          - group.com.ducklingtablet.app
     info:
       path: DucklingTablet/Info.plist
       properties:
@@ -55,7 +60,7 @@ targets:
       base:
         PRODUCT_NAME: DucklingTablet
         PRODUCT_BUNDLE_IDENTIFIER: com.ducklingtablet.app
-        MARKETING_VERSION: "1.0.1"
+        MARKETING_VERSION: "1.1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "2"
         DEVELOPMENT_TEAM: TYLH4H8TS8
@@ -63,6 +68,42 @@ targets:
         SWIFT_VERSION: "5.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: NO
+  # Screen Time's side of other apps' daily limits (OtherApps.swift): iOS runs it when a picked app reaches its
+  # minutes and at the start of each day. Same team, same app group, Family Controls like the app.
+  DucklingMonitor:
+    type: app-extension
+    platform: iOS
+    sources: [DucklingMonitor]
+    dependencies:
+      - sdk: DeviceActivity.framework
+      - sdk: ManagedSettings.framework
+      - sdk: FamilyControls.framework
+    entitlements:
+      path: DucklingMonitor/DucklingMonitor.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+        com.apple.security.application-groups:
+          - group.com.ducklingtablet.app
+    info:
+      path: DucklingMonitor/Info.plist
+      properties:
+        CFBundleDisplayName: Duckling Monitor
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).Monitor
+    settings:
+      base:
+        PRODUCT_NAME: DucklingMonitor
+        PRODUCT_BUNDLE_IDENTIFIER: com.ducklingtablet.app.monitor
+        MARKETING_VERSION: "1.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "2"
+        DEVELOPMENT_TEAM: TYLH4H8TS8
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        SKIP_INSTALL: YES
   DucklingTabletTests:
     type: bundle.unit-test
     platform: iOS

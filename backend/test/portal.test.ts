@@ -291,7 +291,7 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByRole('button', { name: 'Make a pairing code' }).click();
     let code3 = '';
     await expect.poll(async () => (code3 = (await p.locator('.code').textContent())!.trim())).not.toBe(code2);
-    const paired3 = await (await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: code3, platform: 'ios', name: 'Third tablet' }) })).json();
+    const paired3 = await (await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: code3, platform: 'android', name: 'Third tablet' }) })).json();
     await fetch(`${api}/device/apps-installed`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Device ${paired3.deviceToken}` }, body: JSON.stringify({ apps: [{ package: 'com.example.atlas', label: 'Atlas Kids' }] }) });
     await p.getByRole('button', { name: 'Refresh' }).click();
     await p.locator('#devices li', { hasText: 'Third tablet' }).waitFor();
@@ -317,6 +317,18 @@ describe.skipIf(!ready)('parent portal', () => {
     await other.locator('li', { hasText: 'Atlas Kids' }).getByRole('button', { name: 'Allow' }).click();
     await other.locator('li', { hasText: 'Atlas Kids' }).getByText('0 of 30 min used today').waitFor();
     expect((await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired3.deviceToken}` } })).json()).otherApps[0]).toMatchObject({ package: 'com.example.atlas', allowed: true, dailyMinutes: 30 });
+    // An iPad picks its apps itself and names none of them: its tab lists the allowance of each pick and offers no Allow.
+    await p.getByRole('button', { name: 'Make a pairing code' }).click();
+    let code4 = '';
+    await expect.poll(async () => (code4 = (await p.locator('.code').textContent())!.trim())).not.toBe(code3);
+    const paired4 = await (await fetch(`${api}/devices/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: code4, platform: 'ios', name: 'The iPad' }) })).json();
+    await fetch(`${api}/device/apps-installed`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Device ${paired4.deviceToken}` }, body: JSON.stringify({ apps: [
+      { package: 'ios.app.h0011223344556677', label: 'App chosen on the iPad', allowed: true, dailyMinutes: 45 }, { package: 'ios.app.h8899aabbccddeeff', label: 'App chosen on the iPad', allowed: false }] }) });
+    await p.getByRole('button', { name: 'Refresh' }).click();
+    await other.getByRole('tab', { name: 'The iPad' }).click();
+    await other.getByText('On an iPad the apps are chosen on the iPad itself', { exact: false }).waitFor();
+    expect(await other.locator('li').allInnerTexts()).toEqual(['App chosen on the iPad 45 min a day']);
+    expect(await other.getByRole('button', { name: 'Allow' }).count()).toBe(0);
     await p.getByRole('button', { name: 'Back to top' }).click();
 
     // A second parent gets an invite link.

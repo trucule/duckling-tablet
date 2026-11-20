@@ -133,15 +133,18 @@ setInterval(() => {
   wasLocked = locked.value;
 }, 60_000);
 
-// The tablet's own apps go up once per session so the parent can allow them; the shell lists them.
+// The tablet's own apps go up once per session so the parent can allow them; the shell lists them. On the iPad the
+// list is what a parent picked there, so it goes up again whenever that changes, an empty list included (the last
+// pick removed).
 let reportedInstalled = false;
 async function reportInstalled() {
   if (reportedInstalled || shell.platform === 'web') return;
   const apps = shell.installedPackages();
-  if (!apps.length) return;
+  if (!apps.length && shell.platform !== 'ios') return;
   reportedInstalled = true;
   try { const r = await api.reportInstalled(apps); if (config.value) config.value = { ...config.value, otherApps: r.otherApps }; } catch { reportedInstalled = false; }
 }
+window.addEventListener('duckling:otherapps', () => { reportedInstalled = false; void reportInstalled(); });
 
 // Opening another app: for as long as it has today, at most. The shell comes back when that ends.
 // The label of an app that needs Duckling to restart before it opens (Windows), shown on the home screen.

@@ -71,7 +71,9 @@ jobs:
           # The export takes the app's entitlements from its signature, so the archived app gets a local signature
           # (no certificate) that carries them: nested code first, then the app.
           APP="$RUNNER_TEMP/Duckling.xcarchive/Products/Applications/DucklingTablet.app"
-          find "$APP" -depth \( -name "*.framework" -o -name "*.bundle" -o -name "*.dylib" -o -name "*.appex" \) -print0 | xargs -0 -I{} codesign --force --sign - {}
+          find "$APP" -depth \( -name "*.framework" -o -name "*.bundle" -o -name "*.dylib" \) -print0 | xargs -0 -I{} codesign --force --sign - {}
+          # The monitor extension carries Family Controls and the app group too (DucklingMonitor/DucklingMonitor.entitlements).
+          for X in "$APP"/PlugIns/*.appex; do codesign --force --sign - --entitlements DucklingMonitor/DucklingMonitor.entitlements "$X"; done
           codesign --force --sign - --entitlements DucklingTablet/DucklingTablet.entitlements "$APP"
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
@@ -99,6 +101,14 @@ jobs:
           echo "Profile: $(plutil -extract Name raw "$RUNNER_TEMP/profile.plist"), created $(plutil -extract CreationDate raw "$RUNNER_TEMP/profile.plist")"
           echo "Profile entitlements:"; plutil -extract Entitlements xml1 -o - "$RUNNER_TEMP/profile.plist" | plutil -p -
           plutil -extract Entitlements xml1 -o - "$RUNNER_TEMP/profile.plist" | grep -q "com.apple.developer.family-controls" || { echo "The provisioning profile lacks the Family Controls entitlement."; exit 1; }
+          # The same for the monitor extension: its App ID (com.ducklingtablet.app.monitor) needs Family Controls and the
+          # app group enabled in the developer portal, or the export above fails or signs it without them.
+          for X in "$RUNNER_TEMP"/ipa/Payload/DucklingTablet.app/PlugIns/*.appex; do
+            codesign -d --entitlements - --xml "$X" 2>/dev/null > "$RUNNER_TEMP/ent-ext.plist"
+            echo "Entitlements of $(basename "$X"):"; plutil -p "$RUNNER_TEMP/ent-ext.plist"
+            grep -q "com.apple.developer.family-controls" "$RUNNER_TEMP/ent-ext.plist" || { echo "$(basename "$X") lacks the Family Controls entitlement."; exit 1; }
+            grep -q "group.com.ducklingtablet.app" "$RUNNER_TEMP/ent-ext.plist" || { echo "$(basename "$X") lacks the app group."; exit 1; }
+          done
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Duckling.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" $AUTH > "$RUNNER_TEMP/export.log" 2>&1 \
             || { grep -E "error|Error" "$RUNNER_TEMP/export.log" | sort -u | head -40; tail -n 40 "$RUNNER_TEMP/export.log"; exit 1; }

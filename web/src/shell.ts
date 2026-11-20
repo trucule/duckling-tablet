@@ -3,7 +3,7 @@
 // recorded with the server only, and opening an app explains that apps run on the tablet.
 import { tr } from './i18n';
 
-export interface LockdownStatus { homeRole: boolean; deviceSecure: boolean; pinned: boolean; lockdownOn: boolean; windows?: WindowsStatus }
+export interface LockdownStatus { homeRole: boolean; deviceSecure: boolean; pinned: boolean; lockdownOn: boolean; otherApps?: number; windows?: WindowsStatus }
 
 // Windows: homeRole is "the child's account signs in automatically", lockdownOn "the kiosk is applied for it", pinned
 // "this is the child's session", deviceSecure "this edition has the kiosk". The details below drive the setup card.
@@ -65,11 +65,13 @@ export interface Shell {
   setChildId(id: string): void;
   release(): void;
   // Other apps: what is on the tablet, opening one for a number of seconds, and the permission that lets Duckling
-  // come back when that time ends.
-  installedPackages(): { package: string; label: string; icon?: string }[];
+  // come back when that time ends. The iPad cannot list its apps: a parent picks them there (Screen Time), so its
+  // entries carry the choice (allowed, minutes) and chooseOtherApps opens the picker; elsewhere it does nothing.
+  installedPackages(): InstalledPackage[];
   launchPackage(pkg: string, seconds: number): void;
   canDrawOverlays(): boolean;
   openOverlaySettings(): void;
+  chooseOtherApps(lang: string): void;
   // The subscription through the device's own store (the App Store on the iPad, Google Play on Android). False where
   // the store is not built in.
   readonly storeBilling: boolean;
@@ -85,6 +87,8 @@ export interface Shell {
 // elsewhere (iPad Screen Time); ask: the iPad has not asked yet.
 export type MediaState = 'on' | 'off' | 'blocked' | 'ask';
 export interface MediaAccess { microphone: MediaState; camera: MediaState }
+
+export interface InstalledPackage { package: string; label: string; icon?: string; allowed?: boolean; dailyMinutes?: number | null }
 
 export interface BillingResult { status: 'purchased' | 'pending' | 'cancelled' | 'unavailable' | 'failed' | 'none' | string; message: string }
 
@@ -120,6 +124,7 @@ interface NativeShell {
   release(): void;
   installedPackages?(): string;
   launchPackage?(pkg: string, seconds: number): void;
+  chooseOtherApps?(lang: string): void;
   canDrawOverlays?(): boolean;
   openOverlaySettings?(): void;
   subscribe?(): void;
@@ -141,7 +146,7 @@ interface NativeShell {
 }
 
 declare global {
-  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void; onBilling(status: string, message: string): void; onWindows(kind: string, ok: boolean, message: string): void } }
+  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void; onOtherApps(): void; onBilling(status: string, message: string): void; onWindows(kind: string, ok: boolean, message: string): void } }
 }
 
 const pending = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
@@ -157,6 +162,8 @@ window.DucklingWeb = {
   onPush() { window.dispatchEvent(new Event('duckling:push')); },
   // Another app's turn ended (the child came back, or the time ran out): how long it was open.
   onOtherApp(pkg, seconds, reason) { window.dispatchEvent(new CustomEvent('duckling:otherapp', { detail: { pkg, seconds, reason } })); },
+  // The iPad's list of picked apps changed (the parent used the picker): report it again.
+  onOtherApps() { window.dispatchEvent(new Event('duckling:otherapps')); },
   // A store purchase, restore or its failure: one at a time, so the waiting promise is the only one.
   onBilling(status, message) { const w = billingWait; billingWait = null; w?.({ status, message }); },
   // Windows: the end of a lockdown step, a Wi-Fi scan or join, the parent browser closing.
@@ -225,6 +232,7 @@ function native(n: NativeShell): Shell {
     release: () => n.release(),
     installedPackages: () => { try { return JSON.parse(n.installedPackages?.() || '[]'); } catch { return []; } },
     launchPackage: (pkg, seconds) => n.launchPackage?.(pkg, seconds),
+    chooseOtherApps: (lang) => { try { n.chooseOtherApps?.(lang); } catch { /* older shell */ } },
     canDrawOverlays: () => { try { return !!n.canDrawOverlays?.(); } catch { return false; } },
     openOverlaySettings: () => n.openOverlaySettings?.(),
     storeBilling: typeof n.subscribe === 'function',
@@ -274,6 +282,7 @@ function browser(): Shell {
     release() { set('token', null); set('installed', null); set('pin', null); },
     installedPackages: () => [],
     launchPackage() { alert(tr('On the tablet this opens the app.')); },
+    chooseOtherApps() {},
     canDrawOverlays: () => false,
     openOverlaySettings() { alert(tr('On the tablet this opens the overlay permission.')); },
     storeBilling: false,

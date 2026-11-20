@@ -486,9 +486,10 @@ describe.skipIf(!ready)('child web app', () => {
     await t.getByText('Prueba gratis: quedan 7 días.').waitFor();
     await t.getByRole('button', { name: 'Biblioteca' }).waitFor();
     expect(await t.evaluate(() => document.documentElement.lang)).toBe('es');
-    // A tile carries the app's Spanish name when the catalog has one; the others keep their English name.
+    // A tile carries the app's Spanish name from the catalog.
     await t.getByRole('button', { name: 'Camino del robot' }).waitFor();
-    await t.getByRole('button', { name: 'Music Box' }).waitFor();
+    await t.getByRole('button', { name: 'Caja de música' }).waitFor();
+    expect(await t.getByRole('button', { name: 'Music Box' }).count()).toBe(0);
     await t.screenshot({ path: join(dir, 'es-home.png') });
     // The PIN and the parent area.
     await t.getByRole('button', { name: 'Padres' }).click();

@@ -176,6 +176,15 @@ export function Parent() {
         </div>
       )}
 
+      {ios && (
+        <div class="card">
+          <h2>{tr('Other apps')}</h2>
+          <p>{tr('Apps already on this iPad can stay open to the child while the lockdown is on, each with a daily allowance. Pick them here; the iPad shows its own app list and the choice stays on the iPad. Screen Time closes an app when its minutes for the day are used up and opens it again the next day.')} {status.otherApps ? tr('{n} allowed now.', { n: status.otherApps }) : tr('None allowed yet.')}</p>
+          <p>{tr('The child opens them from the iPad home screen, so leave Guided Access off, or end it first, when other apps are allowed. The parent portal lists the choice for each tablet.')}</p>
+          <div class="row"><button class="pill" onClick={() => { shell.chooseOtherApps(lang.value); setTimeout(refresh, 1500); }}>{tr('Choose apps')}</button></div>
+        </div>
+      )}
+
       {win && <WindowsLockdown status={status} childName={c?.child?.firstName ?? ''} refresh={refresh} />}
 
       {win && (

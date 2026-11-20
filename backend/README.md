@@ -42,6 +42,7 @@ the web server already there (nginx or Caddy). Memory is capped at 300 MB becaus
 | `GET /device/config` | device | Child profile, installed apps with package URLs, allowlist, travel, limits, state |
 | `PUT/DELETE /device/apps/:app` | device | The child installs and uninstalls freely; hidden apps are refused |
 | `POST /device/released` | device | The device has released the lockdown |
+| `POST /device/apps-installed` `{apps: [{package, label, icon?, allowed?, dailyMinutes?}]}` | device | The tablet's own apps, for the Other apps section; `allowed` and `dailyMinutes` are applied when sent (the iPad, where the parent picks apps on the device) and left to the portal when absent |
 | `GET /catalog` | anyone | Every published app with its newest version |
 | `GET /tts?text=&voice=&rate=&private=` | device | Shared voice cache: 302 to the CDN clip; `private=1` returns audio without storing it |
 | `GET/POST /requests` | parent | App requests; one open per family; each becomes an ET Ducky ticket |

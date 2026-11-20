@@ -374,20 +374,45 @@ function OtherAppsCard({ devices, details, onAct }: { devices: Device[]; details
         </div>
       )}
       {!device && <p class="muted">{tr('Pair a tablet to see its apps.')}</p>}
-      {device && apps.length === 0 && <p class="muted">{tr('{device} has not reported its apps yet; it does at its next sync.', { device: device.name })}</p>}
-      <ul class="list">
-        {apps.map((a) => (
-          <li key={a.package} style={{ alignItems: 'flex-start' }}>
-            {a.icon ? <img src={a.icon} alt="" style={{ width: 40, height: 40, borderRadius: 10 }} /> : <span class="swatch" />}
-            <span class="grow">
-              <strong>{a.label}</strong> <span class="muted">{a.allowed ? tr('on the home screen') : tr('not shown on the tablet')}</span>
-              {a.allowed && <OtherAppSettings name="" a={a} onSave={(b) => onAct(() => api.otherApp(device.id, a.package, b))} />}
-            </span>
-            {!a.allowed && <button class="btn primary" onClick={() => onAct(() => api.otherApp(device.id, a.package, { allowed: true, dailyMinutes: a.dailyMinutes ?? 30 }))}>{tr('Allow')}</button>}
-          </li>
-        ))}
-      </ul>
+      {device?.platform === 'ios' && <IpadOtherApps device={device} apps={apps} />}
+      {device && device.platform !== 'ios' && apps.length === 0 && <p class="muted">{tr('{device} has not reported its apps yet; it does at its next sync.', { device: device.name })}</p>}
+      {device && device.platform !== 'ios' && (
+        <ul class="list">
+          {apps.map((a) => (
+            <li key={a.package} style={{ alignItems: 'flex-start' }}>
+              {a.icon ? <img src={a.icon} alt="" style={{ width: 40, height: 40, borderRadius: 10 }} /> : <span class="swatch" />}
+              <span class="grow">
+                <strong>{a.label}</strong> <span class="muted">{a.allowed ? tr('on the home screen') : tr('not shown on the tablet')}</span>
+                {a.allowed && <OtherAppSettings name="" a={a} onSave={(b) => onAct(() => api.otherApp(device.id, a.package, b))} />}
+              </span>
+              {!a.allowed && <button class="btn primary" onClick={() => onAct(() => api.otherApp(device.id, a.package, { allowed: true, dailyMinutes: a.dailyMinutes ?? 30 }))}>{tr('Allow')}</button>}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
+  );
+}
+
+// The iPad does not tell apps apart to anyone but itself (Screen Time hands Duckling opaque tokens, no names), so the
+// parent picks and times them on the iPad and the portal shows the count and the minutes.
+function IpadOtherApps({ device, apps }: { device: Device; apps: OtherApp[] }) {
+  const allowed = apps.filter((a) => a.allowed);
+  return (
+    <>
+      <p class="muted">{tr('On an iPad the apps are chosen on the iPad itself: open the parent area there, then Other apps, then Choose apps. The iPad names its apps only to itself, so this list shows the allowance of each one and not its name. Screen Time applies the minutes and the child opens the apps from the iPad home screen.')}</p>
+      {allowed.length === 0 && <p class="muted">{tr('{device} has no other apps allowed.', { device: device.name })}</p>}
+      {allowed.length > 0 && (
+        <ul class="list">
+          {allowed.map((a) => (
+            <li key={a.package}>
+              <span class="swatch" />
+              <span class="grow"><strong>{tr('App chosen on the iPad')}</strong> <span class="muted">{a.dailyMinutes !== null ? tr('{n} min a day', { n: a.dailyMinutes }) : tr('no daily limit')}</span></span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 

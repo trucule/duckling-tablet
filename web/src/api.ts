@@ -64,7 +64,7 @@ export const api = {
     'POST', '/auth/code/pair', { email, code, childFirstName, childAge, platform: shell.platform === 'web' ? 'web' : shell.platform, name, shellVersion: shell.shellVersion(), language: lang.value }, false),
   checkin: (battery?: number) => call<DeviceConfig>('POST', '/device/checkin', { shellVersion: shell.shellVersion(), ...(shell.pushToken() ? { pushToken: shell.pushToken() } : {}), ...(battery === undefined ? {} : { battery }) }),
   config: () => call<DeviceConfig>('GET', '/device/config'),
-  reportInstalled: (apps: { package: string; label: string; icon?: string }[]) => call<{ otherApps: OtherApp[] }>('POST', '/device/apps-installed', { apps }),
+  reportInstalled: (apps: { package: string; label: string; icon?: string; allowed?: boolean; dailyMinutes?: number | null }[]) => call<{ otherApps: OtherApp[] }>('POST', '/device/apps-installed', { apps }),
   appUsage: (app: string, seconds: number, day: string) => call<{ ok: boolean }>('POST', '/device/app-usage', { app, seconds, day }),
   otherAppUsage: (pkg: string, seconds: number, day: string) => call<{ otherApps: OtherApp[] }>('POST', '/device/other-app-usage', { package: pkg, seconds, day }),
   catalog: () => call<{ apps: CatalogApp[] }>('GET', '/catalog', undefined, false),

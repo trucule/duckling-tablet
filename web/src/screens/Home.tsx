@@ -117,7 +117,7 @@ export function Home() {
         </button>
       </div>
       {lockNote && <div class="banner">{tr('The apps are locked. Ask a parent to subscribe.')}</div>}
-      {!locked.value && (c?.otherApps ?? []).length > 0 && (
+      {!locked.value && shell.platform !== 'ios' && (c?.otherApps ?? []).length > 0 && (
         <>
           <h2 class="section">{tr('Other apps')}</h2>
           <div class="grid">

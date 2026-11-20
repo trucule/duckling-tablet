@@ -53,7 +53,9 @@ const FAKE_SHELL = `(() => {
   const save = () => { localStorage.setItem('w.token', st.token); localStorage.setItem('w.pin', st.pin); localStorage.setItem('w.inst', JSON.stringify(st.installed)); };
   const later = (f, ms = 60) => setTimeout(f, ms);
   const cb = (kind, ok, msg) => later(() => window.DucklingWeb.onWindows(kind, ok, msg));
-  const status = () => ({ homeRole: !!st.childAccount, deviceSecure: true, pinned: st.pinned, lockdownOn: st.lockdownOn,
+  // The iPad's picks (OtherApps.swift): the picker adds one with 30 minutes, and tells the web app.
+  st.picks = [];
+  const status = () => ({ homeRole: !!st.childAccount, deviceSecure: true, pinned: st.pinned, lockdownOn: st.lockdownOn, otherApps: st.picks.length,
     windows: { edition: 'Professional', productName: 'Windows 11 Pro', build: 26100, kioskSupported: true, accounts: [{ name: 'Chris', fullName: 'Chris' }],
       childAccount: st.childAccount, autoSignInUser: st.childAccount, kioskApplied: st.lockdownOn, otherKiosk: !st.lockdownOn, oldKidTablet: !st.lockdownOn, currentUser: 'Chris', parentPresent: true } });
   const rec = (name, f) => (...a) => { calls.push([name, ...a]); return f ? f(...a) : undefined; };
@@ -70,7 +72,8 @@ const FAKE_SHELL = `(() => {
     setLockdown: rec('setLockdown', (on) => { st.lockdownOn = on; cb('lockdown', true, on ? 'on' : 'off'); }),
     setAllowedHosts: rec('setAllowedHosts'), setChildInfo: rec('setChildInfo'), setChildLevels: () => {}, setChildId: () => {},
     release: rec('release'),
-    installedPackages: () => JSON.stringify([{ package: 'win.app.h0123456789abcdef', label: 'Tux Paint' }]),
+    installedPackages: () => JSON.stringify(window.__platform === 'ios' ? st.picks : [{ package: 'win.app.h0123456789abcdef', label: 'Tux Paint' }]),
+    chooseOtherApps: rec('chooseOtherApps', () => later(() => { st.picks.push({ package: 'ios.app.h' + String(st.picks.length).padStart(16, '0'), label: 'App chosen on the iPad', allowed: true, dailyMinutes: 30 }); window.DucklingWeb.onOtherApps(); })),
     launchPackage: rec('launchPackage', (pkg) => later(() => window.DucklingWeb.onOtherApp(pkg, 0, 'restart'))),
     canDrawOverlays: () => !window.__platform, openOverlaySettings: () => {}, setAppAccountToken: () => {},
     setChildAccount: rec('setChildAccount', (name) => { st.childAccount = name; cb('account', true, name); }),
@@ -255,6 +258,22 @@ describe.skipIf(!ready)('web app on Windows', () => {
       expect(await media.getByRole('button').allInnerTexts()).toEqual(['Continue']);
       const step = p.locator('li', { hasText: platform === 'ios' ? 'Screen Time' : 'Make Duckling the home screen' });
       expect(await step.getByRole('button').innerText()).toBe('Continue');
+      if (platform === 'ios') {
+        // Other apps on the iPad: the card opens the iPad's own picker, and each pick goes up to the server with its minutes.
+        const other = p.locator('.card', { has: p.getByRole('heading', { name: 'Other apps' }) });
+        await other.getByText('None allowed yet.').waitFor();
+        await other.getByRole('button', { name: 'Choose apps' }).click();
+        await other.getByText('1 allowed now.').waitFor();
+        expect(await p.evaluate(() => (window as any).__calls.filter((c: unknown[]) => c[0] === 'chooseOtherApps'))).toEqual([['chooseOtherApps', 'en']]);
+        const deviceToken = await p.evaluate(() => (window as any).DucklingShell.getDeviceToken());
+        await expect.poll(async () => (await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${deviceToken}` } })).json()).otherApps).toEqual([
+          expect.objectContaining({ package: 'ios.app.h0000000000000000', label: 'App chosen on the iPad', allowed: true, dailyMinutes: 30 })]);
+        if (process.env.WEB_SHOTS) await other.screenshot({ path: join(process.env.WEB_SHOTS, 'ios-other-apps.png') });
+        // The home screen shows no tiles for them: the child opens them from the iPad's own home screen.
+        await p.getByRole('button', { name: 'Done' }).click();
+        await p.getByRole('button', { name: 'Parent', exact: true }).waitFor();
+        expect(await p.getByRole('heading', { name: 'Other apps' }).count()).toBe(0);
+      }
       if (process.env.WEB_SHOTS) await p.screenshot({ path: join(process.env.WEB_SHOTS, `${platform}-permissions.png`), fullPage: true });
       await browser.close();
     }, 120_000);

@@ -819,6 +819,24 @@ describe('other apps and travel', () => {
     expect(new Date(t.until).getTime() - Date.now()).toBeLessThan(46 * 60_000);
     expect((await app.inject({ method: 'POST', url: `/devices/${d.deviceId}/travel`, headers: p.auth, payload: { minutes: 0 } })).json().active).toBe(false);
   });
+
+  it('takes the allowed apps and their minutes from the iPad, which picks them itself, and keeps them when a report leaves them out', async () => {
+    const p = await signIn('ipad-apps@example.com'); const d = await pair(p.auth);
+    const pkg = 'ios.app.h0123456789abcdef';
+    const r = (await app.inject({ method: 'POST', url: '/device/apps-installed', headers: d.dev, payload: { apps: [
+      { package: pkg, label: 'App chosen on the iPad', allowed: true, dailyMinutes: 45 }, { package: 'ios.app.hfedcba9876543210', label: 'App chosen on the iPad', allowed: true, dailyMinutes: null }] } })).json();
+    expect(r.otherApps.map((a: any) => [a.package, a.allowed, a.dailyMinutes])).toEqual([[pkg, true, 45], ['ios.app.hfedcba9876543210', true, null]]);
+    // The iPad changes the minutes, then drops the app from its picks: the portal sees both.
+    await app.inject({ method: 'POST', url: '/device/apps-installed', headers: d.dev, payload: { apps: [{ package: pkg, label: 'App chosen on the iPad', allowed: true, dailyMinutes: 20 }] } });
+    expect((await app.inject({ method: 'GET', url: `/devices/${d.deviceId}`, headers: p.auth })).json().otherApps.filter((a: any) => a.package === pkg)[0].dailyMinutes).toBe(20);
+    await app.inject({ method: 'POST', url: '/device/apps-installed', headers: d.dev, payload: { apps: [{ package: pkg, label: 'App chosen on the iPad', allowed: false }] } });
+    const seen = (await app.inject({ method: 'GET', url: `/devices/${d.deviceId}`, headers: p.auth })).json().otherApps;
+    expect(seen.map((a: any) => [a.package, a.allowed, a.dailyMinutes])).toEqual([[pkg, false, 20]]);
+    // A report that says nothing about allowed and minutes (Android, Windows) leaves the parent's settings alone.
+    await app.inject({ method: 'POST', url: '/device/apps-installed', headers: d.dev, payload: { apps: [{ package: pkg, label: 'App chosen on the iPad' }] } });
+    expect((await app.inject({ method: 'GET', url: `/devices/${d.deviceId}`, headers: p.auth })).json().otherApps[0]).toMatchObject({ allowed: false, dailyMinutes: 20 });
+    expect((await app.inject({ method: 'POST', url: '/device/apps-installed', headers: d.dev, payload: { apps: [{ package: pkg, label: 'x', dailyMinutes: 0 }] } })).statusCode).toBe(400);
+  });
 });
 
 describe('push', () => {

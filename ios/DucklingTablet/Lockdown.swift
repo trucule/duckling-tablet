@@ -10,7 +10,10 @@ import LocalAuthentication
 /// what a child can still undo; that result goes into the build plan.
 final class Lockdown {
     static let shared = Lockdown()
-    private let store = ManagedSettingsStore()
+    /// The named store is shared with the DucklingMonitor extension, which shields a picked app at its daily limit.
+    /// Builds before 1.1 used the unnamed store; its settings are cleared once so they do not stay applied underneath.
+    private let store = ManagedSettingsStore(named: OtherApps.storeName)
+    private let legacy = ManagedSettingsStore()
 
     /// Hosts the shell itself needs, always let through the web filter.
     static let ownHosts: Set<String> = ["app.ducklingtablet.com", "api.ducklingtablet.com", "parents.ducklingtablet.com", "ducklingtablet.com", "duckling.nyc3.cdn.digitaloceanspaces.com"]
@@ -27,9 +30,14 @@ final class Lockdown {
     }
 
     func apply(on: Bool, allowedHosts: [String]) {
-        guard on, screenTimeApproved else { store.clearAllSettings(); return }
-        store.shield.applicationCategories = .all()
+        legacy.clearAllSettings()
+        guard on, screenTimeApproved else { store.clearAllSettings(); OtherApps.shared.apply(lockdownOn: false); return }
+        // Every app is shielded except the ones a parent picked in the parent area (OtherApps); their daily limits
+        // are counted from here on.
+        let picked = OtherApps.shared.tokens
+        store.shield.applicationCategories = picked.isEmpty ? .all() : .all(except: picked)
         store.application.denyAppRemoval = true
+        OtherApps.shared.apply(lockdownOn: true)
         if allowedHosts.contains("*") {
             // Travel mode: every website for its duration.
             store.webContent.blockedByFilter = nil
@@ -40,13 +48,15 @@ final class Lockdown {
     }
 
     func release() {
+        OtherApps.shared.clear()
+        legacy.clearAllSettings()
         store.clearAllSettings()
         AuthorizationCenter.shared.revokeAuthorization { _ in }
     }
 
     /// The shape the web app's setup steps read (Android names kept: homeRole is Screen Time, pinned is Guided Access).
-    func status(lockdownOn: Bool) -> [String: Bool] {
+    func status(lockdownOn: Bool) -> [String: Any] {
         let st = screenTimeApproved, ga = guidedAccess
-        return ["homeRole": st, "deviceSecure": passcodeSet, "pinned": ga, "lockdownOn": lockdownOn, "screenTime": st, "guidedAccess": ga]
+        return ["homeRole": st, "deviceSecure": passcodeSet, "pinned": ga, "lockdownOn": lockdownOn, "screenTime": st, "guidedAccess": ga, "otherApps": OtherApps.shared.picks.count]
     }
 }
