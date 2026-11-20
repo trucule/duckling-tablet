@@ -1,52 +1,94 @@
 {
- "source": "04a94020a89065276a1cb74df7617f7268897239a2bdb0f881f966bca8be7557",
+ "source": "2db35bb652113b94004573c2af9c6492a5c96b993c632b9c95f8f645e6ece39a",
  "lines": [
   {
-   "text": "0.5 of the pizza. What percent is that?",
+   "text": "¿Cuánto es un medio de un medio de una pizza? Una rebanada de una rebanada.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "0.7 of the pizza. What percent is that?",
    "rate": -10
   },
   {
-   "text": "Ava says: cut my pie into halves. That means two equal pieces.",
+   "text": "Ava wants one fourth of the pizza. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
-   "text": "Ben takes a slice without looking. What is the chance it is pepperoni? Write the fraction in simplest form.",
+   "text": "Ben quiere dos cuartos del pastel. Toca rebanadas para ponerlas en el plato.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Ben takes a slice without looking. What is the chance it is cheese? Write the fraction in simplest form.",
    "rate": -10
   },
   {
-   "text": "Ben wants one half plus three sixths. Tap slices to put them on the plate.",
+   "text": "Ben wants one fourth of the pie. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
-   "text": "Count the slices left, then count all the slices.",
+   "text": "Ben wants one half of the pizza. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
-   "text": "Kai wants four eighths of the pizza. Tap slices to put them on the plate.",
+   "text": "Escribe dos cuartos como decimal.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Ivy quiere un tercio de la pizza. Toca rebanadas para ponerlas en el plato.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Ivy says: cut my pizza into fourths. That means four equal pieces.",
    "rate": -10
   },
   {
-   "text": "Mia wants one half of the pizza. Tap slices to put them on the plate.",
+   "text": "Kai quiere un medio más dos sextos. Toca rebanadas para ponerlas en el plato.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Lulu toma una rebanada sin mirar. ¿Qué probabilidad hay de que sea de queso? Escribe la fracción en su forma más simple.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Max dice: corta mi pizza en tercios. Son tres pedazos iguales.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Max wants one eighth of the pizza. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
-   "text": "One half plus one third. Both pizzas are re-sliced into sixths. Add the slices.",
+   "text": "Max wants one third plus one sixth. Tap slices to put them on the plate.",
    "rate": -10
   },
   {
-   "text": "Sam wants three fourths of the pizza. Tap slices to put them on the plate.",
+   "text": "Mia quiere un medio de la pizza. Toca rebanadas para ponerlas en el plato.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Theo quiere un medio de la pizza. Toca rebanadas para ponerlas en el plato.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Two fourths plus one third. Both pizzas are re-sliced into twelfths. Add the slices.",
    "rate": -10
   },
   {
-   "text": "Type a number in each box first.",
-   "rate": -10
+   "text": "Un cuarto más un tercio. Las dos pizzas se volvieron a cortar en doceavos. Suma las rebanadas.",
+   "rate": -10,
+   "lang": "es"
   },
   {
-   "text": "What is two thirds of three fourths of a pizza? A slice of a slice.",
-   "rate": -10
-  },
-  {
-   "text": "Zoe wants one half of the pie. Tap slices to put them on the plate.",
+   "text": "What is one half of one third of a pizza? A slice of a slice.",
    "rate": -10
   }
  ]
