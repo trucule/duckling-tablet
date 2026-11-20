@@ -291,6 +291,9 @@
   #jumps div { background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 3px 10px; font-size: 18px; font-weight: 800; }
   #peak { position: absolute; z-index: 3; font-size: 34px; font-weight: 900; background: var(--sun); border: 4px solid var(--ink); border-radius: 20px; padding: 4px 14px; display: none; transform: translate(-50%, -100%); }
   #hint { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); color: #fff; font-size: 20px; font-weight: 800; text-shadow: 0 2px 4px #000; z-index: 2; white-space: nowrap; }
+  /* Spanish runs longer: a smaller title leaves the level badge room to show its whole name. */
+  html[lang=es] header h1 { font-size: 22px; }
+  html[lang=es] #badge { font-size: 15px; }
   #card { position: absolute; inset: 0; display: none; place-items: center; z-index: 5; pointer-events: none; }
   #card.on { display: grid; }
   /* A win card sits low, so the solved board, tank or planet stays in view behind it. */
@@ -343,6 +346,550 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 // ---------------------------------------------------------------------------
+// Language (docs/languages-brief.md). On a Duckling tablet set to Spanish (KidTablet.language) every line the child
+// sees or hears is Spanish. The game logic keeps reading the English text: quests are built in English as before, and
+// the screen and the narrator translate at display time.
+//   T(key, vars)   the Spanish line for an English key, with {name} placeholders filled in.
+//   tx(tpl, vars)  builds an English line from a template and parts, exactly as the old string concatenation did, and
+//                  remembers the template and parts so show() can build the Spanish line from the Spanish template
+//                  and the Spanish parts. A part may be a string (translated through T or through its own template),
+//                  a number, { en, es } for a part with its own Spanish wording, or J(sep, parts) for a joined list.
+//   show(s)        the line to display: s in English, the Spanish line in Spanish.
+//   lc(s)          lowercases a built line and keeps its template, for a line quoted mid sentence.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const USED = new Set();
+const ES = {
+  // The app, the header and the controls.
+  'Planet Explorer': 'Explorador de planetas', '🪐 Planet Explorer': '🪐 Explorador de planetas', 'New quest': 'Nueva misión', '🔀 New': '🔀 Nuevo',
+  'Hear it again': 'Escúchalo otra vez', 'Delete': 'Borrar', 'OK': 'Listo', 'Next ▶': 'Siguiente ▶', 'Level {n}: {name}': 'Nivel {n}: {name}',
+  '🌌 Space': '🌌 Espacio', '🌌 Back to space': '🌌 Volver al espacio', '🔭 Look again': '🔭 Mirar otra vez', '🚀 Land and jump': '🚀 Aterrizar y saltar',
+  '🦘 Jump!': '🦘 ¡Salta!', '👀 Look closer': '👀 Mirar de cerca', '🚀 Land on {w}': '🚀 Aterrizar en {w}',
+  'Tap a planet to fly there. Drag to turn.': 'Toca un planeta para volar ahí. Arrastra para girar.', 'Tap a yellow spot.': 'Toca un punto amarillo.',
+  'Tap them one at a time, in order.': 'Tócalos uno por uno, en orden.',
+  '🦘 Jump: {v}': '🦘 Salto: {v}', '☀️ Day: {v}': '☀️ Día: {v}', '🔄 Year: {v}': '🔄 Año: {v}', '📏 Wide: {v} km': '📏 Ancho: {v} km', '↗️ Tipped: {v}°': '↗️ Inclinación: {v}°',
+  ', spins backwards': ', gira al revés', '☁️ No solid ground!': '☁️ ¡Sin suelo firme!', '🦘 {w}: {v}': '🦘 {w}: {v}',
+  'You landed on {w}. Tap jump!': 'Aterrizaste en {w}. ¡Toca saltar!',
+  '{w} has no solid ground. You are on a floating platform in the clouds. Tap jump!': '{w} no tiene suelo firme. Estás en una plataforma que flota entre las nubes. ¡Toca saltar!',
+  'Hmm!': '¡Mmm!', 'Not that one!': '¡Ahí no!', 'Not that spot': 'Ese punto no', 'Not quite. Try again.': 'Casi. Intenta otra vez.',
+  'Not quite. Which one comes next?': 'Casi. ¿Cuál sigue?', 'Not quite. Explore and try again!': 'Casi. ¡Explora e intenta otra vez!',
+  'At spot {n} the Moon looks like a {ph}. Try another spot.': 'En el punto {n} la Luna está en fase de {ph}. Prueba otro punto.',
+  'That is {w}. Look again for {t}!': 'Llegaste a {w}. ¡Busca otra vez {t}!', 'the right one': 'el correcto',
+  'Out of this world!': '¡Fuera de este mundo!', 'Stellar!': '¡Estelar!', 'You got it!': '¡Lo lograste!', 'Super explorer!': '¡Qué gran exploración!', ' Level up!': ' ¡Subes de nivel!',
+  'pounds': 'libras', 'kg': 'kg', 'km': 'km', '{n} ft': '{n} pies', 'A': 'A', 'B': 'B', 'C': 'C',
+  // Labels in the 3D scene and on the panels.
+  'Sun': 'Sol', 'The Sun': 'El Sol', 'Sunlight': 'Luz del Sol', 'June': 'Junio', 'December': 'Diciembre', 'From Earth': 'Desde la Tierra', 'Spot {n}': 'Punto {n}',
+  'The Sun as a basketball. Distances in {u}.': 'El Sol como un balón de básquet. Distancias en {u}.', 'Distance from the Sun in {u}.': 'Distancia desde el Sol en {u}.',
+  'million km': 'millones de km', 'meters': 'metros', 'AU': 'UA', 'Brightness of a star over time': 'Brillo de una estrella con el tiempo', 'Time in {u}': 'Tiempo en {u}',
+  'days': 'días', 'hours': 'horas', 'A planet\'s orbit. The Sun is at one focus.': 'La órbita de un planeta. El Sol está en un foco.',
+  // Worlds, as a label or a button (bare) and the words that go around them.
+  'Mercury': 'Mercurio', 'Venus': 'Venus', 'Earth': 'Tierra', 'Moon': 'Luna', 'Mars': 'Marte', 'Jupiter': 'Júpiter', 'Saturn': 'Saturno', 'Uranus': 'Urano', 'Neptune': 'Neptuno',
+  'first': 'primer', 'second': 'segundo', 'third': 'tercer', 'fourth': 'cuarto', 'fifth': 'quinto', 'sixth': 'sexto', 'seventh': 'séptimo', 'eighth': 'octavo',
+  'bigger': 'grande', 'smaller': 'pequeño', 'longer': 'largo', 'shorter': 'corto', 'weaker': 'más débil', 'stronger': 'más fuerte', 'less': 'menos', 'more': 'más',
+  'about {n} hours': 'unas {n} horas', 'about {n} Earth days': 'unos {n} días terrestres', 'about {n} Earth years': 'unos {n} años terrestres', 'it goes around Earth': 'gira alrededor de la Tierra',
+  '{n} feet': '{n} pies', '{n} foot': '{n} pie', 'about one and a half times': 'una vez y media', 'about {n} times': 'unas {n} veces', 'about {n} pounds': 'unas {n} libras',
+  'about 6 feet': 'unos 6 pies', 'about 2 and a half feet': 'unos 2 pies y medio', 'about 1 foot': 'cerca de 1 pie', 'less than half a foot': 'menos de medio pie',
+  // Level names.
+  'Find a planet': 'Encuentra un planeta', 'Planet order': 'Orden de los planetas', 'Big or small': 'Grande o pequeño', 'Jump test': 'Prueba de salto', 'Day length': 'Largo del día',
+  'How high?': '¿Qué tan alto?', 'Seasons': 'Estaciones', 'Year length': 'Largo del año', 'Weigh in': '¿Cuánto pesa?', 'Mystery planet': 'Planeta misterioso',
+  'Tilt and seasons': 'Inclinación y estaciones', 'Moon phases': 'Fases de la Luna', 'Gravity math': 'Cálculos de gravedad', 'Orbits and years': 'Órbitas y años', 'Scale model': 'Modelo a escala',
+  'Eclipses': 'Eclipses', 'Our star': 'Nuestra estrella', 'Small worlds': 'Mundos pequeños', 'Stars and galaxies': 'Estrellas y galaxias', 'Kepler and exoplanets': 'Kepler y exoplanetas',
+  // Rungs 0 to 9.
+  'Fly to {p}! Tap it.': '¡Vuela a {p}! Toca el planeta.', '{p} is the {o} planet from the Sun.': '{p} es el {o} planeta desde el Sol.',
+  'Fly to the planet closest to the Sun!': '¡Vuela al planeta más cercano al Sol!', 'Mercury is closest to the Sun.': 'Mercurio es el más cercano al Sol.',
+  'Fly to the planet farthest from the Sun!': '¡Vuela al planeta más lejano al Sol!', 'Neptune is farthest from the Sun.': 'Neptuno es el más lejano al Sol.',
+  'Count out from the Sun. Fly to the {o} planet!': 'Cuenta desde el Sol. ¡Vuela al {o} planeta!',
+  'Which is {c}, {a} or {b}?': '¿Cuál es más {c}, {a} o {b}?', '{a} is {t} as wide as {b}.': '{a} mide {t} el ancho de {b}.', '{a} is smaller. {b} is {t} as wide.': '{a} es menor. {b} mide {t} su ancho.',
+  'Where can you jump higher, {a} or {b}? Land and try!': '¿Dónde saltas más alto, en {a} o en {b}? ¡Aterriza y pruébalo!',
+  'Less gravity pulls you down on {w}, so the same jump goes higher: {h}!': 'En {w} la gravedad es más débil, así que el mismo salto llega más alto: ¡{h}!',
+  'Which has a {l} day, {a} or {b}?': '¿Cuál tiene el día más {l}, {a} o {b}?',
+  'A day is sunrise to sunrise. On {a} it is {da}. On {b} it is {db}.': 'Un día va de un amanecer al siguiente. En {a} dura {da}. En {b} dura {db}.',
+  'You jump 1 foot high on Earth. About how high on {w}?': 'En la Tierra saltas 1 pie de alto. ¿Qué tan alto saltas en {w}?',
+  'Gravity on {w} is {c} than on Earth, so the same jump goes {h} high.': 'La gravedad en {w} es {c} que en la Tierra, así que el mismo salto llega a {h} de alto.',
+  'Which planet has bigger seasons, {a} or {b}?': '¿Qué planeta tiene estaciones más marcadas, {a} o {b}?',
+  'Seasons come from being tipped. {a} is tipped about {ta} degrees, and {b} about {tb}.': 'Las estaciones vienen de la inclinación. {a} tiene una inclinación de unos {ta} grados, y {b} de unos {tb}.',
+  'Seasons come from being tipped. {a} is tipped about {ta} degrees, and {b} about {tb}. Uranus is on its side!': 'Las estaciones vienen de la inclinación. {a} tiene una inclinación de unos {ta} grados, y {b} de unos {tb}. ¡Urano está de lado!',
+  'A year is one trip around the Sun. Which has a {l} year, {a} or {b}?': 'Un año es una vuelta alrededor del Sol. ¿Cuál tiene el año más {l}, {a} o {b}?',
+  'Planets farther out travel a bigger circle, slower. A year on {a} is {ya}, on {b} {yb}.': 'Los planetas más lejanos recorren un círculo más grande, y más despacio. Un año en {a} dura {ya}, y en {b} {yb}.',
+  'A dog weighs {lb} pounds on Earth. About how much would it weigh on {w}?': 'Un perro pesa {lb} libras en la Tierra. ¿Cuánto pesaría en {w}?',
+  '{w} pulls {m} than Earth: {lb} pounds times {f} is about {r}.': '{w} atrae {m} que la Tierra: {lb} libras por {f} da cerca de {r}.',
+  'Mystery planet! {c1} {c2} Who am I?': '¡Planeta misterioso! {c1} {c2} ¿Quién soy?', 'It is {p}!': '¡Es {p}!',
+  'I am the closest planet to the Sun.': 'Soy el planeta más cercano al Sol.', 'I am the smallest planet.': 'Soy el planeta más pequeño.', 'My year is only 88 days long.': 'Mi año dura solo 88 días.',
+  'I am the hottest planet.': 'Soy el planeta más caliente.', 'I spin backwards, so my Sun rises in the west.': 'Giro al revés, así que mi Sol sale por el oeste.', 'I am the second planet from the Sun.': 'Soy el segundo planeta desde el Sol.',
+  'I have oceans of liquid water on my outside.': 'Tengo océanos de agua líquida en mi superficie.', 'I am the third planet from the Sun.': 'Soy el tercer planeta desde el Sol.', 'My day is 24 hours long.': 'Mi día dura 24 horas.',
+  'I am the red planet.': 'Soy el planeta rojo.', 'I have the tallest volcano of all the planets.': 'Tengo el volcán más alto de todos los planetas.', 'I am the fourth planet from the Sun.': 'Soy el cuarto planeta desde el Sol.',
+  'I am the biggest planet.': 'Soy el planeta más grande.', 'I have the shortest day, about 10 hours.': 'Tengo el día más corto, unas 10 horas.', 'I have a giant storm called the Great Red Spot.': 'Tengo una tormenta gigante llamada la Gran Mancha Roja.',
+  'I have the biggest, brightest rings.': 'Tengo los anillos más grandes y brillantes.', 'I am the sixth planet from the Sun.': 'Soy el sexto planeta desde el Sol.',
+  'I am so light for my size that I could float in a giant bathtub.': 'Soy tan ligero para mi tamaño que flotaría en una tina gigante.',
+  'I spin tipped over on my side.': 'Giro acostado de lado.', 'I am the seventh planet from the Sun.': 'Soy el séptimo planeta desde el Sol.', 'I am an ice giant, and I look blue-green.': 'Soy un gigante de hielo y me veo azul verdoso.',
+  'I am the farthest planet from the Sun.': 'Soy el planeta más lejano al Sol.', 'My year is about 164 Earth years long.': 'Mi año dura unos 164 años terrestres.', 'I have the fastest winds of all the planets.': 'Tengo los vientos más rápidos de todos los planetas.',
+  // Rung 10: tilt and seasons.
+  'Northern Hemisphere': 'Hemisferio norte', 'Southern Hemisphere': 'Hemisferio sur',
+  'Look at Earth. The north pole leans toward the Sun. Which half of Earth has summer?': 'Mira la Tierra. El polo norte se inclina hacia el Sol. ¿Qué mitad de la Tierra tiene verano?',
+  'Look at Earth. The north pole leans away from the Sun. Which half of Earth has summer?': 'Mira la Tierra. El polo norte se inclina lejos del Sol. ¿Qué mitad de la Tierra tiene verano?',
+  'Look at Earth. The north pole leans toward the Sun. Which half of Earth has winter?': 'Mira la Tierra. El polo norte se inclina hacia el Sol. ¿Qué mitad de la Tierra tiene invierno?',
+  'Look at Earth. The north pole leans away from the Sun. Which half of Earth has winter?': 'Mira la Tierra. El polo norte se inclina lejos del Sol. ¿Qué mitad de la Tierra tiene invierno?',
+  'The half that leans toward the Sun gets more direct light and longer days. That is summer.': 'La mitad que se inclina hacia el Sol recibe luz más directa y días más largos. Eso es el verano.',
+  'The half that leans away gets slanted light and short days. That is winter.': 'La mitad que se inclina lejos recibe luz inclinada y días cortos. Eso es el invierno.',
+  'It is June. Which hemisphere has summer?': 'Es junio. ¿Qué hemisferio tiene verano?', 'In June the north pole leans toward the Sun, so the Northern Hemisphere has summer.': 'En junio el polo norte se inclina hacia el Sol, así que el hemisferio norte tiene verano.',
+  'It is December. Which hemisphere has summer?': 'Es diciembre. ¿Qué hemisferio tiene verano?', 'In December the south pole leans toward the Sun, so the Southern Hemisphere has summer.': 'En diciembre el polo sur se inclina hacia el Sol, así que el hemisferio sur tiene verano.',
+  'It is December. Which hemisphere has winter?': 'Es diciembre. ¿Qué hemisferio tiene invierno?', 'In December the north pole leans away from the Sun. The Northern Hemisphere has winter.': 'En diciembre el polo norte se inclina lejos del Sol. El hemisferio norte tiene invierno.',
+  'It is June. Which hemisphere has the longest days?': 'Es junio. ¿Qué hemisferio tiene los días más largos?', 'In June the north leans toward the Sun. Days there are long and the Sun climbs high.': 'En junio el norte se inclina hacia el Sol. Ahí los días son largos y el Sol sube alto.',
+  'Look at Earth. Which side has night?': 'Mira la Tierra. ¿Qué lado tiene noche?', 'The side facing away from the Sun': 'El lado que da la espalda al Sol', 'The side facing the Sun': 'El lado que mira al Sol', 'The top half': 'La mitad de arriba', 'The bottom half': 'La mitad de abajo',
+  'The Sun lights one half of Earth at a time. The other half is in its own shadow. That is night.': 'El Sol ilumina una mitad de la Tierra a la vez. La otra mitad queda en su propia sombra. Eso es la noche.',
+  'What makes day turn into night?': '¿Qué hace que el día se vuelva noche?', 'Earth spins once a day': 'La Tierra gira una vez al día', 'The Sun goes around Earth': 'El Sol gira alrededor de la Tierra', 'The Moon blocks the Sun': 'La Luna tapa el Sol', 'Earth moves closer to the Sun': 'La Tierra se acerca al Sol',
+  'Earth spins. Your town turns into the sunlight for day and out of it for night.': 'La Tierra gira. Tu ciudad entra en la luz del Sol para el día y sale de ella para la noche.',
+  'What gives Earth its seasons?': '¿Qué le da a la Tierra sus estaciones?', 'Earth is tilted as it goes around the Sun': 'La Tierra está inclinada mientras gira alrededor del Sol', 'Earth gets closer to the Sun in summer': 'La Tierra se acerca al Sol en verano',
+  'The Sun gets hotter in summer': 'El Sol se calienta más en verano', 'The Moon pulls on Earth': 'La Luna atrae a la Tierra',
+  'Earth is tilted about 23 degrees. The half leaning toward the Sun has summer.': 'La Tierra está inclinada unos 23 grados. La mitad que se inclina hacia el Sol tiene verano.',
+  'How long does Earth take to spin around once?': '¿Cuánto tarda la Tierra en dar una vuelta sobre sí misma?', 'About 24 hours': 'Unas 24 horas', 'About 365 days': 'Unos 365 días', 'About 1 hour': 'Cerca de 1 hora', 'About 30 days': 'Unos 30 días',
+  'One spin is one day, 24 hours.': 'Una vuelta es un día, 24 horas.', 'How long does Earth take to go around the Sun once?': '¿Cuánto tarda la Tierra en dar una vuelta al Sol?', 'About 10 years': 'Unos 10 años',
+  'One trip around the Sun is one year, about 365 days.': 'Una vuelta al Sol es un año, unos 365 días.',
+  'It is summer in Australia, in the south. What season is it in Canada, in the north?': 'Es verano en Australia, en el sur. ¿Qué estación es en Canadá, en el norte?', 'Winter': 'Invierno', 'Summer': 'Verano', 'Spring': 'Primavera', 'Fall': 'Otoño',
+  'The two halves have opposite seasons. When the south leans toward the Sun, the north leans away.': 'Las dos mitades tienen estaciones opuestas. Cuando el sur se inclina hacia el Sol, el norte se inclina lejos.',
+  'Earth spins toward the east. So the Sun seems to rise in the ...': 'La Tierra gira hacia el este. Por eso el Sol parece salir por el ...', 'East': 'Este', 'West': 'Oeste', 'North': 'Norte', 'South': 'Sur',
+  'Earth turns east, so the Sun comes into view on the eastern side first.': 'La Tierra gira hacia el este, así que el Sol aparece primero por el lado este.',
+  'Where on Earth are the seasons the mildest?': '¿En qué parte de la Tierra son más suaves las estaciones?', 'Near the equator': 'Cerca del ecuador', 'Near the North Pole': 'Cerca del Polo Norte', 'Near the South Pole': 'Cerca del Polo Sur', 'On high mountains': 'En las montañas altas',
+  'The equator gets strong sunlight all year, so its seasons change very little.': 'El ecuador recibe luz fuerte del Sol todo el año, así que sus estaciones cambian muy poco.',
+  'Why is summer warmer? In summer, sunlight hits the ground ...': '¿Por qué el verano es más cálido? En verano, la luz del Sol llega al suelo ...', 'More directly, and the days are longer': 'Más directa, y los días son más largos', 'From farther away': 'Desde más lejos', 'Only at night': 'Solo de noche', 'More from the side': 'Más de lado',
+  'Direct light and long days warm the ground more.': 'La luz directa y los días largos calientan más el suelo.',
+  'At the North Pole in June, the Sun ...': 'En el Polo Norte en junio, el Sol ...', 'Stays up all day and all night': 'Se queda arriba todo el día y toda la noche', 'Never rises': 'Nunca sale', 'Rises only at noon': 'Sale solo al mediodía', 'Sets every hour': 'Se oculta cada hora',
+  'In June the north pole leans toward the Sun and stays in the light as Earth spins.': 'En junio el polo norte se inclina hacia el Sol y se queda en la luz mientras la Tierra gira.',
+  'At the North Pole in December, the Sun ...': 'En el Polo Norte en diciembre, el Sol ...', 'Does not rise at all': 'No sale en todo el día', 'Stays up all day': 'Se queda arriba todo el día', 'Rises in the west': 'Sale por el oeste', 'Is twice as big': 'Se ve dos veces más grande',
+  'In December the north pole leans away from the Sun and stays in the dark as Earth spins.': 'En diciembre el polo norte se inclina lejos del Sol y se queda a oscuras mientras la Tierra gira.',
+  'Which planet is tipped almost all the way over, about 98 degrees?': '¿Qué planeta está inclinado casi por completo, unos 98 grados?',
+  'Uranus rolls around the Sun on its side. Each pole gets 42 years of light, then 42 of dark.': 'Urano rueda alrededor del Sol acostado de lado. Cada polo recibe 42 años de luz y luego 42 de oscuridad.',
+  'Jupiter is tipped only 3 degrees. Its seasons are ...': 'Júpiter está inclinado solo 3 grados. Sus estaciones son ...', 'Almost none': 'Casi nulas', 'Huge': 'Enormes', 'The same as Earth\'s': 'Iguales a las de la Tierra', 'Twice as big as Earth\'s': 'El doble de las de la Tierra',
+  'Little tilt means little change in sunlight through the year.': 'Poca inclinación significa poco cambio en la luz del Sol durante el año.',
+  'Mars is tipped 25 degrees, close to Earth\'s 23. Mars has ...': 'Marte está inclinado 25 grados, cerca de los 23 de la Tierra. Marte tiene ...', 'Seasons much like Earth\'s, but almost twice as long': 'Estaciones parecidas a las de la Tierra, pero casi el doble de largas',
+  'No seasons': 'Ninguna estación', 'Only one season': 'Una sola estación', 'Seasons that last a week': 'Estaciones que duran una semana',
+  'A similar tilt gives similar seasons. A Mars year is 687 days, so each season is longer.': 'Una inclinación parecida da estaciones parecidas. Un año en Marte dura 687 días, así que cada estación es más larga.',
+  'Earth\'s axis points at the same star all year. That star is ...': 'El eje de la Tierra apunta a la misma estrella todo el año. Esa estrella es ...', 'Polaris, the North Star': 'Polaris, la Estrella del Norte', 'Sirius': 'Sirio',
+  'The axis keeps pointing the same way as Earth goes around. That is why the tilt makes seasons.': 'El eje sigue apuntando al mismo lugar mientras la Tierra da la vuelta. Por eso la inclinación crea las estaciones.',
+  'On the first day of spring and the first day of fall, day and night are ...': 'El primer día de primavera y el primer día de otoño, el día y la noche son ...', 'About the same length': 'Casi igual de largos', 'Day is much longer': 'El día es mucho más largo', 'Night is much longer': 'La noche es mucho más larga', 'Both 24 hours': 'Ambos de 24 horas',
+  'On those two days neither pole leans toward the Sun, so light splits evenly.': 'Esos dos días ningún polo se inclina hacia el Sol, así que la luz se reparte por igual.',
+  'In the picture, the Sun lights ...': 'En la imagen, el Sol ilumina ...', 'Half of Earth at a time': 'La mitad de la Tierra a la vez', 'All of Earth': 'Toda la Tierra', 'Only the top of Earth': 'Solo la parte de arriba de la Tierra', 'A quarter of Earth': 'Un cuarto de la Tierra',
+  'A round ball always has one half toward the light and one half away.': 'Una bola redonda siempre tiene una mitad hacia la luz y otra mitad en sombra.',
+  // Rung 11: moon phases.
+  'New moon': 'Luna nueva', 'Waxing crescent': 'Luna creciente', 'First quarter': 'Cuarto creciente', 'Waxing gibbous': 'Gibosa creciente', 'Full moon': 'Luna llena', 'Waning gibbous': 'Gibosa menguante', 'Third quarter': 'Cuarto menguante', 'Waning crescent': 'Luna menguante',
+  'Between Earth and the Sun, the Moon turns its dark half to us. That is a new moon.': 'Entre la Tierra y el Sol, la Luna nos muestra su mitad oscura. Eso es la luna nueva.',
+  'Just past new, a thin sliver of the lit half shows. That is a waxing crescent.': 'Justo después de la nueva, se ve una franja delgada de la mitad iluminada. Eso es la luna creciente.',
+  'A quarter of the way around, we see half of the lit half. That is first quarter.': 'A un cuarto de la vuelta, vemos la mitad de la mitad iluminada. Eso es el cuarto creciente.',
+  'More than half shows, and it is still growing. That is waxing gibbous.': 'Se ve más de la mitad, y sigue creciendo. Eso es la gibosa creciente.',
+  'Opposite the Sun, the whole lit half faces us. That is a full moon.': 'Frente al Sol, toda la mitad iluminada nos mira. Eso es la luna llena.',
+  'Past full, more than half shows, and it is shrinking. That is waning gibbous.': 'Después de la llena, se ve más de la mitad, y va menguando. Eso es la gibosa menguante.',
+  'Three quarters of the way around, the other half looks lit. That is third quarter.': 'A tres cuartos de la vuelta, la otra mitad se ve iluminada. Eso es el cuarto menguante.',
+  'Nearly back to new, a thin sliver shows. That is a waning crescent.': 'Casi de vuelta a la nueva, se ve una franja delgada. Eso es la luna menguante.',
+  'Tap the spot where the Moon looks like a {ph} from Earth.': 'Toca el punto donde desde la Tierra la Luna se ve en fase de {ph}.',
+  'The Moon is at spot {n}. What phase do we see from Earth?': 'La Luna está en el punto {n}. ¿Qué fase vemos desde la Tierra?',
+  'Why does the Moon show phases?': '¿Por qué la Luna tiene fases?', 'We see different amounts of its sunlit half': 'Vemos distintas partes de su mitad iluminada', 'Earth\'s shadow covers part of it': 'La sombra de la Tierra cubre una parte', 'The Moon changes shape': 'La Luna cambia de forma', 'Clouds hide part of it': 'Las nubes tapan una parte',
+  'Half of the Moon is always lit. As it goes around Earth, we see more or less of that lit half.': 'La mitad de la Luna siempre está iluminada. Mientras gira alrededor de la Tierra, vemos más o menos de esa mitad.',
+  'Where does moonlight come from?': '¿De dónde viene la luz de la Luna?', 'Sunlight bouncing off the Moon': 'Luz del Sol que rebota en la Luna', 'The Moon makes its own light': 'La Luna hace su propia luz', 'City lights': 'Las luces de la ciudad', 'Starlight': 'La luz de las estrellas',
+  'The Moon does not glow. It reflects the Sun.': 'La Luna no brilla por sí misma. Refleja al Sol.',
+  'How long is it from one full moon to the next?': '¿Cuánto pasa de una luna llena a la siguiente?', 'About a month, 29 and a half days': 'Como un mes, 29 días y medio', 'About 7 days': 'Unos 7 días', 'About 1 year': 'Cerca de 1 año',
+  'The whole cycle of phases takes about 29 and a half days.': 'El ciclo completo de fases tarda unos 29 días y medio.',
+  'A waxing moon is ...': 'Una luna creciente está ...', 'Growing bigger each night': 'Creciendo cada noche', 'Shrinking each night': 'Menguando cada noche', 'Always full': 'Siempre llena', 'Always dark': 'Siempre oscura',
+  'Waxing means growing. The lit part grows from new moon to full moon.': 'Creciente quiere decir que crece. La parte iluminada crece de la luna nueva a la luna llena.',
+  'A waning moon is ...': 'Una luna menguante está ...', 'Growing each night': 'Creciendo cada noche', 'Bright red': 'Roja brillante',
+  'Waning means shrinking. The lit part shrinks from full moon back to new.': 'Menguante quiere decir que se achica. La parte iluminada se reduce de la luna llena a la nueva.',
+  'Which phase comes right after the {ph}?': '¿Qué fase sigue a la fase de {ph}?', 'The Moon moves on around Earth to the next spot. {w}': 'La Luna avanza alrededor de la Tierra al siguiente punto. {w}',
+  'Which phase comes right before the {ph}?': '¿Qué fase viene justo antes de la fase de {ph}?', 'One spot back along the orbit. {w}': 'Un punto atrás en la órbita. {w}',
+  'At first quarter, how much of the Moon\'s face looks lit?': 'En cuarto creciente, ¿cuánto de la cara de la Luna se ve iluminado?', 'Half': 'La mitad', 'A quarter': 'Un cuarto', 'All of it': 'Toda', 'None of it': 'Nada',
+  'First quarter means a quarter of the way around the orbit. We see half of the face lit.': 'Cuarto creciente significa un cuarto de la vuelta en la órbita. Vemos la mitad de la cara iluminada.',
+  'Why do we always see the same side of the Moon?': '¿Por qué siempre vemos el mismo lado de la Luna?', 'It spins once for each trip around Earth': 'Gira una vez por cada vuelta a la Tierra', 'It does not spin at all': 'No gira para nada', 'It spins very fast': 'Gira muy rápido', 'Earth hides the other side': 'La Tierra esconde el otro lado',
+  'One spin takes as long as one orbit, so the same face always points at Earth.': 'Una vuelta sobre sí misma tarda lo mismo que una órbita, así que la misma cara siempre apunta a la Tierra.',
+  'How long does the Moon take to go once around Earth?': '¿Cuánto tarda la Luna en dar una vuelta a la Tierra?', 'About 27 days': 'Unos 27 días', 'About 1 day': 'Cerca de 1 día',
+  'The Moon takes about 27 days to go around Earth once.': 'La Luna tarda unos 27 días en dar una vuelta a la Tierra.',
+  'Half of the Moon is always lit by the Sun. True or false?': 'La mitad de la Luna siempre está iluminada por el Sol. ¿Verdadero o falso?', 'True': 'Verdadero', 'False': 'Falso',
+  'The Sun always lights the half facing it. Phases are about how much of that half we can see.': 'El Sol siempre ilumina la mitad que lo mira. Las fases son cuánto de esa mitad podemos ver.',
+  'The dark part of the Moon is dark because ...': 'La parte oscura de la Luna está oscura porque ...', 'It faces away from the Sun': 'Da la espalda al Sol', 'Earth\'s shadow is on it': 'La sombra de la Tierra la cubre', 'It is made of black rock': 'Es de roca negra', 'It is covered in water': 'Está cubierta de agua',
+  'The dark part is the Moon\'s own night side.': 'La parte oscura es el lado de noche de la Luna.',
+  // Rung 12: gravity and weight.
+  'A dog': 'Un perro', 'A backpack': 'Una mochila', 'A rover': 'Un róver', 'A bike': 'Una bicicleta', 'A bag of apples': 'Una bolsa de manzanas',
+  'You weigh {lb} pounds on Earth. Gravity on {w} is {f} times Earth\'s. How much do you weigh on {w}? Type the pounds.': 'Pesas {lb} libras en la Tierra. La gravedad en {w} es {f} veces la de la Tierra. ¿Cuánto pesas en {w}? Escribe las libras.',
+  '{s} weighs {lb} pounds on Earth. Gravity on {w} is {f} times Earth\'s. How much does it weigh on {w}? Type the pounds.': '{s} pesa {lb} libras en la Tierra. La gravedad en {w} es {f} veces la de la Tierra. ¿Cuánto pesa en {w}? Escribe las libras.',
+  '{lb} times {f} is {r}. Gravity on {w} is {c}, so the same mass weighs {m}.': '{lb} por {f} da {r}. La gravedad en {w} es {c}, así que la misma masa pesa {m}.',
+  'You weigh {x} pounds on {w}, where gravity is {f} times Earth\'s. How much do you weigh on Earth? Type the pounds.': 'Pesas {x} libras en {w}, donde la gravedad es {f} veces la de la Tierra. ¿Cuánto pesas en la Tierra? Escribe las libras.',
+  '{s} weighs {x} pounds on {w}, where gravity is {f} times Earth\'s. How much does it weigh on Earth? Type the pounds.': '{s} pesa {x} libras en {w}, donde la gravedad es {f} veces la de la Tierra. ¿Cuánto pesa en la Tierra? Escribe las libras.',
+  '{x} divided by {f} is {lb}. Earth weight times the factor gives the weight on {w}.': '{x} entre {f} da {lb}. El peso en la Tierra por el factor da el peso en {w}.',
+  'Your mass is {kg} kilograms on Earth. What is your mass on {w}? Type the kilograms.': 'Tu masa es de {kg} kilogramos en la Tierra. ¿Cuál es tu masa en {w}? Escribe los kilogramos.',
+  'Mass is how much stuff you are made of. It stays {kg} kilograms everywhere. Only weight changes.': 'La masa es cuánta materia tienes. Sigue siendo {kg} kilogramos en todas partes. Solo cambia el peso.',
+  'Gravity on the Moon is about one sixth of Earth\'s. A box weighs {n6} pounds on Earth. About how much on the Moon? Type the pounds.': 'La gravedad en la Luna es como una sexta parte de la de la Tierra. Una caja pesa {n6} libras en la Tierra. ¿Cuánto pesa en la Luna? Escribe las libras.',
+  '{n6} divided by 6 is {n}.': '{n6} entre 6 da {n}.',
+  'Why do you weigh less on the Moon?': '¿Por qué pesas menos en la Luna?', 'The Moon has less mass, so its gravity is weaker': 'La Luna tiene menos masa, así que su gravedad es más débil', 'There is no air on the Moon': 'No hay aire en la Luna', 'The Moon is farther from the Sun': 'La Luna está más lejos del Sol', 'You get lighter in space': 'Te vuelves más ligero en el espacio',
+  'Less mass means a weaker pull. Your mass is the same, but the Moon pulls on it less.': 'Menos masa significa una atracción más débil. Tu masa es la misma, pero la Luna la atrae menos.',
+  'You fly to {w}. What stays the same?': 'Vuelas a {w}. ¿Qué no cambia?', 'Your mass': 'Tu masa', 'Your weight': 'Tu peso', 'Both change': 'Los dos cambian', 'Neither changes': 'Ninguno cambia',
+  'Mass is the amount of stuff in you. Weight is gravity pulling on that mass, so weight changes.': 'La masa es la cantidad de materia que tienes. El peso es la gravedad atrayendo esa masa, así que el peso cambia.',
+  'Which of these has the strongest gravity at its surface?': '¿Cuál de estos tiene la gravedad más fuerte en su superficie?', '{W} pulls hardest here. Its gravity is {f} times Earth\'s.': '{W} atrae con más fuerza aquí. Su gravedad es {f} veces la de la Tierra.',
+  'Which of these has the weakest gravity at its surface?': '¿Cuál de estos tiene la gravedad más débil en su superficie?', '{W} pulls least here. Its gravity is {f} times Earth\'s.': '{W} atrae con menos fuerza aquí. Su gravedad es {f} veces la de la Tierra.',
+  'Weight is ...': 'El peso es ...', 'The pull of gravity on your mass': 'La fuerza de la gravedad sobre tu masa', 'How much stuff you are made of': 'Cuánta materia tienes', 'How tall you are': 'Qué tan alto eres', 'How fast you fall': 'Qué tan rápido caes',
+  'Weight is a force. More gravity, more weight. Same mass.': 'El peso es una fuerza. Más gravedad, más peso. La misma masa.',
+  'Gravity pulls harder when a planet ...': 'La gravedad atrae más fuerte cuando un planeta ...', 'Has more mass': 'Tiene más masa', 'Is hotter': 'Es más caliente', 'Spins faster': 'Gira más rápido', 'Is farther from the Sun': 'Está más lejos del Sol',
+  'More mass means a stronger pull at the surface. Size matters too, but mass is the key.': 'Más masa significa una atracción más fuerte en la superficie. El tamaño también importa, pero la masa es la clave.',
+  'Astronauts float in the space station because ...': 'Los astronautas flotan en la estación espacial porque ...', 'They are falling around Earth together with the station': 'Van cayendo alrededor de la Tierra junto con la estación', 'There is no gravity in space': 'No hay gravedad en el espacio',
+  'They are too far away for gravity': 'Están demasiado lejos para la gravedad', 'The station has special floors': 'La estación tiene pisos especiales',
+  'Gravity up there is almost as strong as on the ground. The station is always falling, and so are they.': 'Allá arriba la gravedad es casi tan fuerte como en el suelo. La estación siempre está cayendo, y ellos también.',
+  'What keeps the Moon going around Earth?': '¿Qué mantiene a la Luna girando alrededor de la Tierra?', 'Earth\'s gravity': 'La gravedad de la Tierra', 'The wind': 'El viento', 'Magnets': 'Imanes', 'The Moon\'s engines': 'Los motores de la Luna',
+  'Earth\'s pull bends the Moon\'s path into a circle around us.': 'La atracción de la Tierra curva el camino de la Luna en un círculo a nuestro alrededor.',
+  'You drop a feather and a hammer on the Moon, where there is no air. Which lands first?': 'Sueltas una pluma y un martillo en la Luna, donde no hay aire. ¿Cuál llega primero al suelo?', 'They land at the same time': 'Llegan al mismo tiempo', 'The hammer': 'El martillo', 'The feather': 'La pluma', 'Neither falls': 'Ninguno cae',
+  'With no air, gravity speeds up everything the same. An Apollo astronaut tried it.': 'Sin aire, la gravedad acelera todo por igual. Un astronauta del Apolo lo probó.',
+  'Jupiter\'s gravity is about 2.4 times Earth\'s. A 50 pound dog would feel like ...': 'La gravedad de Júpiter es unas 2.4 veces la de la Tierra. Un perro de 50 libras se sentiría como de ...', 'About 120 pounds': 'Unas 120 libras', 'About 50 pounds': 'Unas 50 libras', 'About 20 pounds': 'Unas 20 libras', 'About 500 pounds': 'Unas 500 libras',
+  '50 times 2.4 is 120. A heavy dog to carry.': '50 por 2.4 da 120. Un perro pesado para cargar.',
+  // Rung 13: orbits and years.
+  'Which planet has the longest year?': '¿Qué planeta tiene el año más largo?', 'Neptune is farthest out. Its path is the longest and it moves the slowest, so one trip takes 165 Earth years.': 'Neptuno es el más lejano. Su camino es el más largo y se mueve más despacio, así que una vuelta tarda 165 años terrestres.',
+  'Why does Neptune have the longest year?': '¿Por qué Neptuno tiene el año más largo?', 'It is farthest out, so its path is longest and it moves slowest': 'Es el más lejano, así que su camino es el más largo y se mueve más despacio', 'It is the biggest planet': 'Es el planeta más grande', 'It spins very slowly': 'Gira muy despacio', 'It is the coldest planet': 'Es el planeta más frío',
+  'Far from the Sun the pull is weaker, so the planet moves slower along a much longer path.': 'Lejos del Sol la atracción es más débil, así que el planeta se mueve más despacio por un camino mucho más largo.',
+  'Which planet has the shortest year?': '¿Qué planeta tiene el año más corto?', 'Mercury is closest to the Sun. Its path is short and it moves fast. One year is 88 days.': 'Mercurio es el más cercano al Sol. Su camino es corto y se mueve rápido. Un año dura 88 días.',
+  'Tap these planets in order, shortest year first.': 'Toca estos planetas en orden, primero el año más corto.', 'Tap these planets in order, longest year first.': 'Toca estos planetas en orden, primero el año más largo.',
+  'Farther from the Sun means a longer year. {list}.': 'Más lejos del Sol, más largo el año. {list}.', '{p}: {y}': '{p}: {y}',
+  'Which planet takes about {n} Earth years to go around the Sun?': '¿Qué planeta tarda unos {n} años terrestres en dar la vuelta al Sol?', 'A {p} year is {y}.': 'Un año en {p} dura {y}.',
+  'Which planet takes about {n} Earth days to go around the Sun?': '¿Qué planeta tarda unos {n} días terrestres en dar la vuelta al Sol?',
+  'A year on Mars is 687 Earth days. About how many Earth years is that?': 'Un año en Marte dura 687 días terrestres. ¿Cuántos años terrestres son?', 'Almost 2': 'Casi 2', 'About 1': 'Cerca de 1', 'About 4': 'Cerca de 4', 'About 10': 'Cerca de 10',
+  '687 days is 1.9 Earth years. Mars is farther out, so its year is longer.': '687 días son 1.9 años terrestres. Marte está más lejos, así que su año es más largo.',
+  'A planet farther from the Sun has a ...': 'Un planeta más lejos del Sol tiene ...', 'Longer year': 'Un año más largo', 'Shorter year': 'Un año más corto', 'Year the same as Earth\'s': 'Un año igual al de la Tierra', 'Shorter day': 'Un día más corto',
+  'A bigger path and a slower speed both make the year longer.': 'Un camino más largo y una velocidad más lenta hacen el año más largo.',
+  'What is a year?': '¿Qué es un año?', 'One trip around the Sun': 'Una vuelta alrededor del Sol', 'One spin of the planet': 'Un giro del planeta sobre sí mismo', 'One trip of the Moon around Earth': 'Una vuelta de la Luna a la Tierra', 'Twelve days': 'Doce días',
+  'A year is one full orbit around the Sun.': 'Un año es una órbita completa alrededor del Sol.',
+  'Venus goes around the Sun in 225 days. Is a Venus year longer or shorter than Earth\'s?': 'Venus da la vuelta al Sol en 225 días. ¿Un año en Venus es más largo o más corto que el de la Tierra?', 'Shorter': 'Más corto', 'Longer': 'Más largo', 'The same': 'Igual',
+  'Venus is closer to the Sun than Earth, so its year is shorter: 225 days to our 365.': 'Venus está más cerca del Sol que la Tierra, así que su año es más corto: 225 días contra nuestros 365.',
+  'You are 10 Earth years old. About how many Mercury years is that? A Mercury year is 88 days.': 'Tienes 10 años terrestres. ¿Cuántos años de Mercurio son? Un año en Mercurio dura 88 días.', 'About 40': 'Cerca de 40', 'About 100': 'Cerca de 100',
+  '10 Earth years is 3,652 days. Divide by 88 and you get about 41 Mercury years.': '10 años terrestres son 3,652 días. Divide entre 88 y da unos 41 años de Mercurio.',
+  'You are 12 Earth years old. About how many Jupiter years is that? A Jupiter year is about 12 Earth years.': 'Tienes 12 años terrestres. ¿Cuántos años de Júpiter son? Un año en Júpiter dura unos 12 años terrestres.', 'About 12': 'Cerca de 12', 'About 144': 'Cerca de 144', 'About 6': 'Cerca de 6',
+  'One Jupiter year is 12 Earth years, so you would be about 1 Jupiter year old.': 'Un año en Júpiter son 12 años terrestres, así que tendrías cerca de 1 año de Júpiter.',
+  'What keeps the planets going around the Sun?': '¿Qué mantiene a los planetas girando alrededor del Sol?', 'The Sun\'s gravity': 'La gravedad del Sol', 'The solar wind': 'El viento solar', 'Nothing, they just drift': 'Nada, solo van a la deriva',
+  'The Sun\'s pull bends each planet\'s path into an orbit.': 'La atracción del Sol curva el camino de cada planeta en una órbita.',
+  'The path a planet takes around the Sun is called its ...': 'El camino que sigue un planeta alrededor del Sol se llama ...', 'Orbit': 'Órbita', 'Spin': 'Giro', 'Season': 'Estación', 'Axis': 'Eje',
+  'Each planet follows its own orbit around the Sun.': 'Cada planeta sigue su propia órbita alrededor del Sol.',
+  'Which planet moves fastest along its orbit?': '¿Qué planeta se mueve más rápido en su órbita?', 'Mercury races along at 47 km every second. Neptune moves at about 5.': 'Mercurio corre a 47 km cada segundo. Neptuno se mueve a unos 5.',
+  'Earth travels about 30 km every second around the Sun. Neptune moves ...': 'La Tierra recorre unos 30 km cada segundo alrededor del Sol. Neptuno se mueve ...', 'Slower, about 5 km per second': 'Más despacio, unos 5 km por segundo', 'Faster, about 100 km per second': 'Más rápido, unos 100 km por segundo', 'At the same speed': 'A la misma velocidad', 'Backwards': 'Al revés',
+  'Far from the Sun, the pull is weaker and planets move slower.': 'Lejos del Sol, la atracción es más débil y los planetas se mueven más despacio.',
+  'Saturn\'s year is 29 Earth years. Jupiter\'s is 12. Saturn\'s year is about ...': 'El año de Saturno dura 29 años terrestres. El de Júpiter, 12. El año de Saturno es ...', 'Two and a half times as long': 'Dos veces y media más largo', 'Half as long': 'La mitad de largo', 'The same length': 'Igual de largo', 'Ten times as long': 'Diez veces más largo',
+  '29 divided by 12 is about 2.4.': '29 entre 12 da cerca de 2.4.',
+  'Mercury\'s year is 88 days. Earth\'s is 365. About how many Mercury years fit in one Earth year?': 'El año de Mercurio dura 88 días. El de la Tierra, 365. ¿Cuántos años de Mercurio caben en un año terrestre?', 'About 2': 'Cerca de 2', 'About 88': 'Cerca de 88',
+  '365 divided by 88 is about 4.': '365 entre 88 da cerca de 4.',
+  'Uranus takes 84 Earth years to orbit. A person born there would have how many birthdays by age 84?': 'Urano tarda 84 años terrestres en dar la vuelta. Alguien nacido ahí, ¿cuántos cumpleaños tendría a los 84 años?', 'One': 'Uno', '84': '84', 'Twelve': 'Doce', 'None, Uranus does not move': 'Ninguno, Urano no se mueve',
+  'One orbit is one birthday. Uranus takes 84 of our years to make it.': 'Una órbita es un cumpleaños. Urano tarda 84 de nuestros años en completarla.',
+  'Which takes longer to go around the Sun, {a} or {b}?': '¿Cuál tarda más en dar la vuelta al Sol, {a} o {b}?', '{a} is farther out. Its year is {ya}. The other is {yb}.': '{a} está más lejos. Su año dura {ya}. El año de {b} dura {yb}.',
+  // Rung 14: the scale of the solar system.
+  'About {n} minutes': 'Unos {n} minutos', 'About {h} and a half hours': 'Cerca de {h} y media', 'About {h} hours': 'Unas {h} horas', 'About {n} meters': 'Unos {n} metros', 'About {n} million km': 'Unos {n} millones de km',
+  'About 0.4': 'Cerca de 0.4', 'About 0.7': 'Cerca de 0.7', 'About 1.5': 'Cerca de 1.5', 'About 5': 'Cerca de 5', 'About 19': 'Cerca de 19', 'About 30': 'Cerca de 30',
+  'about 0.4': 'cerca de 0.4', 'about 0.7': 'cerca de 0.7', 'about 1.5': 'cerca de 1.5', 'about 5': 'cerca de 5', 'about 10': 'cerca de 10', 'about 19': 'cerca de 19', 'about 30': 'cerca de 30',
+  'Read the strip. About how far is {p} from the Sun?': 'Lee la tira. ¿A qué distancia del Sol está {p}?', '{p} sits at the ? mark, {d} from the Sun.': '{p} está en la marca ?, a {d} del Sol.',
+  'Only {ref} is labelled. Which planet sits at the ? mark?': 'Solo {ref} tiene etiqueta. ¿Qué planeta está en la marca ?', '{p} is the {o} planet, {d} from the Sun.': '{p} es el {o} planeta, a {d} del Sol.',
+  'If the Sun were a basketball, about how far away would {p} be? Read the strip.': 'Si el Sol fuera un balón de básquet, ¿a qué distancia estaría {p}? Lee la tira.',
+  'With a 24 cm Sun, {p} is {m} away. The real distance is {d}.': 'Con un Sol de 24 cm, {p} queda a {m}. La distancia real es {d}.',
+  'If the Sun were a basketball, how big would Earth be?': 'Si el Sol fuera un balón de básquet, ¿de qué tamaño sería la Tierra?', 'A peppercorn, about 2 mm': 'Un grano de pimienta, unos 2 mm', 'A tennis ball': 'Una pelota de tenis', 'A large marble, about 2.5 cm': 'Una canica grande, unos 2.5 cm', 'A grape': 'Una uva',
+  'The Sun is 109 Earths wide. A 24 cm ball divided by 109 is about 2 mm.': 'El Sol mide 109 Tierras de ancho. Un balón de 24 cm entre 109 da unos 2 mm.',
+  'If the Sun were a basketball, how big would Jupiter be?': 'Si el Sol fuera un balón de básquet, ¿de qué tamaño sería Júpiter?', 'A grain of sand': 'Un grano de arena',
+  'Jupiter is a tenth as wide as the Sun. A tenth of 24 cm is about 2.5 cm.': 'Júpiter mide una décima parte del ancho del Sol. Una décima parte de 24 cm son unos 2.5 cm.',
+  'If the Sun were a basketball, how big would the Moon be?': 'Si el Sol fuera un balón de básquet, ¿de qué tamaño sería la Luna?', 'A grain of sand, less than 1 mm': 'Un grano de arena, menos de 1 mm', 'A pea, about 1 cm': 'Un chícharo, cerca de 1 cm',
+  'The Moon is 400 times smaller than the Sun. 24 cm divided by 400 is about 0.6 mm.': 'La Luna es 400 veces más pequeña que el Sol. 24 cm entre 400 da unos 0.6 mm.',
+  'If the Sun were a basketball, the Moon would be how far from the model Earth?': 'Si el Sol fuera un balón de básquet, ¿a qué distancia estaría la Luna de la Tierra del modelo?', 'About 7 cm': 'Unos 7 cm', 'About 7 m': 'Unos 7 m', 'About 70 cm': 'Unos 70 cm', 'About 7 mm': 'Unos 7 mm',
+  'The Moon is 384,000 km away. At this scale that is about 7 cm, about the width of your hand.': 'La Luna está a 384,000 km. A esta escala son unos 7 cm, más o menos el ancho de tu mano.',
+  'Earth is 1 AU from the Sun. Read the strip. About how many AU is {p}?': 'La Tierra está a 1 UA del Sol. Lee la tira. ¿A cuántas UA está {p}?',
+  'One AU is the Earth to Sun distance, 150 million km. {p} is {au} AU out.': 'Una UA es la distancia de la Tierra al Sol, 150 millones de km. {p} está a {au} UA.',
+  'How many Earths would fit side by side across the Sun?': '¿Cuántas Tierras caben en fila a lo ancho del Sol?', 'About 109': 'Cerca de 109', 'About 1,000': 'Cerca de 1,000',
+  'The Sun is 1.39 million km wide. Earth is 12,756 km wide. That is 109 Earths across.': 'El Sol mide 1.39 millones de km de ancho. La Tierra mide 12,756 km. Son 109 Tierras en fila.',
+  'How many Earths would fit side by side across Jupiter?': '¿Cuántas Tierras caben en fila a lo ancho de Júpiter?', 'About 11': 'Cerca de 11',
+  'Jupiter is 142,984 km wide. Earth is 12,756. That is about 11 Earths across.': 'Júpiter mide 142,984 km de ancho. La Tierra, 12,756. Son unas 11 Tierras en fila.',
+  'Mars at its closest is 56 million km from Earth. The Moon is 384,000 km away. Mars is about ...': 'Marte, en su punto más cercano, está a 56 millones de km de la Tierra. La Luna está a 384,000 km. Marte está ...',
+  '150 times farther than the Moon': '150 veces más lejos que la Luna', 'Twice as far as the Moon': 'Al doble de distancia que la Luna', 'Closer than the Moon': 'Más cerca que la Luna', '10 times farther than the Moon': '10 veces más lejos que la Luna',
+  '56 million divided by 384 thousand is about 146.': '56 millones entre 384 mil da cerca de 146.',
+  'If the Sun were a basketball in your town, the nearest other star would be ...': 'Si el Sol fuera un balón de básquet en tu ciudad, la otra estrella más cercana estaría ...', 'About 7,000 km away, across an ocean': 'A unos 7,000 km, del otro lado de un océano', 'Across the street': 'Al otro lado de la calle', 'About 7 km away, in the next town': 'A unos 7 km, en el pueblo vecino', 'On the Moon': 'En la Luna',
+  'Proxima Centauri is 40 trillion km away. Even with a basketball Sun, that is 7,000 km.': 'Próxima Centauri está a 40 billones de km. Incluso con un Sol de balón, eso son 7,000 km.',
+  'What does AU stand for?': '¿Qué significa UA?', 'Astronomical unit, the Earth to Sun distance': 'Unidad astronómica, la distancia de la Tierra al Sol', 'Atomic unit': 'Unidad atómica', 'A unit of time': 'Una unidad de tiempo', 'The width of the Sun': 'El ancho del Sol',
+  'One AU is about 150 million km. It keeps solar system distances easy to compare.': 'Una UA son unos 150 millones de km. Hace fáciles de comparar las distancias del sistema solar.',
+  'Which takes up more of the solar system: the planets, or the empty space between them?': '¿Qué ocupa más del sistema solar: los planetas o el espacio vacío entre ellos?', 'The empty space': 'El espacio vacío', 'The planets': 'Los planetas', 'They are equal': 'Son iguales',
+  'Planets are tiny next to the gaps. On a basketball Sun scale, Earth is a peppercorn 26 meters away.': 'Los planetas son diminutos junto a los huecos. A la escala de un Sol de balón, la Tierra es un grano de pimienta a 26 metros.',
+  // Rung 15: eclipses.
+  'Tap the spot where the Moon can block the Sun for people on Earth. That is a solar eclipse.': 'Toca el punto donde la Luna puede tapar el Sol para la gente en la Tierra. Eso es un eclipse solar.',
+  'The Moon sits between the Sun and Earth. Its small shadow falls on Earth. This can only happen at new moon.': 'La Luna queda entre el Sol y la Tierra. Su sombra pequeña cae sobre la Tierra. Esto solo pasa en luna nueva.',
+  'Tap the spot where the Moon passes through Earth\'s shadow. That is a lunar eclipse.': 'Toca el punto donde la Luna pasa por la sombra de la Tierra. Eso es un eclipse lunar.',
+  'Earth sits between the Sun and the Moon, and the Moon moves into Earth\'s shadow. This can only happen at full moon.': 'La Tierra queda entre el Sol y la Luna, y la Luna entra en la sombra de la Tierra. Esto solo pasa en luna llena.',
+  'Where must the Moon be for a solar eclipse? Tap the spot.': '¿Dónde debe estar la Luna para un eclipse solar? Toca el punto.', 'A solar eclipse needs the Moon between the Sun and Earth, at the new moon spot.': 'Un eclipse solar necesita la Luna entre el Sol y la Tierra, en el punto de luna nueva.',
+  'Where must the Moon be for a lunar eclipse? Tap the spot.': '¿Dónde debe estar la Luna para un eclipse lunar? Toca el punto.', 'A lunar eclipse needs Earth between the Sun and the Moon, at the full moon spot.': 'Un eclipse lunar necesita la Tierra entre el Sol y la Luna, en el punto de luna llena.',
+  'Tap them in a line for a solar eclipse. Start with the Sun.': 'Tócalos en fila para un eclipse solar. Empieza con el Sol.', 'Sun, Moon, Earth. The Moon in the middle casts its shadow on Earth.': 'Sol, Luna, Tierra. La Luna en medio proyecta su sombra sobre la Tierra.',
+  'Tap them in a line for a lunar eclipse. Start with the Sun.': 'Tócalos en fila para un eclipse lunar. Empieza con el Sol.', 'Sun, Earth, Moon. Earth in the middle casts its shadow on the Moon.': 'Sol, Tierra, Luna. La Tierra en medio proyecta su sombra sobre la Luna.',
+  'A solar eclipse can only happen at which phase of the Moon?': '¿En qué fase de la Luna puede pasar un eclipse solar?', 'Only at new moon is the Moon between the Sun and Earth.': 'Solo en luna nueva la Luna está entre el Sol y la Tierra.',
+  'A lunar eclipse can only happen at which phase of the Moon?': '¿En qué fase de la Luna puede pasar un eclipse lunar?', 'Only at full moon is Earth between the Sun and the Moon.': 'Solo en luna llena la Tierra está entre el Sol y la Luna.',
+  'In a solar eclipse, what is in the middle?': 'En un eclipse solar, ¿qué está en medio?', 'The Moon': 'La Luna', 'The Moon passes between the Sun and Earth and covers the Sun.': 'La Luna pasa entre el Sol y la Tierra y cubre el Sol.',
+  'In a lunar eclipse, what is in the middle?': 'En un eclipse lunar, ¿qué está en medio?', 'Earth passes between the Sun and the Moon, and its shadow falls on the Moon.': 'La Tierra pasa entre el Sol y la Luna, y su sombra cae sobre la Luna.',
+  'Why is there not an eclipse every month?': '¿Por qué no hay un eclipse cada mes?', 'The Moon\'s orbit is tilted about 5 degrees, so the shadows usually miss': 'La órbita de la Luna está inclinada unos 5 grados, así que las sombras casi siempre pasan de lado',
+  'The Moon is too small': 'La Luna es demasiado pequeña', 'The Sun moves out of the way': 'El Sol se quita del camino', 'Eclipses need a leap year': 'Los eclipses necesitan un año bisiesto',
+  'Most months the Moon passes a little above or below the line, so no shadow lands.': 'Casi todos los meses la Luna pasa un poco arriba o abajo de la línea, así que ninguna sombra cae.',
+  'Who can see a total solar eclipse?': '¿Quién puede ver un eclipse solar total?', 'Only people inside the Moon\'s small shadow on Earth': 'Solo la gente dentro de la sombra pequeña de la Luna sobre la Tierra', 'Everyone on Earth': 'Todos en la Tierra', 'Everyone on the day side': 'Todos en el lado de día', 'People on the Moon': 'La gente en la Luna',
+  'The Moon\'s dark shadow is only about 100 to 250 km wide where it touches Earth.': 'La sombra oscura de la Luna mide solo unos 100 a 250 km de ancho donde toca la Tierra.',
+  'Who can see a lunar eclipse?': '¿Quién puede ver un eclipse lunar?', 'Everyone on the night side of Earth': 'Todos en el lado de noche de la Tierra', 'Only people in a narrow path': 'Solo la gente en una franja estrecha', 'Only people at the equator': 'Solo la gente en el ecuador', 'Nobody, it happens in the day': 'Nadie, pasa de día',
+  'The Moon is in Earth\'s shadow, so anyone who can see the Moon sees the eclipse.': 'La Luna está en la sombra de la Tierra, así que cualquiera que vea la Luna ve el eclipse.',
+  'Why does the Moon often look red during a lunar eclipse?': '¿Por qué la Luna suele verse roja en un eclipse lunar?', 'Earth\'s air bends red sunlight into Earth\'s shadow': 'El aire de la Tierra desvía la luz roja del Sol hacia la sombra de la Tierra', 'The Moon gets hot': 'La Luna se calienta', 'Mars is behind it': 'Marte está detrás', 'The Moon is covered in rust': 'La Luna está cubierta de óxido',
+  'The same red light that colors sunsets reaches the Moon through Earth\'s air.': 'La misma luz roja que pinta los atardeceres llega a la Luna a través del aire de la Tierra.',
+  'The Moon and the Sun look about the same size in our sky because ...': 'La Luna y el Sol se ven casi del mismo tamaño en nuestro cielo porque ...', 'The Sun is about 400 times wider but also about 400 times farther away': 'El Sol es unas 400 veces más ancho pero también está unas 400 veces más lejos',
+  'They are the same size': 'Son del mismo tamaño', 'The Moon is bigger than the Sun': 'La Luna es más grande que el Sol', 'The Moon is a mirror': 'La Luna es un espejo',
+  'That lucky match is why the Moon can just cover the Sun.': 'Esa coincidencia afortunada es la razón de que la Luna pueda cubrir justo el Sol.',
+  'During a total solar eclipse you can see the Sun\'s faint outer layer. It is called the ...': 'En un eclipse solar total puedes ver la capa exterior tenue del Sol. Se llama ...', 'Corona': 'Corona', 'Crater': 'Cráter', 'Core': 'Núcleo', 'Comet': 'Cometa',
+  'The corona is the Sun\'s thin outer atmosphere. The bright disk has to be covered to see it.': 'La corona es la atmósfera exterior delgada del Sol. El disco brillante tiene que estar cubierto para verla.',
+  'How long does the total part of a solar eclipse last in one place?': '¿Cuánto dura la parte total de un eclipse solar en un lugar?', 'A few minutes': 'Unos minutos', 'A few seconds': 'Unos segundos', 'A few hours': 'Unas horas', 'A whole day': 'Un día entero',
+  'The Moon\'s shadow moves fast. Totality lasts at most about 7 minutes, usually less.': 'La sombra de la Luna se mueve rápido. La totalidad dura como máximo unos 7 minutos, casi siempre menos.',
+  'When the Moon is a bit farther away, it cannot cover the whole Sun and a ring of Sun shows. This is ...': 'Cuando la Luna está un poco más lejos, no puede cubrir todo el Sol y se ve un anillo de Sol. Esto es ...', 'An annular eclipse': 'Un eclipse anular', 'A lunar eclipse': 'Un eclipse lunar', 'A blue moon': 'Una luna azul', 'A sunset': 'Un atardecer',
+  'Annular means ring. The Moon\'s orbit is not a perfect circle, so its size in the sky changes.': 'Anular quiere decir anillo. La órbita de la Luna no es un círculo perfecto, así que su tamaño en el cielo cambia.',
+  'Is it safe to look at a partly covered Sun without eclipse glasses?': '¿Es seguro mirar el Sol tapado en parte sin lentes para eclipse?', 'No, never': 'No, nunca', 'Yes, if it is cloudy': 'Sí, si está nublado', 'Yes, for one minute': 'Sí, por un minuto', 'Yes, through sunglasses': 'Sí, con lentes de sol',
+  'Even a sliver of Sun can hurt your eyes. Use real eclipse glasses or a pinhole.': 'Hasta una franja de Sol puede dañar tus ojos. Usa lentes para eclipse de verdad o un agujerito.',
+  'In a total lunar eclipse, the Moon is inside Earth\'s darkest shadow. That shadow is called the ...': 'En un eclipse lunar total, la Luna está dentro de la sombra más oscura de la Tierra. Esa sombra se llama ...', 'Umbra': 'Umbra', 'Penumbra': 'Penumbra', 'Aurora': 'Aurora',
+  'The umbra is the dark central shadow. The lighter edge is the penumbra.': 'La umbra es la sombra central oscura. El borde más claro es la penumbra.',
+  'If you stood on the Moon during a lunar eclipse, what would you see?': 'Si estuvieras en la Luna durante un eclipse lunar, ¿qué verías?', 'Earth covering the Sun': 'La Tierra cubriendo el Sol', 'The Moon covering the Sun': 'La Luna cubriendo el Sol', 'Nothing unusual': 'Nada raro', 'Mars covering the Sun': 'Marte cubriendo el Sol',
+  'From the Moon, a lunar eclipse is a solar eclipse made by Earth.': 'Desde la Luna, un eclipse lunar es un eclipse solar hecho por la Tierra.',
+  'A solar eclipse happens during the ...': 'Un eclipse solar pasa durante ...', 'Day': 'El día', 'Night': 'La noche', 'Evening only': 'Solo la tarde', 'Winter only': 'Solo el invierno',
+  'The Sun has to be up for the Moon to cover it.': 'El Sol tiene que estar arriba para que la Luna lo cubra.',
+  'Which is seen more often from any one town: a lunar eclipse or a total solar eclipse?': '¿Cuál se ve más seguido desde una misma ciudad: un eclipse lunar o un eclipse solar total?', 'A total solar eclipse': 'Un eclipse solar total', 'They are equally common': 'Son igual de comunes',
+  'A lunar eclipse is seen by the whole night side. A total solar eclipse path is narrow.': 'Un eclipse lunar lo ve todo el lado de noche. La franja de un eclipse solar total es estrecha.',
+  // Rung 16: the Sun as a star.
+  'How long does sunlight take to reach Earth?': '¿Cuánto tarda la luz del Sol en llegar a la Tierra?', 'About 8 minutes': 'Unos 8 minutos', 'About 8 seconds': 'Unos 8 segundos', 'About 8 hours': 'Unas 8 horas', 'About 8 days': 'Unos 8 días',
+  'Light covers 150 million km in 8 minutes and 20 seconds.': 'La luz recorre 150 millones de km en 8 minutos y 20 segundos.',
+  'How fast does light travel?': '¿Qué tan rápido viaja la luz?', 'About 300,000 km every second': 'Unos 300,000 km cada segundo', 'About 300 km every second': 'Unos 300 km cada segundo', 'About 300,000 km every hour': 'Unos 300,000 km cada hora', 'About as fast as a jet': 'Más o menos como un avión a reacción',
+  'Light moves 299,792 km per second. Nothing goes faster.': 'La luz se mueve a 299,792 km por segundo. Nada va más rápido.',
+  'What is the Sun?': '¿Qué es el Sol?', 'A star': 'Una estrella', 'A planet': 'Un planeta', 'A big moon': 'Una luna grande', 'A comet': 'Un cometa', 'The Sun is an ordinary star. It looks huge because it is close.': 'El Sol es una estrella común. Se ve enorme porque está cerca.',
+  'Why does the Sun look so much bigger than the other stars?': '¿Por qué el Sol se ve mucho más grande que las otras estrellas?', 'It is much closer to us': 'Está mucho más cerca de nosotros', 'It is the biggest star there is': 'Es la estrella más grande que existe', 'It is the hottest star': 'Es la estrella más caliente', 'It is the only real star': 'Es la única estrella de verdad',
+  'Many stars are bigger. The next nearest star is 270,000 times farther away than the Sun.': 'Muchas estrellas son más grandes. La siguiente estrella más cercana está 270,000 veces más lejos que el Sol.',
+  'What is the Sun mostly made of?': '¿De qué está hecho el Sol principalmente?', 'Hydrogen and helium': 'Hidrógeno y helio', 'Rock and iron': 'Roca y hierro', 'Burning wood': 'Madera que se quema', 'Hot water': 'Agua caliente',
+  'About three quarters hydrogen and one quarter helium, all as hot gas.': 'Unas tres cuartas partes de hidrógeno y una cuarta parte de helio, todo como gas caliente.',
+  'How does the Sun make its energy?': '¿Cómo produce el Sol su energía?', 'By fusing hydrogen into helium in its core': 'Fusionando hidrógeno en helio en su núcleo', 'By burning like a fire': 'Quemándose como una fogata', 'By electricity': 'Con electricidad', 'By spinning fast': 'Girando rápido',
+  'In the core, hydrogen atoms squeeze together into helium and release energy.': 'En el núcleo, los átomos de hidrógeno se aprietan hasta formar helio y liberan energía.',
+  'After the Sun, which star is nearest to Earth?': 'Después del Sol, ¿qué estrella está más cerca de la Tierra?', 'Proxima Centauri': 'Próxima Centauri', 'Polaris': 'Polaris', 'Betelgeuse': 'Betelgeuse',
+  'Proxima Centauri is a small red star about 4.2 light-years away.': 'Próxima Centauri es una estrella roja pequeña a unos 4.2 años luz.',
+  'How far away is Proxima Centauri, the nearest star after the Sun?': '¿A qué distancia está Próxima Centauri, la estrella más cercana después del Sol?', 'About 4 light-years': 'Unos 4 años luz', 'About 4 light-minutes': 'Unos 4 minutos luz', 'About 4 million km': 'Unos 4 millones de km', 'About 400 light-years': 'Unos 400 años luz',
+  'Its light takes 4.2 years to reach us.': 'Su luz tarda 4.2 años en llegar a nosotros.',
+  'A light-year measures ...': 'Un año luz mide ...', 'Distance': 'Distancia', 'Time': 'Tiempo', 'Brightness': 'Brillo', 'Speed': 'Velocidad',
+  'A light-year is how far light travels in one year, about 9.5 trillion km.': 'Un año luz es lo que la luz recorre en un año, unos 9.5 billones de km.',
+  'How far is one light-year?': '¿Cuánto es un año luz?', 'About 9.5 trillion km': 'Unos 9.5 billones de km', 'About 300,000 km': 'Unos 300,000 km', 'About 150 million km': 'Unos 150 millones de km', 'About 1 million km': 'Cerca de 1 millón de km',
+  'Light goes 300,000 km each second for a whole year. That adds up to 9.5 trillion km.': 'La luz recorre 300,000 km cada segundo durante un año entero. Eso suma 9.5 billones de km.',
+  'The light you see tonight from Proxima Centauri left the star about ...': 'La luz que ves esta noche de Próxima Centauri salió de la estrella hace ...', '4 years ago': '4 años', '4 minutes ago': '4 minutos', '4 days ago': '4 días', '400 years ago': '400 años',
+  'It is 4.2 light-years away, so its light is 4 years old when it reaches your eye.': 'Está a 4.2 años luz, así que su luz tiene 4 años cuando llega a tu ojo.',
+  'You look at a star 100 light-years away. You are seeing light that left it ...': 'Miras una estrella a 100 años luz. Ves luz que salió de ella hace ...', '100 years ago': '100 años', 'Just now': 'Un instante', '100 days ago': '100 días', '100 minutes ago': '100 minutos',
+  'Looking far away is looking back in time.': 'Mirar lejos es mirar al pasado.',
+  'How long does sunlight take to reach {p}?': '¿Cuánto tarda la luz del Sol en llegar a {p}?', '{p} is {d} from the Sun. Light covers that in {t}.': '{p} está a {d} del Sol. La luz recorre eso en {t}.',
+  'Light takes 8 minutes to reach Earth. Jupiter is about 5 times farther from the Sun. Sunlight reaches Jupiter in ...': 'La luz tarda 8 minutos en llegar a la Tierra. Júpiter está unas 5 veces más lejos del Sol. La luz del Sol llega a Júpiter en ...',
+  'About 40 minutes': 'Unos 40 minutos', 'About 2 minutes': 'Unos 2 minutos', 'About 5 hours': 'Unas 5 horas', '5 times 8 is 40. The true time is 43 minutes.': '5 por 8 da 40. El tiempo real es 43 minutos.',
+  'The Moon is 384,000 km away. Light goes 300,000 km each second. Moonlight reaches you in ...': 'La Luna está a 384,000 km. La luz recorre 300,000 km cada segundo. La luz de la Luna te llega en ...', 'A little more than 1 second': 'Un poco más de 1 segundo', 'No time at all': 'Nada de tiempo',
+  '384,000 divided by 300,000 is 1.3 seconds.': '384,000 entre 300,000 da 1.3 segundos.',
+  'Light goes 300,000 km in 1 second. How far does it go in {n} seconds? Type the km.': 'La luz recorre 300,000 km en 1 segundo. ¿Cuánto recorre en {n} segundos? Escribe los km.', '{n} times 300,000 is {r} km.': '{n} por 300,000 da {r} km.',
+  'How old is the Sun?': '¿Qué edad tiene el Sol?', 'About 4.6 billion years': 'Unos 4.6 mil millones de años', 'About 4,600 years': 'Unos 4,600 años', 'About 4.6 million years': 'Unos 4.6 millones de años', 'About 46 billion years': 'Unos 46 mil millones de años',
+  'The Sun and the planets formed together about 4.6 billion years ago.': 'El Sol y los planetas se formaron juntos hace unos 4.6 mil millones de años.',
+  'How hot is the surface of the Sun?': '¿Qué tan caliente es la superficie del Sol?', 'About 5,500 degrees Celsius': 'Unos 5,500 grados Celsius', 'About 55 degrees': 'Unos 55 grados', 'About 550 degrees': 'Unos 550 grados', 'About 5.5 million degrees': 'Unos 5.5 millones de grados',
+  'The surface is about 5,500 degrees. The core is about 15 million.': 'La superficie está a unos 5,500 grados. El núcleo, a unos 15 millones.',
+  'Sunspots are ...': 'Las manchas solares son ...', 'Cooler, darker patches on the Sun': 'Zonas más frías y oscuras del Sol', 'Holes through the Sun': 'Agujeros que atraviesan el Sol', 'Planets in front of the Sun': 'Planetas frente al Sol', 'Clouds on the Sun': 'Nubes en el Sol',
+  'Sunspots are a bit cooler than the rest of the surface, so they look dark next to it.': 'Las manchas solares están un poco más frías que el resto de la superficie, así que se ven oscuras a su lado.',
+  'The stream of tiny particles blowing out from the Sun is called the ...': 'La corriente de partículas diminutas que sale del Sol se llama ...', 'Solar wind': 'Viento solar', 'Solar rain': 'Lluvia solar', 'Sunbeam': 'Rayo de sol',
+  'The solar wind flows past all the planets. On Earth it makes the northern lights.': 'El viento solar pasa junto a todos los planetas. En la Tierra crea las auroras boreales.',
+  'Stars look like tiny dots at night because ...': 'Las estrellas se ven como puntitos de noche porque ...', 'They are very far away': 'Están muy lejos', 'They are very small': 'Son muy pequeñas', 'They are cold': 'Están frías', 'They are behind the Moon': 'Están detrás de la Luna',
+  'Many are bigger than the Sun. Distance makes them look like points.': 'Muchas son más grandes que el Sol. La distancia las hace verse como puntos.',
+  'What color is sunlight really?': '¿De qué color es en realidad la luz del Sol?', 'White, a mix of all colors': 'Blanca, una mezcla de todos los colores', 'Yellow only': 'Solo amarilla', 'Red only': 'Solo roja', 'Blue only': 'Solo azul',
+  'A prism or a rainbow splits sunlight into every color.': 'Un prisma o un arcoíris separa la luz del Sol en todos los colores.',
+  // Rung 17: small worlds.
+  'Planet': 'Planeta', 'Dwarf planet': 'Planeta enano', 'Asteroid': 'Asteroide', '{name}. {desc} What kind of object is it?': '{name}. {desc} ¿Qué clase de objeto es?',
+  'Pluto': 'Plutón', 'Ceres': 'Ceres', 'Eris': 'Eris', 'Haumea': 'Haumea', 'Makemake': 'Makemake', 'Halley': 'Halley', 'Hale-Bopp': 'Hale-Bopp', 'NEOWISE': 'NEOWISE', 'Vesta': 'Vesta', 'Bennu': 'Bennu', 'Ryugu': 'Ryugu', 'Ida': 'Ida',
+  'Titan': 'Titán', 'Europa': 'Europa', 'Ganymede': 'Ganímedes', 'Io': 'Ío', 'Triton': 'Tritón', 'Charon': 'Caronte', 'Phobos': 'Fobos',
+  'It is round and goes around the Sun, but it shares its zone beyond Neptune with many icy bodies.': 'Es redondo y gira alrededor del Sol, pero comparte su zona más allá de Neptuno con muchos cuerpos helados.',
+  'Pluto has not cleared its orbit, so since 2006 it counts as a dwarf planet in the Kuiper belt.': 'Plutón no ha despejado su órbita, así que desde 2006 cuenta como planeta enano en el cinturón de Kuiper.',
+  'It is round, 940 km wide, and the biggest thing in the belt between Mars and Jupiter.': 'Es redondo, mide 940 km de ancho y es lo más grande del cinturón entre Marte y Júpiter.',
+  'Ceres is round but shares its orbit with thousands of asteroids, so it is a dwarf planet.': 'Ceres es redondo pero comparte su órbita con miles de asteroides, así que es un planeta enano.',
+  'It is round, about the size of Pluto, and orbits far beyond Neptune among icy bodies.': 'Es redondo, casi del tamaño de Plutón, y orbita mucho más allá de Neptuno entre cuerpos helados.',
+  'Eris is a dwarf planet. Finding it in 2005 led to the new rules for what a planet is.': 'Eris es un planeta enano. Su hallazgo en 2005 llevó a las nuevas reglas sobre qué es un planeta.',
+  'It is a fast spinning, egg shaped world beyond Neptune with two small moons and a ring.': 'Es un mundo con forma de huevo que gira rápido, más allá de Neptuno, con dos lunas pequeñas y un anillo.',
+  'Haumea is one of the five dwarf planets the IAU has named.': 'Haumea es uno de los cinco planetas enanos que la UAI ha nombrado.',
+  'It is a round, icy world in the Kuiper belt, a bit smaller than Pluto.': 'Es un mundo redondo y helado del cinturón de Kuiper, un poco más pequeño que Plutón.', 'Makemake is a dwarf planet in the Kuiper belt.': 'Makemake es un planeta enano del cinturón de Kuiper.',
+  'It is a ball of ice and dust that grows a long tail near the Sun and comes back every 76 years.': 'Es una bola de hielo y polvo a la que le crece una cola larga cerca del Sol y que vuelve cada 76 años.',
+  'Halley\'s Comet is a comet. It returns in 2061.': 'El cometa Halley es un cometa. Vuelve en 2061.',
+  'It is a dirty snowball that glowed with two tails when it passed the Sun in 1997.': 'Es una bola de nieve sucia que brilló con dos colas cuando pasó junto al Sol en 1997.',
+  'Hale-Bopp is a comet. Its tails were sunlight pushing dust and gas away.': 'Hale-Bopp es un cometa. Sus colas eran luz del Sol empujando polvo y gas.',
+  'It is an icy body that swung past the Sun in 2020, trailing a tail of dust.': 'Es un cuerpo helado que pasó junto al Sol en 2020, arrastrando una cola de polvo.', 'NEOWISE is a comet.': 'NEOWISE es un cometa.',
+  'It is a rocky, lumpy body 525 km wide in the belt between Mars and Jupiter.': 'Es un cuerpo rocoso e irregular de 525 km de ancho en el cinturón entre Marte y Júpiter.',
+  'Vesta is an asteroid, one of the biggest in the asteroid belt.': 'Vesta es un asteroide, uno de los más grandes del cinturón de asteroides.',
+  'It is a dark, rocky pile 500 m wide that a spacecraft took a sample from in 2020.': 'Es un montón de rocas oscuras de 500 m de ancho del que una nave tomó una muestra en 2020.',
+  'Bennu is an asteroid. OSIRIS REx brought bits of it back to Earth in 2023.': 'Bennu es un asteroide. OSIRIS REx trajo pedacitos de él a la Tierra en 2023.',
+  'It is a rocky, diamond shaped body about 1 km wide that a Japanese probe landed on.': 'Es un cuerpo rocoso con forma de diamante de cerca de 1 km de ancho en el que aterrizó una sonda japonesa.',
+  'Ryugu is an asteroid. Hayabusa2 returned a sample in 2020.': 'Ryugu es un asteroide. Hayabusa2 trajo una muestra en 2020.',
+  'It is a rocky body 56 km long in the asteroid belt with its own tiny moon, Dactyl.': 'Es un cuerpo rocoso de 56 km de largo en el cinturón de asteroides con su propia luna diminuta, Dáctilo.',
+  'Ida is an asteroid. Even asteroids can have moons.': 'Ida es un asteroide. Hasta los asteroides pueden tener lunas.',
+  'It goes around Saturn and has thick orange air and lakes of liquid methane.': 'Gira alrededor de Saturno y tiene un aire espeso y naranja y lagos de metano líquido.',
+  'Titan is a moon of Saturn, the second biggest moon in the solar system.': 'Titán es una luna de Saturno, la segunda luna más grande del sistema solar.',
+  'It goes around Jupiter and hides an ocean of water under its icy shell.': 'Gira alrededor de Júpiter y esconde un océano de agua bajo su corteza de hielo.', 'Europa is a moon of Jupiter.': 'Europa es una luna de Júpiter.',
+  'It goes around Jupiter and is bigger than the planet Mercury.': 'Gira alrededor de Júpiter y es más grande que el planeta Mercurio.',
+  'Ganymede is a moon of Jupiter, the biggest moon in the solar system.': 'Ganímedes es una luna de Júpiter, la luna más grande del sistema solar.',
+  'It goes around Jupiter and has hundreds of active volcanoes.': 'Gira alrededor de Júpiter y tiene cientos de volcanes activos.', 'Io is a moon of Jupiter.': 'Ío es una luna de Júpiter.',
+  'It goes around Neptune backwards and has geysers of nitrogen.': 'Gira alrededor de Neptuno al revés y tiene géiseres de nitrógeno.', 'Triton is a moon of Neptune.': 'Tritón es una luna de Neptuno.',
+  'It goes around Pluto and is half as wide as Pluto itself.': 'Gira alrededor de Plutón y mide la mitad del ancho de Plutón.', 'Charon is Pluto\'s biggest moon.': 'Caronte es la luna más grande de Plutón.',
+  'It is a small lumpy rock that goes around Mars three times a day.': 'Es una roca pequeña e irregular que gira alrededor de Marte tres veces al día.', 'Phobos is a moon of Mars.': 'Fobos es una luna de Marte.',
+  'It is round, goes around the Sun, and has swept its orbit clear of other bodies.': 'Es redondo, gira alrededor del Sol y ha barrido su órbita de otros cuerpos.', 'Mercury is a planet, the smallest of the eight.': 'Mercurio es un planeta, el más pequeño de los ocho.',
+  'It is a big round world that goes around the Sun and rules its own orbit.': 'Es un mundo grande y redondo que gira alrededor del Sol y domina su propia órbita.', 'Neptune is a planet, the eighth from the Sun.': 'Neptuno es un planeta, el octavo desde el Sol.',
+  'It is round, goes around the Sun, and has cleared its orbit. Two small moons go around it.': 'Es redondo, gira alrededor del Sol y ha despejado su órbita. Dos lunas pequeñas giran a su alrededor.', 'Mars is a planet.': 'Marte es un planeta.',
+  'How many planets are in our solar system?': '¿Cuántos planetas hay en nuestro sistema solar?', 'Eight': 'Ocho', 'Nine': 'Nueve', 'Seven': 'Siete', 'Ten': 'Diez',
+  'Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus and Neptune. Pluto is a dwarf planet.': 'Mercurio, Venus, Tierra, Marte, Júpiter, Saturno, Urano y Neptuno. Plutón es un planeta enano.',
+  'Why is Pluto called a dwarf planet?': '¿Por qué a Plutón se le llama planeta enano?', 'It has not cleared its orbit of other objects': 'No ha despejado su órbita de otros objetos', 'It is too cold': 'Es demasiado frío', 'It is too far away': 'Está demasiado lejos', 'It has no moons': 'No tiene lunas',
+  'A planet is round, orbits the Sun and has cleared its zone. Pluto shares its zone with the Kuiper belt.': 'Un planeta es redondo, orbita el Sol y ha despejado su zona. Plutón comparte su zona con el cinturón de Kuiper.',
+  'Where is the asteroid belt?': '¿Dónde está el cinturón de asteroides?', 'Between Mars and Jupiter': 'Entre Marte y Júpiter', 'Between Earth and Mars': 'Entre la Tierra y Marte', 'Beyond Neptune': 'Más allá de Neptuno', 'Inside Mercury\'s orbit': 'Dentro de la órbita de Mercurio',
+  'Most asteroids orbit in a wide belt between Mars and Jupiter.': 'La mayoría de los asteroides orbitan en un cinturón ancho entre Marte y Júpiter.',
+  'Where is the Kuiper belt?': '¿Dónde está el cinturón de Kuiper?', 'Between Venus and Earth': 'Entre Venus y la Tierra', 'Around Saturn': 'Alrededor de Saturno',
+  'The Kuiper belt is a ring of icy bodies past Neptune. Pluto lives there.': 'El cinturón de Kuiper es un anillo de cuerpos helados más allá de Neptuno. Plutón vive ahí.',
+  'A comet\'s tail always points ...': 'La cola de un cometa siempre apunta ...', 'Away from the Sun': 'Lejos del Sol', 'Toward the Sun': 'Hacia el Sol', 'Behind the comet': 'Detrás del cometa', 'Down': 'Hacia abajo',
+  'Sunlight and the solar wind push the gas and dust away from the Sun.': 'La luz del Sol y el viento solar empujan el gas y el polvo lejos del Sol.',
+  'What is a comet mostly made of?': '¿De qué está hecho un cometa principalmente?', 'Ice and dust': 'Hielo y polvo', 'Rock and metal': 'Roca y metal', 'Hot gas': 'Gas caliente', 'Water and fish': 'Agua y peces',
+  'A comet is a dirty snowball. Near the Sun the ice turns to gas and makes a tail.': 'Un cometa es una bola de nieve sucia. Cerca del Sol el hielo se vuelve gas y forma una cola.',
+  'What is an asteroid mostly made of?': '¿De qué está hecho un asteroide principalmente?', 'Gas': 'Gas', 'Lava': 'Lava', 'Asteroids are rocky or metal leftovers from when the planets formed.': 'Los asteroides son sobras de roca o metal de cuando se formaron los planetas.',
+  'A streak of light from a space rock burning up in the air is called a ...': 'Un rayo de luz de una roca espacial que se quema en el aire se llama ...', 'Meteor': 'Meteoro', 'Meteorite': 'Meteorito',
+  'A meteor is the flash. People call them shooting stars.': 'El meteoro es el destello. La gente les dice estrellas fugaces.',
+  'A space rock that reaches the ground is called a ...': 'Una roca espacial que llega al suelo se llama ...', 'Asteroid belt': 'Cinturón de asteroides',
+  'Meteoroid in space, meteor in the air, meteorite on the ground.': 'Meteoroide en el espacio, meteoro en el aire, meteorito en el suelo.',
+  'A small rock still out in space is called a ...': 'Una roca pequeña que sigue en el espacio se llama ...', 'Meteoroid': 'Meteoroide',
+  'The far, cold shell of comets around the whole solar system is called the ...': 'La capa lejana y fría de cometas que rodea todo el sistema solar se llama ...', 'Oort cloud': 'Nube de Oort', 'Kuiper belt': 'Cinturón de Kuiper', 'Milky Way': 'Vía Láctea',
+  'The Oort cloud is thousands of times farther than Neptune. Long period comets come from there.': 'La nube de Oort está miles de veces más lejos que Neptuno. De ahí vienen los cometas de periodo largo.',
+  'Which is the largest object in the asteroid belt?': '¿Cuál es el objeto más grande del cinturón de asteroides?', 'Ceres is 940 km wide, big enough to be round, so it is also a dwarf planet.': 'Ceres mide 940 km de ancho, lo bastante grande para ser redondo, así que también es un planeta enano.',
+  'Halley\'s Comet comes back every ...': 'El cometa Halley vuelve ...', 'About 76 years': 'Cada 76 años, más o menos', 'About 7 years': 'Cada 7 años, más o menos', 'About 760 years': 'Cada 760 años, más o menos', 'Every year': 'Cada año',
+  'It last came in 1986 and returns in 2061.': 'La última vez vino en 1986 y vuelve en 2061.',
+  'Which planets have rings?': '¿Qué planetas tienen anillos?', 'All four giant planets': 'Los cuatro planetas gigantes', 'Only Saturn': 'Solo Saturno', 'Saturn and Mars': 'Saturno y Marte', 'None of them': 'Ninguno',
+  'Saturn\'s rings are the brightest, but Jupiter, Uranus and Neptune have faint rings too.': 'Los anillos de Saturno son los más brillantes, pero Júpiter, Urano y Neptuno también tienen anillos tenues.',
+  'Pluto\'s biggest moon is ...': 'La luna más grande de Plutón es ...', 'Charon is half as wide as Pluto. The two circle each other.': 'Caronte mide la mitad del ancho de Plutón. Los dos giran uno alrededor del otro.',
+  'A dwarf planet is round and orbits the Sun, but ...': 'Un planeta enano es redondo y orbita el Sol, pero ...', 'It shares its orbit with many other objects': 'Comparte su órbita con muchos otros objetos', 'It is square': 'Es cuadrado', 'It orbits a planet': 'Orbita un planeta', 'It has no gravity': 'No tiene gravedad',
+  'That one rule separates the eight planets from the dwarf planets.': 'Esa sola regla separa a los ocho planetas de los planetas enanos.',
+  'What made the craters on the Moon and Mercury?': '¿Qué hizo los cráteres de la Luna y Mercurio?', 'Asteroids and comets hitting them': 'Asteroides y cometas que los golpearon', 'Volcanoes': 'Volcanes', 'Wind': 'Viento', 'Rain': 'Lluvia',
+  'With no air to burn them up, space rocks hit the ground and leave craters.': 'Sin aire que las queme, las rocas espaciales golpean el suelo y dejan cráteres.',
+  'Which is bigger, Pluto or Earth\'s Moon?': '¿Cuál es más grande, Plutón o la Luna de la Tierra?', 'Earth\'s Moon': 'La Luna de la Tierra', 'The Moon is 3,475 km wide. Pluto is 2,377 km wide.': 'La Luna mide 3,475 km de ancho. Plutón mide 2,377 km.',
+  'How many dwarf planets has the IAU officially named?': '¿Cuántos planetas enanos ha nombrado oficialmente la UAI?', 'Five': 'Cinco', 'Fifty': 'Cincuenta', 'None': 'Ninguno',
+  'Ceres, Pluto, Haumea, Makemake and Eris. Many more likely wait beyond Neptune.': 'Ceres, Plutón, Haumea, Makemake y Eris. Es probable que muchos más esperen más allá de Neptuno.',
+  // Rung 18: stars and galaxies.
+  'Tap the stages of a star like our Sun in order, from the start.': 'Toca las etapas de una estrella como nuestro Sol en orden, desde el inicio.', 'Nebula': 'Nebulosa', 'Shining star': 'Estrella brillante', 'Red giant': 'Gigante roja', 'White dwarf': 'Enana blanca',
+  'A cloud of gas squeezes into a star. It shines for billions of years, swells into a red giant, then shrinks to a white dwarf.': 'Una nube de gas se comprime hasta ser una estrella. Brilla por miles de millones de años, se hincha como gigante roja y luego se encoge en una enana blanca.',
+  'Tap the stages of a very massive star in order, from the start.': 'Toca las etapas de una estrella muy masiva en orden, desde el inicio.', 'Massive star': 'Estrella masiva', 'Supernova': 'Supernova', 'Neutron star or black hole': 'Estrella de neutrones o agujero negro',
+  'Heavy stars burn fast, explode as a supernova, and leave a neutron star or a black hole.': 'Las estrellas pesadas se consumen rápido, explotan como supernova y dejan una estrella de neutrones o un agujero negro.',
+  'Tap the star colors from hottest to coolest.': 'Toca los colores de estrella de la más caliente a la más fría.', 'Blue': 'Azul', 'White': 'Blanca', 'Yellow': 'Amarilla', 'Red': 'Roja',
+  'Blue stars are the hottest and red stars are the coolest. The Sun is in between.': 'Las estrellas azules son las más calientes y las rojas las más frías. El Sol está en medio.',
+  'Tap them from smallest to biggest.': 'Tócalos del más pequeño al más grande.', 'The solar system': 'El sistema solar', 'The Milky Way': 'La Vía Láctea',
+  'Earth fits in the Sun a million times. The Sun is a dot in the solar system, which is a dot in the galaxy.': 'La Tierra cabe un millón de veces en el Sol. El Sol es un punto en el sistema solar, que es un punto en la galaxia.',
+  'Tap them from the inside out. Where do we live?': 'Tócalos de adentro hacia afuera. ¿Dónde vivimos?', 'The universe': 'El universo',
+  'Earth is in the solar system, which is in the Milky Way, which is one galaxy among billions.': 'La Tierra está en el sistema solar, que está en la Vía Láctea, que es una galaxia entre miles de millones.',
+  'Tap them from nearest to farthest from Earth.': 'Tócalos del más cercano al más lejano de la Tierra.', 'The Andromeda galaxy': 'La galaxia de Andrómeda',
+  'The Moon is 1 light-second away, the Sun 8 light-minutes, Proxima 4 light-years, Andromeda 2.5 million light-years.': 'La Luna está a 1 segundo luz, el Sol a 8 minutos luz, Próxima a 4 años luz, Andrómeda a 2.5 millones de años luz.',
+  'What kind of star is the Sun?': '¿Qué clase de estrella es el Sol?', 'A medium sized yellow star in the middle of its life': 'Una estrella amarilla de tamaño medio a mitad de su vida', 'A red giant': 'Una gigante roja', 'A white dwarf': 'Una enana blanca', 'A blue supergiant': 'Una supergigante azul',
+  'The Sun is a main sequence star, about halfway through its 10 billion year life.': 'El Sol es una estrella de secuencia principal, más o menos a la mitad de su vida de 10 mil millones de años.',
+  'Where are stars born?': '¿Dónde nacen las estrellas?', 'In clouds of gas and dust called nebulas': 'En nubes de gas y polvo llamadas nebulosas', 'Inside planets': 'Dentro de los planetas', 'In black holes': 'En agujeros negros', 'In the ocean': 'En el océano',
+  'Gravity pulls a cloud together until the center gets hot enough to shine.': 'La gravedad junta una nube hasta que el centro se calienta lo suficiente para brillar.',
+  'What will the Sun become at the very end of its life?': '¿En qué se convertirá el Sol al final de su vida?', 'A black hole': 'Un agujero negro', 'A supernova': 'Una supernova',
+  'The Sun is not heavy enough to explode. It will swell, puff off its outer layers and leave a white dwarf.': 'El Sol no es lo bastante pesado para explotar. Se hinchará, soltará sus capas exteriores y dejará una enana blanca.',
+  'Which stars end in a supernova explosion?': '¿Qué estrellas terminan en una explosión de supernova?', 'Very massive stars': 'Las estrellas muy masivas', 'All stars': 'Todas las estrellas', 'Small red stars': 'Las estrellas rojas pequeñas', 'Stars like the Sun': 'Las estrellas como el Sol',
+  'Only stars much heavier than the Sun blow up.': 'Solo explotan las estrellas mucho más pesadas que el Sol.',
+  'What can be left after a giant star explodes?': '¿Qué puede quedar después de que explota una estrella gigante?', 'A neutron star or a black hole': 'Una estrella de neutrones o un agujero negro', 'A new planet': 'Un planeta nuevo', 'Nothing at all': 'Nada en absoluto',
+  'The core collapses into a tiny neutron star, or a black hole if it is heavy enough.': 'El núcleo se colapsa en una estrella de neutrones diminuta, o en un agujero negro si es lo bastante pesado.',
+  'What is a galaxy?': '¿Qué es una galaxia?', 'Billions of stars held together by gravity': 'Miles de millones de estrellas unidas por la gravedad', 'A single big star': 'Una sola estrella grande', 'A group of planets': 'Un grupo de planetas', 'A cloud on Earth': 'Una nube en la Tierra',
+  'A galaxy also holds gas, dust and dark matter.': 'Una galaxia también contiene gas, polvo y materia oscura.',
+  'What is the name of our galaxy?': '¿Cómo se llama nuestra galaxia?', 'Andromeda': 'Andrómeda', 'Orion': 'Orión', 'We live in the Milky Way. On a dark night you can see it as a hazy band.': 'Vivimos en la Vía Láctea. En una noche oscura puedes verla como una franja borrosa.',
+  'What shape is the Milky Way?': '¿Qué forma tiene la Vía Láctea?', 'A spiral with a bar across the middle': 'Una espiral con una barra en el centro', 'A ball': 'Una bola', 'A cube': 'Un cubo', 'A flat ring': 'Un anillo plano',
+  'The Milky Way is a barred spiral galaxy about 100,000 light-years across.': 'La Vía Láctea es una galaxia espiral barrada de unos 100,000 años luz de ancho.',
+  'Where is the Sun in the Milky Way?': '¿Dónde está el Sol en la Vía Láctea?', 'In a spiral arm, about halfway out from the center': 'En un brazo espiral, más o menos a mitad de camino del centro', 'Right at the center': 'Justo en el centro', 'At the very edge': 'En el mismo borde', 'Outside it': 'Fuera de ella',
+  'The Sun is about 26,000 light-years from the center, in the Orion Arm.': 'El Sol está a unos 26,000 años luz del centro, en el brazo de Orión.',
+  'About how many stars are in the Milky Way?': '¿Cuántas estrellas hay en la Vía Láctea?', 'Hundreds of billions': 'Cientos de miles de millones', 'A few thousand': 'Unos miles', 'About a million': 'Cerca de un millón', 'Exactly one hundred': 'Exactamente cien',
+  'Estimates run from 100 billion to 400 billion stars.': 'Las estimaciones van de 100 mil millones a 400 mil millones de estrellas.',
+  'How wide is the Milky Way?': '¿Qué tan ancha es la Vía Láctea?', 'About 100,000 light-years': 'Unos 100,000 años luz', 'About 100 light-years': 'Unos 100 años luz', 'About 1 light-year': 'Cerca de 1 año luz', 'About 8 light-minutes': 'Unos 8 minutos luz',
+  'Light takes about 100,000 years to cross our galaxy.': 'La luz tarda unos 100,000 años en cruzar nuestra galaxia.',
+  'The nearest big galaxy to ours is ...': 'La galaxia grande más cercana a la nuestra es ...', 'Andromeda is 2.5 million light-years away. It and the Milky Way are slowly moving toward each other.': 'Andrómeda está a 2.5 millones de años luz. Ella y la Vía Láctea se acercan despacio una a la otra.',
+  'How far away is the Andromeda galaxy?': '¿A qué distancia está la galaxia de Andrómeda?', 'About 2.5 million light-years': 'Unos 2.5 millones de años luz',
+  'Its light left 2.5 million years ago, before modern humans existed.': 'Su luz salió hace 2.5 millones de años, antes de que existieran los humanos modernos.',
+  'What color are the hottest stars?': '¿De qué color son las estrellas más calientes?', 'Green': 'Verde', 'Hot things glow blue white. Cooler stars glow orange and red.': 'Lo muy caliente brilla azul blanco. Las estrellas más frías brillan naranja y rojo.',
+  'What color are the coolest stars?': '¿De qué color son las estrellas más frías?', 'Red stars are the coolest and often the smallest. Proxima Centauri is one.': 'Las estrellas rojas son las más frías y muchas veces las más pequeñas. Próxima Centauri es una.',
+  'The hazy band of light across the night sky is ...': 'La franja borrosa de luz que cruza el cielo de noche es ...', 'Our own galaxy seen from inside': 'Nuestra propia galaxia vista desde adentro', 'A cloud': 'Una nube', 'The Moon\'s glow': 'El resplandor de la Luna', 'Another galaxy': 'Otra galaxia',
+  'We look along the disk of the Milky Way and see billions of faraway stars blended together.': 'Miramos a lo largo del disco de la Vía Láctea y vemos miles de millones de estrellas lejanas mezcladas.',
+  'How much longer will the Sun shine as it does now?': '¿Cuánto tiempo más brillará el Sol como ahora?', 'About 5 billion more years': 'Unos 5 mil millones de años más', 'About 5,000 years': 'Unos 5,000 años', 'About 5 million years': 'Unos 5 millones de años', 'About 50 years': 'Unos 50 años',
+  'The Sun has used about half of its hydrogen fuel.': 'El Sol ha usado más o menos la mitad de su combustible de hidrógeno.',
+  'What sits at the center of the Milky Way?': '¿Qué hay en el centro de la Vía Láctea?', 'A giant black hole': 'Un agujero negro gigante', 'Nothing': 'Nada', 'Sagittarius A star is 4 million times the mass of the Sun.': 'Sagitario A estrella tiene 4 millones de veces la masa del Sol.',
+  'What is a black hole?': '¿Qué es un agujero negro?', 'A place where gravity is so strong that not even light escapes': 'Un lugar donde la gravedad es tan fuerte que ni la luz escapa', 'An empty hole in space': 'Un hueco vacío en el espacio', 'A dark planet': 'Un planeta oscuro', 'A burned out comet': 'Un cometa apagado',
+  'Black holes form when a huge star\'s core collapses.': 'Los agujeros negros se forman cuando el núcleo de una estrella enorme se colapsa.',
+  'A supernova is ...': 'Una supernova es ...', 'The explosion of a massive star': 'La explosión de una estrella masiva', 'A new star being born': 'Una estrella nueva que nace', 'A very bright planet': 'Un planeta muy brillante', 'A comet near the Sun': 'Un cometa cerca del Sol',
+  'For a few weeks a supernova can outshine its whole galaxy.': 'Por unas semanas una supernova puede brillar más que toda su galaxia.',
+  'Most of the stars you can see at night are ...': 'La mayoría de las estrellas que ves de noche ...', 'In our own Milky Way': 'Están en nuestra propia Vía Láctea', 'In Andromeda': 'Están en Andrómeda', 'In the solar system': 'Están en el sistema solar', 'Planets': 'Son planetas',
+  'Every single star you see by eye is inside the Milky Way.': 'Cada estrella que ves a simple vista está dentro de la Vía Láctea.',
+  'Roughly how many galaxies are there?': '¿Más o menos cuántas galaxias hay?', 'Far more than 100 billion': 'Mucho más de 100 mil millones', 'Exactly one': 'Exactamente una',
+  'Every deep photo of the sky is full of galaxies.': 'Cada foto profunda del cielo está llena de galaxias.',
+  // Rung 19: Kepler and exoplanets.
+  'Where does the planet move fastest?': '¿Dónde se mueve más rápido el planeta?', 'Point {l} is closest to the Sun. The pull is strongest there, so the planet moves fastest.': 'El punto {l} es el más cercano al Sol. Ahí la atracción es más fuerte, así que el planeta se mueve más rápido.',
+  'Where does the planet move slowest?': '¿Dónde se mueve más despacio el planeta?', 'Point {l} is farthest from the Sun. The planet crawls there and speeds up as it falls back in.': 'El punto {l} es el más lejano al Sol. Ahí el planeta va muy lento y acelera cuando vuelve a caer hacia adentro.',
+  'Which point is closest to the Sun?': '¿Qué punto está más cerca del Sol?', 'The Sun sits at one focus of the ellipse, near point {l}. That is called perihelion.': 'El Sol está en un foco de la elipse, cerca del punto {l}. Eso se llama perihelio.',
+  'Read the speeds on the orbit. How fast is the planet at point {l}, farthest from the Sun?': 'Lee las velocidades en la órbita. ¿Qué tan rápido va el planeta en el punto {l}, el más lejano al Sol?', '{v} km/s': '{v} km/s',
+  'At {l} it moves {v} km per second, its slowest.': 'En {l} se mueve a {v} km por segundo, su velocidad más baja.',
+  'Read the speeds on the orbit. How fast is the planet at the point nearest the Sun?': 'Lee las velocidades en la órbita. ¿Qué tan rápido va el planeta en el punto más cercano al Sol?',
+  'At {l}, nearest the Sun, it moves {v} km per second, its fastest.': 'En {l}, el más cercano al Sol, se mueve a {v} km por segundo, su velocidad más alta.',
+  'Read the orbit. At which point does the planet move {v} km/s?': 'Lee la órbita. ¿En qué punto se mueve el planeta a {v} km/s?', 'Point {l} is in between, so its speed is in between too.': 'El punto {l} está en medio, así que su velocidad también está en medio.',
+  'At point {l1} the planet moves {v1} km/s. At point {l0}, closer to the Sun, it moves ...': 'En el punto {l1} el planeta se mueve a {v1} km/s. En el punto {l0}, más cerca del Sol, se mueve ...', 'Faster': 'Más rápido', 'Slower': 'Más despacio', 'The same speed': 'A la misma velocidad',
+  'Closer to the Sun means a stronger pull and a faster planet. Kepler saw this in 1609.': 'Más cerca del Sol significa más atracción y un planeta más rápido. Kepler lo vio en 1609.',
+  'At point {l0} the planet moves {v0} km/s. At point {l2}, far from the Sun, it moves ...': 'En el punto {l0} el planeta se mueve a {v0} km/s. En el punto {l2}, lejos del Sol, se mueve ...',
+  'Far from the Sun the pull is weaker and the planet slows down.': 'Lejos del Sol la atracción es más débil y el planeta se frena.',
+  'A planet sweeps out equal areas in equal times. So near the Sun it must move ...': 'Un planeta barre áreas iguales en tiempos iguales. Así que cerca del Sol debe moverse ...',
+  'Near the Sun the line to the planet is short, so it must sweep fast to cover the same area.': 'Cerca del Sol la línea hasta el planeta es corta, así que debe barrer rápido para cubrir la misma área.',
+  'The shape of a planet\'s orbit is ...': 'La forma de la órbita de un planeta es ...', 'An ellipse, a stretched circle': 'Una elipse, un círculo estirado', 'A perfect circle': 'Un círculo perfecto', 'A square': 'Un cuadrado', 'A straight line': 'Una línea recta',
+  'Kepler\'s first law. Most planet orbits are nearly round, but comets have long thin ellipses.': 'La primera ley de Kepler. La mayoría de las órbitas de los planetas son casi redondas, pero los cometas tienen elipses largas y delgadas.',
+  'Where does the Sun sit in a planet\'s orbit?': '¿Dónde está el Sol en la órbita de un planeta?', 'At one focus of the ellipse, off center': 'En un foco de la elipse, fuera del centro', 'At the exact center': 'En el centro exacto', 'On the orbit itself': 'Sobre la misma órbita', 'Outside the orbit': 'Fuera de la órbita',
+  'The Sun is at a focus, so the planet is sometimes closer and sometimes farther.': 'El Sol está en un foco, así que el planeta a veces está más cerca y a veces más lejos.',
+  'Who worked out these laws of planet motion about 400 years ago?': '¿Quién descubrió estas leyes del movimiento de los planetas hace unos 400 años?', 'Johannes Kepler': 'Johannes Kepler', 'Isaac Newton': 'Isaac Newton', 'Galileo Galilei': 'Galileo Galilei', 'Albert Einstein': 'Albert Einstein',
+  'Kepler used Tycho Brahe\'s careful measurements of Mars. Newton later explained why with gravity.': 'Kepler usó las medidas cuidadosas de Marte de Tycho Brahe. Newton explicó después el porqué con la gravedad.',
+  'Earth is closest to the Sun in early January. When does Earth move fastest?': 'La Tierra está más cerca del Sol a principios de enero. ¿Cuándo se mueve más rápido la Tierra?', 'January': 'Enero', 'July': 'Julio', 'April': 'Abril', 'October': 'Octubre',
+  'Closest means fastest. Earth moves about 1 km per second faster in January than in July.': 'Más cerca significa más rápido. La Tierra se mueve cerca de 1 km por segundo más rápido en enero que en julio.',
+  'A comet far out from the Sun moves ...': 'Un cometa lejos del Sol se mueve ...', 'Very slowly, then speeds up as it falls in': 'Muy despacio, y luego acelera al caer hacia adentro', 'Very fast': 'Muy rápido', 'At a steady speed': 'A velocidad constante', 'Not at all': 'Nada',
+  'Comets spend most of their time crawling far from the Sun, then whip around it.': 'Los cometas pasan casi todo el tiempo avanzando lentos lejos del Sol, y luego giran veloces a su alrededor.',
+  'Kepler\'s third law says a planet farther from the Sun ...': 'La tercera ley de Kepler dice que un planeta más lejos del Sol ...', 'Takes longer to orbit': 'Tarda más en dar la vuelta', 'Takes less time to orbit': 'Tarda menos en dar la vuelta', 'Orbits in the same time': 'Da la vuelta en el mismo tiempo', 'Stops orbiting': 'Deja de orbitar',
+  'Neptune takes 165 years. Mercury takes 88 days.': 'Neptuno tarda 165 años. Mercurio tarda 88 días.',
+  'If a planet\'s orbit were a perfect circle, its speed would ...': 'Si la órbita de un planeta fuera un círculo perfecto, su velocidad ...', 'Stay the same all the way around': 'Sería la misma en toda la vuelta', 'Speed up and slow down': 'Subiría y bajaría', 'Get faster every year': 'Aumentaría cada año', 'Be zero': 'Sería cero',
+  'Only a changing distance changes the speed.': 'Solo un cambio de distancia cambia la velocidad.',
+  'A star\'s brightness over time. What made the dip?': 'El brillo de una estrella con el tiempo. ¿Qué causó la bajada?', 'A planet passed in front of the star': 'Un planeta pasó frente a la estrella', 'The star turned off': 'La estrella se apagó', 'The star moved away': 'La estrella se alejó',
+  'A planet crossing its star blocks a little light. That crossing is called a transit.': 'Un planeta que cruza frente a su estrella tapa un poco de luz. Ese cruce se llama tránsito.',
+  'Read the graph. How much dimmer did the star get during the transit?': 'Lee la gráfica. ¿Cuánto se oscureció la estrella durante el tránsito?', 'About {d}%': 'Cerca de {d}%',
+  'The line drops from 100% to {b}%, so the planet blocked {d}% of the light.': 'La línea baja de 100% a {b}%, así que el planeta tapó el {d}% de la luz.',
+  'The dips repeat. Read the graph. How many days apart are they? That is the planet\'s year.': 'Las bajadas se repiten. Lee la gráfica. ¿Cada cuántos días pasan? Ese es el año del planeta.', '{P} days': '{P} días',
+  'One dip every {P} days means the planet goes around its star in {P} days.': 'Una bajada cada {P} días significa que el planeta da la vuelta a su estrella en {P} días.',
+  'Read the graph. About how many hours did the planet take to cross in front of its star?': 'Lee la gráfica. ¿Cuántas horas tardó el planeta en cruzar frente a su estrella?', '{D} hours': '{D} horas',
+  'The dip starts at {a} hours and ends at {b} hours, so the transit lasted {D} hours.': 'La bajada empieza a las {a} horas y termina a las {b} horas, así que el tránsito duró {D} horas.',
+  'Two planets cross the same star. Which dip was made by the bigger planet?': 'Dos planetas cruzan la misma estrella. ¿Qué bajada hizo el planeta más grande?', 'Dip A': 'Bajada A', 'Dip B': 'Bajada B',
+  'A bigger planet blocks more light, so it makes the deeper dip.': 'Un planeta más grande tapa más luz, así que hace la bajada más profunda.',
+  'A bigger planet crossing its star makes a dip that is ...': 'Un planeta más grande que cruza su estrella hace una bajada ...', 'Deeper': 'Más profunda', 'Shallower': 'Menos profunda', 'Farther apart': 'Más separada',
+  'The dip depth tells the planet\'s size compared with its star.': 'La profundidad de la bajada dice el tamaño del planeta comparado con su estrella.',
+  'A planet farther from its star makes dips that are ...': 'Un planeta más lejos de su estrella hace que cada bajada quede ...', 'Farther apart in time': 'Más lejos en el tiempo de la siguiente', 'Closer together in time': 'Más cerca en el tiempo de la siguiente', 'Brighter': 'Más brillante',
+  'Farther out means a longer year, so more time passes between crossings.': 'Más lejos significa un año más largo, así que pasa más tiempo entre cruces.',
+  'Finding a planet by watching its star dim a little is called the ...': 'Encontrar un planeta viendo cómo su estrella se oscurece un poco se llama ...', 'Transit method': 'Método de tránsito', 'Telescope method': 'Método del telescopio', 'Gravity method': 'Método de la gravedad', 'Radio method': 'Método de radio',
+  'Most known exoplanets were found this way.': 'La mayoría de los exoplanetas conocidos se encontraron así.',
+  'Planets that go around other stars are called ...': 'Los planetas que giran alrededor de otras estrellas se llaman ...', 'Exoplanets': 'Exoplanetas', 'Dwarf planets': 'Planetas enanos', 'Comets': 'Cometas', 'Moons': 'Lunas',
+  'Thousands of exoplanets are known. Many were found by their transit dips.': 'Se conocen miles de exoplanetas. Muchos se encontraron por sus bajadas de tránsito.',
+  'A space telescope found thousands of exoplanets by watching for dips. It was named after ...': 'Un telescopio espacial encontró miles de exoplanetas buscando bajadas. Lleva el nombre de ...', 'Edwin Hubble': 'Edwin Hubble',
+  'The Kepler telescope stared at 150,000 stars from 2009 to 2018.': 'El telescopio Kepler observó 150,000 estrellas de 2009 a 2018.',
+  'A dip 1% deep means the planet is about ... as wide as its star.': 'Una bajada de 1% significa que el planeta mide ... del ancho de su estrella.', 'One tenth': 'Una décima parte', 'One hundredth': 'Una centésima parte', 'Just as wide': 'Lo mismo',
+  'Blocked light goes with area. A tenth of the width is a hundredth of the area, 1%.': 'La luz tapada depende del área. Una décima parte del ancho es una centésima parte del área, 1%.',
+};
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+const TX = new Map();
+const enOf = v => v == null ? '' : typeof v === 'object' ? (v.parts ? v.parts.map(enOf).join(v.sep) : v.en) : String(v);
+function tx(tpl, vars) {
+  const en = tpl.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? enOf(vars[k]) : m));
+  if (LANG === 'es') TX.set(en, { tpl, vars });
+  return en;
+}
+const J = (sep, parts) => ({ sep, parts });
+function esOf(v) {
+  if (v == null) return '';
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'object') return v.parts ? v.parts.map(esOf).join(v.sep) : v.es;
+  const e = TX.get(v);
+  if (e) { const s = T(e.tpl).replace(/\{(\w+)\}/g, (m, k) => (k in e.vars ? esOf(e.vars[k]) : m)); return e.lc ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
+  return /^[\d.,:%\s-]*$/.test(v) ? v : T(v);
+}
+const show = s => LANG === 'es' ? esOf(s) : s;
+function lc(s) { const r = s.toLowerCase(); const e = TX.get(s); if (e && !TX.has(r)) TX.set(r, Object.assign({}, e, { lc: true })); return r; }
+window.DucklingLang = {
+  keys: () => Object.keys(ES),
+  missing: () => [...USED].filter(k => ES[k] == null),
+  allow: ['color'],   // Spanish has the same word
+};
+
+// ---------------------------------------------------------------------------
 // Facts (NASA Planetary Fact Sheet). d: diameter km, g: surface gravity m/s2, day: sunrise to sunrise in hours,
 // spin: one turn in hours (minus means it spins backwards), tilt: axial tilt in degrees, year: Earth days,
 // dist: million km from the Sun, temp: mean temperature in C.
@@ -365,11 +912,19 @@ const jumpFt = w => G_EARTH / DATA[w].g;            // a 1 foot Earth jump
 const weightOn = (w, lb) => lb * DATA[w].g / G_EARTH;
 const seasonTilt = w => Math.min(DATA[w].tilt, 180 - DATA[w].tilt); // how tipped it is, ignoring which way it spins
 const ORD = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'];
-function dayText(w) { const h = DATA[w].day; return h < 48 ? 'about ' + Math.round(h) + ' hours' : 'about ' + Math.round(h / 24) + ' Earth days'; }
-function yearText(w) { const y = DATA[w].year; if (!y) return 'it goes around Earth'; return y < 1000 ? 'about ' + Math.round(y) + ' Earth days' : 'about ' + Math.round(y / 365.25) + ' Earth years'; }
-function ftText(x) { return x >= 4 ? Math.round(x) + ' feet' : (Math.round(x * 10) / 10) + (Math.abs(x - 1) < 0.05 ? ' foot' : ' feet'); }
+function dayText(w) { const h = DATA[w].day; return h < 48 ? tx('about {n} hours', { n: Math.round(h) }) : tx('about {n} Earth days', { n: Math.round(h / 24) }); }
+function yearText(w) { const y = DATA[w].year; if (!y) return 'it goes around Earth'; return y < 1000 ? tx('about {n} Earth days', { n: Math.round(y) }) : tx('about {n} Earth years', { n: Math.round(y / 365.25) }); }
+function ftText(x) { return x >= 4 ? tx('{n} feet', { n: Math.round(x) }) : tx(Math.abs(x - 1) < 0.05 ? '{n} foot' : '{n} feet', { n: Math.round(x * 10) / 10 }); }
 const isWorld = w => w === 'Moon' ? 'the Moon' : w;
 const Cap = s => s[0].toUpperCase() + s.slice(1);
+// A world's name inside a Spanish sentence carries its article (la Tierra, la Luna, el Sol); on a button or a label it
+// is bare (Tierra, Luna). W(w) and WC(w) are sentence parts for tx(); wn(w) and wl(w) are the same in the current language.
+const ES_IN = { Mercury: 'Mercurio', Venus: 'Venus', Earth: 'la Tierra', Moon: 'la Luna', Mars: 'Marte', Jupiter: 'Júpiter', Saturn: 'Saturno', Uranus: 'Urano', Neptune: 'Neptuno', Sun: 'el Sol' };
+const W = w => ({ en: isWorld(w), es: ES_IN[w] });
+const WC = w => ({ en: Cap(isWorld(w)), es: Cap(ES_IN[w]) });
+const WI = w => ({ en: isWorld(w), es: Cap(ES_IN[w]) });   // a world that opens a Spanish sentence; the English line is not capitalized there
+const wn = w => LANG === 'es' ? ES_IN[w] : isWorld(w);
+const wl = w => LANG === 'es' ? T(w) : isWorld(w);
 
 // ---------------------------------------------------------------------------
 // Quests
@@ -382,7 +937,7 @@ function pairBy(pool, f, min, diff) {
   }
   throw new Error('no pair');
 }
-const times = r => r < 1.75 ? 'about one and a half times' : 'about ' + Math.round(r) + ' times';
+const times = r => r < 1.75 ? 'about one and a half times' : tx('about {n} times', { n: Math.round(r) });
 function choiceQuest(text, choices, ans, why, topic, worlds) { return { kind: 'choice', text, choices, ans, why, topic, worlds }; }
 const HOW_HIGH = [['about 6 feet', x => x >= 4], ['about 2 and a half feet', x => x >= 2 && x < 4], ['about 1 foot', x => x >= 0.75 && x < 1.5], ['less than half a foot', x => x < 0.6]];
 const catOf = x => HOW_HIGH.find(c => c[1](x))[0];
@@ -399,44 +954,45 @@ const CLUES = {
 function argBy(list, f) { return list.reduce((a, b) => (f(b) > f(a) ? b : a)); }
 
 const LEVELS = [
-  { name: 'Find a planet', g: -1, gen() { const t = pick(PLANETS); return { kind: 'fly', text: 'Fly to ' + t + '! Tap it.', ans: t, why: t + ' is the ' + ORD[PLANETS.indexOf(t)] + ' planet from the Sun.' }; } },
+  { name: 'Find a planet', g: -1, gen() { const t = pick(PLANETS); return { kind: 'fly', text: tx('Fly to {p}! Tap it.', { p: W(t) }), ans: t, why: tx('{p} is the {o} planet from the Sun.', { p: WI(t), o: ORD[PLANETS.indexOf(t)] }) }; } },
   { name: 'Planet order', g: 1, gen() {
     const v = rnd(0, 3);
     if (v === 0) return { kind: 'fly', text: 'Fly to the planet closest to the Sun!', ans: argBy(PLANETS, w => -DATA[w].dist), why: 'Mercury is closest to the Sun.' };
     if (v === 1) return { kind: 'fly', text: 'Fly to the planet farthest from the Sun!', ans: argBy(PLANETS, w => DATA[w].dist), why: 'Neptune is farthest from the Sun.' };
     const n = rnd(1, 6), t = PLANETS.slice().sort((a, b) => DATA[a].dist - DATA[b].dist)[n];
-    return { kind: 'fly', text: 'Count out from the Sun. Fly to the ' + ORD[n] + ' planet!', ans: t, why: t + ' is the ' + ORD[n] + ' planet from the Sun.' };
+    return { kind: 'fly', text: tx('Count out from the Sun. Fly to the {o} planet!', { o: ORD[n] }), ans: t, why: tx('{p} is the {o} planet from the Sun.', { p: WI(t), o: ORD[n] }) };
   } },
   { name: 'Big or small', g: 2, gen() {
     const [a, b] = pairBy(WORLDS, w => DATA[w].d, 1.3), big = Math.random() < 0.6, ans = (DATA[a].d > DATA[b].d) === big ? a : b, o = ans === a ? b : a;
     const r = DATA[ans].d / DATA[o].d;
-    return choiceQuest('Which is ' + (big ? 'bigger' : 'smaller') + ', ' + isWorld(a) + ' or ' + isWorld(b) + '?', [a, b], ans,
-      big ? Cap(isWorld(ans)) + ' is ' + times(r) + ' as wide as ' + isWorld(o) + '.' : Cap(isWorld(ans)) + ' is smaller. ' + Cap(isWorld(o)) + ' is ' + times(1 / r) + ' as wide.', 'size', [a, b]);
+    return choiceQuest(tx('Which is {c}, {a} or {b}?', { c: big ? 'bigger' : 'smaller', a: W(a), b: W(b) }), [a, b], ans,
+      big ? tx('{a} is {t} as wide as {b}.', { a: WC(ans), t: times(r), b: W(o) }) : tx('{a} is smaller. {b} is {t} as wide.', { a: WC(ans), b: WC(o), t: times(1 / r) }), 'size', [a, b]);
   } },
   { name: 'Jump test', g: 2, gen() {
     const [a, b] = pairBy(WORLDS.filter(w => w !== 'Earth' || Math.random() < 0.5), jumpFt, 1.25), ans = jumpFt(a) > jumpFt(b) ? a : b;
-    return choiceQuest('Where can you jump higher, ' + isWorld(a) + ' or ' + isWorld(b) + '? Land and try!', [a, b], ans,
-      'Less gravity pulls you down on ' + isWorld(ans) + ', so the same jump goes higher: ' + ftText(jumpFt(ans)) + '!', 'jump', [a, b]);
+    return choiceQuest(tx('Where can you jump higher, {a} or {b}? Land and try!', { a: W(a), b: W(b) }), [a, b], ans,
+      tx('Less gravity pulls you down on {w}, so the same jump goes higher: {h}!', { w: W(ans), h: ftText(jumpFt(ans)) }), 'jump', [a, b]);
   } },
   { name: 'Day length', g: 2, gen() {
-    const [a, b] = pairBy(WORLDS, w => DATA[w].day, 1.3), long = Math.random() < 0.6, ans = (DATA[a].day > DATA[b].day) === long ? a : b;
-    return choiceQuest('Which has a ' + (long ? 'longer' : 'shorter') + ' day, ' + isWorld(a) + ' or ' + isWorld(b) + '?', [a, b], ans,
-      'A day is sunrise to sunrise. On ' + isWorld(ans) + ' it is ' + dayText(ans) + '. On ' + isWorld(ans === a ? b : a) + ' it is ' + dayText(ans === a ? b : a) + '.', 'day', [a, b]);
+    const [a, b] = pairBy(WORLDS, w => DATA[w].day, 1.3), long = Math.random() < 0.6, ans = (DATA[a].day > DATA[b].day) === long ? a : b, o = ans === a ? b : a;
+    return choiceQuest(tx('Which has a {l} day, {a} or {b}?', { l: long ? 'longer' : 'shorter', a: W(a), b: W(b) }), [a, b], ans,
+      tx('A day is sunrise to sunrise. On {a} it is {da}. On {b} it is {db}.', { a: W(ans), da: dayText(ans), b: W(o), db: dayText(o) }), 'day', [a, b]);
   } },
   { name: 'How high?', g: 3, gen() {
     const w = pick(WORLDS.filter(x => x !== 'Earth')), right = catOf(jumpFt(w)), wrong = shuffle(HOW_HIGH.map(c => c[0]).filter(c => c !== right)).slice(0, 2);
-    return choiceQuest('You jump 1 foot high on Earth. About how high on ' + isWorld(w) + '?', shuffle([right, ...wrong]), right,
-      'Gravity on ' + isWorld(w) + ' is ' + (DATA[w].g < G_EARTH ? 'weaker' : 'stronger') + ' than on Earth, so the same jump goes ' + ftText(jumpFt(w)) + ' high.', 'jump', [w]);
+    return choiceQuest(tx('You jump 1 foot high on Earth. About how high on {w}?', { w: W(w) }), shuffle([right, ...wrong]), right,
+      tx('Gravity on {w} is {c} than on Earth, so the same jump goes {h} high.', { w: W(w), c: DATA[w].g < G_EARTH ? 'weaker' : 'stronger', h: ftText(jumpFt(w)) }), 'jump', [w]);
   } },
   { name: 'Seasons', g: 3, gen() {
-    const [a, b] = pairBy(PLANETS, seasonTilt, 10, true), ans = seasonTilt(a) > seasonTilt(b) ? a : b;
-    return choiceQuest('Which planet has bigger seasons, ' + a + ' or ' + b + '?', [a, b], ans,
-      'Seasons come from being tipped. ' + ans + ' is tipped about ' + Math.round(seasonTilt(ans)) + ' degrees, and ' + (ans === a ? b : a) + ' about ' + Math.round(seasonTilt(ans === a ? b : a)) + '.' + (ans === 'Uranus' ? ' Uranus is on its side!' : ''), 'seasons', [a, b]);
+    const [a, b] = pairBy(PLANETS, seasonTilt, 10, true), ans = seasonTilt(a) > seasonTilt(b) ? a : b, o = ans === a ? b : a;
+    const v = { a: W(ans), ta: Math.round(seasonTilt(ans)), b: W(o), tb: Math.round(seasonTilt(o)) };
+    return choiceQuest(tx('Which planet has bigger seasons, {a} or {b}?', { a: W(a), b: W(b) }), [a, b], ans,
+      ans === 'Uranus' ? tx('Seasons come from being tipped. {a} is tipped about {ta} degrees, and {b} about {tb}. Uranus is on its side!', v) : tx('Seasons come from being tipped. {a} is tipped about {ta} degrees, and {b} about {tb}.', v), 'seasons', [a, b]);
   } },
   { name: 'Year length', g: 3, gen() {
     const [a, b] = pairBy(PLANETS, w => DATA[w].year, 1.5), long = Math.random() < 0.6, ans = (DATA[a].year > DATA[b].year) === long ? a : b;
-    return choiceQuest('A year is one trip around the Sun. Which has a ' + (long ? 'longer' : 'shorter') + ' year, ' + a + ' or ' + b + '?', [a, b], ans,
-      'Planets farther out travel a bigger circle, slower. A year on ' + a + ' is ' + yearText(a) + ', on ' + b + ' ' + yearText(b) + '.', 'year', [a, b]);
+    return choiceQuest(tx('A year is one trip around the Sun. Which has a {l} year, {a} or {b}?', { l: long ? 'longer' : 'shorter', a: W(a), b: W(b) }), [a, b], ans,
+      tx('Planets farther out travel a bigger circle, slower. A year on {a} is {ya}, on {b} {yb}.', { a: W(a), ya: yearText(a), b: W(b), yb: yearText(b) }), 'year', [a, b]);
   } },
   { name: 'Weigh in', g: 3, gen() {
     for (let k = 0; k < 100; k++) {
@@ -444,15 +1000,15 @@ const LEVELS = [
       const others = shuffle(WORLDS.filter(x => x !== w).map(x => Math.round(weightOn(x, lb)))).filter((v, i, a) => a.indexOf(v) === i);
       const pickd = []; for (const v of others) if ([right, ...pickd].every(u => Math.max(u, v) / Math.max(1, Math.min(u, v)) >= 1.25)) pickd.push(v);
       if (pickd.length < 2) continue;
-      const opts = [right, ...pickd.slice(0, 2)].map(v => 'about ' + v + ' pounds');
-      return choiceQuest('A dog weighs ' + lb + ' pounds on Earth. About how much would it weigh on ' + isWorld(w) + '?', shuffle(opts.slice()), opts[0],
-        isWorld(w) + ' pulls ' + (DATA[w].g < G_EARTH ? 'less' : 'more') + ' than Earth: ' + lb + ' pounds times ' + (Math.round(DATA[w].g / G_EARTH * 100) / 100) + ' is about ' + right + '.', 'weight', [w]);
+      const opts = [right, ...pickd.slice(0, 2)].map(v => tx('about {n} pounds', { n: v }));
+      return choiceQuest(tx('A dog weighs {lb} pounds on Earth. About how much would it weigh on {w}?', { lb, w: W(w) }), shuffle(opts.slice()), opts[0],
+        tx('{w} pulls {m} than Earth: {lb} pounds times {f} is about {r}.', { w: WI(w), m: DATA[w].g < G_EARTH ? 'less' : 'more', lb, f: Math.round(DATA[w].g / G_EARTH * 100) / 100, r: right }), 'weight', [w]);
     }
     throw new Error('no weigh quest');
   } },
   { name: 'Mystery planet', g: 4, gen() {
     const t = pick(PLANETS), cl = shuffle(CLUES[t].slice()).slice(0, 2), ch = shuffle([t, ...shuffle(PLANETS.filter(x => x !== t)).slice(0, 3)]);
-    return choiceQuest('Mystery planet! ' + cl[0][0] + ' ' + cl[1][0] + ' Who am I?', ch, t, 'It is ' + t + '!', 'mystery', [t]);
+    return choiceQuest(tx('Mystery planet! {c1} {c2} Who am I?', { c1: cl[0][0], c2: cl[1][0] }), ch, t, tx('It is {p}!', { p: W(t) }), 'mystery', [t]);
   } },
 ];
 // ---------------------------------------------------------------------------
@@ -478,9 +1034,13 @@ const SUN_KM = 1392700;          // the Sun's diameter in km
 const BALL_CM = 24;              // a basketball stands in for the Sun
 const scaleM = w => DATA[w].dist * 1e6 / SUN_KM * BALL_CM / 100;   // metres from the model Sun
 const lightMin = w => DATA[w].dist * 1e6 / LIGHT / 60;
-function lightText(min) { if (min < 60) return 'About ' + Math.round(min) + ' minutes'; const h = Math.round(min / 30) / 2; return 'About ' + (h % 1 ? Math.floor(h) + ' and a half hours' : h + ' hours'); }
-function metresText(m) { return 'About ' + (m < 100 ? Math.round(m) : Math.round(m / 10) * 10) + ' meters'; }
-function mkmText(p) { const d = DATA[p].dist; return 'About ' + (d < 300 ? Math.round(d / 10) * 10 : Math.round(d / 100) * 100) + ' million km'; }
+function lightText(min) {
+  if (min < 60) return tx('About {n} minutes', { n: Math.round(min) });
+  const h = Math.round(min / 30) / 2, n = Math.floor(h);
+  return h % 1 ? tx('About {h} and a half hours', { h: { en: String(n), es: n === 1 ? '1 hora' : n + ' horas' } }) : tx('About {h} hours', { h });
+}
+function metresText(m) { return tx('About {n} meters', { n: m < 100 ? Math.round(m) : Math.round(m / 10) * 10 }); }
+function mkmText(p) { const d = DATA[p].dist; return tx('About {n} million km', { n: d < 300 ? Math.round(d / 10) * 10 : Math.round(d / 100) * 100 }); }
 const AU_TXT = { Mercury: 'About 0.4', Venus: 'About 0.7', Mars: 'About 1.5', Jupiter: 'About 5', Saturn: 'About 10', Uranus: 'About 19', Neptune: 'About 30' };
 const INNER = PLANETS.slice(0, 4), OUTER = PLANETS.slice(4);
 
@@ -498,8 +1058,8 @@ const WV = w => ({ view: { type: 'world', w } });
 
 // Rung 10: day and night, the tilt and the seasons.
 const TILT_Q = [
-  () => { const s = pick([1, -1]); return mc('Look at Earth. The north pole leans ' + (s > 0 ? 'toward' : 'away from') + ' the Sun. Which half of Earth has summer?', s > 0 ? HEMI[0] : HEMI[1], HEMI, 'The half that leans toward the Sun gets more direct light and longer days. That is summer.', TV(s)); },
-  () => { const s = pick([1, -1]); return mc('Look at Earth. The north pole leans ' + (s > 0 ? 'toward' : 'away from') + ' the Sun. Which half of Earth has winter?', s > 0 ? HEMI[1] : HEMI[0], HEMI, 'The half that leans away gets slanted light and short days. That is winter.', TV(s)); },
+  () => { const s = pick([1, -1]); return mc(s > 0 ? 'Look at Earth. The north pole leans toward the Sun. Which half of Earth has summer?' : 'Look at Earth. The north pole leans away from the Sun. Which half of Earth has summer?', s > 0 ? HEMI[0] : HEMI[1], HEMI, 'The half that leans toward the Sun gets more direct light and longer days. That is summer.', TV(s)); },
+  () => { const s = pick([1, -1]); return mc(s > 0 ? 'Look at Earth. The north pole leans toward the Sun. Which half of Earth has winter?' : 'Look at Earth. The north pole leans away from the Sun. Which half of Earth has winter?', s > 0 ? HEMI[1] : HEMI[0], HEMI, 'The half that leans away gets slanted light and short days. That is winter.', TV(s)); },
   () => mc('It is June. Which hemisphere has summer?', HEMI[0], HEMI, 'In June the north pole leans toward the Sun, so the Northern Hemisphere has summer.', TV(1)),
   () => mc('It is December. Which hemisphere has summer?', HEMI[1], HEMI, 'In December the south pole leans toward the Sun, so the Southern Hemisphere has summer.', TV(-1)),
   () => mc('It is December. Which hemisphere has winter?', HEMI[0], HEMI, 'In December the north pole leans away from the Sun. The Northern Hemisphere has winter.', TV(-1)),
@@ -526,17 +1086,19 @@ const TILT_Q = [
 // Rung 11: moon phases.
 const MOON_Q = [];
 for (let k = 0; k < 8; k++) {
-  MOON_Q.push(() => placed('Tap the spot where the Moon looks like a ' + PHASES[k].toLowerCase() + ' from Earth.', k, PHASE_WHY[k], { view: { type: 'moon', start: (k + 3) % 8, inset: true } }));
-  MOON_Q.push(() => mc('The Moon is at spot ' + (k + 1) + '. What phase do we see from Earth?', PHASES[k], PHASES, PHASE_WHY[k], MV(k)));
+  MOON_Q.push(() => placed(tx('Tap the spot where the Moon looks like a {ph} from Earth.', { ph: phaseLc(k) }), k, PHASE_WHY[k], { view: { type: 'moon', start: (k + 3) % 8, inset: true } }));
+  MOON_Q.push(() => mc(tx('The Moon is at spot {n}. What phase do we see from Earth?', { n: k + 1 }), PHASES[k], PHASES, PHASE_WHY[k], MV(k)));
 }
+// A phase name quoted mid sentence, lowercase in both languages.
+function phaseLc(k) { return { en: PHASES[k].toLowerCase(), es: T(PHASES[k]).toLowerCase() }; }
 MOON_Q.push(
   () => mc('Why does the Moon show phases?', 'We see different amounts of its sunlit half', ['Earth\'s shadow covers part of it', 'The Moon changes shape', 'Clouds hide part of it'], 'Half of the Moon is always lit. As it goes around Earth, we see more or less of that lit half.', MV()),
   () => mc('Where does moonlight come from?', 'Sunlight bouncing off the Moon', ['The Moon makes its own light', 'City lights', 'Starlight'], 'The Moon does not glow. It reflects the Sun.', MV()),
   () => mc('How long is it from one full moon to the next?', 'About a month, 29 and a half days', ['About 7 days', 'About 1 year', 'About 24 hours'], 'The whole cycle of phases takes about 29 and a half days.', MV(4)),
   () => mc('A waxing moon is ...', 'Growing bigger each night', ['Shrinking each night', 'Always full', 'Always dark'], 'Waxing means growing. The lit part grows from new moon to full moon.', MV(rnd(1, 3))),
   () => mc('A waning moon is ...', 'Shrinking each night', ['Growing each night', 'Always full', 'Bright red'], 'Waning means shrinking. The lit part shrinks from full moon back to new.', MV(rnd(5, 7))),
-  () => { const k = rnd(0, 7); return mc('Which phase comes right after the ' + PHASES[k].toLowerCase() + '?', PHASES[(k + 1) % 8], PHASES, 'The Moon moves on around Earth to the next spot. ' + PHASE_WHY[(k + 1) % 8], MV(k)); },
-  () => { const k = rnd(0, 7); return mc('Which phase comes right before the ' + PHASES[k].toLowerCase() + '?', PHASES[(k + 7) % 8], PHASES, 'One spot back along the orbit. ' + PHASE_WHY[(k + 7) % 8], MV(k)); },
+  () => { const k = rnd(0, 7); return mc(tx('Which phase comes right after the {ph}?', { ph: phaseLc(k) }), PHASES[(k + 1) % 8], PHASES, tx('The Moon moves on around Earth to the next spot. {w}', { w: PHASE_WHY[(k + 1) % 8] }), MV(k)); },
+  () => { const k = rnd(0, 7); return mc(tx('Which phase comes right before the {ph}?', { ph: phaseLc(k) }), PHASES[(k + 7) % 8], PHASES, tx('One spot back along the orbit. {w}', { w: PHASE_WHY[(k + 7) % 8] }), MV(k)); },
   () => mc('At first quarter, how much of the Moon\'s face looks lit?', 'Half', ['A quarter', 'All of it', 'None of it'], 'First quarter means a quarter of the way around the orbit. We see half of the face lit.', MV(2)),
   () => mc('Why do we always see the same side of the Moon?', 'It spins once for each trip around Earth', ['It does not spin at all', 'It spins very fast', 'Earth hides the other side'], 'One spin takes as long as one orbit, so the same face always points at Earth.', MV()),
   () => mc('How long does the Moon take to go once around Earth?', 'About 27 days', ['About 7 days', 'About 365 days', 'About 1 day'], 'The Moon takes about 27 days to go around Earth once.', MV()),
@@ -549,22 +1111,22 @@ const WHO = ['You', 'A dog', 'A backpack', 'A rover', 'A bike', 'A bag of apples
 const LBS = [20, 25, 30, 40, 50, 60, 75, 80, 100, 120, 150, 200, 250, 300];
 const exact = (lb, f) => Math.abs(lb * f - Math.round(lb * f)) < 1e-9;
 function weighOut() {
-  const w = pick(WORLDS.filter(x => x !== 'Earth')), f = gFactor(w), lb = pick(LBS.filter(l => exact(l, f))), s = pick(WHO), you = s === 'You';
-  return typed(s + (you ? ' weigh ' : ' weighs ') + lb + ' pounds on Earth. Gravity on ' + isWorld(w) + ' is ' + f + ' times Earth\'s. How much ' + (you ? 'do you' : 'does it') + ' weigh on ' + isWorld(w) + '? Type the pounds.',
-    Math.round(lb * f), 'pounds', lb + ' times ' + f + ' is ' + Math.round(lb * f) + '. Gravity on ' + isWorld(w) + ' is ' + (f < 1 ? 'weaker' : 'stronger') + ', so the same mass weighs ' + (f < 1 ? 'less' : 'more') + '.', WV(w));
+  const w = pick(WORLDS.filter(x => x !== 'Earth')), f = gFactor(w), lb = pick(LBS.filter(l => exact(l, f))), s = pick(WHO), you = s === 'You', v = { s, lb, w: W(w), f };
+  return typed(you ? tx('You weigh {lb} pounds on Earth. Gravity on {w} is {f} times Earth\'s. How much do you weigh on {w}? Type the pounds.', v) : tx('{s} weighs {lb} pounds on Earth. Gravity on {w} is {f} times Earth\'s. How much does it weigh on {w}? Type the pounds.', v),
+    Math.round(lb * f), 'pounds', tx('{lb} times {f} is {r}. Gravity on {w} is {c}, so the same mass weighs {m}.', { lb, f, r: Math.round(lb * f), w: W(w), c: f < 1 ? 'weaker' : 'stronger', m: f < 1 ? 'less' : 'more' }), WV(w));
 }
 function weighBack() {
-  const w = pick(WORLDS.filter(x => x !== 'Earth')), f = gFactor(w), lb = pick(LBS.filter(l => exact(l, f))), s = pick(WHO), you = s === 'You', x = Math.round(lb * f);
-  return typed(s + (you ? ' weigh ' : ' weighs ') + x + ' pounds on ' + isWorld(w) + ', where gravity is ' + f + ' times Earth\'s. How much ' + (you ? 'do you' : 'does it') + ' weigh on Earth? Type the pounds.',
-    lb, 'pounds', x + ' divided by ' + f + ' is ' + lb + '. Earth weight times the factor gives the weight on ' + isWorld(w) + '.', WV(w));
+  const w = pick(WORLDS.filter(x => x !== 'Earth')), f = gFactor(w), lb = pick(LBS.filter(l => exact(l, f))), s = pick(WHO), you = s === 'You', x = Math.round(lb * f), v = { s, x, w: W(w), f };
+  return typed(you ? tx('You weigh {x} pounds on {w}, where gravity is {f} times Earth\'s. How much do you weigh on Earth? Type the pounds.', v) : tx('{s} weighs {x} pounds on {w}, where gravity is {f} times Earth\'s. How much does it weigh on Earth? Type the pounds.', v),
+    lb, 'pounds', tx('{x} divided by {f} is {lb}. Earth weight times the factor gives the weight on {w}.', { x, f, lb, w: W(w) }), WV(w));
 }
-function massSame() { const w = pick(WORLDS.filter(x => x !== 'Earth')), kg = rnd(10, 30) * 2; return typed('Your mass is ' + kg + ' kilograms on Earth. What is your mass on ' + isWorld(w) + '? Type the kilograms.', kg, 'kg', 'Mass is how much stuff you are made of. It stays ' + kg + ' kilograms everywhere. Only weight changes.', WV(w)); }
-function sixth() { const n = rnd(5, 40); return typed('Gravity on the Moon is about one sixth of Earth\'s. A box weighs ' + (6 * n) + ' pounds on Earth. About how much on the Moon? Type the pounds.', n, 'pounds', (6 * n) + ' divided by 6 is ' + n + '.', WV('Moon')); }
+function massSame() { const w = pick(WORLDS.filter(x => x !== 'Earth')), kg = rnd(10, 30) * 2; return typed(tx('Your mass is {kg} kilograms on Earth. What is your mass on {w}? Type the kilograms.', { kg, w: W(w) }), kg, 'kg', tx('Mass is how much stuff you are made of. It stays {kg} kilograms everywhere. Only weight changes.', { kg }), WV(w)); }
+function sixth() { const n = rnd(5, 40); return typed(tx('Gravity on the Moon is about one sixth of Earth\'s. A box weighs {n6} pounds on Earth. About how much on the Moon? Type the pounds.', { n6: 6 * n }), n, 'pounds', tx('{n6} divided by 6 is {n}.', { n6: 6 * n, n }), WV('Moon')); }
 const GRAV_Q = [weighOut, weighOut, weighOut, weighBack, weighBack, massSame, sixth,
   () => mc('Why do you weigh less on the Moon?', 'The Moon has less mass, so its gravity is weaker', ['There is no air on the Moon', 'The Moon is farther from the Sun', 'You get lighter in space'], 'Less mass means a weaker pull. Your mass is the same, but the Moon pulls on it less.', WV('Moon')),
-  () => { const w = pick(WORLDS.filter(x => x !== 'Earth')); return mc('You fly to ' + isWorld(w) + '. What stays the same?', 'Your mass', ['Your weight', 'Both change', 'Neither changes'], 'Mass is the amount of stuff in you. Weight is gravity pulling on that mass, so weight changes.', WV(w)); },
-  () => { const ws = shuffle(WORLDS.slice()).slice(0, 4), a = argBy(ws, w => DATA[w].g); return mc('Which of these has the strongest gravity at its surface?', a, ws, Cap(isWorld(a)) + ' pulls hardest here. Its gravity is ' + gFactor(a) + ' times Earth\'s.', WV(a)); },
-  () => { const ws = shuffle(WORLDS.slice()).slice(0, 4), a = argBy(ws, w => -DATA[w].g); return mc('Which of these has the weakest gravity at its surface?', a, ws, Cap(isWorld(a)) + ' pulls least here. Its gravity is ' + gFactor(a) + ' times Earth\'s.', WV(a)); },
+  () => { const w = pick(WORLDS.filter(x => x !== 'Earth')); return mc(tx('You fly to {w}. What stays the same?', { w: W(w) }), 'Your mass', ['Your weight', 'Both change', 'Neither changes'], 'Mass is the amount of stuff in you. Weight is gravity pulling on that mass, so weight changes.', WV(w)); },
+  () => { const ws = shuffle(WORLDS.slice()).slice(0, 4), a = argBy(ws, w => DATA[w].g); return mc('Which of these has the strongest gravity at its surface?', a, ws, tx('{W} pulls hardest here. Its gravity is {f} times Earth\'s.', { W: WC(a), f: gFactor(a) }), WV(a)); },
+  () => { const ws = shuffle(WORLDS.slice()).slice(0, 4), a = argBy(ws, w => -DATA[w].g); return mc('Which of these has the weakest gravity at its surface?', a, ws, tx('{W} pulls least here. Its gravity is {f} times Earth\'s.', { W: WC(a), f: gFactor(a) }), WV(a)); },
   () => mc('Weight is ...', 'The pull of gravity on your mass', ['How much stuff you are made of', 'How tall you are', 'How fast you fall'], 'Weight is a force. More gravity, more weight. Same mass.', WV('Earth')),
   () => mc('Gravity pulls harder when a planet ...', 'Has more mass', ['Is hotter', 'Spins faster', 'Is farther from the Sun'], 'More mass means a stronger pull at the surface. Size matters too, but mass is the key.', WV('Jupiter')),
   () => mc('Astronauts float in the space station because ...', 'They are falling around Earth together with the station', ['There is no gravity in space', 'They are too far away for gravity', 'The station has special floors'], 'Gravity up there is almost as strong as on the ground. The station is always falling, and so are they.', WV('Earth')),
@@ -575,14 +1137,18 @@ const GRAV_Q = [weighOut, weighOut, weighOut, weighBack, weighBack, massSame, si
 
 // Rung 13: orbits and years.
 const yrs = p => DATA[p].year / 365.25;
+function orderYears() {
+  const ps = shuffle(PLANETS.slice()).slice(0, pick([3, 4])), up = Math.random() < 0.6, items = ps.slice().sort((a, b) => up ? DATA[a].year - DATA[b].year : DATA[b].year - DATA[a].year);
+  return ordered(up ? 'Tap these planets in order, shortest year first.' : 'Tap these planets in order, longest year first.', items,
+    tx('Farther from the Sun means a longer year. {list}.', { list: J('. ', items.map(p => tx('{p}: {y}', { p: WI(p), y: yearText(p) }))) }));
+}
 const ORBIT_Q = [
   () => mc('Which planet has the longest year?', 'Neptune', PLANETS, 'Neptune is farthest out. Its path is the longest and it moves the slowest, so one trip takes 165 Earth years.'),
   () => mc('Why does Neptune have the longest year?', 'It is farthest out, so its path is longest and it moves slowest', ['It is the biggest planet', 'It spins very slowly', 'It is the coldest planet'], 'Far from the Sun the pull is weaker, so the planet moves slower along a much longer path.'),
   () => mc('Which planet has the shortest year?', 'Mercury', PLANETS, 'Mercury is closest to the Sun. Its path is short and it moves fast. One year is 88 days.'),
-  () => { const ps = shuffle(PLANETS.slice()).slice(0, pick([3, 4])), up = Math.random() < 0.6, items = ps.slice().sort((a, b) => up ? DATA[a].year - DATA[b].year : DATA[b].year - DATA[a].year); return ordered('Tap these planets in order, ' + (up ? 'shortest year first.' : 'longest year first.'), items, 'Farther from the Sun means a longer year. ' + items.map(p => p + ': ' + yearText(p)).join('. ') + '.'); },
-  () => { const ps = shuffle(PLANETS.slice()).slice(0, pick([3, 4])), up = Math.random() < 0.6, items = ps.slice().sort((a, b) => up ? DATA[a].year - DATA[b].year : DATA[b].year - DATA[a].year); return ordered('Tap these planets in order, ' + (up ? 'shortest year first.' : 'longest year first.'), items, 'Farther from the Sun means a longer year. ' + items.map(p => p + ': ' + yearText(p)).join('. ') + '.'); },
-  () => { const p = pick(['Jupiter', 'Saturn', 'Uranus', 'Neptune']); return mc('Which planet takes about ' + Math.round(yrs(p)) + ' Earth years to go around the Sun?', p, OUTER, 'A ' + p + ' year is ' + yearText(p) + '.'); },
-  () => { const p = pick(['Mercury', 'Venus', 'Mars']); return mc('Which planet takes about ' + Math.round(DATA[p].year) + ' Earth days to go around the Sun?', p, INNER, 'A ' + p + ' year is ' + yearText(p) + '.'); },
+  orderYears, orderYears,
+  () => { const p = pick(['Jupiter', 'Saturn', 'Uranus', 'Neptune']); return mc(tx('Which planet takes about {n} Earth years to go around the Sun?', { n: Math.round(yrs(p)) }), p, OUTER, tx('A {p} year is {y}.', { p: W(p), y: yearText(p) })); },
+  () => { const p = pick(['Mercury', 'Venus', 'Mars']); return mc(tx('Which planet takes about {n} Earth days to go around the Sun?', { n: Math.round(DATA[p].year) }), p, INNER, tx('A {p} year is {y}.', { p: W(p), y: yearText(p) })); },
   () => mc('A year on Mars is 687 Earth days. About how many Earth years is that?', 'Almost 2', ['About 1', 'About 4', 'About 10'], '687 days is 1.9 Earth years. Mars is farther out, so its year is longer.'),
   () => mc('A planet farther from the Sun has a ...', 'Longer year', ['Shorter year', 'Year the same as Earth\'s', 'Shorter day'], 'A bigger path and a slower speed both make the year longer.'),
   () => mc('What is a year?', 'One trip around the Sun', ['One spin of the planet', 'One trip of the Moon around Earth', 'Twelve days'], 'A year is one full orbit around the Sun.'),
@@ -594,7 +1160,7 @@ const ORBIT_Q = [
   () => mc('Which planet moves fastest along its orbit?', 'Mercury', ['Earth', 'Jupiter', 'Neptune'], 'Mercury races along at 47 km every second. Neptune moves at about 5.'),
   () => mc('Earth travels about 30 km every second around the Sun. Neptune moves ...', 'Slower, about 5 km per second', ['Faster, about 100 km per second', 'At the same speed', 'Backwards'], 'Far from the Sun, the pull is weaker and planets move slower.'),
   () => mc('Saturn\'s year is 29 Earth years. Jupiter\'s is 12. Saturn\'s year is about ...', 'Two and a half times as long', ['Half as long', 'The same length', 'Ten times as long'], '29 divided by 12 is about 2.4.'),
-  () => { const [a, b] = pairBy(PLANETS, w => DATA[w].year, 1.5), ans = DATA[a].year > DATA[b].year ? a : b; return mc('Which takes longer to go around the Sun, ' + a + ' or ' + b + '?', ans, [a, b], ans + ' is farther out. Its year is ' + yearText(ans) + '. The other is ' + yearText(ans === a ? b : a) + '.'); },
+  () => { const [a, b] = pairBy(PLANETS, w => DATA[w].year, 1.5), ans = DATA[a].year > DATA[b].year ? a : b, o = ans === a ? b : a; return mc(tx('Which takes longer to go around the Sun, {a} or {b}?', { a: W(a), b: W(b) }), ans, [a, b], tx('{a} is farther out. Its year is {ya}. The other is {yb}.', { a: WI(ans), ya: yearText(ans), b: W(o), yb: yearText(o) })); },
   () => mc('Mercury\'s year is 88 days. Earth\'s is 365. About how many Mercury years fit in one Earth year?', 'About 4', ['About 2', 'About 10', 'About 88'], '365 divided by 88 is about 4.'),
   () => mc('Uranus takes 84 Earth years to orbit. A person born there would have how many birthdays by age 84?', 'One', ['84', 'Twelve', 'None, Uranus does not move'], 'One orbit is one birthday. Uranus takes 84 of our years to make it.'),
 ];
@@ -603,19 +1169,17 @@ const ORBIT_Q = [
 function kmStrip(group, q, hide) { return { type: 'strip', max: group === INNER ? 250 : 5000, tick: group === INNER ? 50 : 1000, unit: 'million km', marks: group.filter(p => !hide || p === q || p === hide).map(p => ({ x: DATA[p].dist, label: p === q ? '?' : p, col: DATA[p].col, q: p === q })) }; }
 function mStrip(group, q) { return { type: 'strip', ball: true, max: group === INNER ? 50 : 1000, tick: group === INNER ? 10 : 200, unit: 'meters', marks: [{ x: scaleM(q), label: '?', col: DATA[q].col, q: true }] }; }
 function auStrip(group, q) { return { type: 'strip', max: group === INNER ? 2 : 32, tick: group === INNER ? 0.5 : 5, unit: 'AU', marks: group.filter(p => p === q || p === 'Earth').map(p => ({ x: DATA[p].dist / DATA.Earth.dist, label: p === q ? '?' : 'Earth', col: DATA[p].col, q: p === q })) }; }
+function readStrip() { const g = pick([INNER, OUTER]), p = pick(g); return mc(tx('Read the strip. About how far is {p} from the Sun?', { p: W(p) }), mkmText(p), g.map(mkmText), tx('{p} sits at the ? mark, {d} from the Sun.', { p: WI(p), d: lc(mkmText(p)) }), { view: kmStrip(g, p) }); }
+function whichMark() { const g = pick([INNER, OUTER]), ref = g === INNER ? 'Earth' : 'Jupiter', p = pick(g.filter(x => x !== ref)); return mc(tx('Only {ref} is labelled. Which planet sits at the ? mark?', { ref: W(ref) }), p, g, tx('{p} is the {o} planet, {d} from the Sun.', { p: WI(p), o: ORD[PLANETS.indexOf(p)], d: lc(mkmText(p)) }), { view: kmStrip(g, p, ref) }); }
+function ballStrip() { const g = pick([INNER, OUTER]), p = pick(g); return mc(tx('If the Sun were a basketball, about how far away would {p} be? Read the strip.', { p: W(p) }), metresText(scaleM(p)), g.map(x => metresText(scaleM(x))), tx('With a 24 cm Sun, {p} is {m} away. The real distance is {d}.', { p: W(p), m: lc(metresText(scaleM(p))), d: lc(mkmText(p)) }), { view: mStrip(g, p) }); }
+function readAu() { const p = pick(Object.keys(AU_TXT)), g = INNER.includes(p) ? INNER : OUTER; return mc(tx('Earth is 1 AU from the Sun. Read the strip. About how many AU is {p}?', { p: W(p) }), AU_TXT[p], Object.values(AU_TXT), tx('One AU is the Earth to Sun distance, 150 million km. {p} is {au} AU out.', { p: W(p), au: AU_TXT[p].toLowerCase() }), { view: auStrip(g, p) }); }
 const SCALE_Q = [
-  () => { const g = pick([INNER, OUTER]), p = pick(g); return mc('Read the strip. About how far is ' + p + ' from the Sun?', mkmText(p), g.map(mkmText), p + ' sits at the ? mark, ' + mkmText(p).toLowerCase() + ' from the Sun.', { view: kmStrip(g, p) }); },
-  () => { const g = pick([INNER, OUTER]), p = pick(g); return mc('Read the strip. About how far is ' + p + ' from the Sun?', mkmText(p), g.map(mkmText), p + ' sits at the ? mark, ' + mkmText(p).toLowerCase() + ' from the Sun.', { view: kmStrip(g, p) }); },
-  () => { const g = pick([INNER, OUTER]), ref = g === INNER ? 'Earth' : 'Jupiter', p = pick(g.filter(x => x !== ref)); return mc('Only ' + ref + ' is labelled. Which planet sits at the ? mark?', p, g, p + ' is the ' + ORD[PLANETS.indexOf(p)] + ' planet, ' + mkmText(p).toLowerCase() + ' from the Sun.', { view: kmStrip(g, p, ref) }); },
-  () => { const g = pick([INNER, OUTER]), ref = g === INNER ? 'Earth' : 'Jupiter', p = pick(g.filter(x => x !== ref)); return mc('Only ' + ref + ' is labelled. Which planet sits at the ? mark?', p, g, p + ' is the ' + ORD[PLANETS.indexOf(p)] + ' planet, ' + mkmText(p).toLowerCase() + ' from the Sun.', { view: kmStrip(g, p, ref) }); },
-  () => { const g = pick([INNER, OUTER]), p = pick(g); return mc('If the Sun were a basketball, about how far away would ' + p + ' be? Read the strip.', metresText(scaleM(p)), g.map(x => metresText(scaleM(x))), 'With a 24 cm Sun, ' + p + ' is ' + metresText(scaleM(p)).toLowerCase() + ' away. The real distance is ' + mkmText(p).toLowerCase() + '.', { view: mStrip(g, p) }); },
-  () => { const g = pick([INNER, OUTER]), p = pick(g); return mc('If the Sun were a basketball, about how far away would ' + p + ' be? Read the strip.', metresText(scaleM(p)), g.map(x => metresText(scaleM(x))), 'With a 24 cm Sun, ' + p + ' is ' + metresText(scaleM(p)).toLowerCase() + ' away. The real distance is ' + mkmText(p).toLowerCase() + '.', { view: mStrip(g, p) }); },
+  readStrip, readStrip, whichMark, whichMark, ballStrip, ballStrip,
   () => mc('If the Sun were a basketball, how big would Earth be?', 'A peppercorn, about 2 mm', ['A tennis ball', 'A large marble, about 2.5 cm', 'A grape'], 'The Sun is 109 Earths wide. A 24 cm ball divided by 109 is about 2 mm.', { view: mStrip(INNER, 'Earth') }),
   () => mc('If the Sun were a basketball, how big would Jupiter be?', 'A large marble, about 2.5 cm', ['A tennis ball', 'A peppercorn, about 2 mm', 'A grain of sand'], 'Jupiter is a tenth as wide as the Sun. A tenth of 24 cm is about 2.5 cm.', { view: mStrip(OUTER, 'Jupiter') }),
   () => mc('If the Sun were a basketball, how big would the Moon be?', 'A grain of sand, less than 1 mm', ['A pea, about 1 cm', 'A tennis ball', 'A large marble, about 2.5 cm'], 'The Moon is 400 times smaller than the Sun. 24 cm divided by 400 is about 0.6 mm.', { view: mStrip(INNER, 'Earth') }),
   () => mc('If the Sun were a basketball, the Moon would be how far from the model Earth?', 'About 7 cm', ['About 7 m', 'About 70 cm', 'About 7 mm'], 'The Moon is 384,000 km away. At this scale that is about 7 cm, about the width of your hand.', { view: mStrip(INNER, 'Earth') }),
-  () => { const p = pick(Object.keys(AU_TXT)), g = INNER.includes(p) ? INNER : OUTER; return mc('Earth is 1 AU from the Sun. Read the strip. About how many AU is ' + p + '?', AU_TXT[p], Object.values(AU_TXT), 'One AU is the Earth to Sun distance, 150 million km. ' + p + ' is ' + AU_TXT[p].toLowerCase() + ' AU out.', { view: auStrip(g, p) }); },
-  () => { const p = pick(Object.keys(AU_TXT)), g = INNER.includes(p) ? INNER : OUTER; return mc('Earth is 1 AU from the Sun. Read the strip. About how many AU is ' + p + '?', AU_TXT[p], Object.values(AU_TXT), 'One AU is the Earth to Sun distance, 150 million km. ' + p + ' is ' + AU_TXT[p].toLowerCase() + ' AU out.', { view: auStrip(g, p) }); },
+  readAu, readAu,
   () => mc('How many Earths would fit side by side across the Sun?', 'About 109', ['About 10', 'About 1,000', 'About 2'], 'The Sun is 1.39 million km wide. Earth is 12,756 km wide. That is 109 Earths across.', WV('Sun')),
   () => mc('How many Earths would fit side by side across Jupiter?', 'About 11', ['About 2', 'About 109', 'About 1,000'], 'Jupiter is 142,984 km wide. Earth is 12,756. That is about 11 Earths across.', WV('Jupiter')),
   () => mc('Mars at its closest is 56 million km from Earth. The Moon is 384,000 km away. Mars is about ...', '150 times farther than the Moon', ['Twice as far as the Moon', 'Closer than the Moon', '10 times farther than the Moon'], '56 million divided by 384 thousand is about 146.', { view: kmStrip(INNER, 'Mars') }),
@@ -653,6 +1217,8 @@ const ECL_Q = [
 
 // Rung 16: the Sun as a star, the speed of light and light-years.
 const LT = {}; for (const p of PLANETS) LT[p] = lightText(lightMin(p));
+function lightTo() { const p = pick(PLANETS); return mc(tx('How long does sunlight take to reach {p}?', { p: W(p) }), LT[p], Object.values(LT), tx('{p} is {d} from the Sun. Light covers that in {t}.', { p: WI(p), d: lc(mkmText(p)), t: lc(LT[p]) }), WV(p)); }
+function lightKm() { const n = rnd(2, 10); return typed(tx('Light goes 300,000 km in 1 second. How far does it go in {n} seconds? Type the km.', { n }), n * 300000, 'km', tx('{n} times 300,000 is {r} km.', { n, r: (n * 300000).toLocaleString('en-US') }), WV('Sun')); }
 const SUN_Q = [
   () => mc('How long does sunlight take to reach Earth?', 'About 8 minutes', ['About 8 seconds', 'About 8 hours', 'About 8 days'], 'Light covers 150 million km in 8 minutes and 20 seconds.', WV('Sun')),
   () => mc('How fast does light travel?', 'About 300,000 km every second', ['About 300 km every second', 'About 300,000 km every hour', 'About as fast as a jet'], 'Light moves 299,792 km per second. Nothing goes faster.', WV('Sun')),
@@ -666,12 +1232,10 @@ const SUN_Q = [
   () => mc('How far is one light-year?', 'About 9.5 trillion km', ['About 300,000 km', 'About 150 million km', 'About 1 million km'], 'Light goes 300,000 km each second for a whole year. That adds up to 9.5 trillion km.', WV('Sun')),
   () => mc('The light you see tonight from Proxima Centauri left the star about ...', '4 years ago', ['4 minutes ago', '4 days ago', '400 years ago'], 'It is 4.2 light-years away, so its light is 4 years old when it reaches your eye.', WV('Sun')),
   () => mc('You look at a star 100 light-years away. You are seeing light that left it ...', '100 years ago', ['Just now', '100 days ago', '100 minutes ago'], 'Looking far away is looking back in time.', WV('Sun')),
-  () => { const p = pick(PLANETS); return mc('How long does sunlight take to reach ' + p + '?', LT[p], Object.values(LT), p + ' is ' + mkmText(p).toLowerCase() + ' from the Sun. Light covers that in ' + LT[p].toLowerCase() + '.', WV(p)); },
-  () => { const p = pick(PLANETS); return mc('How long does sunlight take to reach ' + p + '?', LT[p], Object.values(LT), p + ' is ' + mkmText(p).toLowerCase() + ' from the Sun. Light covers that in ' + LT[p].toLowerCase() + '.', WV(p)); },
+  lightTo, lightTo,
   () => mc('Light takes 8 minutes to reach Earth. Jupiter is about 5 times farther from the Sun. Sunlight reaches Jupiter in ...', 'About 40 minutes', ['About 8 minutes', 'About 2 minutes', 'About 5 hours'], '5 times 8 is 40. The true time is 43 minutes.', WV('Jupiter')),
   () => mc('The Moon is 384,000 km away. Light goes 300,000 km each second. Moonlight reaches you in ...', 'A little more than 1 second', ['About 8 minutes', 'About 1 hour', 'No time at all'], '384,000 divided by 300,000 is 1.3 seconds.', WV('Moon')),
-  () => { const n = rnd(2, 10); return typed('Light goes 300,000 km in 1 second. How far does it go in ' + n + ' seconds? Type the km.', n * 300000, 'km', n + ' times 300,000 is ' + (n * 300000).toLocaleString('en-US') + ' km.', WV('Sun')); },
-  () => { const n = rnd(2, 10); return typed('Light goes 300,000 km in 1 second. How far does it go in ' + n + ' seconds? Type the km.', n * 300000, 'km', n + ' times 300,000 is ' + (n * 300000).toLocaleString('en-US') + ' km.', WV('Sun')); },
+  lightKm, lightKm,
   () => mc('How old is the Sun?', 'About 4.6 billion years', ['About 4,600 years', 'About 4.6 million years', 'About 46 billion years'], 'The Sun and the planets formed together about 4.6 billion years ago.', WV('Sun')),
   () => mc('How hot is the surface of the Sun?', 'About 5,500 degrees Celsius', ['About 55 degrees', 'About 550 degrees', 'About 5.5 million degrees'], 'The surface is about 5,500 degrees. The core is about 15 million.', WV('Sun')),
   () => mc('Sunspots are ...', 'Cooler, darker patches on the Sun', ['Holes through the Sun', 'Planets in front of the Sun', 'Clouds on the Sun'], 'Sunspots are a bit cooler than the rest of the surface, so they look dark next to it.', WV('Sun')),
@@ -706,7 +1270,7 @@ const OBJ = [
   ['Neptune', 'Planet', 'It is a big round world that goes around the Sun and rules its own orbit.', 'Neptune is a planet, the eighth from the Sun.'],
   ['Mars', 'Planet', 'It is round, goes around the Sun, and has cleared its orbit. Two small moons go around it.', 'Mars is a planet.'],
 ];
-const SMALL_Q = OBJ.map(o => () => mc(o[0] + '. ' + o[2] + ' What kind of object is it?', o[1], KINDS, o[3])).concat([
+const SMALL_Q = OBJ.map(o => () => mc(tx('{name}. {desc} What kind of object is it?', { name: o[0], desc: o[2] }), o[1], KINDS, o[3])).concat([
   () => mc('How many planets are in our solar system?', 'Eight', ['Nine', 'Seven', 'Ten'], 'Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus and Neptune. Pluto is a dwarf planet.'),
   () => mc('Why is Pluto called a dwarf planet?', 'It has not cleared its orbit of other objects', ['It is too cold', 'It is too far away', 'It has no moons'], 'A planet is round, orbits the Sun and has cleared its zone. Pluto shares its zone with the Kuiper belt.'),
   () => mc('Where is the asteroid belt?', 'Between Mars and Jupiter', ['Between Earth and Mars', 'Beyond Neptune', 'Inside Mercury\'s orbit'], 'Most asteroids orbit in a wide belt between Mars and Jupiter.'),
@@ -767,15 +1331,18 @@ function orbitView(showSpeeds, at) {
   return { type: 'orbit', pts: [{ th: 0, label: L[0], speed: v1 }, { th: pick([1.75, -1.75]), label: L[1], speed: v2 }, { th: Math.PI, label: L[2], speed: v3 }], showSpeeds: !!showSpeeds, at: at == null ? rnd(0, 2) : at };
 }
 function curveView(o) { return Object.assign({ type: 'curve', xmax: 30, xunit: 'days', xtick: 5, ymin: 94, dips: [] }, o); }
+const kms = v => tx('{v} km/s', { v });
+function dipDepth() { const d = pick([1, 2, 3, 4, 5]), v = curveView({ dips: [{ t: rnd(8, 20), dur: 1.4, depth: d }] }); return mc('Read the graph. How much dimmer did the star get during the transit?', tx('About {d}%', { d }), [1, 2, 3, 4, 5].map(x => tx('About {d}%', { d: x })), tx('The line drops from 100% to {b}%, so the planet blocked {d}% of the light.', { b: 100 - d, d }), { view: v }); }
+function dipPeriod() { const P = pick([4, 6, 8, 10, 12]), t0 = rnd(2, 4), dips = []; for (let t = t0; t < 30; t += P) dips.push({ t, dur: 1.2, depth: 3 }); return mc('The dips repeat. Read the graph. How many days apart are they? That is the planet\'s year.', tx('{P} days', { P }), [4, 6, 8, 10, 12].map(x => tx('{P} days', { P: x })), tx('One dip every {P} days means the planet goes around its star in {P} days.', { P }), { view: curveView({ dips }) }); }
 const KEP_Q = [
-  () => { const v = orbitView(false); return mc('Where does the planet move fastest?', v.pts[0].label, ['A', 'B', 'C'], 'Point ' + v.pts[0].label + ' is closest to the Sun. The pull is strongest there, so the planet moves fastest.', { view: v }); },
-  () => { const v = orbitView(false); return mc('Where does the planet move slowest?', v.pts[2].label, ['A', 'B', 'C'], 'Point ' + v.pts[2].label + ' is farthest from the Sun. The planet crawls there and speeds up as it falls back in.', { view: v }); },
-  () => { const v = orbitView(false); return mc('Which point is closest to the Sun?', v.pts[0].label, ['A', 'B', 'C'], 'The Sun sits at one focus of the ellipse, near point ' + v.pts[0].label + '. That is called perihelion.', { view: v }); },
-  () => { const v = orbitView(true); return mc('Read the speeds on the orbit. How fast is the planet at point ' + v.pts[2].label + ', farthest from the Sun?', v.pts[2].speed + ' km/s', v.pts.map(p => p.speed + ' km/s'), 'At ' + v.pts[2].label + ' it moves ' + v.pts[2].speed + ' km per second, its slowest.', { view: v }); },
-  () => { const v = orbitView(true); return mc('Read the speeds on the orbit. How fast is the planet at the point nearest the Sun?', v.pts[0].speed + ' km/s', v.pts.map(p => p.speed + ' km/s'), 'At ' + v.pts[0].label + ', nearest the Sun, it moves ' + v.pts[0].speed + ' km per second, its fastest.', { view: v }); },
-  () => { const v = orbitView(true); return mc('Read the orbit. At which point does the planet move ' + v.pts[1].speed + ' km/s?', v.pts[1].label, ['A', 'B', 'C'], 'Point ' + v.pts[1].label + ' is in between, so its speed is in between too.', { view: v }); },
-  () => { const v = orbitView(false, 1); return mc('At point ' + v.pts[1].label + ' the planet moves ' + v.pts[1].speed + ' km/s. At point ' + v.pts[0].label + ', closer to the Sun, it moves ...', 'Faster', ['Slower', 'The same speed'], 'Closer to the Sun means a stronger pull and a faster planet. Kepler saw this in 1609.', { view: v }); },
-  () => { const v = orbitView(false, 0); return mc('At point ' + v.pts[0].label + ' the planet moves ' + v.pts[0].speed + ' km/s. At point ' + v.pts[2].label + ', far from the Sun, it moves ...', 'Slower', ['Faster', 'The same speed'], 'Far from the Sun the pull is weaker and the planet slows down.', { view: v }); },
+  () => { const v = orbitView(false); return mc('Where does the planet move fastest?', v.pts[0].label, ['A', 'B', 'C'], tx('Point {l} is closest to the Sun. The pull is strongest there, so the planet moves fastest.', { l: v.pts[0].label }), { view: v }); },
+  () => { const v = orbitView(false); return mc('Where does the planet move slowest?', v.pts[2].label, ['A', 'B', 'C'], tx('Point {l} is farthest from the Sun. The planet crawls there and speeds up as it falls back in.', { l: v.pts[2].label }), { view: v }); },
+  () => { const v = orbitView(false); return mc('Which point is closest to the Sun?', v.pts[0].label, ['A', 'B', 'C'], tx('The Sun sits at one focus of the ellipse, near point {l}. That is called perihelion.', { l: v.pts[0].label }), { view: v }); },
+  () => { const v = orbitView(true); return mc(tx('Read the speeds on the orbit. How fast is the planet at point {l}, farthest from the Sun?', { l: v.pts[2].label }), kms(v.pts[2].speed), v.pts.map(p => kms(p.speed)), tx('At {l} it moves {v} km per second, its slowest.', { l: v.pts[2].label, v: v.pts[2].speed }), { view: v }); },
+  () => { const v = orbitView(true); return mc('Read the speeds on the orbit. How fast is the planet at the point nearest the Sun?', kms(v.pts[0].speed), v.pts.map(p => kms(p.speed)), tx('At {l}, nearest the Sun, it moves {v} km per second, its fastest.', { l: v.pts[0].label, v: v.pts[0].speed }), { view: v }); },
+  () => { const v = orbitView(true); return mc(tx('Read the orbit. At which point does the planet move {v} km/s?', { v: v.pts[1].speed }), v.pts[1].label, ['A', 'B', 'C'], tx('Point {l} is in between, so its speed is in between too.', { l: v.pts[1].label }), { view: v }); },
+  () => { const v = orbitView(false, 1); return mc(tx('At point {l1} the planet moves {v1} km/s. At point {l0}, closer to the Sun, it moves ...', { l1: v.pts[1].label, v1: v.pts[1].speed, l0: v.pts[0].label }), 'Faster', ['Slower', 'The same speed'], 'Closer to the Sun means a stronger pull and a faster planet. Kepler saw this in 1609.', { view: v }); },
+  () => { const v = orbitView(false, 0); return mc(tx('At point {l0} the planet moves {v0} km/s. At point {l2}, far from the Sun, it moves ...', { l0: v.pts[0].label, v0: v.pts[0].speed, l2: v.pts[2].label }), 'Slower', ['Faster', 'The same speed'], 'Far from the Sun the pull is weaker and the planet slows down.', { view: v }); },
   () => { const v = orbitView(false); return mc('A planet sweeps out equal areas in equal times. So near the Sun it must move ...', 'Faster', ['Slower', 'The same speed', 'Backwards'], 'Near the Sun the line to the planet is short, so it must sweep fast to cover the same area.', { view: v }); },
   () => { const v = orbitView(false); return mc('The shape of a planet\'s orbit is ...', 'An ellipse, a stretched circle', ['A perfect circle', 'A square', 'A straight line'], 'Kepler\'s first law. Most planet orbits are nearly round, but comets have long thin ellipses.', { view: v }); },
   () => { const v = orbitView(false); return mc('Where does the Sun sit in a planet\'s orbit?', 'At one focus of the ellipse, off center', ['At the exact center', 'On the orbit itself', 'Outside the orbit'], 'The Sun is at a focus, so the planet is sometimes closer and sometimes farther.', { view: v }); },
@@ -785,11 +1352,8 @@ const KEP_Q = [
   () => { const v = orbitView(false); return mc('Kepler\'s third law says a planet farther from the Sun ...', 'Takes longer to orbit', ['Takes less time to orbit', 'Orbits in the same time', 'Stops orbiting'], 'Neptune takes 165 years. Mercury takes 88 days.', { view: v }); },
   () => { const v = orbitView(false); return mc('If a planet\'s orbit were a perfect circle, its speed would ...', 'Stay the same all the way around', ['Speed up and slow down', 'Get faster every year', 'Be zero'], 'Only a changing distance changes the speed.', { view: v }); },
   () => { const v = curveView({ dips: [{ t: rnd(8, 20), dur: 1.4, depth: pick([1, 2, 3]) }] }); return mc('A star\'s brightness over time. What made the dip?', 'A planet passed in front of the star', ['The star turned off', 'A cloud on Earth', 'The star moved away'], 'A planet crossing its star blocks a little light. That crossing is called a transit.', { view: v }); },
-  () => { const d = pick([1, 2, 3, 4, 5]), v = curveView({ dips: [{ t: rnd(8, 20), dur: 1.4, depth: d }] }); return mc('Read the graph. How much dimmer did the star get during the transit?', 'About ' + d + '%', [1, 2, 3, 4, 5].map(x => 'About ' + x + '%'), 'The line drops from 100% to ' + (100 - d) + '%, so the planet blocked ' + d + '% of the light.', { view: v }); },
-  () => { const d = pick([1, 2, 3, 4, 5]), v = curveView({ dips: [{ t: rnd(8, 20), dur: 1.4, depth: d }] }); return mc('Read the graph. How much dimmer did the star get during the transit?', 'About ' + d + '%', [1, 2, 3, 4, 5].map(x => 'About ' + x + '%'), 'The line drops from 100% to ' + (100 - d) + '%, so the planet blocked ' + d + '% of the light.', { view: v }); },
-  () => { const P = pick([4, 6, 8, 10, 12]), t0 = rnd(2, 4), dips = []; for (let t = t0; t < 30; t += P) dips.push({ t, dur: 1.2, depth: 3 }); return mc('The dips repeat. Read the graph. How many days apart are they? That is the planet\'s year.', P + ' days', [4, 6, 8, 10, 12].map(x => x + ' days'), 'One dip every ' + P + ' days means the planet goes around its star in ' + P + ' days.', { view: curveView({ dips }) }); },
-  () => { const P = pick([4, 6, 8, 10, 12]), t0 = rnd(2, 4), dips = []; for (let t = t0; t < 30; t += P) dips.push({ t, dur: 1.2, depth: 3 }); return mc('The dips repeat. Read the graph. How many days apart are they? That is the planet\'s year.', P + ' days', [4, 6, 8, 10, 12].map(x => x + ' days'), 'One dip every ' + P + ' days means the planet goes around its star in ' + P + ' days.', { view: curveView({ dips }) }); },
-  () => { const D = pick([2, 3, 4, 6, 8]), v = curveView({ xmax: 24, xunit: 'hours', xtick: 4, dips: [{ t: 12, dur: D, depth: 2 }] }); return mc('Read the graph. About how many hours did the planet take to cross in front of its star?', D + ' hours', [2, 3, 4, 6, 8].map(x => x + ' hours'), 'The dip starts at ' + (12 - D / 2) + ' hours and ends at ' + (12 + D / 2) + ' hours, so the transit lasted ' + D + ' hours.', { view: v }); },
+  dipDepth, dipDepth, dipPeriod, dipPeriod,
+  () => { const D = pick([2, 3, 4, 6, 8]), v = curveView({ xmax: 24, xunit: 'hours', xtick: 4, dips: [{ t: 12, dur: D, depth: 2 }] }); return mc('Read the graph. About how many hours did the planet take to cross in front of its star?', tx('{D} hours', { D }), [2, 3, 4, 6, 8].map(x => tx('{D} hours', { D: x })), tx('The dip starts at {a} hours and ends at {b} hours, so the transit lasted {D} hours.', { a: 12 - D / 2, b: 12 + D / 2, D }), { view: v }); },
   () => { const a = pick([1, 2]), b = pick([3, 4, 5]), swap = Math.random() < 0.5, v = curveView({ dips: [{ t: 9, dur: 1.4, depth: swap ? b : a, label: 'A' }, { t: 21, dur: 1.4, depth: swap ? a : b, label: 'B' }] }); return mc('Two planets cross the same star. Which dip was made by the bigger planet?', swap ? 'Dip A' : 'Dip B', ['Dip A', 'Dip B'], 'A bigger planet blocks more light, so it makes the deeper dip.', { view: v }); },
   () => mc('A bigger planet crossing its star makes a dip that is ...', 'Deeper', ['Shallower', 'Farther apart', 'Red'], 'The dip depth tells the planet\'s size compared with its star.', { view: curveView({ dips: [{ t: 10, dur: 1.4, depth: 1 }, { t: 22, dur: 1.4, depth: 4 }] }) }),
   () => mc('A planet farther from its star makes dips that are ...', 'Farther apart in time', ['Closer together in time', 'Deeper', 'Brighter'], 'Farther out means a longer year, so more time passes between crossings.', { view: curveView({ dips: [{ t: 4, dur: 1.2, depth: 2 }, { t: 16, dur: 1.2, depth: 2 }, { t: 28, dur: 1.2, depth: 2 }] }) }),
@@ -880,7 +1444,7 @@ function record(right) {
 // ---------------------------------------------------------------------------
 // Sound and speech
 // ---------------------------------------------------------------------------
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.92; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.92; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
 let AC = null;
 function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
 function tone(f, d = 0.15, type = 'sine', vol = 0.16, when = 0, slide = 0) {
@@ -967,7 +1531,7 @@ const labels = {};
 for (const w of WORLDS) {
   const r = w === 'Moon' ? 0.3 : spaceR(w), b = makeWorld(w, r); BODY[w] = b; b.angle = Math.random() * Math.PI * 2;
   if (w === 'Moon') BODY.Earth.holder.add(b.holder); else space.add(b.holder);
-  const lab = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(w), depthTest: false, sizeAttenuation: false })); lab.scale.set(0.16, 0.04, 1); lab.renderOrder = 10; lab.position.y = r + (w === 'Moon' ? 1.7 : 0.7); b.holder.add(lab); labels[w] = lab;
+  const lab = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(T(w)), depthTest: false, sizeAttenuation: false })); lab.scale.set(0.16, 0.04, 1); lab.renderOrder = 10; lab.position.y = r + (w === 'Moon' ? 1.7 : 0.7); b.holder.add(lab); labels[w] = lab;
   if (w !== 'Moon') { const o = new THREE.Mesh(new THREE.RingGeometry(orbitR(w) - 0.03, orbitR(w) + 0.03, 128), new THREE.MeshBasicMaterial({ color: 0x8E7CFF, transparent: true, opacity: 0.35, side: THREE.DoubleSide })); o.rotation.x = -Math.PI / 2; space.add(o); }
 }
 labels.Moon.scale.set(0.12, 0.03, 1);
@@ -985,7 +1549,7 @@ const ruler = new THREE.Group(); ruler.position.set(-1.6, 0, 0); surface.add(rul
   const pole = new THREE.Mesh(new THREE.BoxGeometry(0.12, 7 * FT, 0.12), new THREE.MeshStandardMaterial({ color: 0xFFFFFF })); pole.position.y = 3.5 * FT; ruler.add(pole);
   for (let f = 0; f <= 7; f++) {
     const tick = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.14), new THREE.MeshStandardMaterial({ color: f % 2 ? 0xFF4F8B : 0xFFC93C })); tick.position.set(0.2, f * FT, 0); ruler.add(tick);
-    const l = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(f + ' ft'), depthTest: false })); l.scale.set(1.3, 0.33, 1); l.position.set(-0.75, f * FT, 0); ruler.add(l);
+    const l = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(T('{n} ft', { n: f })), depthTest: false })); l.scale.set(1.3, 0.33, 1); l.position.set(-0.75, f * FT, 0); ruler.add(l);
   }
 }
 const astro = new THREE.Group(); surface.add(astro);
@@ -1025,8 +1589,8 @@ function setMode(m) {
   scene.background = m === 'surface' ? new THREE.Color(SKY[focus]) : SPACE_BG.clone();
   $('info').classList.toggle('on', m === 'planet' || m === 'surface'); $('jumps').style.display = (m === 'surface' || (task && task.topic === 'jump')) ? 'flex' : 'none';
   $('pad').classList.toggle('on', m === 'view' && !!task && task.kind === 'type');
-  const kindHint = task && task.kind === 'place' ? 'Tap a yellow spot.' : task && task.kind === 'order' ? 'Tap them one at a time, in order.' : '';
-  $('hint').textContent = m === 'space' ? (kindHint || 'Tap a planet to fly there. Drag to turn.') : m === 'view' ? kindHint : '';
+  const kindHint = task && task.kind === 'place' ? T('Tap a yellow spot.') : task && task.kind === 'order' ? T('Tap them one at a time, in order.') : '';
+  $('hint').textContent = m === 'space' ? (kindHint || T('Tap a planet to fly there. Drag to turn.')) : m === 'view' ? kindHint : '';
   $('hint').classList.toggle('up', m === 'view'); $('askRow').classList.toggle('narrow', m === 'view'); $('corner').innerHTML = '';
   $('peak').style.display = 'none';
   renderBottom();
@@ -1059,14 +1623,14 @@ function showView(v) {
     const e = makeWorld('Earth', 2.0); viewG.add(e.holder); view.spin.push(e.mesh);
     const eq = new THREE.Mesh(new THREE.TorusGeometry(2.03, 0.025, 8, 64), new THREE.MeshBasicMaterial({ color: 0xFFC93C })); eq.rotation.x = Math.PI / 2; e.tilt.add(eq);
     const n = badge('N', 0, 3.25, 0, 0.75), s = badge('S', 0, -3.25, 0, 0.75); e.tilt.add(n); e.tilt.add(s);
-    sunBall(v.side * 8.2, 0, 0, 1.25); sprite('Sun', v.side * 8.2, -2.3, 0, 3.0, 0.75);
-    sprite(v.side > 0 ? 'June' : 'December', -v.side * 6.0, 3.0, 0, 3.4, 0.85);
+    sunBall(v.side * 8.2, 0, 0, 1.25); sprite(T('Sun'), v.side * 8.2, -2.3, 0, 3.0, 0.75);
+    sprite(T(v.side > 0 ? 'June' : 'December'), -v.side * 6.0, 3.0, 0, 3.4, 0.85);
     cam = { pos: at(0, 2.0, 15.5), look: at(0, 0.1, 0) };
   } else if (v.type === 'moon') {
     const e = makeWorld('Earth', 1.0); viewG.add(e.holder); view.spin.push(e.mesh);
     const m = makeWorld('Moon', 0.34); m.axis.visible = false; viewG.add(m.holder); view.moon = m;
     const L = new THREE.PointLight(0xFFF2D6, 2.4, 0, 0); L.position.set(-60, 0, 0); viewG.add(L);
-    sunBall(-11.2, 0, 0, 1.6, false); sprite('Sun', -11.2, -2.5, 0, 3.4, 0.85); sprite('Sunlight', -7.4, 1.9, 0, 3.6, 0.9);
+    sunBall(-11.2, 0, 0, 1.6, false); sprite(T('Sun'), -11.2, -2.5, 0, 3.4, 0.85); sprite(T('Sunlight'), -7.4, 1.9, 0, 3.6, 0.9);
     view.spots = [];
     for (let k = 0; k < 8; k++) {
       const p = spotPos(k), ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.56, 32), new THREE.MeshBasicMaterial({ color: 0xFFC93C, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }));
@@ -1081,8 +1645,8 @@ function showView(v) {
     moonAt(v.spot != null ? v.spot : v.start != null ? v.start : 2);
     cam = { pos: at(0, 16.4, 10.6), look: at(0, 0, 0.2) };
   } else if (v.type === 'world') {
-    if (v.w === 'Sun') { sunBall(-2.4, 0, 0, 2.4, false); sprite('The Sun', -2.4, -3.3, 0, 3.0, 0.75); }
-    else { const b = makeWorld(v.w, v.w === 'Saturn' ? 1.3 : 1.75); b.holder.position.set(-2.6, 0.3, 0); viewG.add(b.holder); view.spin.push(b.mesh); sprite(Cap(isWorld(v.w)), -2.6, -2.5, 0, 3.4, 0.85); const L = new THREE.PointLight(0xFFF2D6, 2.0, 0, 0); L.position.set(-9, 6, 12); viewG.add(L); }
+    if (v.w === 'Sun') { sunBall(-2.4, 0.5, 0, 2.0, false); sprite(T('The Sun'), 1.0, 0.5, 0, 3.0, 0.75); }   // the label sits beside the Sun, clear of two rows of answers
+    else { const b = makeWorld(v.w, v.w === 'Saturn' ? 1.3 : 1.75); b.holder.position.set(-2.6, 0.3, 0); viewG.add(b.holder); view.spin.push(b.mesh); sprite(Cap(wn(v.w)), -2.6, -2.5, 0, 3.4, 0.85); const L = new THREE.PointLight(0xFFF2D6, 2.0, 0, 0); L.position.set(-9, 6, 12); viewG.add(L); }
     cam = { pos: at(0, 0.3, 10.5), look: at(-0.6, 0, 0) };
   } else { cam = { pos: at(0, 0, 14), look: at(0, 0, 0) }; }
   setMode('view'); flyCam(cam, 900);
@@ -1115,7 +1679,7 @@ function drawOverlay() {
   else drawOrbit(g, w, h, v);
 }
 function drawPhase(g, w, h, k) {
-  g.textAlign = 'center'; g.fillText('From Earth', w / 2, 20);
+  g.textAlign = 'center'; g.fillText(T('From Earth'), w / 2, 20);
   const cx = w / 2, cy = 102, r = 56, ph = (k || 0) * Math.PI / 4, lit = '#F3EFFF', dark = '#1B1830';
   g.save(); g.beginPath(); g.arc(cx, cy, r, 0, 7); g.clip(); g.fillStyle = dark; g.fillRect(cx - r, cy - r, 2 * r, 2 * r);
   if (k === 4) { g.fillStyle = lit; g.fillRect(cx - r, cy - r, 2 * r, 2 * r); }
@@ -1126,12 +1690,12 @@ function drawPhase(g, w, h, k) {
   }
   g.globalAlpha = 0.18; g.fillStyle = '#6E6680'; [[-20, -14, 9], [14, 6, 7], [-6, 26, 6], [24, -26, 5]].forEach(c => { g.beginPath(); g.arc(cx + c[0], cy + c[1], c[2], 0, 7); g.fill(); }); g.globalAlpha = 1;
   g.restore(); g.strokeStyle = '#2B2140'; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke();
-  g.fillStyle = '#2B2140'; g.fillText('Spot ' + ((k || 0) + 1), w / 2, h - 18);
+  g.fillStyle = '#2B2140'; g.fillText(T('Spot {n}', { n: (k || 0) + 1 }), w / 2, h - 18);
 }
 function fmtNum(x) { return Number.isInteger(x) ? x.toLocaleString('en-US') : String(x); }
 function drawStrip(g, w, h, v) {
   const x0 = 78, x1 = w - 36, y = h * 0.56, px = x => x0 + (x1 - x0) * x / v.max;
-  g.textAlign = 'left'; g.fillText(v.ball ? 'The Sun as a basketball. Distances in ' + v.unit + '.' : 'Distance from the Sun in ' + v.unit + '.', 16, 22);
+  g.textAlign = 'left'; g.fillText(T(v.ball ? 'The Sun as a basketball. Distances in {u}.' : 'Distance from the Sun in {u}.', { u: T(v.unit) }), 16, 22);
   g.strokeStyle = '#2B2140'; g.lineWidth = 3; g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
   g.textAlign = 'center'; g.font = '700 14px Segoe UI, system-ui, sans-serif';
   for (let t = 0; t <= v.max + 1e-9; t += v.tick) { const x = px(t); g.beginPath(); g.moveTo(x, y - 8); g.lineTo(x, y + 8); g.stroke(); g.fillStyle = '#2B2140'; g.fillText(fmtNum(Math.round(t * 100) / 100), x, y + 26); }
@@ -1142,18 +1706,18 @@ function drawStrip(g, w, h, v) {
   g.font = '800 15px Segoe UI, system-ui, sans-serif';
   v.marks.forEach((m, i) => {
     const x = px(m.x); g.fillStyle = m.q ? '#FF4F8B' : m.col; g.beginPath(); g.arc(x, y, m.q ? 11 : 8, 0, 7); g.fill(); g.strokeStyle = '#2B2140'; g.lineWidth = 2.5; g.stroke();
-    const ly = y - (m.q ? 38 : (i % 2 ? 24 : 44)); g.fillStyle = '#2B2140'; g.font = (m.q ? '900 22px ' : '800 15px ') + 'Segoe UI, system-ui, sans-serif'; g.fillText(m.label, Math.min(w - 30, Math.max(x0 + 10, x)), ly);
+    const ly = y - (m.q ? 38 : (i % 2 ? 24 : 44)); g.fillStyle = '#2B2140'; g.font = (m.q ? '900 22px ' : '800 15px ') + 'Segoe UI, system-ui, sans-serif'; g.fillText(m.q ? m.label : T(m.label), Math.min(w - 30, Math.max(x0 + 10, x)), ly);
   });
 }
 function drawCurve(g, w, h, v) {
-  const L = 72, R = w - 24, T = 44, B = h - 50, ymin = v.ymin || 94, X = t => L + (R - L) * t / v.xmax, Y = b => B - (B - T) * (b - ymin) / (100.6 - ymin);
-  g.textAlign = 'left'; g.fillText('Brightness of a star over time', 16, 20);
+  const L = 72, R = w - 24, TOP = 44, B = h - 50, ymin = v.ymin || 94, X = t => L + (R - L) * t / v.xmax, Y = b => B - (B - TOP) * (b - ymin) / (100.6 - ymin);
+  g.textAlign = 'left'; g.fillText(T('Brightness of a star over time'), 16, 20);
   g.strokeStyle = '#D9D2EC'; g.lineWidth = 1.5; g.font = '700 14px Segoe UI, system-ui, sans-serif'; g.textAlign = 'right';
   for (let b = ymin; b <= 100; b++) { g.beginPath(); g.moveTo(L, Y(b)); g.lineTo(R, Y(b)); g.stroke(); g.fillStyle = '#2B2140'; g.fillText(b + '%', L - 8, Y(b)); }
   g.textAlign = 'center';
-  for (let t = 0; t <= v.xmax; t += v.xtick) { g.beginPath(); g.moveTo(X(t), T); g.lineTo(X(t), B); g.stroke(); g.fillText(String(t), X(t), B + 16); }
-  g.fillText('Time in ' + v.xunit, (L + R) / 2, B + 36);
-  g.strokeStyle = '#2B2140'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(L, T); g.lineTo(L, B); g.lineTo(R, B); g.stroke();
+  for (let t = 0; t <= v.xmax; t += v.xtick) { g.beginPath(); g.moveTo(X(t), TOP); g.lineTo(X(t), B); g.stroke(); g.fillText(String(t), X(t), B + 16); }
+  g.fillText(T('Time in {u}', { u: T(v.xunit) }), (L + R) / 2, B + 36);
+  g.strokeStyle = '#2B2140'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(L, TOP); g.lineTo(L, B); g.lineTo(R, B); g.stroke();
   const bright = t => { let b = 100; for (const d of v.dips) { const a = Math.abs(t - d.t), half = d.dur / 2, ramp = d.dur * 0.12; if (a < half - ramp) b -= d.depth; else if (a < half) b -= d.depth * (half - a) / ramp; } return b; };
   g.strokeStyle = '#9B6BFF'; g.lineWidth = 3.5; g.beginPath();
   for (let x = L; x <= R; x += 1) { const t = (x - L) / (R - L) * v.xmax, y = Y(bright(t)); if (x === L) g.moveTo(x, y); else g.lineTo(x, y); }
@@ -1163,10 +1727,10 @@ function drawCurve(g, w, h, v) {
 }
 function drawOrbit(g, w, h, v) {
   const cx = w / 2 - 10, cy = h / 2 + 14, b = Math.min((h - 90) / 2, 130), a = Math.min((w - 150) / 2, b / Math.sqrt(1 - E_ORB * E_ORB)), fx = cx + a * E_ORB;
-  g.textAlign = 'left'; g.fillText('A planet\'s orbit. The Sun is at one focus.', 16, 20);
+  g.textAlign = 'left'; g.fillText(T('A planet\'s orbit. The Sun is at one focus.'), 16, 20);
   g.strokeStyle = '#8E7CFF'; g.lineWidth = 3; g.beginPath(); g.ellipse(cx, cy, a, b, 0, 0, 7); g.stroke();
   g.fillStyle = '#FFD23C'; g.beginPath(); g.arc(fx, cy, 17, 0, 7); g.fill(); g.strokeStyle = '#2B2140'; g.lineWidth = 2.5; g.stroke();
-  g.fillStyle = '#2B2140'; g.font = '800 15px Segoe UI, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('Sun', fx, cy + 32);
+  g.fillStyle = '#2B2140'; g.font = '800 15px Segoe UI, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(T('Sun'), fx, cy + 32);
   v.pts.forEach((p, i) => {
     const x = cx + a * Math.cos(p.th), y = cy + b * Math.sin(p.th), out = Math.sign(Math.cos(p.th)) || 1;
     g.fillStyle = i === v.at ? '#3D8BFF' : '#fff'; g.beginPath(); g.arc(x, y, i === v.at ? 12 : 8, 0, 7); g.fill(); g.strokeStyle = '#2B2140'; g.lineWidth = 2.5; g.stroke();
@@ -1179,7 +1743,7 @@ function drawOrbit(g, w, h, v) {
 
 // The number pad for typed answers.
 let typedStr = '';
-function padShow() { $('padv').textContent = (typedStr || ' ') + (task && task.unit ? ' ' + task.unit : ''); }
+function padShow() { $('padv').textContent = (typedStr || ' ') + (task && task.unit ? ' ' + T(task.unit) : ''); }
 $('pad').addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b || !task || task.kind !== 'type' || won) return; SND.tap();
   if (b.classList.contains('del')) typedStr = typedStr.slice(0, -1);
@@ -1191,20 +1755,20 @@ function padOk() {
   const v = Number(typedStr); typedStr = ''; padShow();
   if (Math.abs(v - task.ans) <= (task.tol || 0)) { win(); return; }
   SND.miss(); if (!missed) { missed = true; record(false); }
-  const t = 'Not quite. Try again.'; showCard('Hmm!', t, true); say(t);
+  const t = T('Not quite. Try again.'); showCard(T('Hmm!'), t, true); say(t);
 }
 function pickSpot(k) {
   if (!task || task.kind !== 'place' || won) return; SND.tap(); moonAt(k);
   if (k === task.ans) { win(); return; }
   SND.miss(); if (!missed) { missed = true; record(false); }
-  const t = 'At spot ' + (k + 1) + ' the Moon looks like a ' + PHASES[k].toLowerCase() + '. Try another spot.'; showCard('Not that spot', t, true); say(t);
+  const t = T('At spot {n} the Moon looks like a {ph}. Try another spot.', { n: k + 1, ph: T(PHASES[k]).toLowerCase() }); showCard(T('Not that spot'), t, true); say(t);
 }
 function orderTap(c) {
   if (!task || task.kind !== 'order' || won) return; task.placed = task.placed || [];
   if (task.placed.includes(c)) return;
   if (task.ans[task.placed.length] === c) { SND.tap(); task.placed.push(c); renderBottom(); if (task.placed.length === task.ans.length) win(); return; }
   SND.miss(); if (!missed) { missed = true; record(false); }
-  const t = 'Not quite. Which one comes next?'; showCard('Hmm!', t, true); say(t);
+  const t = T('Not quite. Which one comes next?'); showCard(T('Hmm!'), t, true); say(t);
   document.querySelectorAll('.ans').forEach(e => { if (e.dataset.a === c) { e.classList.add('no'); setTimeout(() => e.classList.remove('no'), 700); } });
 }
 function visit(w) {
@@ -1212,17 +1776,17 @@ function visit(w) {
 }
 function showInfo(w) {
   const d = DATA[w];
-  $('info').innerHTML = '<h2><span style="color:' + d.col + ';text-shadow:0 2px 0 #2B2140">●</span> ' + isWorld(w) + '</h2>' +
-    '<div>🦘 Jump: ' + ftText(jumpFt(w)) + '</div><div>☀️ Day: ' + dayText(w) + '</div><div>🔄 Year: ' + yearText(w) + '</div>' +
-    '<div>📏 Wide: ' + d.d.toLocaleString('en-US') + ' km</div><div>↗️ Tipped: ' + Math.round(seasonTilt(w)) + '°' + (d.spin < 0 ? ', spins backwards' : '') + '</div>' +
-    (d.solid ? '' : '<div>☁️ No solid ground!</div>');
+  $('info').innerHTML = '<h2><span style="color:' + d.col + ';text-shadow:0 2px 0 #2B2140">●</span> ' + wl(w) + '</h2>' +
+    '<div>' + T('🦘 Jump: {v}', { v: show(ftText(jumpFt(w))) }) + '</div><div>' + T('☀️ Day: {v}', { v: show(dayText(w)) }) + '</div><div>' + T('🔄 Year: {v}', { v: show(yearText(w)) }) + '</div>' +
+    '<div>' + T('📏 Wide: {v} km', { v: d.d.toLocaleString('en-US') }) + '</div><div>' + T('↗️ Tipped: {v}°', { v: Math.round(seasonTilt(w)) }) + (d.spin < 0 ? T(', spins backwards') : '') + '</div>' +
+    (d.solid ? '' : '<div>' + T('☁️ No solid ground!') + '</div>');
 }
 function showCompare(ws) {
   compareWorlds = ws; while (compare.children.length) compare.remove(compare.children[0]);
   const maxD = Math.max(...ws.map(w => DATA[w].d)), n = ws.length;
   ws.forEach((w, i) => {
     const r = 2.4 * DATA[w].d / maxD, b = makeWorld(w, Math.max(r, 0.02)); b.holder.position.set((i - (n - 1) / 2) * 6.2, 0, 0); compare.add(b.holder); b.w = w;
-    const lab = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(isWorld(w)), depthTest: false })); lab.scale.set(3.2, 0.8, 1); lab.position.set(b.holder.position.x, -2.9, 0); compare.add(lab);
+    const lab = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(wl(w)), depthTest: false })); lab.scale.set(3.2, 0.8, 1); lab.position.set(b.holder.position.x, -2.9, 0); compare.add(lab);
     if (r < 0.15) { const ring = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.45, 32), new THREE.MeshBasicMaterial({ color: 0xFFC93C })); ring.position.copy(b.holder.position); compare.add(ring); }
     compare.userData['b' + i] = b;
   });
@@ -1236,7 +1800,7 @@ function land(w) {
   ground.visible = !!DATA[w].solid; platform.visible = !DATA[w].solid; astro.position.set(0.4, 0, 0); showInfo(w);
   const base = surface.position; camAnim = null;
   camera.position.copy(base).add(new THREE.Vector3(0.6, 2.4, 8.6)); camTarget.copy(base).add(new THREE.Vector3(0, 2.0, 0)); camera.lookAt(camTarget);
-  say(DATA[w].solid ? 'You landed on ' + isWorld(w) + '. Tap jump!' : w + ' has no solid ground. You are on a floating platform in the clouds. Tap jump!');
+  say(DATA[w].solid ? T('You landed on {w}. Tap jump!', { w: wn(w) }) : T('{w} has no solid ground. You are on a floating platform in the clouds. Tap jump!', { w: wn(w) }));
 }
 function doJump() {
   if (mode !== 'surface' || jump) return; ac();
@@ -1266,38 +1830,42 @@ window.addEventListener('pointerup', ev => {
 let task = null, missed = false, won = false, nextTimer = null;
 function newRound(speak = true) {
   clearTimeout(nextTimer); nextTimer = null; hideCard(); missed = false; won = false; jump = null; jumpsSeen = {};
-  task = genLevel(P.lv); $('ask').textContent = task.text; $('ask').className = task.text.length > 150 ? 'xl' : task.text.length > 85 ? 'long' : ''; $('jumps').innerHTML = '';
+  task = genLevel(P.lv); const shown = show(task.text); $('ask').textContent = shown; $('ask').className = shown.length > 150 ? 'xl' : shown.length > 85 ? 'long' : ''; $('jumps').innerHTML = '';
   typedStr = ''; padShow();
-  $('badge').textContent = 'Level ' + (P.lv + 1) + ': ' + LEVELS[P.lv].name; $('stars').textContent = '⭐ ' + P.stars;
+  $('badge').textContent = T('Level {n}: {name}', { n: P.lv + 1, name: T(LEVELS[P.lv].name) }); $('stars').textContent = '⭐ ' + P.stars;
   fit(); if (task.view) { focus = null; timeOn = true; showView(task.view); } else goSpace();
-  if (speak) say(task.text);
+  if (speak) say(show(task.text));
 }
 function dot(w) { return DATA[w] ? '<i style="background:' + DATA[w].col + '"></i>' : ''; }
 function renderBottom() {
   const b = $('bottom'); b.innerHTML = ''; if (!task) return;
   const add = (cls, html, fn, extra) => { const e = document.createElement('button'); e.className = cls; e.innerHTML = html; e.onclick = fn; if (extra) Object.assign(e.dataset, extra); (mode === 'view' && /tool/.test(cls) ? $('corner') : b).appendChild(e); return e; };
   // In a view the tool buttons sit in the top left corner, so the whole bottom row is free for the answers.
-  if (mode !== 'space') add(mode === 'view' ? 'tool mini' : 'tool', mode === 'view' ? '🌌 Space' : '🌌 Back to space', goSpace);
-  if (mode === 'space' && task.view) add('tool', '🔭 Look again', () => showView(task.view));
-  if (mode === 'planet') add('tool', '🚀 Land and jump', () => land(focus));
-  if (mode === 'surface') add('tool big', '🦘 Jump!', doJump);
+  if (mode !== 'space') add(mode === 'view' ? 'tool mini' : 'tool', T(mode === 'view' ? '🌌 Space' : '🌌 Back to space'), goSpace);
+  if (mode === 'space' && task.view) add('tool', T('🔭 Look again'), () => showView(task.view));
+  if (mode === 'planet') add('tool', T('🚀 Land and jump'), () => land(focus));
+  if (mode === 'surface') add('tool big', T('🦘 Jump!'), doJump);
   // Longer answers get a smaller button so four of them still fit across a 1024 wide screen.
-  const longest = task.choices ? Math.max(...task.choices.map(c => String(c).length)) : 0, size = longest > 24 ? ' xs' : longest > 12 ? ' sm' : '';
+  // What a choice shows: a world by its label, anything else by its own line.
+  const lab = c => DATA[c] ? wl(c) : show(c);
+  const longest = task.choices ? Math.max(...task.choices.map(c => lab(c).length)) : 0, size = longest > 24 ? ' xs' : longest > 12 ? ' sm' : '';
   if (task.kind === 'choice') {
-    if (mode === 'space' && task.worlds.length === 2 && ['size', 'day', 'seasons', 'year'].includes(task.topic)) add('tool', '👀 Look closer', () => showCompare(task.worlds));
-    if (mode === 'space' && task.topic === 'jump') task.worlds.forEach(w => add('tool', '🚀 Land on ' + isWorld(w), () => { focus = w; land(w); }));
-    task.choices.forEach(c => { const e = add('ans' + size, dot(c) + (DATA[c] ? isWorld(c) : c), () => answer(c), { a: c }); if (task.tried && task.tried.includes(c)) e.classList.add('no'); });
+    if (mode === 'space' && task.worlds.length === 2 && ['size', 'day', 'seasons', 'year'].includes(task.topic)) add('tool', T('👀 Look closer'), () => showCompare(task.worlds));
+    if (mode === 'space' && task.topic === 'jump') task.worlds.forEach(w => add('tool', T('🚀 Land on {w}', { w: wn(w) }), () => { focus = w; land(w); }));
+    task.choices.forEach(c => { const e = add('ans' + size, dot(c) + lab(c), () => answer(c), { a: c }); if (task.tried && task.tried.includes(c)) e.classList.add('no'); });
   }
   if (task.kind === 'order') {
     const placed = task.placed || [];
-    task.choices.forEach(c => { const i = placed.indexOf(c), e = add('ans' + size, (i >= 0 ? '<b class="n">' + (i + 1) + '</b>' : '') + dot(c) + c, () => orderTap(c), { a: c }); if (i >= 0) e.classList.add('yes'); });
+    task.choices.forEach(c => { const i = placed.indexOf(c), e = add('ans' + size, (i >= 0 ? '<b class="n">' + (i + 1) + '</b>' : '') + dot(c) + lab(c), () => orderTap(c), { a: c }); if (i >= 0) e.classList.add('yes'); });
   }
+  // When the answers wrap to a second row, the hint moves up to stay clear of them.
+  const rows = b.offsetHeight; $('hint').style.bottom = rows > 80 ? (rows + 40) + 'px' : '';
 }
 function tapPlanet(w) {
   if (!task) return; visit(w);
   if (task.kind === 'fly' && !won) {
     if (w === task.ans) win();
-    else { SND.miss(); if (!missed) { missed = true; record(false); } const t = 'That is ' + isWorld(w) + '. Look again for ' + (/Fly to (\w+)!/.test(task.text) ? task.ans : 'the right one') + '!'; showCard('Not that one!', t, true); say(t); }
+    else { SND.miss(); if (!missed) { missed = true; record(false); } const t = T('That is {w}. Look again for {t}!', { w: wn(w), t: /Fly to (\w+)!/.test(task.text) ? wn(task.ans) : T('the right one') }); showCard(T('Not that one!'), t, true); say(t); }
   }
 }
 function answer(c) {
@@ -1305,19 +1873,19 @@ function answer(c) {
   if (c === task.ans) { win(); return; }
   task.tried = (task.tried || []).concat(c); SND.miss();
   if (!missed) { missed = true; record(false); }
-  const t = 'Not quite. Explore and try again!'; showCard('Hmm!', t, true); say(t); renderBottom();
+  const t = T('Not quite. Explore and try again!'); showCard(T('Hmm!'), t, true); say(t); renderBottom();
 }
 function win() {
   won = true; const right = !missed; let ch = 0; if (right) ch = record(true);
   P.stars++; persist(); $('stars').textContent = '⭐ ' + P.stars; SND.win(); confetti();
   document.querySelectorAll('.ans').forEach(e => { if (e.dataset.a === task.ans) e.classList.add('yes'); });
-  const msg = pick(['Out of this world!', 'Stellar!', 'You got it!', 'Super explorer!']);
-  showCard(msg + ' ⭐', task.why + (ch > 0 ? ' Level up!' : ''), false, true); say(msg + ' ' + task.why);
+  const msg = T(pick(['Out of this world!', 'Stellar!', 'You got it!', 'Super explorer!'])), why = show(task.why);
+  showCard(msg + ' ⭐', why + (ch > 0 ? T(' Level up!') : ''), false, true); say(msg + ' ' + why);
   nextTimer = setTimeout(() => newRound(), 7000);
 }
 function showCard(t, sub, bad, next) {
   const c = $('card'); c.className = 'on' + (bad ? ' bad' : next ? ' win' : '');
-  c.innerHTML = '<div class="c">' + t + (sub ? '<small>' + sub + '</small>' : '') + (next ? '<button class="pill" id="nextBtn">Next ▶</button>' : '') + '</div>';
+  c.innerHTML = '<div class="c">' + t + (sub ? '<small>' + sub + '</small>' : '') + (next ? '<button class="pill" id="nextBtn">' + T('Next ▶') + '</button>' : '') + '</div>';
   if (next) $('nextBtn').onclick = () => newRound(); else setTimeout(() => { if (c.classList.contains('bad')) hideCard(); }, 2400);
 }
 function hideCard() { $('card').className = ''; $('card').innerHTML = ''; }
@@ -1360,17 +1928,17 @@ function frame(now) {
     const u = (now - jump.t0) / jump.T;
     if (u >= 1) {
       astro.position.y = 0; SND.thud(); for (let k = 0; k < 14; k++) { const m = new THREE.Mesh(dustG, new THREE.MeshBasicMaterial({ color: GROUND[jump.w] })); m.position.set(astro.position.x, 0.1, 0); m.userData.v = new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 1.5, (Math.random() - 0.5) * 2); surface.add(m); dust.push({ m, life: 1 }); }
-      jumpsSeen[jump.w] = jump.ft; $('jumps').innerHTML = Object.keys(jumpsSeen).map(w => '<div>🦘 ' + isWorld(w) + ': ' + ftText(jumpsSeen[w]) + '</div>').join('');
+      jumpsSeen[jump.w] = jump.ft; $('jumps').innerHTML = Object.keys(jumpsSeen).map(w => '<div>' + T('🦘 {w}: {v}', { w: wl(w), v: show(ftText(jumpsSeen[w])) }) + '</div>').join('');
       $('jumps').style.display = 'flex'; setTimeout(() => { if (!jump) $('peak').style.display = 'none'; }, 1500); jump = null;
     } else {
       astro.position.y = 4 * jump.h * u * (1 - u); astro.userData['arm1'].rotation.z = 0.35 + Math.sin(u * Math.PI) * 1.8; astro.userData['arm-1'].rotation.z = -0.35 - Math.sin(u * Math.PI) * 1.8;
-      if (u > 0.5 && $('peak').style.display !== 'block') { const s = screenOf(astro.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 2.6, 0))), r = $('main').getBoundingClientRect(); $('peak').style.left = (s.x - r.left + 120) + 'px'; $('peak').style.top = (s.y - r.top) + 'px'; $('peak').textContent = ftText(jump.ft) + '!'; $('peak').style.display = 'block'; say(ftText(jump.ft)); }
+      if (u > 0.5 && $('peak').style.display !== 'block') { const s = screenOf(astro.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 2.6, 0))), r = $('main').getBoundingClientRect(); $('peak').style.left = (s.x - r.left + 120) + 'px'; $('peak').style.top = (s.y - r.top) + 'px'; $('peak').textContent = show(ftText(jump.ft)) + '!'; $('peak').style.display = 'block'; say(show(ftText(jump.ft))); }
     }
   }
   for (let k = dust.length - 1; k >= 0; k--) { const d = dust[k]; d.life -= dt * 1.5; d.m.userData.v.y -= (focus && DATA[focus] ? DATA[focus].g : 9.8) * 0.2 * dt; d.m.position.addScaledVector(d.m.userData.v, dt); d.m.scale.setScalar(Math.max(0.01, d.life)); if (d.life <= 0 || d.m.position.y < 0) { surface.remove(d.m); dust.splice(k, 1); } }
   renderer.render(scene, camera); requestAnimationFrame(frame);
 }
-$('hear').onclick = () => say(task.text);
+$('hear').onclick = () => say(show(task.text));
 $('skip').onclick = () => newRound();
 
 // Self-check for tools/ladder-check.mjs: every quest a rung makes has a real answer among its choices, a solvable
@@ -1399,12 +1967,25 @@ window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START,
   label: () => LEVELS[P.lv].name,
-  exercise(i, n) { const out = []; for (let k = 0; k < n; k++) { const q = genLevel(i); checkQuest(q, i); out.push(describeQuest(q)); } return out; },
+  exercise(i, n) { const out = []; for (let k = 0; k < n; k++) { const q = genLevel(i); checkQuest(q, i); translateQuest(q); out.push(describeQuest(q)); } return out; },
 };
+// Asks for every line of a quest in the child's language without showing it, so DucklingLang.missing() covers every
+// line a rung can make, not only the one on screen.
+function translateQuest(q) {
+  show(q.text); show(q.why); if (q.unit) T(q.unit);
+  (q.choices || []).forEach(c => DATA[c] ? wl(c) : show(c));
+}
+// The markup written in HTML, in the child's language.
+document.title = T('Planet Explorer');
+document.querySelector('header h1').textContent = T('🪐 Planet Explorer');
+$('skip').title = T('New quest'); $('skip').textContent = T('🔀 New');
+$('hear').title = T('Hear it again');
+document.querySelector('#pad .del').title = T('Delete'); document.querySelector('#pad .ok').textContent = T('OK');
+if (LANG === 'es') document.documentElement.lang = 'es';
 
 window.PLANET_EXPLORER = {
   stay() { clearTimeout(nextTimer); nextTimer = null; },
-  DATA, PLANETS, WORLDS, LEVELS, START, jumpFt, weightOn, seasonTilt, catOf, recheck, CLUES, record, gen: genLevel, newRound, checkQuest,
+  DATA, PLANETS, WORLDS, LEVELS, START, jumpFt, weightOn, seasonTilt, catOf, recheck, CLUES, record, gen: genLevel, newRound, checkQuest, LANG, show, wl,
   tapPlanet, answer, land, doJump, jumpPlan, visit, goSpace, showCompare, planetScreen, pickSpot, orderTap, showView,
   spotScreen(k) { return view && view.spots ? screenOf(view.spots[k].getWorldPosition(new THREE.Vector3())) : null; },
   type(v) { typedStr = String(v); padShow(); padOk(); },
@@ -1413,7 +1994,7 @@ window.PLANET_EXPLORER = {
 };
 fit(); { const c = spaceCam(); camera.position.copy(c.pos); camTarget.copy(c.look); camera.lookAt(camTarget); }
 newRound(false); requestAnimationFrame(frame);
-setTimeout(() => say(task.text), 600);
+setTimeout(() => say(show(task.text)), 600);
 </script>
 </body>
 </html>
