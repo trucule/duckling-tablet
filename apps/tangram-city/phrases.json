@@ -1,24 +1,27 @@
 {
- "source": "540a14af97334dda562e26ba8f3cb2f706343263b3150fb51ecee44b55b607ef",
+ "source": "c66ffcf6c020e995059531823a70efada5b625fae5a10475f1a7405ddc35c6af",
  "lines": [
   {
-   "text": "Fill the shadow to build a bridge. Drag pieces. Tap a piece to turn it.",
+   "text": "¿Cuántos cuadrados cubren esta cuadra?",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Construye una sola figura con lados rectos sobre las líneas de la cuadrícula. El triángulo pequeño vale 1, así que el área debe ser 14. El perímetro debe ser 16 unidades. Después toca Revisar.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Esta sombra es un cohete, pero girada. Llénala con las siete piezas. Arrastra las piezas. Toca una pieza para girarla. Toca Voltear para voltearla.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Fill the shadow to build a skate park. Drag pieces. Tap a piece to turn it.",
    "rate": -10
   },
   {
-   "text": "Fill the shadow to build a road sign. Drag pieces. Tap a piece to turn it.",
-   "rate": -10
-  },
-  {
-   "text": "Fill the shadow to build a tree house. Drag pieces. Tap a piece to turn it.",
-   "rate": -10
-  },
-  {
-   "text": "Fill the shadow to build a water slide. Drag pieces. Tap a piece to turn it.",
-   "rate": -10
-  },
-  {
-   "text": "Here is one.",
+   "text": "Fill the shadow to build a tower. Drag pieces. Tap a piece to turn it.",
    "rate": -10
   },
   {
@@ -26,32 +29,59 @@
    "rate": -10
   },
   {
-   "text": "Look at the grey shape. Build the same shape turned a quarter turn to the right, inside the yellow box. Drag pieces. Tap a piece to turn it. Tap Flip to flip it.",
+   "text": "Llena la sombra para construir un puente. Arrastra las piezas. Toca una pieza para girarla.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Llena la sombra para construir un robot. Arrastra las piezas. Toca una pieza para girarla.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Llena la sombra para construir un tobogán de agua. Arrastra las piezas. Toca una pieza para girarla.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Llena la sombra para construir una casa del árbol. Arrastra las piezas. Toca una pieza para girarla.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Look at the grey shape. Build the same shape turned a quarter turn to the left, inside the yellow box. Drag pieces. Tap a piece to turn it. Tap Flip to flip it.",
    "rate": -10
   },
   {
-   "text": "Look for a piece that does not fit yet. Move it out and try another spot.",
+   "text": "Mira la figura gris. Construye la misma figura volteada de lado, como en un espejo, dentro del recuadro amarillo. Arrastra las piezas. Toca una pieza para girarla. Toca Voltear para voltearla.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Pon el triángulo pequeño con su esquina cuadrada, el ángulo recto, en (4,3). Cuenta primero hacia la derecha y luego hacia arriba. Después toca Revisar.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Put the square so its upper left corner is at (2,3). Count across first, then up. Then tap Check.",
    "rate": -10
   },
   {
-   "text": "Put the large triangle so its square corner, the right angle, is at (1,4). Count across first, then up. Then tap Check.",
+   "text": "Tap a corner of the shape with a 45 degree angle. The white dots mark the corners.",
    "rate": -10
   },
   {
-   "text": "Tap a corner of the shape with an acute angle. That is less than 90 degrees. The white dots mark the corners.",
+   "text": "This right triangle has legs 4 and 4. How long is the long side, the hypotenuse? Round to tenths. Type it and tap OK.",
    "rate": -10
   },
   {
-   "text": "That is one answer. Tap Check.",
+   "text": "This shadow is a rocket, turned around. Fill it with all seven pieces. Drag pieces. Tap a piece to turn it. Tap Flip to flip it.",
    "rate": -10
   },
   {
-   "text": "This right triangle has legs 3 and 3. How long is the long side, the hypotenuse? Round to tenths. Type it and tap OK.",
-   "rate": -10
-  },
-  {
-   "text": "This shadow is a tower, turned around. Fill it with all seven pieces. Drag pieces. Tap a piece to turn it. Tap Flip to flip it.",
-   "rate": -10
+   "text": "Toca una esquina de la figura con un ángulo de 135 grados. Los puntos blancos marcan las esquinas.",
+   "rate": -10,
+   "lang": "es"
   }
  ]
 }

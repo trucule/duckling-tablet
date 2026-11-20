@@ -236,6 +236,7 @@
   #promptBox { position: fixed; z-index: 4; left: 0; right: 0; margin: 0 auto; width: fit-content; top: 66px; display: flex; align-items: center; gap: 12px;
     max-width: calc(100vw - 40px); background: rgba(255,255,255,0.95); border: 4px solid var(--ink); border-radius: 26px; padding: 8px 10px 8px 22px; box-shadow: 0 5px 0 var(--ink); }
   #prompt { font-size: 28px; font-weight: 900; line-height: 1.15; }
+  #prompt.long { font-size: 24px; }
   #hear { flex: none; width: 56px; height: 56px; border-radius: 50%; border: 3px solid var(--ink); background: #7CF0FF; font-size: 28px; cursor: pointer; display: grid; place-items: center; padding: 0; }
   #hear:active, .big:active, .choice:active { transform: scale(0.93); }
   .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1; margin: 0 4px; font-weight: 900; }
@@ -251,9 +252,11 @@
   .choice.wrong { background: #FF8A8A; animation: shake 0.4s; }
   .choice.right { background: #3DF59A; }
   #toast { position: fixed; z-index: 6; left: 50%; top: 46%; transform: translate(-50%, -50%) scale(0); font-size: 64px; font-weight: 900; color: #fff;
-    text-shadow: 0 5px 0 var(--ink), 0 0 24px rgba(0,0,0,0.3); pointer-events: none; white-space: nowrap; transition: transform 0.25s cubic-bezier(.3,1.6,.5,1); }
+    text-shadow: 0 5px 0 var(--ink), 0 0 24px rgba(0,0,0,0.3); pointer-events: none; white-space: nowrap; max-width: calc(100vw - 40px); transition: transform 0.25s cubic-bezier(.3,1.6,.5,1); }
+  #toast.wrap { white-space: normal; text-align: center; font-size: 40px; line-height: 1.1; }
   #toast.on { transform: translate(-50%, -50%) scale(1); }
-  #levelUp { position: fixed; z-index: 7; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(0); background: #FFE14D; border: 5px solid var(--ink); border-radius: 30px; padding: 14px 30px; font-size: 38px; font-weight: 900; box-shadow: 0 7px 0 var(--ink); transition: transform 0.3s cubic-bezier(.3,1.6,.5,1); pointer-events: none; white-space: nowrap; }
+  #levelUp { position: fixed; z-index: 7; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(0); background: #FFE14D; border: 5px solid var(--ink); border-radius: 30px; padding: 14px 30px; font-size: 38px; font-weight: 900; box-shadow: 0 7px 0 var(--ink); transition: transform 0.3s cubic-bezier(.3,1.6,.5,1); pointer-events: none; white-space: nowrap; max-width: calc(100vw - 60px); box-sizing: border-box; }
+  #levelUp.wrap { white-space: normal; text-align: center; font-size: 30px; }
   #levelUp.on { transform: translate(-50%, -50%) scale(1); }
   @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
   @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
@@ -322,10 +325,160 @@ const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b,
 const $ = id => document.getElementById(id);
 const BRIGHT = [0xFF2E88, 0xFFD60A, 0x00E5FF, 0x7CFF4F, 0xFF7A00, 0xB04DFF, 0x00F5A0, 0xFF4040];
 
+// ---------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every line the child reads or hears comes from
+// the ES map through T(), keyed by the English text. Figure names, piece names, level names, prompts, hints and
+// feedback are all translated at the moment they are shown or spoken; the puzzles, the geometry and the ladder do
+// not change, and the English text stays as it was.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  'Tangram City': 'Ciudad Tangram', 'Hear it again': 'Escúchalo otra vez',
+  'Level {n}: {name}': 'Nivel {n}: {name}', 'Level up! {name}': '¡Subiste de nivel! {name}', 'Practice: {name}': 'Práctica: {name}',
+  'Yum!': '¡Qué bien!', 'Super!': '¡Súper!', 'You got it!': '¡Lo lograste!', 'Wow!': '¡Guau!', 'Perfect!': '¡Perfecto!',
+  'Let us try an easier one': 'Vamos con uno más fácil', 'Try again!': '¡Intenta otra vez!', 'Try again.': 'Intenta otra vez.',
+  // Level names
+  'Two piece shapes': 'Figuras de dos piezas', 'Small builds': 'Construcciones pequeñas', 'City builds': 'Construcciones de ciudad',
+  'Shadow shapes': 'Figuras de sombra', 'City shadows': 'Sombras de ciudad', 'Mirror with a shadow': 'Espejo con sombra',
+  'Mirror on your own': 'Espejo sin ayuda', 'Count the squares': 'Cuenta los cuadrados', 'Walk the fence': 'Recorre la cerca',
+  'Halves count too': 'Las mitades también cuentan', 'Squares or fence': 'Cuadrados o cerca', 'Turned silhouettes': 'Siluetas giradas',
+  'Mirror both ways': 'Espejo en dos sentidos', 'Turn and flip': 'Gira y voltea', 'Triangle area': 'Área en triángulos', 'Angles': 'Ángulos',
+  'Double it': 'Al doble', 'Coordinates': 'Coordenadas', 'Transform by rule': 'Transforma con una regla', 'Pythagoras and more': 'Pitágoras y más',
+  // The figures a puzzle makes, with their article
+  'an arrow sign': 'una señal con flecha', 'a rocket': 'un cohete', 'a tower': 'una torre', 'a ramp': 'una rampa', 'a giant gem': 'una gema gigante',
+  'a bus': 'un autobús', 'a sailboat': 'un velero', 'a bridge': 'un puente', 'a road sign': 'una señal de tránsito', 'a castle': 'un castillo',
+  'a crane': 'una grúa', 'a fountain': 'una fuente', 'a tram': 'un tranvía', 'a windmill': 'un molino de viento', 'a kite': 'una cometa',
+  'a ferry': 'un transbordador', 'a stadium': 'un estadio', 'a mailbox': 'un buzón', 'a hotel': 'un hotel', 'a fire truck': 'un camión de bomberos',
+  'a tent': 'una carpa', 'a tunnel': 'un túnel',
+  'a shop': 'una tienda', 'a robot': 'un robot', 'a tree house': 'una casa del árbol', 'a space station': 'una estación espacial',
+  'a skate park': 'un parque de patinetas', 'a museum': 'un museo', 'a lighthouse': 'un faro', 'a castle gate': 'una puerta de castillo',
+  'a zoo': 'un zoológico', 'a water slide': 'un tobogán de agua', 'a library': 'una biblioteca',
+  'a mirror design': 'un diseño de espejo', 'the shape': 'la figura', 'a shape': 'una figura', 'a corner': 'una esquina', 'the big shape': 'la figura grande', 'the image': 'la imagen',
+  // The tans
+  'large triangle': 'triángulo grande', 'middle triangle': 'triángulo mediano', 'small triangle': 'triángulo pequeño', 'square': 'cuadrado', 'parallelogram': 'paralelogramo',
+  // Building
+  'Build {title}!': '¡Construye {title}!', 'Fill the shadow to build {title}.': 'Llena la sombra para construir {title}.',
+  'Drag pieces. Tap a piece to turn it.': 'Arrastra las piezas. Toca una pieza para girarla.',
+  'Drag pieces. Tap a piece to turn it. Tap Flip to flip it.': 'Arrastra las piezas. Toca una pieza para girarla. Toca Voltear para voltearla.',
+  'Finish the mirror picture. Fill the shadow on the other side of the pink line.': 'Completa el dibujo en espejo. Llena la sombra del otro lado de la línea rosa.',
+  'Make the other half match, like a mirror. The pink line is the mirror.': 'Haz que la otra mitad sea igual, como en un espejo. La línea rosa es el espejo.',
+  'Mirror it! Fill the shadow': '¡Refléjalo! Llena la sombra', 'Mirror it! Build the other half': '¡Refléjalo! Construye la otra mitad',
+  '↔️ Flip': '↔️ Voltear', '💡 Hint': '💡 Pista', '✅ Check': '✅ Revisar', 'OK': 'Listo',
+  'That works!': '¡Eso funciona!', 'A perfect mirror!': '¡Un espejo perfecto!', 'You built {title}!': '¡Construiste {title}!',
+  'Here is one.': 'Aquí va una.', 'That is one answer. Tap Check.': 'Esa es una respuesta. Toca Revisar.',
+  'Look for a piece that does not fit yet. Move it out and try another spot.': 'Busca una pieza que todavía no encaje. Sácala y prueba en otro lugar.',
+  // Turned silhouettes, mirrors, turns and flips
+  'This shadow is {title}, turned around. Fill it with all seven pieces.': 'Esta sombra es {title}, pero girada. Llénala con las siete piezas.',
+  'Make the other half match, like a mirror. The pink line is the mirror. It runs {dir}.': 'Haz que la otra mitad sea igual, como en un espejo. La línea rosa es el espejo. Va {dir}.',
+  'up and down': 'de arriba abajo', 'side to side': 'de lado a lado',
+  'turned a quarter turn right': 'girada un cuarto de vuelta a la derecha', 'turned a quarter turn left': 'girada un cuarto de vuelta a la izquierda',
+  'turned a half turn': 'girada media vuelta', 'flipped sideways': 'volteada de lado', 'flipped top to bottom': 'volteada de arriba abajo',
+  'turned a quarter turn to the right': 'girada un cuarto de vuelta a la derecha', 'turned a quarter turn to the left': 'girada un cuarto de vuelta a la izquierda',
+  'turned a half turn, so it is upside down': 'girada media vuelta, así que queda al revés', 'flipped over sideways, like a mirror': 'volteada de lado, como en un espejo',
+  'flipped over top to bottom, like a mirror': 'volteada de arriba abajo, como en un espejo',
+  'Build it {how}': 'Constrúyela {how}', 'Look at the grey shape. Build the same shape {how}, inside the yellow box.': 'Mira la figura gris. Construye la misma figura {how}, dentro del recuadro amarillo.',
+  // Area in small triangles
+  'Build a shape with area {n}': 'Construye una figura con área {n}',
+  'The small triangle has area 1. Put pieces on the blue grid to build one shape with area {n}. Then tap Check.': 'El triángulo pequeño tiene área 1. Pon piezas en la cuadrícula azul para construir una sola figura con área {n}. Después toca Revisar.',
+  'Area {n}!': '¡Área {n}!', 'Put pieces on the blue grid first.': 'Primero pon piezas en la cuadrícula azul.',
+  'The pieces need to touch and make one shape.': 'Las piezas deben tocarse y formar una sola figura.', 'That shape has area {have}. You need {n}.': 'Esa figura tiene área {have}. Necesitas {n}.',
+  'What is the area? Small triangle = 1': '¿Cuál es el área? Triángulo pequeño = 1',
+  'Find the area of this shape. The small triangle counts as 1. Type the number and tap OK.': 'Halla el área de esta figura. El triángulo pequeño cuenta como 1. Escribe el número y toca Listo.',
+  'The small triangle is 1. The square, the middle triangle and the parallelogram are 2 each. The large triangle is 4. Add them up.': 'El triángulo pequeño vale 1. El cuadrado, el triángulo mediano y el paralelogramo valen 2 cada uno. El triángulo grande vale 4. Súmalos.',
+  // Angles
+  'a right angle (90°)': 'un ángulo recto (90°)', 'a 45° angle': 'un ángulo de 45°', 'a 135° angle': 'un ángulo de 135°', 'an acute angle': 'un ángulo agudo', 'an obtuse angle': 'un ángulo obtuso',
+  'a right angle. That is 90 degrees': 'un ángulo recto. Eso es 90 grados', 'a 45 degree angle': 'un ángulo de 45 grados', 'a 135 degree angle': 'un ángulo de 135 grados',
+  'an acute angle. That is less than 90 degrees': 'un ángulo agudo. Eso es menos de 90 grados', 'an obtuse angle. That is between 90 and 180 degrees': 'un ángulo obtuso. Eso es entre 90 y 180 grados',
+  'Tap a corner with {angle}': 'Toca una esquina con {angle}', 'Tap a corner of the shape with {angle}. The white dots mark the corners.': 'Toca una esquina de la figura con {angle}. Los puntos blancos marcan las esquinas.',
+  'Make a {deg}° corner at the yellow dot': 'Haz una esquina de {deg}° en el punto amarillo',
+  'Build a shape so its corner at the yellow dot is {deg} degrees. You can use more than one piece. Then tap Check.': 'Construye una figura cuya esquina en el punto amarillo mida {deg} grados. Puedes usar más de una pieza. Después toca Revisar.',
+  '{deg} degrees!': '¡{deg} grados!', 'Put a corner of a piece right on the yellow dot.': 'Pon una esquina de una pieza justo sobre el punto amarillo.',
+  'Two corners meet at the dot but do not join. Make one corner there.': 'Dos esquinas se juntan en el punto pero no se unen. Haz una sola esquina ahí.',
+  'That is a straight edge at the dot, 180 degrees. You need {deg}.': 'En el punto hay un borde recto, de 180 grados. Necesitas {deg}.',
+  'That corner is {d} degrees. You need {deg}.': 'Esa esquina mide {d} grados. Necesitas {deg}.',
+  'Yes. That corner is {deg} degrees!': 'Sí. ¡Esa esquina mide {deg} grados!', 'That corner is {deg} degrees. Try another corner.': 'Esa esquina mide {deg} grados. Prueba otra esquina.',
+  // Double it
+  'Build it with sides twice as long': 'Constrúyela con lados del doble de largo',
+  'See the small shape. Build the same shape with every side twice as long, inside the yellow box.': 'Mira la figura pequeña. Construye la misma figura con cada lado del doble de largo, dentro del recuadro amarillo.',
+  'Twice the sides, four times the area!': '¡El doble de lado, cuatro veces el área!',
+  'This block is {w} by {h}. Make every side {k} times as long.': 'Este bloque mide {w} por {h}. Haz cada lado {k} veces más largo.',
+  '{w} by {h}. Sides times {k}. New area?': '{w} por {h}. Lados por {k}. ¿Nueva área?', '{base} What is the new area in squares?': '{base} ¿Cuál es la nueva área en cuadrados?',
+  'Multiply the length by the scale and the width by the scale. Then multiply those two together.': 'Multiplica el largo por la escala y el ancho por la escala. Luego multiplica esos dos resultados.',
+  '{w} by {h}. Sides times {k}. New perimeter?': '{w} por {h}. Lados por {k}. ¿Nuevo perímetro?', '{base} What is the new perimeter?': '{base} ¿Cuál es el nuevo perímetro?',
+  'The perimeter now is {P}. Every side gets {k} times as long, so the perimeter does too.': 'El perímetro ahora es {P}. Cada lado se hace {k} veces más largo, así que el perímetro también.',
+  '{w} by {h}. Sides times {k}. Area grows how many times?': '{w} por {h}. Lados por {k}. ¿Cuántas veces crece el área?', '{base} How many times bigger does the area get?': '{base} ¿Cuántas veces más grande se hace el área?',
+  'Length times the scale, width times the scale. The area grows by the scale squared.': 'Largo por la escala, ancho por la escala. El área crece por la escala al cuadrado.',
+  '{w} by {h}. Sides times {k}. Perimeter grows how many times?': '{w} por {h}. Lados por {k}. ¿Cuántas veces crece el perímetro?', '{base} How many times longer does the perimeter get?': '{base} ¿Cuántas veces más largo se hace el perímetro?',
+  'Every side grows by the scale, so the perimeter grows by the scale too.': 'Cada lado crece por la escala, así que el perímetro también crece por la escala.',
+  'Type it and tap OK.': 'Escríbelo y toca Listo.',
+  // Coordinates
+  'Count across first, then up. Check each corner.': 'Cuenta primero hacia la derecha y luego hacia arriba. Revisa cada esquina.',
+  '{Name} corners: {pts}': '{Name}, esquinas: {pts}',
+  'Put the {name} so its corners sit on {pts}. Count across first, then up. Then tap Check.': 'Pon el {name} con sus esquinas en {pts}. Cuenta primero hacia la derecha y luego hacia arriba. Después toca Revisar.',
+  'lower left': 'inferior izquierda', 'upper right': 'superior derecha', 'lower right': 'inferior derecha', 'upper left': 'superior izquierda',
+  'Square: {corner} corner at {pt}': 'Cuadrado: esquina {corner} en {pt}',
+  'Put the square so its {corner} corner is at {pt}. Count across first, then up. Then tap Check.': 'Pon el cuadrado con su esquina {corner} en {pt}. Cuenta primero hacia la derecha y luego hacia arriba. Después toca Revisar.',
+  'The {corner} corner of the square goes on {pt}. Count across first, then up.': 'La esquina {corner} del cuadrado va en {pt}. Cuenta primero hacia la derecha y luego hacia arriba.',
+  '{Name}: right angle corner at {pt}': '{Name}: esquina del ángulo recto en {pt}',
+  'Put the {name} so its square corner, the right angle, is at {pt}. Count across first, then up. Then tap Check.': 'Pon el {name} con su esquina cuadrada, el ángulo recto, en {pt}. Cuenta primero hacia la derecha y luego hacia arriba. Después toca Revisar.',
+  'The right angle corner goes on {pt}. Count across first, then up.': 'La esquina del ángulo recto va en {pt}. Cuenta primero hacia la derecha y luego hacia arriba.',
+  'Right on the spot!': '¡Justo en su lugar!', 'Put the {name} on the grid.': 'Pon el {name} en la cuadrícula.',
+  // Transform by rule
+  'Translate it by ({dx}, {dy})': 'Trasládala ({dx}, {dy})',
+  'Slide the grey shape {dx} {lr} and {dy} {ud}. Build the shape where it lands.': 'Desliza la figura gris {dx} {lr} y {dy} {ud}. Construye la figura donde queda.',
+  'left': 'a la izquierda', 'right': 'a la derecha', 'down': 'hacia abajo', 'up': 'hacia arriba',
+  'Rotate it 180° about ({px},{py})': 'Rótala 180° alrededor de ({px},{py})', 'Rotate it 90° {way} about ({px},{py})': 'Rótala 90° {way} alrededor de ({px},{py})',
+  'clockwise': 'en sentido horario', 'counterclockwise': 'en sentido antihorario', 'a half turn': 'media vuelta', 'a quarter turn {way}': 'un cuarto de vuelta {way}',
+  'Turn the grey shape {how} around the yellow dot at {px}, {py}. Build the shape where it lands.': 'Gira la figura gris {how} alrededor del punto amarillo en {px}, {py}. Construye la figura donde queda.',
+  'Reflect it across the line {axis} = {k}': 'Refléjala sobre la línea {axis} = {k}',
+  'Flip the grey shape over the pink line, {axis} equals {k}, like a mirror. Build the mirror image.': 'Voltea la figura gris sobre la línea rosa, {axis} igual a {k}, como en un espejo. Construye la imagen reflejada.',
+  // Pythagoras, area and perimeter
+  'Legs {a} and {b}. Long side?': 'Catetos {a} y {b}. ¿Lado largo?', 'Legs {a} and {b}. Long side? (to tenths)': 'Catetos {a} y {b}. ¿Lado largo? (a décimas)',
+  'This right triangle has legs {a} and {b}. How long is the long side, the hypotenuse? Type it and tap OK.': 'Este triángulo rectángulo tiene catetos {a} y {b}. ¿Cuánto mide el lado largo, la hipotenusa? Escríbelo y toca Listo.',
+  'This right triangle has legs {a} and {b}. How long is the long side, the hypotenuse? Round to tenths. Type it and tap OK.': 'Este triángulo rectángulo tiene catetos {a} y {b}. ¿Cuánto mide el lado largo, la hipotenusa? Redondea a décimas. Escríbelo y toca Listo.',
+  'Square each leg. Add the two squares. The long side is the square root of that sum.': 'Eleva cada cateto al cuadrado. Suma los dos cuadrados. El lado largo es la raíz cuadrada de esa suma.',
+  'Long side {c}, one leg {a}. Other leg?': 'Lado largo {c}, un cateto {a}. ¿Otro cateto?',
+  'The long side of this right triangle is {c}. One leg is {a}. How long is the other leg? Type it and tap OK.': 'El lado largo de este triángulo rectángulo mide {c}. Un cateto mide {a}. ¿Cuánto mide el otro cateto? Escríbelo y toca Listo.',
+  'Square the long side. Take away the square of the leg you know. The other leg is the square root of what is left.': 'Eleva el lado largo al cuadrado. Resta el cuadrado del cateto que conoces. El otro cateto es la raíz cuadrada de lo que queda.',
+  'Legs {a} and {b}. Long side squared?': 'Catetos {a} y {b}. ¿Lado largo al cuadrado?',
+  'This right triangle has legs {a} and {b}. What is the long side squared? Type it and tap OK.': 'Este triángulo rectángulo tiene catetos {a} y {b}. ¿Cuánto es el lado largo al cuadrado? Escríbelo y toca Listo.',
+  'Square each leg and add them. That sum is the long side squared.': 'Eleva cada cateto al cuadrado y súmalos. Esa suma es el lado largo al cuadrado.',
+  'Straight sides. Area {n}, perimeter {per}': 'Lados rectos. Área {n}, perímetro {per}',
+  'Build one shape with straight sides along the grid lines. The small triangle is 1, so the area must be {n}. The perimeter must be {per} units. Then tap Check.': 'Construye una sola figura con lados rectos sobre las líneas de la cuadrícula. El triángulo pequeño vale 1, así que el área debe ser {n}. El perímetro debe ser {per} unidades. Después toca Revisar.',
+  'Area {n} and perimeter {per}!': '¡Área {n} y perímetro {per}!',
+  'Every outside edge must run along a grid line. Cover the slanted edges.': 'Cada borde exterior debe ir sobre una línea de la cuadrícula. Cubre los bordes inclinados.',
+  'The perimeter is {have}. You need {per}.': 'El perímetro es {have}. Necesitas {per}.',
+  // Counting squares and fence
+  'How many squares big is this park? Two halves make one square.': '¿Cuántos cuadrados mide este parque? Dos mitades hacen un cuadrado.',
+  'How many squares cover this block?': '¿Cuántos cuadrados cubren esta cuadra?', 'How many sides long is the fence all the way around?': '¿Cuántos lados tiene la cerca que da toda la vuelta?',
+  'How many squares? Two halves make one!': '¿Cuántos cuadrados? ¡Dos mitades hacen uno!', 'How many squares cover it?': '¿Cuántos cuadrados la cubren?', 'How long is the fence around it?': '¿Cuánto mide la cerca alrededor?',
+  '{v} squares!': '¡{v} cuadrados!', '{v} sides of fence!': '¡{v} lados de cerca!',
+  'Count each square once. Two halves make one square.': 'Cuenta cada cuadrado una vez. Dos mitades hacen un cuadrado.', 'Walk all the way around and count each side.': 'Da toda la vuelta y cuenta cada lado.',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+window.DucklingLang = {
+  keys: () => Object.keys(ES),
+  missing: () => [...USED].filter(k => ES[k] == null),
+  allow: [],
+};
+if (LANG === 'es') {
+  document.documentElement.lang = 'es';
+  document.title = T('Tangram City');
+  document.querySelector('header h1').textContent = '🏙️ ' + T('Tangram City');
+  $('hear').setAttribute('aria-label', T('Hear it again'));
+}
+
 function say(t) {
   try { speechSynthesis.cancel(); } catch (e) {}
   VOICE.stop(); if (VOICE.play(t)) return;
-  try { const u = new SpeechSynthesisUtterance(String(t)); u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {}
+  try { const u = new SpeechSynthesisUtterance(String(t)); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {}
 }
 
 // Synthesized sounds, so nothing is loaded from disk.
@@ -375,19 +528,20 @@ function record(right) {
   persist(); return change;
 }
 function showBadge(flash) {
-  $('badge').textContent = `Level ${P.lv + 1}: ${LEVELS[P.lv].name}`;
+  $('badge').textContent = T('Level {n}: {name}', { n: P.lv + 1, name: T(LEVELS[P.lv].name) });
   $('stars').textContent = `⭐ ${P.stars}`;
   if (flash) { const b = $('badge'); b.classList.remove('up'); void b.offsetWidth; b.classList.add('up'); }
 }
 let toastTimer = 0;
-function toast(text, ms = 1100) { const t = $('toast'); t.textContent = text; t.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms); }
+function toast(text, ms = 1100) { const t = $('toast'); t.textContent = text; t.classList.toggle('wrap', text.length > 26); t.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms); }
 function levelBanner(change) {
   if (!change) return; const el = $('levelUp');
-  el.textContent = change > 0 ? `Level up! ${LEVELS[P.lv].name}` : `Practice: ${LEVELS[P.lv].name}`;
+  el.textContent = T(change > 0 ? 'Level up! {name}' : 'Practice: {name}', { name: T(LEVELS[P.lv].name) });
+  el.classList.toggle('wrap', el.textContent.length > 40);
   if (change > 0) SFX.up();
   el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1800); showBadge(true);
 }
-function setPrompt(html, speak) { $('prompt').innerHTML = html; CUR_SPEAK = speak; say(speak); }
+function setPrompt(html, speak) { const el = $('prompt'); el.innerHTML = html; el.classList.toggle('long', el.textContent.length > 48); CUR_SPEAK = speak; say(speak); }
 let CUR_SPEAK = '';
 function fracHTML(n, d) { return `<span class="frac"><b>${n}</b><i>${d}</i></span>`; }
 function dock(items) {
@@ -482,21 +636,21 @@ function stepParticles() {
 }
 
 // One question at a time. The app's check() calls answer(right); only the first try counts toward the ladder.
-let T = null, ADV = 0, HOLD = false; // HOLD keeps a finished question on screen (the tests use it for screenshots)
-function newTask() { clearTimeout(ADV); T = LEVELS[P.lv].gen(); T.level = P.lv; T.tries = 0; T.done = false; APP.show(T); return T; }
+let TASK = null, ADV = 0, HOLD = false; // HOLD keeps a finished question on screen (the tests use it for screenshots)
+function newTask() { clearTimeout(ADV); TASK = LEVELS[P.lv].gen(); TASK.level = P.lv; TASK.tries = 0; TASK.done = false; APP.show(TASK); return TASK; }
 function answer(right, praise) {
-  if (!T || T.done) return;
-  const first = T.tries === 0; T.tries++;
+  if (!TASK || TASK.done) return;
+  const first = TASK.tries === 0; TASK.tries++;
   if (right) {
-    T.done = true; P.stars += first ? 3 : 1; SFX.win();
+    TASK.done = true; P.stars += first ? 3 : 1; SFX.win();
     const change = first ? record(true) : 0;
-    toast(praise || pick(['Yum!', 'Super!', 'You got it!', 'Wow!', 'Perfect!']), 1300); showBadge(false);
-    say(praise || 'You got it!');
+    toast(praise || T(pick(['Yum!', 'Super!', 'You got it!', 'Wow!', 'Perfect!'])), 1300); showBadge(false);
+    say(praise || T('You got it!'));
     if (!HOLD) ADV = setTimeout(() => { levelBanner(change); newTask(); }, change ? 2100 : 1700);
   } else {
     SFX.oops();
-    if (first) { const change = record(false); if (change) { showBadge(true); T.done = true; if (!HOLD) ADV = setTimeout(() => { levelBanner(change); newTask(); }, 1500); toast('Let us try an easier one', 1400); return; } }
-    toast('Try again!', 900);
+    if (first) { const change = record(false); if (change) { showBadge(true); TASK.done = true; if (!HOLD) ADV = setTimeout(() => { levelBanner(change); newTask(); }, 1500); toast(T('Let us try an easier one'), 1400); return; } }
+    toast(T('Try again!'), 900);
   }
 }
 function kitStart() {
@@ -741,7 +895,7 @@ function cornersOf(cells) {
   for (const [k, n] of sq) if (n === 3) { const [i, j] = k.split(',').map(Number); out.push({ x: i + 0.5, y: j + 0.5, deg: 270 }); }
   return out;
 }
-const DRAG_HELP = ' Drag pieces. Tap a piece to turn it. Tap Flip to flip it.';
+const DRAG_HELP = ' ' + T('Drag pieces. Tap a piece to turn it. Tap Flip to flip it.');
 
 // Rung 11: a named figure turned or flipped, silhouette only.
 function turnedSilhouette() {
@@ -750,7 +904,7 @@ function turnedSilhouette() {
   // Wide figures only turn a half turn, so the turned shadow still fits beside the tray.
   const k = e.x1 - e.x0 > 4 ? pick([0, 2]) : rand(0, 3), fl = Math.random() < 0.5;
   const sol = transformSol(base, ([x, y]) => { let p = fl ? [-x, y] : [x, y]; for (let i = 0; i < k; i++) p = [-p[1], p[0]]; return p; });
-  return puzzle(normalize(sol || base), { lines: false, title, prompt: `Build ${title}!`, say: `This shadow is ${title}, turned around. Fill it with all seven pieces.` + DRAG_HELP });
+  return puzzle(normalize(sol || base), { lines: false, title, prompt: T('Build {title}!', { title: T(title) }), say: T('This shadow is {title}, turned around. Fill it with all seven pieces.', { title: T(title) }) + DRAG_HELP });
 }
 // Rung 12: finish the other half across a mirror that runs up and down or side to side.
 function mirrorBoth() {
@@ -759,8 +913,8 @@ function mirrorBoth() {
     let half = axis === 'x' ? buildOf(types, 3, 4) : buildOf(types, 6, 2); if (!half) continue;
     const e = extent(half); half = shift(half, axis === 'x' ? -e.x1 : 0, axis === 'y' ? -e.y1 : 0);
     const sol = transformSol(half, axis === 'x' ? ([x, y]) => [-x, y] : ([x, y]) => [x, -y]); if (!sol) continue;
-    return puzzle(sol, { lines: false, shadow: false, mirror: true, axis, given: half, title: 'a mirror design', prompt: 'Mirror it! Build the other half',
-      say: `Make the other half match, like a mirror. The pink line is the mirror. It runs ${axis === 'x' ? 'up and down' : 'side to side'}.` + DRAG_HELP });
+    return puzzle(sol, { lines: false, shadow: false, mirror: true, axis, given: half, title: 'a mirror design', prompt: T('Mirror it! Build the other half'),
+      say: T('Make the other half match, like a mirror. The pink line is the mirror. It runs {dir}.', { dir: T(axis === 'x' ? 'up and down' : 'side to side') }) + DRAG_HELP });
   }
   return mirrorPuzzle(false);
 }
@@ -778,8 +932,8 @@ function turnFlipTask() {
     const src = buildOf(shuffle(SET).slice(0, rand(2, 3)), 3, 3), rule = pick(TURNS); if (!src) continue;
     let img = transformSol(src, rule.fn); if (!img) continue; img = normalize(img);
     const e = extent(src), sol = shift(img, e.x1 + 1, 0);
-    best = puzzle(sol, { lines: false, box: true, given: src, muted: true, title: 'the shape', prompt: `Build it ${rule.text}`,
-      say: `Look at the grey shape. Build the same shape ${rule.say}, inside the yellow box.` + DRAG_HELP });
+    best = puzzle(sol, { lines: false, box: true, given: src, muted: true, title: 'the shape', prompt: T('Build it {how}', { how: T(rule.text) }),
+      say: T('Look at the grey shape. Build the same shape {how}, inside the yellow box.', { how: T(rule.say) }) + DRAG_HELP });
     // A picture that looks the same after the move teaches nothing, so try for a different one.
     if (unionOf(img).sort().join(' ') !== unionOf(src).sort().join(' ')) return best;
   }
@@ -793,11 +947,11 @@ function areaBuild() {
     if (!subs.length) continue;
     const sub = pick(subs), n = sub.reduce((z, t) => z + AREA[t], 0), sol = buildOf(sub, 5, 4); if (!sol) continue;
     return { kind: 'build', open: true, region: REGION, pieces: types, sol, target: [], title: 'a shape', area: n,
-      prompt: `Build a shape with area ${n}`, say: `The small triangle has area 1. Put pieces on the blue grid to build one shape with area ${n}. Then tap Check.`, praise: `Area ${n}!`,
+      prompt: T('Build a shape with area {n}', { n }), say: T('The small triangle has area 1. Put pieces on the blue grid to build one shape with area {n}. Then tap Check.', { n }), praise: T('Area {n}!', { n }),
       check: placed => {
-        const cells = unionOf(placed); if (!cells.length) return { ok: false, msg: 'Put pieces on the blue grid first.' };
-        if (!connected(cells)) return { ok: false, msg: 'The pieces need to touch and make one shape.' };
-        const have = cells.length / 2; if (have !== n) return { ok: false, msg: `That shape has area ${have}. You need ${n}.` };
+        const cells = unionOf(placed); if (!cells.length) return { ok: false, msg: T('Put pieces on the blue grid first.') };
+        if (!connected(cells)) return { ok: false, msg: T('The pieces need to touch and make one shape.') };
+        const have = cells.length / 2; if (have !== n) return { ok: false, msg: T('That shape has area {have}. You need {n}.', { have, n }) };
         return { ok: true };
       } };
   }
@@ -806,8 +960,8 @@ function areaBuild() {
 function areaType() {
   let fig = null; while (!fig) fig = buildOf(shuffle(SET).slice(0, rand(2, 4)), 5, 4);
   const n = unionOf(fig).length / 2;
-  return { kind: 'type', given: fig, answer: n, prompt: 'What is the area? Small triangle = 1', say: 'Find the area of this shape. The small triangle counts as 1. Type the number and tap OK.',
-    why: 'The small triangle is 1. The square, the middle triangle and the parallelogram are 2 each. The large triangle is 4. Add them up.', praise: `Area ${n}!` };
+  return { kind: 'type', given: fig, answer: n, prompt: T('What is the area? Small triangle = 1'), say: T('Find the area of this shape. The small triangle counts as 1. Type the number and tap OK.'),
+    why: T('The small triangle is 1. The square, the middle triangle and the parallelogram are 2 each. The large triangle is 4. Add them up.'), praise: T('Area {n}!', { n }) };
 }
 // Rung 15: angles at the corners.
 const ANGLE_ASKS = [
@@ -824,7 +978,7 @@ function angleTap() {
     const verts = cornersOf(unionOf(fig)), asks = ANGLE_ASKS.filter(k => verts.some(v => k.ok(v.deg)) && !verts.every(v => k.ok(v.deg)));
     if (!asks.length) continue;
     const ask = pick(asks);
-    return { kind: 'tap', given: fig, verts, want: v => ask.ok(v.deg), prompt: `Tap a corner with ${ask.text}`, say: `Tap a corner of the shape with ${ask.say}. The white dots mark the corners.` };
+    return { kind: 'tap', given: fig, verts, want: v => ask.ok(v.deg), prompt: T('Tap a corner with {angle}', { angle: T(ask.text) }), say: T('Tap a corner of the shape with {angle}. The white dots mark the corners.', { angle: T(ask.say) }) };
   }
   return areaType();
 }
@@ -842,13 +996,13 @@ function angleBuild() {
     const types = shuffle(SET).slice(0, 3); if (!types.some(t => t === 'ST' || t === 'MT' || t === 'LT')) types[0] = 'ST';
     const want = pick([45, 90, 135, 135]), sol = angleSolution(types, want, star); if (!sol) continue;
     return { kind: 'build', open: true, region: REGION, marker: star, pieces: types, sol, target: [], title: 'a corner', want,
-      prompt: `Make a ${want}° corner at the yellow dot`, say: `Build a shape so its corner at the yellow dot is ${want} degrees. You can use more than one piece. Then tap Check.`, praise: `${want} degrees!`,
+      prompt: T('Make a {deg}° corner at the yellow dot', { deg: want }), say: T('Build a shape so its corner at the yellow dot is {deg} degrees. You can use more than one piece. Then tap Check.', { deg: want }), praise: T('{deg} degrees!', { deg: want }),
       check: placed => {
         const d = angleAt(unionOf(placed), star[0], star[1]);
-        if (d === null) return { ok: false, msg: 'Put a corner of a piece right on the yellow dot.' };
-        if (d === 'split') return { ok: false, msg: 'Two corners meet at the dot but do not join. Make one corner there.' };
-        if (d === 180) return { ok: false, msg: `That is a straight edge at the dot, 180 degrees. You need ${want}.` };
-        if (d !== want) return { ok: false, msg: `That corner is ${d} degrees. You need ${want}.` };
+        if (d === null) return { ok: false, msg: T('Put a corner of a piece right on the yellow dot.') };
+        if (d === 'split') return { ok: false, msg: T('Two corners meet at the dot but do not join. Make one corner there.') };
+        if (d === 180) return { ok: false, msg: T('That is a straight edge at the dot, 180 degrees. You need {deg}.', { deg: want }) };
+        if (d !== want) return { ok: false, msg: T('That corner is {d} degrees. You need {deg}.', { d, deg: want }) };
         return { ok: true };
       } };
   }
@@ -859,40 +1013,40 @@ function doubleBuild() {
   const [small, big] = pick(DOUBLE).map(unpack), es = extent(small), eb = extent(big);
   // Side by side when that fits beside the tray, else the small figure sits above the box.
   const sol = es.x1 + 1 + eb.x1 <= 7 ? shift(big, es.x1 + 1, 0) : big, given = es.x1 + 1 + eb.x1 <= 7 ? small : shift(small, 0, eb.y1 + 1);
-  return puzzle(sol, { lines: false, box: true, given, title: 'the big shape', prompt: 'Build it with sides twice as long',
-    say: 'See the small shape. Build the same shape with every side twice as long, inside the yellow box.' + DRAG_HELP, praise: 'Twice the sides, four times the area!' });
+  return puzzle(sol, { lines: false, box: true, given, title: 'the big shape', prompt: T('Build it with sides twice as long'),
+    say: T('See the small shape. Build the same shape with every side twice as long, inside the yellow box.') + DRAG_HELP, praise: T('Twice the sides, four times the area!') });
 }
 function scaleType() {
   const w = rand(2, 5), h = rand(1, 3), k = pick([2, 2, 3]), sq = []; for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) sq.push([x, y]);
-  const A = w * h, P = 2 * (w + h), base = `This block is ${w} by ${h}. Make every side ${k} times as long.`;
+  const A = w * h, P = 2 * (w + h), v = { w, h, k, P, base: T('This block is {w} by {h}. Make every side {k} times as long.', { w, h, k }) };
   const Q = {
-    area: [`${w} by ${h}. Sides times ${k}. New area?`, `${base} What is the new area in squares?`, A * k * k, 'Multiply the length by the scale and the width by the scale. Then multiply those two together.'],
-    perim: [`${w} by ${h}. Sides times ${k}. New perimeter?`, `${base} What is the new perimeter?`, P * k, `The perimeter now is ${P}. Every side gets ${k} times as long, so the perimeter does too.`],
-    times: [`${w} by ${h}. Sides times ${k}. Area grows how many times?`, `${base} How many times bigger does the area get?`, k * k, 'Length times the scale, width times the scale. The area grows by the scale squared.'],
-    ptimes: [`${w} by ${h}. Sides times ${k}. Perimeter grows how many times?`, `${base} How many times longer does the perimeter get?`, k, 'Every side grows by the scale, so the perimeter grows by the scale too.'],
+    area: [T('{w} by {h}. Sides times {k}. New area?', v), T('{base} What is the new area in squares?', v), A * k * k, T('Multiply the length by the scale and the width by the scale. Then multiply those two together.')],
+    perim: [T('{w} by {h}. Sides times {k}. New perimeter?', v), T('{base} What is the new perimeter?', v), P * k, T('The perimeter now is {P}. Every side gets {k} times as long, so the perimeter does too.', v)],
+    times: [T('{w} by {h}. Sides times {k}. Area grows how many times?', v), T('{base} How many times bigger does the area get?', v), k * k, T('Length times the scale, width times the scale. The area grows by the scale squared.')],
+    ptimes: [T('{w} by {h}. Sides times {k}. Perimeter grows how many times?', v), T('{base} How many times longer does the perimeter get?', v), k, T('Every side grows by the scale, so the perimeter grows by the scale too.')],
   }[pick(['area', 'area', 'perim', 'times', 'ptimes'])];
-  return { kind: 'type', squares: sq, dims: [w, h], answer: Q[2], prompt: Q[0], say: Q[1] + ' Type it and tap OK.', why: Q[3], praise: `${Q[2]}!` };
+  return { kind: 'type', squares: sq, dims: [w, h], answer: Q[2], prompt: Q[0], say: Q[1] + ' ' + T('Type it and tap OK.'), why: Q[3], praise: `${Q[2]}!` };
 }
 // Rung 17: place a piece by coordinates on a labelled grid.
 function coordTask() {
-  const t = pick(['SQ', 'ST', 'MT', 'LT', 'PA', 'SQ', 'ST']), pose = randomPoseIn(t, REGION), name = PIECE_NAME[t], Name = name[0].toUpperCase() + name.slice(1);
+  const t = pick(['SQ', 'ST', 'MT', 'LT', 'PA', 'SQ', 'ST']), pose = randomPoseIn(t, REGION), name = T(PIECE_NAME[t]), Name = cap(name);
   const pieces = shuffle([t, pick(SET.filter(x => x !== t))]), fmt = ([x, y]) => `(${x},${y})`;
-  let prompt, say, ok, why = 'Count across first, then up. Check each corner.';
+  let prompt, say, ok, why = T('Count across first, then up. Check each corner.');
   if (t === 'PA' || Math.random() < 0.5) {
     const pts = polyOf(pose).map(fmt), wantKey = pts.slice().sort().join(' ');
-    prompt = `${Name} corners: ${pts.join(' ')}`; say = `Put the ${name} so its corners sit on ${pts.join(', ')}. Count across first, then up. Then tap Check.`;
+    prompt = T('{Name} corners: {pts}', { Name, pts: pts.join(' ') }); say = T('Put the {name} so its corners sit on {pts}. Count across first, then up. Then tap Check.', { name, pts: pts.join(', ') });
     ok = p => polyOf(p).map(fmt).sort().join(' ') === wantKey;
   } else if (t === 'SQ') {
-    const c = pick([['lower left', 0, 0], ['upper right', 1, 1], ['lower right', 1, 0], ['upper left', 0, 1]]), pt = [pose.x + c[1], pose.y + c[2]];
-    prompt = `Square: ${c[0]} corner at ${fmt(pt)}`; say = `Put the square so its ${c[0]} corner is at ${fmt(pt)}. Count across first, then up. Then tap Check.`;
-    ok = p => p.x + c[1] === pt[0] && p.y + c[2] === pt[1]; why = `The ${c[0]} corner of the square goes on ${fmt(pt)}. Count across first, then up.`;
+    const c = pick([['lower left', 0, 0], ['upper right', 1, 1], ['lower right', 1, 0], ['upper left', 0, 1]]), pt = [pose.x + c[1], pose.y + c[2]], v = { corner: T(c[0]), pt: fmt(pt) };
+    prompt = T('Square: {corner} corner at {pt}', v); say = T('Put the square so its {corner} corner is at {pt}. Count across first, then up. Then tap Check.', v);
+    ok = p => p.x + c[1] === pt[0] && p.y + c[2] === pt[1]; why = T('The {corner} corner of the square goes on {pt}. Count across first, then up.', v);
   } else {
-    const pt = rightCorner(pose);
-    prompt = `${Name}: right angle corner at ${fmt(pt)}`; say = `Put the ${name} so its square corner, the right angle, is at ${fmt(pt)}. Count across first, then up. Then tap Check.`;
-    ok = p => { const c = rightCorner(p); return c[0] === pt[0] && c[1] === pt[1]; }; why = `The right angle corner goes on ${fmt(pt)}. Count across first, then up.`;
+    const pt = rightCorner(pose), v = { name, Name, pt: fmt(pt) };
+    prompt = T('{Name}: right angle corner at {pt}', v); say = T('Put the {name} so its square corner, the right angle, is at {pt}. Count across first, then up. Then tap Check.', v);
+    ok = p => { const c = rightCorner(p); return c[0] === pt[0] && c[1] === pt[1]; }; why = T('The right angle corner goes on {pt}. Count across first, then up.', v);
   }
-  return { kind: 'build', open: true, region: REGION, grid: true, pieces, sol: [pose], target: [], title: name, prompt, say, praise: 'Right on the spot!',
-    check: placed => { const mine = placed.filter(p => p.t === t); if (!mine.length) return { ok: false, msg: `Put the ${name} on the grid.` }; return mine.some(ok) ? { ok: true } : { ok: false, msg: why }; } };
+  return { kind: 'build', open: true, region: REGION, grid: true, pieces, sol: [pose], target: [], title: PIECE_NAME[t], prompt, say, praise: T('Right on the spot!'),
+    check: placed => { const mine = placed.filter(p => p.t === t); if (!mine.length) return { ok: false, msg: T('Put the {name} on the grid.', { name }) }; return mine.some(ok) ? { ok: true } : { ok: false, msg: why }; } };
 }
 // Rung 18: translate, rotate about a point, or reflect across a line, on the labelled grid.
 function ruleTask() {
@@ -904,18 +1058,19 @@ function ruleTask() {
     let fn, prompt, say, marker = null, line = null;
     if (kind === 'slide') {
       const dx = rand(-3, 3), dy = rand(-2, 2); if (Math.abs(dx) + Math.abs(dy) < 2) continue;
-      fn = ([x, y]) => [x + dx, y + dy]; prompt = `Translate it by (${dx > 0 ? '+' : ''}${dx}, ${dy > 0 ? '+' : ''}${dy})`;
-      say = `Slide the grey shape ${Math.abs(dx)} ${dx < 0 ? 'left' : 'right'} and ${Math.abs(dy)} ${dy < 0 ? 'down' : 'up'}. Build the shape where it lands.`;
+      fn = ([x, y]) => [x + dx, y + dy]; prompt = T('Translate it by ({dx}, {dy})', { dx: (dx > 0 ? '+' : '') + dx, dy: (dy > 0 ? '+' : '') + dy });
+      say = T('Slide the grey shape {dx} {lr} and {dy} {ud}. Build the shape where it lands.', { dx: Math.abs(dx), lr: T(dx < 0 ? 'left' : 'right'), dy: Math.abs(dy), ud: T(dy < 0 ? 'down' : 'up') });
     } else if (kind === 'turn') {
       const px = pick([e.x0, e.x1, e.x0 - 1, e.x1 + 1].filter(v => v >= 0 && v <= REGION.x1)), py = pick([e.y0, e.y1, e.y0 - 1, e.y1 + 1].filter(v => v >= 0 && v <= REGION.y1)), way = pick(['clockwise', 'counterclockwise', 'half']);
       fn = way === 'clockwise' ? ([x, y]) => [px + (y - py), py - (x - px)] : way === 'counterclockwise' ? ([x, y]) => [px - (y - py), py + (x - px)] : ([x, y]) => [2 * px - x, 2 * py - y];
-      marker = [px, py]; prompt = way === 'half' ? `Rotate it 180° about (${px},${py})` : `Rotate it 90° ${way} about (${px},${py})`;
-      say = `Turn the grey shape ${way === 'half' ? 'a half turn' : 'a quarter turn ' + way} around the yellow dot at ${px}, ${py}. Build the shape where it lands.`;
+      marker = [px, py]; prompt = way === 'half' ? T('Rotate it 180° about ({px},{py})', { px, py }) : T('Rotate it 90° {way} about ({px},{py})', { way: T(way), px, py });
+      say = T('Turn the grey shape {how} around the yellow dot at {px}, {py}. Build the shape where it lands.', { how: way === 'half' ? T('a half turn') : T('a quarter turn {way}', { way: T(way) }), px, py });
     } else {
       const vert = Math.random() < 0.5, k = vert ? pick([e.x1, e.x1 + 1, e.x0, e.x0 - 1].filter(v => v >= 1 && v <= REGION.x1 - 1)) : pick([e.y1, e.y1 + 1, e.y0, e.y0 - 1].filter(v => v >= 1 && v <= REGION.y1 - 1));
       if (k === undefined) continue;
       fn = vert ? ([x, y]) => [2 * k - x, y] : ([x, y]) => [x, 2 * k - y]; line = { axis: vert ? 'x' : 'y', k };
-      prompt = `Reflect it across the line ${vert ? 'x' : 'y'} = ${k}`; say = `Flip the grey shape over the pink line, ${vert ? 'x' : 'y'} equals ${k}, like a mirror. Build the mirror image.`;
+      const v = { axis: vert ? 'x' : 'y', k };
+      prompt = T('Reflect it across the line {axis} = {k}', v); say = T('Flip the grey shape over the pink line, {axis} equals {k}, like a mirror. Build the mirror image.', v);
     }
     const img = transformSol(src, fn); if (!img) continue;
     const cells = unionOf(img), srcCells = new Set(unionOf(src));
@@ -934,32 +1089,33 @@ const PYTH = [
 function pythTask() {
   const q = pick(PYTH), a = q.a, b = q.b, c = Math.hypot(a, b), r1 = v => Math.round(v * 10) / 10, exact = Number.isInteger(c);
   const k = Math.min(5.5 / a, 3.2 / b, 1.6), tri = { w: a * k, h: b * k };
-  let answer, prompt, say, why, labels;
+  let answer, prompt, say, why, labels; const v = { a, b, c };
   if (q.ask === 'hyp') {
     answer = r1(c); labels = [String(a), String(b), '?'];
-    prompt = `Legs ${a} and ${b}. Long side?${exact ? '' : ' (to tenths)'}`; say = `This right triangle has legs ${a} and ${b}. How long is the long side, the hypotenuse?${exact ? '' : ' Round to tenths.'} Type it and tap OK.`;
-    why = 'Square each leg. Add the two squares. The long side is the square root of that sum.';
+    prompt = T(exact ? 'Legs {a} and {b}. Long side?' : 'Legs {a} and {b}. Long side? (to tenths)', v);
+    say = T(exact ? 'This right triangle has legs {a} and {b}. How long is the long side, the hypotenuse? Type it and tap OK.' : 'This right triangle has legs {a} and {b}. How long is the long side, the hypotenuse? Round to tenths. Type it and tap OK.', v);
+    why = T('Square each leg. Add the two squares. The long side is the square root of that sum.');
   } else if (q.ask === 'leg') {
     answer = b; labels = [String(a), '?', String(c)];
-    prompt = `Long side ${c}, one leg ${a}. Other leg?`; say = `The long side of this right triangle is ${c}. One leg is ${a}. How long is the other leg? Type it and tap OK.`;
-    why = 'Square the long side. Take away the square of the leg you know. The other leg is the square root of what is left.';
+    prompt = T('Long side {c}, one leg {a}. Other leg?', v); say = T('The long side of this right triangle is {c}. One leg is {a}. How long is the other leg? Type it and tap OK.', v);
+    why = T('Square the long side. Take away the square of the leg you know. The other leg is the square root of what is left.');
   } else {
     answer = a * a + b * b; labels = [String(a), String(b), '?'];
-    prompt = `Legs ${a} and ${b}. Long side squared?`; say = `This right triangle has legs ${a} and ${b}. What is the long side squared? Type it and tap OK.`;
-    why = 'Square each leg and add them. That sum is the long side squared.';
+    prompt = T('Legs {a} and {b}. Long side squared?', v); say = T('This right triangle has legs {a} and {b}. What is the long side squared? Type it and tap OK.', v);
+    why = T('Square each leg and add them. That sum is the long side squared.');
   }
   return { kind: 'type', tri, labels, answer, tol: Number.isInteger(answer) ? 0 : 0.06, prompt, say, why, praise: `${answer}!` };
 }
 function composeTask() {
   const [sq, per, poses] = pick(COMPOSE), sol = unpack(poses), n = sq * 2;
   return { kind: 'build', open: true, region: REGION, pieces: SET.slice(), sol, target: [], title: 'a shape',
-    prompt: `Straight sides. Area ${n}, perimeter ${per}`, say: `Build one shape with straight sides along the grid lines. The small triangle is 1, so the area must be ${n}. The perimeter must be ${per} units. Then tap Check.`, praise: `Area ${n} and perimeter ${per}!`,
+    prompt: T('Straight sides. Area {n}, perimeter {per}', { n, per }), say: T('Build one shape with straight sides along the grid lines. The small triangle is 1, so the area must be {n}. The perimeter must be {per} units. Then tap Check.', { n, per }), praise: T('Area {n} and perimeter {per}!', { n, per }),
     check: placed => {
-      const cells = unionOf(placed); if (!cells.length) return { ok: false, msg: 'Put pieces on the blue grid first.' };
-      if (!connected(cells)) return { ok: false, msg: 'The pieces need to touch and make one shape.' };
-      const { straight, slant } = edgeStats(cells); if (slant) return { ok: false, msg: 'Every outside edge must run along a grid line. Cover the slanted edges.' };
-      const have = cells.length / 2; if (have !== n) return { ok: false, msg: `That shape has area ${have}. You need ${n}.` };
-      if (straight !== per) return { ok: false, msg: `The perimeter is ${straight}. You need ${per}.` };
+      const cells = unionOf(placed); if (!cells.length) return { ok: false, msg: T('Put pieces on the blue grid first.') };
+      if (!connected(cells)) return { ok: false, msg: T('The pieces need to touch and make one shape.') };
+      const { straight, slant } = edgeStats(cells); if (slant) return { ok: false, msg: T('Every outside edge must run along a grid line. Cover the slanted edges.') };
+      const have = cells.length / 2; if (have !== n) return { ok: false, msg: T('That shape has area {have}. You need {n}.', { have, n }) };
+      if (straight !== per) return { ok: false, msg: T('The perimeter is {have}. You need {per}.', { have: straight, per }) };
       return { ok: true };
     } };
 }
@@ -1183,24 +1339,24 @@ function showBuild(t) {
     const o = orient(type, rot, flip), [cx, cy] = centroid(o);
     addPiece(type, { rot, flip, x: Math.round(gx - cx), y: Math.round(gy - cy) }, color, false);
   });
-  const what = t.mirror ? (t.shadow ? 'Finish the mirror picture. Fill the shadow on the other side of the pink line.' : 'Make the other half match, like a mirror. The pink line is the mirror.') : `Fill the shadow to build ${t.title}.`;
-  setPrompt(t.prompt || (t.mirror ? (t.shadow ? 'Mirror it! Fill the shadow' : 'Mirror it! Build the other half') : `Build ${t.title}!`), t.say || (what + ' Drag pieces. Tap a piece to turn it.'));
+  const what = t.mirror ? T(t.shadow ? 'Finish the mirror picture. Fill the shadow on the other side of the pink line.' : 'Make the other half match, like a mirror. The pink line is the mirror.') : T('Fill the shadow to build {title}.', { title: T(t.title) });
+  setPrompt(t.prompt || (t.mirror ? T(t.shadow ? 'Mirror it! Fill the shadow' : 'Mirror it! Build the other half') : T('Build {title}!', { title: T(t.title) })), t.say || (what + ' ' + T('Drag pieces. Tap a piece to turn it.')));
   const buttons = [
-    { html: '↔️ Flip', id: 'flipBtn', cls: 'big alt', on: () => { if (lastTouched && !T.done) flipPiece(lastTouched); } },
-    { html: '💡 Hint', id: 'hintBtn', cls: 'big alt2', on: () => hint() },
+    { html: T('↔️ Flip'), id: 'flipBtn', cls: 'big alt', on: () => { if (lastTouched && !TASK.done) flipPiece(lastTouched); } },
+    { html: T('💡 Hint'), id: 'hintBtn', cls: 'big alt2', on: () => hint() },
   ];
-  if (t.open) buttons.push({ html: '✅ Check', id: 'checkBtn', cls: 'big', on: () => checkOpen() });
+  if (t.open) buttons.push({ html: T('✅ Check'), id: 'checkBtn', cls: 'big', on: () => checkOpen() });
   dock(buttons);
 }
 function allCells(bb) { const out = []; for (let x = bb.x0; x < bb.x1; x++) for (let y = bb.y0; y < bb.y1; y++) for (let q = 0; q < 4; q++) out.push(`${x},${y},${q}`); return out; }
 // Open tasks (area, angle, coordinates, area and perimeter) are judged when the child taps Check.
 function checkOpen() {
-  const t = T; if (!t || t.done || !t.open) return;
+  const t = TASK; if (!t || t.done || !t.open) return;
   const placed = pieces.filter(pc => poseCells(pc).every(c => inRegion(c, t.region))).map(pc => pc.pose);
   const res = t.check(placed);
   if (res.ok) {
     const c = new THREE.Vector3(); pieces.forEach(p => c.add(p.grp.position)); c.multiplyScalar(1 / pieces.length); c.y = 0.8; burst(c, 70, 1.6);
-    answer(true, t.praise || 'That works!');
+    answer(true, t.praise || T('That works!'));
   } else { say(res.msg); answer(false); }
 }
 function poseCells(pc) { return cellsOf(pc.pose); }
@@ -1216,7 +1372,7 @@ function makeRoom(pc) {
   pc.pose.x = x0; pc.pose.y = y0; return false;
 }
 function solved() {
-  if (!T || T.kind !== 'build' || T.open) return false;
+  if (!TASK || TASK.kind !== 'build' || TASK.open) return false;
   const seen = new Set();
   for (const pc of pieces) for (const c of poseCells(pc)) { if (!targetSet.has(c) || seen.has(c)) return false; seen.add(c); }
   return seen.size === targetSet.size;
@@ -1243,34 +1399,34 @@ function afterMove(pc) {
   if (solved()) win();
 }
 function win() {
-  const t = T; if (t.done) return;
+  const t = TASK; if (t.done) return;
   const c = new THREE.Vector3(); pieces.forEach(p => c.add(p.grp.position)); c.multiplyScalar(1 / pieces.length); c.y = 0.8;
   burst(c, 70, 1.6);
   pieces.concat(lockedPieces()).forEach((p, i) => { const y = p.grp.position.y; tween(700, (e, k) => { p.grp.position.y = y + Math.abs(Math.sin(k * Math.PI * 2)) * 0.6 * (1 - k); }, null, x => x); });
   // After a hint the miss is already counted, so this win does not count as first try.
-  answer(true, t.praise || (t.mirror ? 'A perfect mirror!' : `You built ${t.title}!`));
+  answer(true, t.praise || (t.mirror ? T('A perfect mirror!') : T('You built {title}!', { title: T(t.title) })));
 }
 function hint() {
-  const t = T; if (!t || t.done || t.kind !== 'build') return;
-  if (!t.usedHint) { t.usedHint = true; answer(false); if (T !== t) return; }
+  const t = TASK; if (!t || t.done || t.kind !== 'build') return;
+  if (!t.usedHint) { t.usedHint = true; answer(false); if (TASK !== t) return; }
   if (t.open) {
     // Open tasks have many right answers; the hint builds the one stored with the task, one piece at a time.
     const have = new Set(pieces.map(pc => poseKey(pc.pose))), solKeys = new Set(t.sol.map(poseKey));
     for (const s of t.sol) {
       if (have.has(poseKey(s))) continue;
       const pc = pieces.find(p => p.t === s.t && !solKeys.has(poseKey(p.pose))); if (!pc) continue;
-      pc.pose = Object.assign({ t: s.t }, s); placePiece(pc, true); say('Here is one.'); later(() => afterMove(pc), 200); return;
+      pc.pose = Object.assign({ t: s.t }, s); placePiece(pc, true); say(T('Here is one.')); later(() => afterMove(pc), 200); return;
     }
-    say('That is one answer. Tap Check.'); return;
+    say(T('That is one answer. Tap Check.')); return;
   }
   // Move one piece that is not in a right spot into its solution spot.
   const filled = new Set(pieces.filter(pc => poseCells(pc).every(c => targetSet.has(c))).flatMap(poseCells));
   for (const s of t.sol) {
     const want = cellsOf(s); if (want.some(c => filled.has(c))) continue;
     const pc = pieces.find(p => p.t === s.t && !poseCells(p).every(c => targetSet.has(c))); if (!pc) continue;
-    pc.pose = Object.assign({ t: s.t }, s); placePiece(pc, true); say('Here is one.'); later(() => afterMove(pc), 200); return;
+    pc.pose = Object.assign({ t: s.t }, s); placePiece(pc, true); say(T('Here is one.')); later(() => afterMove(pc), 200); return;
   }
-  say('Look for a piece that does not fit yet. Move it out and try another spot.');
+  say(T('Look for a piece that does not fit yet. Move it out and try another spot.'));
 }
 
 // Area and perimeter: a block of toy buildings on a grid.
@@ -1308,12 +1464,12 @@ function showCount(t) {
     const m = new THREE.Mesh(geo, mat(0xFFFFFF, { roughness: 0.4, emissive: 0x00F0D0, emissiveIntensity: 0.35 })); m.position.y = 0.03; shadowy(m); g.add(m); tiles.push(m);
   }
   t.tiles = tiles;
-  const q = t.ask === 'area' ? (t.halves.length ? 'How many squares big is this park? Two halves make one square.' : 'How many squares cover this block?') : 'How many sides long is the fence all the way around?';
-  setPrompt(t.ask === 'area' ? (t.halves.length ? 'How many squares? Two halves make one!' : 'How many squares cover it?') : 'How long is the fence around it?', q);
+  const q = T(t.ask === 'area' ? (t.halves.length ? 'How many squares big is this park? Two halves make one square.' : 'How many squares cover this block?') : 'How many sides long is the fence all the way around?');
+  setPrompt(T(t.ask === 'area' ? (t.halves.length ? 'How many squares? Two halves make one!' : 'How many squares cover it?') : 'How long is the fence around it?'), q);
   dock(t.choices.map(v => ({ html: String(v), cls: 'choice', data: { v }, on: btn => {
-    if (T.done) return;
-    if (v === t.answer) { btn.classList.add('right'); countUp(t); answer(true, t.ask === 'area' ? `${v} squares!` : `${v} sides of fence!`); }
-    else { btn.classList.remove('wrong'); void btn.offsetWidth; btn.classList.add('wrong'); say(t.ask === 'area' ? 'Count each square once. Two halves make one square.' : 'Walk all the way around and count each side.'); answer(false); }
+    if (TASK.done) return;
+    if (v === t.answer) { btn.classList.add('right'); countUp(t); answer(true, T(t.ask === 'area' ? '{v} squares!' : '{v} sides of fence!', { v })); }
+    else { btn.classList.remove('wrong'); void btn.offsetWidth; btn.classList.add('wrong'); say(T(t.ask === 'area' ? 'Count each square once. Two halves make one square.' : 'Walk all the way around and count each side.')); answer(false); }
   } })));
   t.W2 = W2;
 }
@@ -1377,10 +1533,10 @@ function showFigure(t) {
   if (t.kind === 'type') numpad(t); else dock([]);
 }
 function tapVertex(ev) {
-  const t = T, h = hits(ev, t.dotMeshes || [])[0]; if (!h) return;
+  const t = TASK, h = hits(ev, t.dotMeshes || [])[0]; if (!h) return;
   const v = h.object.userData.v, ball = h.object.userData.ball;
-  if (t.want(v)) { ball.material.color.set(0x3DF59A); ball.material.emissive.set(0x3DF59A); burst(ball.position.clone(), 40, 1.2); answer(true, `Yes. That corner is ${v.deg} degrees!`); }
-  else { ball.material.color.set(0xFF8A8A); ball.material.emissive.set(0xFF8A8A); setTimeout(() => { ball.material.color.set(0xFFFFFF); ball.material.emissive.set(0xFFFFFF); }, 700); say(`That corner is ${v.deg} degrees. Try another corner.`); answer(false); }
+  if (t.want(v)) { ball.material.color.set(0x3DF59A); ball.material.emissive.set(0x3DF59A); burst(ball.position.clone(), 40, 1.2); answer(true, T('Yes. That corner is {deg} degrees!', { deg: v.deg })); }
+  else { ball.material.color.set(0xFF8A8A); ball.material.emissive.set(0xFF8A8A); setTimeout(() => { ball.material.color.set(0xFFFFFF); ball.material.emissive.set(0xFFFFFF); }, 700); say(T('That corner is {deg} degrees. Try another corner.', { deg: v.deg })); answer(false); }
 }
 // The number pad: digits, a point, delete and OK. Only OK counts as an answer.
 function numpad(t) {
@@ -1389,19 +1545,19 @@ function numpad(t) {
   const show = document.createElement('div'); show.className = 'show'; show.id = 'typed'; pad.appendChild(show);
   let val = '';
   const press = k => {
-    SFX.ctx(); if (T !== t || t.done) return;
+    SFX.ctx(); if (TASK !== t || t.done) return;
     if (k === 'del') { val = val.slice(0, -1); SFX.click(); }
     else if (k === 'ok') {
       if (!val || val === '.') return;
       const v = Number(val);
       if (Math.abs(v - t.answer) <= (t.tol || 0) + 1e-9) { show.classList.add('right'); answer(true, t.praise || `${t.answer}!`); }
-      else { show.classList.remove('wrong'); void show.offsetWidth; show.classList.add('wrong'); say(t.why || 'Try again.'); answer(false); val = ''; }
+      else { show.classList.remove('wrong'); void show.offsetWidth; show.classList.add('wrong'); say(t.why || T('Try again.')); answer(false); val = ''; }
     } else { if (k === '.' && val.includes('.')) return; if (val.length >= 6) return; val += k; SFX.tick(); }
     show.textContent = val;
   };
   const key = (text, k, cls) => { const b = document.createElement('button'); b.className = 'key' + (cls ? ' ' + cls : ''); b.textContent = text; b.dataset.k = k; b.addEventListener('click', () => press(k)); pad.appendChild(b); return b; };
   ['1', '2', '3', '4', '5'].forEach(d => key(d, d)); key('⌫', 'del', 'del');
-  key('OK', 'ok', 'ok'); ['6', '7', '8', '9', '0'].forEach(d => key(d, d)); key('.', '.', 'dot');
+  key(T('OK'), 'ok', 'ok'); ['6', '7', '8', '9', '0'].forEach(d => key(d, d)); key('.', '.', 'dot');
 }
 
 // ---------------------------------------------------------------------------
@@ -1418,9 +1574,9 @@ board = new THREE.Group(); scene.add(board);
 ONFRAME.push(() => { for (const c of CARS) { c.position.x += c.userData.speed; if (c.position.x > 14) c.position.x = -14; if (c.position.x < -14) c.position.x = 14; } });
 const cv = renderer.domElement;
 cv.addEventListener('pointerdown', ev => {
-  SFX.ctx(); if (!T || T.done) return;
-  if (T.kind === 'tap') { tapVertex(ev); return; }
-  if (T.kind !== 'build') return;
+  SFX.ctx(); if (!TASK || TASK.done) return;
+  if (TASK.kind === 'tap') { tapVertex(ev); return; }
+  if (TASK.kind !== 'build') return;
   const pc = pieceAt(ev); if (!pc) return;
   const p = onPlane(ev, 0); if (!p) return;
   lastTouched = pc; drag = { pc, id: ev.pointerId, start: [ev.clientX, ev.clientY], off: pc.grp.position.clone().sub(p), moved: false, before: Object.assign({}, pc.pose), from: pc.grp.position.clone() };
@@ -1446,7 +1602,7 @@ kitStart();
 // Test hook.
 window.TANGRAM_CITY = {
   hold(v) { HOLD = !!v; },
-  LEVELS, record, answer, newTask, state: () => P, current: () => T, FIGURES, ORIENTS, SET,
+  LEVELS, record, answer, newTask, state: () => P, current: () => TASK, FIGURES, ORIENTS, SET,
   orient, cellsOf, polyOf, mirrorPiece, solved, perimeterOf,
   setLevel(i) { P.lv = i; P.streak = 0; P.miss = 0; showBadge(false); return newTask(); },
   pieces: () => pieces.map(pc => ({ t: pc.t, pose: Object.assign({}, pc.pose), key: shapeKey(pc.pose), screen: screenOf(pc.grp.position.clone().setY(0.3)) })),
@@ -1456,7 +1612,7 @@ window.TANGRAM_CITY = {
   // Screen point of the center of a solution spot, so a test can drag a piece there.
   spot(s) { const o = orient(s.t, s.rot, s.flip), [cx, cy] = centroid(o); return screenOf(W(s.x + cx, s.y + cy, 0.3)); },
   // Screen points of the corner dots of an angle question, with their angles.
-  dots: () => (T && T.verts ? T.verts.map(v => ({ deg: v.deg, right: T.want(v), screen: screenOf(W(v.x, v.y, 0.52)) })) : []),
+  dots: () => (TASK && TASK.verts ? TASK.verts.map(v => ({ deg: v.deg, right: TASK.want(v), screen: screenOf(W(v.x, v.y, 0.52)) })) : []),
 };
 
 // Self-check hook for tools/ladder-check.mjs: build problems at any rung without touching the screen, and throw when

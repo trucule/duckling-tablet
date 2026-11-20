@@ -1,7 +1,7 @@
 {
   "id": "tangram-city",
   "name": "Tangram City",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Drag, turn and flip the seven tangram pieces to fill city shapes, then measure, transform and reason about what you built.",
   "subjects": [
     "math",
@@ -22,5 +22,21 @@
       "Trying another orientation",
       "Measuring"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Ciudad Tangram",
+      "description": "Arrastra, gira y voltea las siete piezas del tangram para llenar figuras de la ciudad, y luego mide, transforma y razona sobre lo que construiste.",
+      "about": {
+        "concept": "Geometría con las manos. Siete piezas llenan una figura solo cuando se giran y se voltean de la manera correcta; el niño aprende rotación, reflexión y cómo se componen las figuras, y después cuenta el área y el perímetro de lo que construyó.",
+        "progression": "La escalera empieza en preescolar con dos piezas delineadas y crece con siluetas de siete piezas, diseños en espejo, conteo de área y perímetro en cuadrados, siluetas giradas, cuartos de vuelta y volteos, área en triángulos pequeños, ángulos en las esquinas, figuras al doble de tamaño, coordenadas, traslaciones, rotaciones y reflexiones con una regla, y en octavo grado el lado largo de un triángulo rectángulo y figuras construidas con un área y un perímetro dados. Un teclado numérico recibe las respuestas escritas y un botón Revisar juzga las construcciones libres.",
+        "lifeSkills": [
+          "Razonamiento espacial",
+          "Encajar cosas (empacar, construir)",
+          "Probar otra orientación",
+          "Medir"
+        ]
+      }
+    }
   }
 }
