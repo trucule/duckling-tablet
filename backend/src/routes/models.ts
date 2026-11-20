@@ -10,11 +10,12 @@ import { fileURLToPath } from 'node:url';
 
 export const MODELS_DIR = fileURLToPath(new URL('../../../models/', import.meta.url));
 
-// A model folder name (vosk-small-es) and a file path inside it (graph/phones/word_boundary.int): lowercase names,
-// digits, _ and -, at most three folders deep, one extension. Dots appear only before the extension, so ".." and
-// dotfiles (.gitkeep, .gitignore) never match.
+// A model folder name (vosk-small-es) and a file path inside it (graph/HCLr.fst, graph/phones/word_boundary.int):
+// letters of either case (Vosk's graph files carry capitals, and the disk is case-sensitive), digits, _ and -, at
+// most three folders deep, one lowercase extension. Dots appear only before the extension, so ".." and dotfiles
+// (.gitkeep, .gitignore) never match.
 const MODEL = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const FILE = /^(?:[a-z0-9_-]+\/){0,3}[a-z0-9_-]+\.[a-z]+$/;
+const FILE = /^(?:[A-Za-z0-9_-]+\/){0,3}[A-Za-z0-9_-]+\.[a-z]+$/;
 const TEXT = new Set(['txt', 'conf', 'int', 'stats']);
 
 function send(reply: FastifyReply, file: string, type: string, maxAge: number) {
