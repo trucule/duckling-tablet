@@ -1,7 +1,7 @@
 {
   "id": "level-up",
   "name": "Level Up",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Six subjects, each a ladder of levels from pre-K to 8th grade: reading, math, color science, patterns, time and money, shapes and fractions.",
   "subjects": [
     "reading",
@@ -24,5 +24,21 @@
       "Sticking with practice",
       "Seeing progress as a series of steps"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Sube de nivel",
+      "description": "Seis materias, cada una con una escalera de niveles de preescolar a octavo grado: lectura, matemáticas, ciencia del color, patrones, tiempo y dinero, figuras y fracciones.",
+      "about": {
+        "concept": "Dominio en pasos pequeños en seis materias. Cada materia es una escalera de niveles; un nivel se pasa con una racha de respuestas correctas, así que el niño siempre trabaja justo en el límite de lo que sabe.",
+        "progression": "Cada materia es una escalera de 15 a 20 peldaños de preescolar a octavo grado: la lectura sube de las letras y las sílabas, pasando por raíces, lenguaje figurado y gramática, hasta la estructura del texto; las matemáticas, de contar hasta fracciones, decimales y ecuaciones, y luego pendiente, exponentes y el teorema de Pitágoras; el Laboratorio de color, de nombrar colores al espectro electromagnético; Patrones, de ABAB a sucesiones y lógica de si y entonces; Tiempo y dinero, de leer las horas en punto al interés compuesto; Figuras y fracciones, de nombrar figuras a círculos, transformaciones y triángulos semejantes. Cuatro aciertos seguidos suben un peldaño, y el niño empieza en el peldaño que la tableta elige para su grado.",
+        "lifeSkills": [
+          "Leer la hora y contar dinero",
+          "Leer para comprender",
+          "Seguir practicando",
+          "Ver el progreso como una serie de pasos"
+        ]
+      }
+    }
   }
 }
