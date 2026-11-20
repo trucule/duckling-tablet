@@ -1,6 +1,6 @@
 // Devices: pairing, parent controls per device, and the device's own check-in, config and installs.
 // Every handler runs inside one family-scoped transaction, so a query that forgets a WHERE still sees one family.
-import { mediaHostsFor, siteHost } from '../sitehosts.js';
+import { SIGN_IN_HOSTS, mediaHostsFor, siteHost } from '../sitehosts.js';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
@@ -78,6 +78,8 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
     allowlist,
     // Hosts the allowed websites need for their videos (sitehosts.ts); the tablet allows them with no tile.
     mediaHosts: mediaHostsFor(allowlist.map((w) => w.host)),
+    // Sign-in services (sitehosts.ts): allowed, with a standard browser user agent, while the tablet has a website.
+    signInHosts: allowlist.length ? SIGN_IN_HOSTS : [],
     travel: { active: !!travelUntil && travelUntil > now(), until: travelUntil },
     limits: await getSetting(q, deviceId, 'limits', {}),
     // Apps installed outside Duckling that a parent allowed, with today's use (the tablet's local day).

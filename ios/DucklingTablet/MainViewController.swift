@@ -182,6 +182,8 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         case "setAllowedHosts":
             prefs.allowedHosts = str(0).split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
             Lockdown.shared.apply(on: prefs.lockdownOn, allowedHosts: prefs.allowedHosts)
+        case "setSignInHosts":
+            prefs.signInHosts = str(0).split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
         case "setChildInfo":
             prefs.childName = str(0)
             if !str(1).isEmpty { prefs.narratorVoice = str(1) }
@@ -264,9 +266,33 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         return hosts.contains("*") || hosts.contains { host == $0 || host.hasSuffix(".\($0)") }
     }
 
+    /// Safari's own user agent on this iPad, for the sign-in services (the system one names WebKit without Safari,
+    /// which Google refuses with disallowed_useragent). Everything else sees the system agent.
+    static let browserAgent: String = {
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/\(v.majorVersion).\(v.minorVersion) Safari/605.1.15"
+    }()
+
+    private func isSignIn(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        return prefs.signInHosts.contains { host == $0 || host.hasSuffix(".\($0)") }
+    }
+
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = action.request.url else { return decisionHandler(.cancel) }
-        decisionHandler(allowed(url) ? .allow : .cancel)
+        guard allowed(url) else { return decisionHandler(.cancel) }
+        // A standard browser while signing in, Duckling's own view again on the way back to the site.
+        if action.targetFrame?.isMainFrame != false {
+            let agent: String? = isSignIn(url) ? Self.browserAgent : nil
+            if webView.customUserAgent != agent {
+                webView.customUserAgent = agent
+                // The agent applies to requests made after it is set; this one is restarted with it.
+                decisionHandler(.cancel)
+                webView.load(action.request)
+                return
+            }
+        }
+        decisionHandler(.allow)
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {

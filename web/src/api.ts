@@ -22,7 +22,7 @@ export interface DeviceConfig {
   deviceId: string; state: 'active' | 'release' | 'released';
   // The language this tablet speaks (the child's own, else the family's) and the family's.
   language?: 'en' | 'es'; familyLanguage?: 'en' | 'es'; child: Child | null; apps: InstalledApp[]; hidden: string[];
-  allowlist: AllowEntry[]; mediaHosts?: string[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string; appAccountToken?: string | null;
+  allowlist: AllowEntry[]; mediaHosts?: string[]; signInHosts?: string[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string; appAccountToken?: string | null;
   // Card payments through Stripe are offered (how a Windows tablet subscribes).
   cardPayments?: boolean;
 }

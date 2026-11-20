@@ -32,10 +32,12 @@ final class Prefs {
     var appAccountToken: String { get { d.string(forKey: "appAccountToken") ?? "" } set { d.set(newValue, forKey: "appAccountToken") } }
     var lockdownOn: Bool { get { d.bool(forKey: "lockdownOn") } set { d.set(newValue, forKey: "lockdownOn") } }
     var allowedHosts: [String] { get { d.stringArray(forKey: "allowedHosts") ?? [] } set { d.set(newValue, forKey: "allowedHosts") } }
+    /// Sign-in services shown a standard browser user agent (MainViewController.browserAgent).
+    var signInHosts: [String] { get { d.stringArray(forKey: "signInHosts") ?? [] } set { d.set(newValue, forKey: "signInHosts") } }
 
     func clearAll() {
         deviceToken = ""
-        for k in ["pinHash", "installed", "permissions", "childId", "childName", "childLevels", "narratorVoice", "appAccountToken", "lockdownOn", "allowedHosts"] { d.removeObject(forKey: k) }
+        for k in ["pinHash", "installed", "permissions", "childId", "childName", "childLevels", "narratorVoice", "appAccountToken", "lockdownOn", "allowedHosts", "signInHosts"] { d.removeObject(forKey: k) }
     }
 }
 

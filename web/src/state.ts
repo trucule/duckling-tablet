@@ -117,10 +117,14 @@ export function otherAppState(a: OtherApp): { ok: boolean; secondsLeft: number; 
 export const travelActive = (c: DeviceConfig | null) => !!c?.travel.active && !!c.travel.until && new Date(c.travel.until).getTime() > Date.now();
 
 function applyHosts(c: DeviceConfig) {
+  // Sign-in services a website may send a parent to (Log in with Google); the shell shows them a standard browser
+  // user agent, since they refuse an embedded web view (backend/src/sitehosts.ts).
+  shell.setSignInHosts(c.signInHosts ?? []);
   if (travelActive(c)) { shell.setAllowedHosts(['*']); return; }
   const hosts = new Set(c.allowlist.map((w) => w.host.replace(/^\*\./, '')));
   // What the allowed websites need for their own videos, from the server's checked list (backend/src/sitehosts.ts).
   for (const h of c.mediaHosts ?? []) hosts.add(h);
+  for (const h of c.signInHosts ?? []) hosts.add(h);
   for (const a of c.otherApps ?? []) if (otherAppState(a).ok) for (const h of a.hosts) hosts.add(h.replace(/^\*\./, ''));
   shell.setAllowedHosts([...hosts]);
 }

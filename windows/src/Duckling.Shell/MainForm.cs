@@ -17,6 +17,7 @@ public class MainForm : Form
     public readonly string WebAppUrl;
     public readonly string WebOrigin;
     public volatile IReadOnlyCollection<string> AllowedHosts = Array.Empty<string>();
+    public volatile IReadOnlyCollection<string> SignInHosts = Array.Empty<string>();
     public readonly bool ChildSession;
     public readonly AppCloser Closer;
     readonly HomePill pill;
@@ -62,7 +63,11 @@ public class MainForm : Form
         await Web.EnsureCoreWebView2Async(Env);
         var core = Web.CoreWebView2;
         Lock(core.Settings, childSession: ChildSession);
-        core.Settings.UserAgent += $" DucklingTablet/{Version} Windows";
+        // Duckling's own agent everywhere, and the plain Edge one on the sign-in services, which refuse agents they do
+        // not know (Google's disallowed_useragent).
+        var browserAgent = core.Settings.UserAgent;
+        var ducklingAgent = $"{browserAgent} DucklingTablet/{Version} Windows";
+        core.Settings.UserAgent = ducklingAgent;
         try { AllowedHosts = Hosts.Normalize(JsonSerializer.Deserialize<string[]>(Service.Call("state")?["allowedHosts"]?.ToJsonString() ?? "[]") ?? Array.Empty<string>()); }
         catch (Exception) { }
 
@@ -70,7 +75,14 @@ public class MainForm : Form
         core.AddHostObjectToScript("DucklingShell", bridge);
         await core.AddScriptToExecuteOnDocumentCreatedAsync(ShellBridge.Wrapper(WebOrigin));
 
-        core.NavigationStarting += (_, ev) => { if (!Hosts.IsAllowedUri(ev.Uri, AllowedHosts) && !ev.Uri.StartsWith(WebOrigin, StringComparison.OrdinalIgnoreCase)) ev.Cancel = true; };
+        core.NavigationStarting += (_, ev) =>
+        {
+            if (!Hosts.IsAllowedUri(ev.Uri, AllowedHosts) && !ev.Uri.StartsWith(WebOrigin, StringComparison.OrdinalIgnoreCase)) { ev.Cancel = true; return; }
+            // A standard browser while signing in, Duckling's own agent again on the way back to the site.
+            var agent = Uri.TryCreate(ev.Uri, UriKind.Absolute, out var u) && Hosts.IsAllowed(u.Host, SignInHosts) && !Hosts.IsOwn(u.Host) ? browserAgent : ducklingAgent;
+            // The agent applies to navigations started after it is set; this one is restarted with it.
+            if (core.Settings.UserAgent != agent) { core.Settings.UserAgent = agent; ev.Cancel = true; var uri = ev.Uri; BeginInvoke(() => core.Navigate(uri)); }
+        };
         core.FrameNavigationStarting += (_, ev) => { if (!Hosts.IsAllowedUri(ev.Uri, AllowedHosts) && !ev.Uri.StartsWith(WebOrigin, StringComparison.OrdinalIgnoreCase)) ev.Cancel = true; };
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, ev) =>

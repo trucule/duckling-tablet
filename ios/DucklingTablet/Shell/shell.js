@@ -74,6 +74,7 @@
     networkStatus: function () { return S.network || (navigator.onLine ? 'other' : 'none'); },
     setLockdown: function (on) { if (S.lockdown) S.lockdown.lockdownOn = !!on; post('setLockdown', [!!on]); },
     setAllowedHosts: function (csv) { post('setAllowedHosts', [String(csv || '')]); },
+    setSignInHosts: function (csv) { post('setSignInHosts', [String(csv || '')]); },
     setChildInfo: function (name, voice) { post('setChildInfo', [name, voice]); },
     setChildLevels: function (json) { post('setChildLevels', [json]); },
     setChildId: function (id) { post('setChildId', [id]); },

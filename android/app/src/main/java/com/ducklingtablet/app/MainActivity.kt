@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.Message
 import android.os.SystemClock
 import android.view.View
 import android.webkit.PermissionRequest
@@ -40,6 +41,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var homePill: View
     private lateinit var prefs: Prefs
     var allowedHosts: Set<String> = emptySet()
+    var signInHosts: Set<String> = emptySet()
+    private lateinit var ducklingAgent: String
+    private lateinit var browserAgent: String
     lateinit var billing: Billing
 
     // A push (or a new registration token) makes the web app check in now.
@@ -76,8 +80,14 @@ class MainActivity : AppCompatActivity() {
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = false
             allowContentAccess = false
-            setSupportMultipleWindows(false)
-            userAgentString = "$userAgentString DucklingTablet/${BuildConfig.VERSION_NAME}"
+            // A link or script that asks for a new window (a site's sign-in popup) opens in this view instead, when allowed.
+            setSupportMultipleWindows(true)
+            javaScriptCanOpenWindowsAutomatically = true
+            // Duckling's own agent everywhere, and Chrome's on the sign-in services: Google refuses to sign in inside
+            // what it takes for an embedded web view ("; wv" and "Version/4.0" in the agent, error disallowed_useragent).
+            ducklingAgent = "$userAgentString DucklingTablet/${BuildConfig.VERSION_NAME}"
+            browserAgent = userAgentString.replace("; wv", "").replace(Regex("""\s*Version/\d+\.\d+"""), "")
+            userAgentString = ducklingAgent
         }
         billing = Billing(this,
             { status, message -> runOnUiThread { web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onBilling && DucklingWeb.onBilling(${org.json.JSONObject.quote(status)}, ${org.json.JSONObject.quote(message)})", null) } },
@@ -88,7 +98,13 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val host = request.url.host?.lowercase() ?: return true
                 // Duckling's own hosts and the parent's allowed websites open here; everything else goes nowhere.
-                return !(host in OWN_HOSTS || isAllowed(host))
+                if (!(host in OWN_HOSTS || isAllowed(host))) return true
+                // A standard browser while signing in, Duckling's own agent again on the way back to the site.
+                if (request.isForMainFrame) {
+                    val agent = if (isSignIn(host)) browserAgent else ducklingAgent
+                    if (view.settings.userAgentString != agent) { view.settings.userAgentString = agent; view.loadUrl(request.url.toString()); return true }
+                }
+                return false
             }
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val host = request.url.host?.lowercase() ?: return blocked()
@@ -101,6 +117,21 @@ class MainActivity : AppCompatActivity() {
         }
         web.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) { request.deny() } // apps run in AppActivity
+            override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
+                // The new window's first request is loaded here (the same rules apply); the window itself is dropped.
+                val catcher = WebView(view.context)
+                catcher.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean {
+                        val host = request.url.host?.lowercase()
+                        if (host != null && (host in OWN_HOSTS || isAllowed(host))) web.loadUrl(request.url.toString())
+                        catcher.post { catcher.destroy() }
+                        return true
+                    }
+                }
+                (resultMsg.obj as WebView.WebViewTransport).webView = catcher
+                resultMsg.sendToTarget()
+                return true
+            }
         }
         if (savedInstanceState == null) web.loadUrl(WEB_APP) else web.restoreState(savedInstanceState)
 
@@ -124,6 +155,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isAllowed(host: String): Boolean = "*" in allowedHosts || allowedHosts.any { host == it || host.endsWith(".$it") }
+    private fun isSignIn(host: String): Boolean = signInHosts.any { host == it || host.endsWith(".$it") }
     private fun blocked() = WebResourceResponse("text/plain", "utf-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
     override fun onResume() {

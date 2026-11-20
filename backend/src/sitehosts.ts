@@ -13,6 +13,24 @@ export const SITE_MEDIA_HOSTS: Record<string, string[]> = {
   'pbskids.org': ['urs.pbs.org', 'urs-anonymous-detect.pbs.org', 'kids.pbs-video.pbs.org', 'proxy.drm.pbs.org'],
 };
 
+// Sign-in services a website may send the child's parent to ("Log in with Google" on a learning site): the account
+// pages and the files they load, nothing that browses. A tablet allows them only while it has an allowed website,
+// and the shells present a standard browser user agent on them, since Google refuses to sign in inside what it
+// takes for an embedded web view (error disallowed_useragent). Pages elsewhere on these services are not on this
+// list, so a sign-in host never becomes a way to the rest of the web.
+export const SIGN_IN_HOSTS: string[] = [
+  // Google: the account pages, their scripts and fonts, the token endpoint, and the YouTube account hop Google
+  // makes on the way back. Not play.google.com or www.google.com, which browse.
+  'accounts.google.com', 'accounts.youtube.com', 'apis.google.com', 'oauth2.googleapis.com', 'www.googleapis.com',
+  'ssl.gstatic.com', 'www.gstatic.com', 'fonts.gstatic.com', 'fonts.googleapis.com',
+  // Sign in with Apple.
+  'appleid.apple.com', 'appleid.cdn-apple.com', 'idmsa.apple.com', 'gsa.apple.com',
+  // Microsoft accounts, school and personal.
+  'login.microsoftonline.com', 'login.live.com', 'login.microsoft.com', 'aadcdn.msftauth.net', 'aadcdn.msauth.net', 'logincdn.msauth.net', 'account.live.com',
+  // School single sign-on portals.
+  'clever.com', 'launchpad.classlink.com', 'login.classlink.com', 'myapps.classlink.com', 'cdn.classlink.com',
+];
+
 const bare = (h: string) => h.trim().toLowerCase().replace(/^\*\./, '').replace(/^www\./, '');
 
 /** The media hosts for a list of allowed website hosts: a host gets a site's list when it is that site or under it. */

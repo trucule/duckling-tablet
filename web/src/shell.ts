@@ -60,6 +60,9 @@ export interface Shell {
   takeLocalBackground(): string;
   setLockdown(on: boolean): void;
   setAllowedHosts(hosts: string[]): void;
+  // Hosts a website opened from a tile may sign in through: the shell presents a standard browser user agent there
+  // and its own everywhere else, since Google refuses sign-in inside what it takes for an embedded web view.
+  setSignInHosts(hosts: string[]): void;
   setChildInfo(name: string, voice: string): void;
   setChildLevels(levels: Record<string, number>): void;
   setChildId(id: string): void;
@@ -118,6 +121,7 @@ interface NativeShell {
   takeLocalBackground?(): string;
   setLockdown(on: boolean): void;
   setAllowedHosts(csv: string): void;
+  setSignInHosts?(csv: string): void;
   setChildInfo(name: string, voice: string): void;
   setChildLevels?(json: string): void;
   setChildId?(id: string): void;
@@ -226,6 +230,7 @@ function native(n: NativeShell): Shell {
     networkStatus: () => { try { return (n.networkStatus?.() as ReturnType<Shell['networkStatus']>) || (navigator.onLine ? 'other' : 'none'); } catch { return navigator.onLine ? 'other' : 'none'; } },
     setLockdown: (on) => n.setLockdown(on),
     setAllowedHosts: (hosts) => n.setAllowedHosts(hosts.join(',')),
+    setSignInHosts: (hosts) => { try { n.setSignInHosts?.(hosts.join(',')); } catch { /* older shell */ } },
     setChildInfo: (name, voice) => n.setChildInfo(name, voice),
     setChildLevels: (l) => { try { n.setChildLevels?.(JSON.stringify(l)); } catch { /* older shell */ } },
     setChildId: (id) => { try { n.setChildId?.(id); } catch { /* older shell */ } },
@@ -276,6 +281,7 @@ function browser(): Shell {
     networkStatus: () => (navigator.onLine ? 'other' : 'none'),
     setLockdown() {},
     setAllowedHosts() {},
+    setSignInHosts() {},
     setChildInfo() {},
     setChildLevels() {},
     setChildId() {},

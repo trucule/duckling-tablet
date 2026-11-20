@@ -70,7 +70,7 @@ const FAKE_SHELL = `(() => {
     networkStatus: () => 'wifi',
     mediaAccess: () => JSON.stringify({ microphone: st.mic, camera: 'on' }),
     setLockdown: rec('setLockdown', (on) => { st.lockdownOn = on; cb('lockdown', true, on ? 'on' : 'off'); }),
-    setAllowedHosts: rec('setAllowedHosts'), setChildInfo: rec('setChildInfo'), setChildLevels: () => {}, setChildId: () => {},
+    setAllowedHosts: rec('setAllowedHosts'), setSignInHosts: rec('setSignInHosts'), setChildInfo: rec('setChildInfo'), setChildLevels: () => {}, setChildId: () => {},
     release: rec('release'),
     installedPackages: () => JSON.stringify(window.__platform === 'ios' ? st.picks : [{ package: 'win.app.h0123456789abcdef', label: 'Tux Paint' }]),
     chooseOtherApps: rec('chooseOtherApps', () => later(() => { st.picks.push({ package: 'ios.app.h' + String(st.picks.length).padStart(16, '0'), label: 'App chosen on the iPad', allowed: true, dailyMinutes: 30 }); window.DucklingWeb.onOtherApps(); })),
@@ -210,8 +210,14 @@ describe.skipIf(!ready)('web app on Windows', () => {
     // A parent allows PBS KIDS: the shell is told the site and the hosts its videos come from, and no tile shows for those.
     await post(`/devices/${id}/settings`, { allowlist: [{ host: 'pbskids.org', tile: { name: 'PBS KIDS', url: 'https://pbskids.org/' } }] }, auth, 'PUT');
     await p.getByRole('button', { name: 'Sync with the website' }).click();
-    await expect.poll(async () => String((await calls()).filter((c) => c[0] === 'setAllowedHosts').map((c) => c[1]).at(-1)).split(',').sort())
+    // With a website allowed, the sign-in services come too (Log in with Google on a site), and the shell is told which
+    // hosts those are so it shows them a browser's user agent.
+    await expect.poll(async () => String((await calls()).filter((c) => c[0] === 'setAllowedHosts').map((c) => c[1]).at(-1)).split(',').filter((h) => !/google|youtube|gstatic|apple|microsoft|live\.com|msauth|msftauth|clever|classlink/.test(h)).sort())
       .toEqual(['kids.pbs-video.pbs.org', 'pbskids.org', 'proxy.drm.pbs.org', 'urs-anonymous-detect.pbs.org', 'urs.pbs.org']);
+    const allowedNow = String((await calls()).filter((c) => c[0] === 'setAllowedHosts').map((c) => c[1]).at(-1)).split(',');
+    const signIn = String((await calls()).filter((c) => c[0] === 'setSignInHosts').map((c) => c[1]).at(-1)).split(',');
+    expect(signIn).toContain('accounts.google.com');
+    for (const h of signIn) expect(allowedNow).toContain(h);
     await p.getByRole('button', { name: 'Done' }).click();
     expect((await calls()).map((c) => c[0])).toContain('endParent');
     await p.getByRole('button', { name: 'Tux Paint' }).click();

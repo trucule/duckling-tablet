@@ -17,7 +17,7 @@ public class ShellBridge(MainForm main)
     public static readonly string[] Methods = {
         "platform", "shellVersion", "getDeviceToken", "setDeviceToken", "pushToken", "installedApps", "installApp", "uninstallApp", "openApp",
         "hasPin", "setPin", "verifyPin", "setPinHash", "lockdownStatus", "requestHomeRole", "openSecuritySettings", "openWifiSettings", "networkStatus",
-        "setLockdown", "setAllowedHosts", "setChildInfo", "setChildLevels", "setChildId", "release", "installedPackages", "launchPackage",
+        "setLockdown", "setAllowedHosts", "setSignInHosts", "setChildInfo", "setChildLevels", "setChildId", "release", "installedPackages", "launchPackage",
         "canDrawOverlays", "openOverlaySettings", "setAppAccountToken", "takeLocalBackground",
         // Windows only
         "setChildAccount", "restartDevice", "restartSession", "wifiNetworks", "connectWifi", "openParentPage", "setOtherApps", "endParent", "exitShell", "isChildSession",
@@ -161,6 +161,8 @@ public class ShellBridge(MainForm main)
         main.AllowedHosts = hosts;
         Task.Run(() => { try { Call("setAllowedHosts", new { hosts }); } catch (Exception) { } });
     }
+    /// <summary>Sign-in services a website may send a parent to; the shell presents its plain Edge user agent there.</summary>
+    public void setSignInHosts(string csv) { Guard(); main.SignInHosts = Hosts.Normalize(csv.Split(',')); }
     public void setChildInfo(string name, string voice) { Guard(); Task.Run(() => { try { Call("setChild", new { name, voice }); } catch (Exception) { } }); }
     public void setChildLevels(string json) { Guard(); Task.Run(() => { try { Call("setChild", new { levels = json }); } catch (Exception) { } }); }
     public void setChildId(string id) { Guard(); Task.Run(() => { try { Call("setChild", new { id }); } catch (Exception) { } }); }
