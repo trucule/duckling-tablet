@@ -137,7 +137,17 @@ What a reply is:
 - Never a second reply in the same thread, never a reply to a reply, and never two threads in one community on
   one day. The queue is checked for the thread's URL before a card is written.
 
-The card: `channel` (reddit, forum), `community` (r/Parenting), `target_title`, `target_url`, `thread_excerpt`
+Spanish threads get Spanish replies. The finder also searches Spanish terms (tableta para niños, control parental,
+tiempo de pantalla, apps educativas, bloquear la tablet) across Reddit and the forums it can open, and answers in
+the thread's language. A Spanish reply is neutral Latin American Spanish with tú to the parent, checked with
+`node tools/blog.mjs reply <file> --es`, and its disclosure is "Soy el creador de Duckling Tablet". What it may say
+about Spanish comes from the repo: the tablet's screens, the parent area, the parent portal, and the emails are in
+Spanish (`web/src/i18n/es.ts`, `portal/src/i18n/es.ts`, `backend/src/emails.ts`), Story Maker writes and narrates
+its stories in Spanish (`apps/story-maker`), and the other learning apps and the website are in English until their
+own translations land. A reply never says the apps or the site are in Spanish while that is so. A community found
+through a Spanish search is added to the queue's community list with its rules read before any draft.
+
+The card: `channel` (reddit, forum), `language` (en, es), `community` (r/Parenting), `target_title`, `target_url`, `thread_excerpt`
 (the question in the poster's words, under 300 characters), `why` (one sentence on the fit, and the community's
 rule on self-promotion as read in the run), `draft`, `disclosure: true`, `voice: "Chris (maker, disclosed)"`,
 `status: "draft"`, `created_at`, `run`. Chris sets `posted` (with `posted_url`), `blocked` (locked, removed, or

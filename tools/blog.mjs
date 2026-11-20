@@ -7,8 +7,9 @@
 //   node tools/blog.mjs new <slug> "<title>"   makes site/blog/posts/<slug>.md from the template
 //   node tools/blog.mjs build                  renders every post, the index, the feed and the sitemap
 //   node tools/blog.mjs check                  the build's checks without writing (exit 1 on a problem)
-//   node tools/blog.mjs reply <file>           checks a forum reply in a plain text file against the same prose rules,
-//                                              plus a disclosure line, one link at most, and 250 words at most
+//   node tools/blog.mjs reply <file> [--es]    checks a forum reply in a plain text file against the same prose rules,
+//                                              plus a disclosure line, one link at most, and 250 words at most;
+//                                              --es checks a Spanish reply with the Spanish word lists
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -132,30 +133,41 @@ const WORDS = [
 ];
 // The prose checks shared by posts and forum replies: text is everything a reader sees, prose is the body with code
 // and link targets removed.
-function lintProse(text, prose, problems) {
+// The Spanish lists for a reply in Spanish (neutral Latin American Spanish, tú to the parent).
+const WORDS_ES = [
+  [/\b(a diferencia de|comparad[oa] con|en comparación con|competidor(es)?|frente a otras|versus|vs\.?)\b/i, 'comparison framing'],
+  [/\b(el mejor|la mejor|los mejores|revolucionari[oa]s?|sin esfuerzo|increíble|impresionante|potente|robust[oa]|mágic[oa]s?|perfect[oa]|imprescindible|de última generación|líder)\b/i, 'promotional wording'],
+  [/\b(al fin y al cabo|en pocas palabras|pan comido|no hay vuelta de hoja|imagina|imagínate|piensa en|como si fuera)\b/i, 'an idiom, analogy, or personification'],
+  [/\b(en este artículo|en esta publicación|en esta entrada|veamos|hoy vamos)\b/i, 'a setup line instead of the subject'],
+  [/\b(simplemente|sencillamente|básicamente|obviamente|fácilmente)\b/i, 'a filler adverb'],
+  [/\b(ya tienes|ya tiene|ya tienen|como ya sabes|como sabes|ni que decir tiene|por supuesto|no hace falta|sin necesidad de|no tienes que|no necesitas)\b/i, 'a statement of the obvious'],
+];
+
+function lintProse(text, prose, problems, lang = 'en') {
   if (/\[[^\]]+\](?!\()/.test(text.replace(/!\[[^\]]*\]/g, ''))) problems.push('a [placeholder]');
   if (/\u2014/.test(text)) problems.push('an em dash');
   if (/\u2013/.test(text)) problems.push('an en dash');
   if (/ - /.test(prose)) problems.push('a spaced hyphen used as an aside');
   if (/;/.test(prose)) problems.push('a semicolon');
   if (/[\u2600-\u27bf\u{1f300}-\u{1faff}\u2190-\u21ff\u2022]/u.test(text)) problems.push('an emoji or decorative symbol');
-  for (const [re, what] of WORDS) { const m = prose.match(re); if (m) problems.push(`${what} ("${m[0]}")`); }
+  for (const [re, what] of (lang === 'es' ? WORDS_ES : WORDS)) { const m = prose.match(re); if (m) problems.push(`${what} ("${m[0]}")`); }
   // A colon inside a sentence that goes on introduces a list or an explanation (brief rule 2). A colon that ends
   // the line, before steps or a code block, is allowed.
   for (const m of prose.matchAll(/[A-Za-z][^\n:]*: +[a-z][^\n]*/g)) { problems.push(`a colon inside a sentence ("${m[0].slice(0, 60)}")`); break; }
-  // Oxford comma: "a, b and c" without the comma before and (rule 51).
-  const ox = prose.match(/\b\w+, \w+(?: \w+)? (?:and|or) \w+/);
+  // Oxford comma: "a, b and c" without the comma before and (rule 51). Spanish lists take no comma before y or o.
+  const ox = lang === 'en' && prose.match(/\b\w+, \w+(?: \w+)? (?:and|or) \w+/);
   if (ox && !/, (?:and|or) /.test(ox[0])) problems.push(`a list without the Oxford comma ("${ox[0]}")`);
   for (const m of prose.matchAll(/[^.!?\n]{220,}[.!?]/g)) { problems.push(`a sentence over 220 characters ("${m[0].slice(0, 50)}...")`); break; }
 }
 
 // A forum reply Chris posts under his own name (docs/blog.md, "Forum replies"): the prose rules, a disclosure line
 // that says he makes Duckling, at most one link, at most 250 words, and the product named no more than twice.
-function lintReply(text) {
+function lintReply(text, lang = 'en') {
   const problems = [];
   const prose = text.replace(/https?:\/\/\S+/g, '').replace(/\]\([^)]*\)/g, ']');
-  lintProse(text, prose, problems);
-  if (!/\b(I (make|made|build|built|run|wrote)|disclosure)\b/i.test(text)) problems.push('no disclosure line (say that you make Duckling Tablet)');
+  lintProse(text, prose, problems, lang);
+  const disclosed = lang === 'es' ? /\b(soy (el|la) creador[a]? de Duckling|yo (hago|hice|creé|desarrollo) Duckling|Duckling Tablet es (mi|nuestra) app|aclaración)\b/i : /\b(I (make|made|build|built|run|wrote)|disclosure)\b/i;
+  if (!disclosed.test(text)) problems.push(lang === 'es' ? 'no disclosure line (say that you are the maker of Duckling Tablet, for example "Soy el creador de Duckling Tablet")' : 'no disclosure line (say that you make Duckling Tablet)');
   const links = (text.match(/https?:\/\/\S+/g) || []);
   if (links.length > 1) problems.push(`${links.length} links (at most one)`);
   if (links.some((l) => !/^https:\/\/(www\.)?(ducklingtablet\.com|parents\.ducklingtablet\.com)/.test(l))) problems.push('a link to a site other than ducklingtablet.com');
@@ -265,11 +277,11 @@ Body text. Plain declarative sentences, no em dashes, no promotional wording, an
 } else if (cmd === 'check') {
   process.exit(build(false) ? 0 : 1);
 } else if (cmd === 'reply') {
-  const [file] = args;
-  if (!file) { console.error('usage: node tools/blog.mjs reply <file>'); process.exit(2); }
-  const problems = lintReply(fs.readFileSync(file, 'utf8'));
+  const file = args.find((a) => !a.startsWith('--'));
+  if (!file) { console.error('usage: node tools/blog.mjs reply <file> [--es]'); process.exit(2); }
+  const problems = lintReply(fs.readFileSync(file, 'utf8'), args.includes('--es') ? 'es' : 'en');
   if (problems.length) { console.log(problems.join('; ')); process.exit(1); }
   console.log('ok');
 } else {
-  console.error('usage: node tools/blog.mjs new <slug> "<title>" | build | check | reply <file>'); process.exit(2);
+  console.error('usage: node tools/blog.mjs new <slug> "<title>" | build | check | reply <file> [--es]'); process.exit(2);
 }
