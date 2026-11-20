@@ -1,7 +1,7 @@
 {
   "id": "playground-lab",
   "name": "Playground Lab",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A 3D physics playground with a slingshot, catapult, seesaw, trampoline, dominoes, moon gravity and slow motion.",
   "subjects": [
     "science"
@@ -21,5 +21,21 @@
       "Aiming and judging distance",
       "Learning from a failed attempt"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Laboratorio del parque",
+      "description": "Un parque de física en 3D con una resortera, una catapulta, un balancín, un trampolín, fichas de dominó, gravedad lunar y cámara lenta.",
+      "about": {
+        "concept": "Física intuitiva por experimento. Una resortera, una catapulta, un balancín, un trampolín y fichas de dominó dejan que el niño cambie la fuerza, el ángulo, la masa y la gravedad y vea el resultado, en cámara lenta cuando ayuda.",
+        "progression": "Primero el juego libre: un parque de física con una resortera, una catapulta, un balancín, un trampolín, fichas de dominó, gravedad lunar y cámara lenta. Luego la escalera de Retos pone metas en ese mismo parque, desde empujar una pelota hasta un tapete y tumbar pinos en preescolar, pasando por rebotes, cadenas de dominó, velocidad de lanzamiento y equilibrar una viga, hasta predecir velocidades, cantidad de movimiento y dónde cae una pelota lanzada con las leyes de Newton en octavo grado.",
+        "lifeSkills": [
+          "Causa y efecto",
+          "Cambiar una cosa a la vez",
+          "Apuntar y calcular distancias",
+          "Aprender de un intento fallido"
+        ]
+      }
+    }
   }
 }

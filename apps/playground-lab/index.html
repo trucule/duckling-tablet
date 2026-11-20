@@ -13186,6 +13186,223 @@ exports.WheelInfo = WheelInfo;
 exports.World = World;
  return module.exports; })();</script>
 <script>
+// ---------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every label, prompt, hint, feedback line and
+// spoken line is Spanish. The physics, the Challenges ladder, ids and the English text do not change. The dictionary
+// is keyed by the English text with {name} placeholders; T() looks a line up and fills the placeholders.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  // App name, toolbox and experiment buttons
+  'Playground Lab': 'Laboratorio del parque', 'Toolbox': 'Caja de herramientas', 'Experiments': 'Experimentos',
+  'Beach ball': 'Pelota de playa', 'Bowling ball': 'Bola de boliche', 'Bouncy ball': 'Pelota saltarina', 'Crate': 'Caja', 'More pins': 'Más pinos',
+  'Balloon': 'Globo', 'Feather': 'Pluma', 'Clear': 'Despejar', 'Moon gravity': 'Gravedad lunar', 'Slow motion': 'Cámara lenta', 'Wind': 'Viento',
+  'Look from the other side': 'Mirar desde el otro lado', 'Sound': 'Sonido', 'Set it all up again': 'Acomodar todo otra vez',
+  'Fire the catapult! 🚀': '¡Lanza la catapulta! 🚀', 'Set it up again 🔁': 'Acomódala otra vez 🔁', 'Launch! 🚀': '¡Lanzar! 🚀', 'Go! 🚀': '¡Vamos! 🚀',
+  // Free play toasts
+  'All clear!': '¡Todo despejado!', 'Balloons float up!': '¡Los globos flotan hacia arriba!', 'Feathers fall slowly.': 'Las plumas caen despacio.',
+  'Moon gravity: everything floats!': '¡Gravedad lunar: todo flota!', 'Earth gravity': 'Gravedad de la Tierra', 'Normal speed': 'Velocidad normal',
+  'Whoosh!': '¡Fuuu!', 'All set up again!': '¡Todo acomodado otra vez!',
+  // Challenges card and panels
+  'Challenges': 'Retos', '🏆 Challenges': '🏆 Retos', 'Level': 'Nivel', '💡 Hint': '💡 Pista', '⏭ Skip': '⏭ Saltar', 'Next ▶': 'Siguiente ▶', '🎈 Free play': '🎈 Juego libre',
+  'Your guess': 'Tu respuesta', 'Ball': 'Pelota', 'Angle': 'Ángulo', 'Speed': 'Velocidad', 'Pick an angle': 'Elige un ángulo',
+  'Level: {name}': 'Nivel: {name}', 'New level: {name}': 'Nuevo nivel: {name}', 'New level! {name}.': '¡Nuevo nivel! {name}.', 'Let us try an easier one.': 'Probemos uno más fácil.',
+  'Type your answer on the number pad first.': 'Primero escribe tu respuesta en el teclado numérico.', 'Type your answer first.': 'Primero escribe tu respuesta.',
+  'Pick an angle first.': 'Primero elige un ángulo.', 'Pick a speed between 1 and 30 m/s.': 'Elige una velocidad entre 1 y 30 m/s.',
+  'Put things on the beam.': 'Pon cosas sobre la viga.', 'That one stays.': 'Esa se queda.', 'Use the launcher for this one.': 'Para este usa el lanzador.',
+  'The left side is set. Use the right side.': 'El lado izquierdo ya está listo. Usa el lado derecho.', 'That peg is full.': 'Esa marca está llena.',
+  // Level names
+  'Push and pull': 'Empuja y jala', 'Knock it down': 'Derríbalo', 'Roll and slide': 'Rueda y resbala', 'Bounce up high': 'Rebota alto',
+  'Big push, small push': 'Empujón grande o pequeño', 'Float and fall': 'Flota y cae', 'Domino chain': 'Cadena de dominó', 'More push, more go': 'Más empuje, más lejos',
+  'Balance the beam': 'Equilibra la viga', 'Crash energy': 'Energía del choque', 'Aim and launch': 'Apunta y lanza', 'Lever balance': 'Equilibrio de palanca',
+  'Force and mass': 'Fuerza y masa', 'Sticky crash': 'Choque pegajoso', 'Off the table': 'Fuera de la mesa', 'Launch angle': 'Ángulo de lanzamiento',
+  // Things and colors. Every thing named by {n} is feminine in Spanish (la pelota, la bola, la caja), so the prompts say "la {n}" and "-la".
+  'beach ball': 'pelota de playa', 'bowling ball': 'bola de boliche', 'bouncy ball': 'pelota saltarina', 'crate': 'caja', 'balloon': 'globo', 'feather': 'pluma',
+  'red': 'rojo', 'blue': 'azul', 'yellow': 'amarillo', 'green': 'verde', 'purple': 'morado', 'orange': 'naranja', 'pink': 'rosa',
+  // Push and pull
+  'Push the {n} onto the {cn} mat.': 'Empuja la {n} hasta el tapete {cn}.', 'Pull the {n} over to the {cn} mat.': 'Jala la {n} hasta el tapete {cn}.',
+  'Can you move the {n} onto the {cn} mat?': '¿Puedes mover la {n} al tapete {cn}?', 'Slide the {n} to the {cn} mat.': 'Desliza la {n} hasta el tapete {cn}.',
+  'The {n} wants to sit on the {cn} mat. Push it there.': 'La {n} quiere estar en el tapete {cn}. Empújala hasta allí.',
+  'Touch the {n} and drag it with your finger.': 'Toca la {n} y arrástrala con el dedo.',
+  'You pushed it there!': '¡La empujaste hasta allí!', 'Right on the mat!': '¡Justo en el tapete!', 'Push and pull. You did it!': 'Empuja y jala. ¡Lo lograste!',
+  // Knock it down
+  'Knock down the tower of crates.': 'Derriba la torre de cajas.', 'Make the crate tower fall over.': 'Haz que la torre de cajas se caiga.',
+  'Push the {k} crates over. Crash!': 'Tumba las {k} cajas. ¡Pum!', 'Can you knock the tower down?': '¿Puedes derribar la torre?',
+  'Push it with your finger, or roll a ball into it.': 'Empújala con el dedo o haz rodar una pelota contra ella.',
+  'Crash! Down it goes.': '¡Pum! Ahí se cae.', 'You knocked it over!': '¡La derribaste!',
+  'Knock down {want} pins.': 'Derriba {want} pinos.', 'Can you knock over {want} pins?': '¿Puedes tumbar {want} pinos?', 'Make {want} pins fall down.': 'Haz caer {want} pinos.',
+  'Roll a ball into the pins, or push them with your finger.': 'Haz rodar una pelota hacia los pinos o empújalos con el dedo.',
+  'Strike!': '¡Qué tiro!', 'The pins fell down!': '¡Los pinos se cayeron!',
+  // Roll and slide
+  'Put the {b} at the top of the slide. Let go and watch it roll down.': 'Pon la {b} arriba del tobogán. Suéltala y mira cómo baja rodando.',
+  'Balls roll. Roll the {b} down the slide.': 'Las pelotas ruedan. Haz rodar la {b} por el tobogán.',
+  'Lift the {b} up the slide and let it roll down.': 'Sube la {b} al tobogán y déjala bajar rodando.',
+  'Can the {b} roll all the way down the slide?': '¿Puede la {b} rodar por todo el tobogán hasta abajo?',
+  'Boxes slide. Slide the crate down the slide.': 'Las cajas se deslizan. Desliza la caja por el tobogán.',
+  'Put the crate on the slide and let it slide down.': 'Pon la caja en el tobogán y déjala deslizarse hacia abajo.',
+  'Can the crate slide down the slide?': '¿Puede la caja deslizarse por el tobogán?',
+  'Roll the {b} and slide the crate down the slide.': 'Haz rodar la {b} y desliza la caja por el tobogán.',
+  'Lift it up high onto the blue slide, then let go.': 'Levántala alto hasta el tobogán azul y luego suéltala.',
+  'Whee! Down the slide.': '¡Yupi! Por el tobogán.', 'Balls roll and boxes slide!': '¡Las pelotas ruedan y las cajas se deslizan!',
+  // Bounce up high
+  'Drop the {n} on the trampoline. Make it bounce up to the star.': 'Deja caer la {n} sobre el trampolín. Haz que rebote hasta la estrella.',
+  'Bounce the {n} as high as the star.': 'Haz rebotar la {n} tan alto como la estrella.',
+  'Let go of the {n} over the trampoline. Can it reach the star?': 'Suelta la {n} sobre el trampolín. ¿Puede llegar a la estrella?',
+  'Lift it up high over the pink trampoline, then let go.': 'Levántala alto sobre el trampolín rosa y luego suéltala.',
+  'Boing! Up to the star!': '¡Boing! ¡Hasta la estrella!', 'What a bounce!': '¡Qué rebote!',
+  // Big push, small push
+  'Give the {n} a big push. Let go before the white line. Make it zoom past the flag.': 'Dale un empujón grande a la {n}. Suéltala antes de la línea blanca. Haz que pase a toda velocidad por la bandera.',
+  'Push hard! Roll the {n} past the flag, fast.': '¡Empuja fuerte! Haz rodar la {n} más allá de la bandera, rápido.',
+  'A big push makes it go fast. Zoom the ball past the flag.': 'Un empujón grande la hace ir rápido. Haz pasar la pelota a toda velocidad por la bandera.',
+  'Give the {n} a small push. Let go before the white line. Make it roll slowly past the flag.': 'Dale un empujón pequeño a la {n}. Suéltala antes de la línea blanca. Haz que pase despacio por la bandera.',
+  'Gently! Roll the {n} past the flag nice and slow.': '¡Con suavidad! Haz rodar la {n} más allá de la bandera, bien despacio.',
+  'A small push makes it go slow. Roll the ball slowly past the flag.': 'Un empujón pequeño la hace ir despacio. Haz rodar la pelota despacio más allá de la bandera.',
+  'Drag it fast toward the flag and let go before the white line.': 'Arrástrala rápido hacia la bandera y suéltala antes de la línea blanca.',
+  'Move your finger slowly toward the flag and let go before the white line.': 'Mueve el dedo despacio hacia la bandera y suéltala antes de la línea blanca.',
+  'A big push, a fast roll!': '¡Empujón grande, rodada rápida!', 'Zoom! A big push makes it fast.': '¡Zum! Un empujón grande la hace rápida.',
+  'A small push, a slow roll!': '¡Empujón pequeño, rodada lenta!', 'Nice and gentle. A small push makes it slow.': 'Con suavidad. Un empujón pequeño la hace lenta.',
+  'That was a gentle roll. Push harder!': 'Eso fue una rodada suave. ¡Empuja más fuerte!', 'That was fast! Try a smaller push.': '¡Eso fue rápido! Prueba un empujón más pequeño.',
+  // Float and fall
+  'Balloons float up. Let the balloon float up to the star.': 'Los globos flotan hacia arriba. Deja que el globo flote hasta la estrella.',
+  'Let go of the balloon under the star. Up it goes!': 'Suelta el globo debajo de la estrella. ¡Ahí sube!',
+  'Help the balloon float up and touch the star.': 'Ayuda al globo a flotar y tocar la estrella.',
+  'Drag the balloon right under the star, then let go.': 'Arrastra el globo justo debajo de la estrella y luego suéltalo.',
+  'Up, up, up to the star!': '¡Arriba, arriba, hasta la estrella!',
+  'Feathers fall slowly. Drop the feather onto the {cn} mat.': 'Las plumas caen despacio. Deja caer la pluma sobre el tapete {cn}.',
+  'Hold the feather up high, then drop it on the {cn} mat.': 'Sostén la pluma bien alto y luego déjala caer sobre el tapete {cn}.',
+  'Lift the feather up above the mat and let go. Watch it float down.': 'Levanta la pluma sobre el tapete y suéltala. Mira cómo baja flotando.',
+  'Down it floats, slowly.': 'Baja flotando, despacio.', 'Soft landing!': '¡Aterrizaje suave!',
+  'Things fall down. Lift the {n} up high and drop it in the ring.': 'Las cosas caen. Levanta la {n} bien alto y déjala caer en el aro.',
+  'Drop the {n} into the ring. Down it falls!': 'Deja caer la {n} dentro del aro. ¡Ahí cae!',
+  'Lift it up high right above the ring, then let go.': 'Levántala alto, justo encima del aro, y luego suéltala.',
+  'Down it fell, right in the ring!': '¡Cayó justo dentro del aro!', 'Gravity pulls it down!': '¡La gravedad la jala hacia abajo!',
+  'Close! Lift it right above the ring and try again.': '¡Casi! Levántala justo encima del aro e intenta otra vez.',
+  // Domino chain
+  'Roll a ball into the first domino. Can you knock down all {n}?': 'Haz rodar una pelota hasta la primera ficha de dominó. ¿Puedes tumbar las {n}?',
+  'Push the first domino. Make the whole row fall.': 'Empuja la primera ficha de dominó. Haz caer toda la fila.',
+  'Knock down all {n} dominoes.': 'Derriba las {n} fichas de dominó.',
+  'Start a chain! Tip one domino and watch them all fall.': '¡Empieza una cadena! Inclina una ficha y mira cómo caen todas.',
+  'Tip the end domino. Can all {n} fall down?': 'Inclina la ficha del extremo. ¿Pueden caer las {n}?',
+  'Push the end domino toward the others. If the chain stops, push the next one.': 'Empuja la ficha del extremo hacia las demás. Si la cadena se detiene, empuja la siguiente.',
+  'A chain reaction! One push did it all.': '¡Una reacción en cadena! Un solo empujón lo hizo todo.', 'They all fell down!': '¡Se cayeron todas!',
+  // More push, more go
+  'Land the ball on the {cn} mat. Change the speed, then launch.': 'Haz que la pelota caiga en el tapete {cn}. Cambia la velocidad y luego lanza.',
+  'More speed sends the ball farther. Hit the {cn} mat.': 'Más velocidad manda la pelota más lejos. Dale al tapete {cn}.',
+  'The angle stays the same. Pick a speed that lands on the {cn} mat.': 'El ángulo no cambia. Elige una velocidad que caiga en el tapete {cn}.',
+  'Faster launches go farther. Slower launches land closer.': 'Los lanzamientos más rápidos llegan más lejos. Los más lentos caen más cerca.',
+  'Right on the mat! More push, more distance.': '¡Justo en el tapete! Más empuje, más distancia.', 'Bullseye! You found the right speed.': '¡En el blanco! Encontraste la velocidad correcta.',
+  // Aim and launch
+  'Aim the launcher. Change the angle and the speed to land on the {cn} mat.': 'Apunta el lanzador. Cambia el ángulo y la velocidad para caer en el tapete {cn}.',
+  'Land the ball on the {cn} mat. Try a new angle or speed each time.': 'Haz que la pelota caiga en el tapete {cn}. Prueba otro ángulo u otra velocidad cada vez.',
+  'Change one thing at a time. A higher angle flies higher, more speed flies farther.': 'Cambia una cosa a la vez. Un ángulo mayor vuela más alto, más velocidad vuela más lejos.',
+  'Great aim!': '¡Qué buena puntería!', 'Angle and speed just right!': '¡Ángulo y velocidad perfectos!',
+  'Get the ball over the wall and onto the {cn} mat.': 'Pasa la pelota por encima del muro y hasta el tapete {cn}.',
+  'A wall is in the way. Launch the ball over it and land on the {cn} mat.': 'Hay un muro en el camino. Lanza la pelota por encima y cae en el tapete {cn}.',
+  'A higher angle sends the ball up over the wall. Then change the speed.': 'Un ángulo mayor manda la pelota por encima del muro. Luego cambia la velocidad.',
+  // Crash energy
+  'Knock the top crate off the tower. Pick a ball, an angle and a speed.': 'Tumba la caja de arriba de la torre. Elige una pelota, un ángulo y una velocidad.',
+  'Hit the top crate hard enough to knock it off.': 'Golpea la caja de arriba con fuerza suficiente para tumbarla.',
+  'Knock the whole tower down. Heavy, fast balls carry more energy.': 'Derriba toda la torre. Las pelotas pesadas y rápidas llevan más energía.',
+  'Crash into the tower and knock all the crates off.': 'Choca contra la torre y tumba todas las cajas.',
+  'A heavy ball moving fast carries the most energy. Try the bowling ball.': 'Una pelota pesada y rápida lleva la mayor energía. Prueba la bola de boliche.',
+  'Crash! That ball had lots of energy.': '¡Pum! Esa pelota tenía mucha energía.', 'Energy moved from the ball to the crates!': '¡La energía pasó de la pelota a las cajas!',
+  'The ball did not reach the tower. Aim higher or faster.': 'La pelota no llegó a la torre. Apunta más alto o más rápido.',
+  'Not enough energy. Try a heavier ball or more speed.': 'No hubo suficiente energía. Prueba una pelota más pesada o más velocidad.',
+  // Moon gravity
+  'The {cn} mat is too far for Earth gravity. Turn on Moon gravity, then land the ball on the mat.': 'El tapete {cn} está muy lejos para la gravedad de la Tierra. Activa la gravedad lunar y luego haz caer la pelota en el tapete.',
+  'Gravity on the Moon pulls less. Use Moon gravity to reach the {cn} mat.': 'En la Luna la gravedad jala menos. Usa la gravedad lunar para llegar al tapete {cn}.',
+  'This launcher only goes up to {cap} m/s. Try it on the Moon and land on the {cn} mat.': 'Este lanzador solo llega a {cap} m/s. Pruébalo en la Luna y cae en el tapete {cn}.',
+  'Tap the 🌙 button. Weaker gravity lets the ball fly much farther.': 'Toca el botón 🌙. Con menos gravedad la pelota vuela mucho más lejos.',
+  'Moon gravity pulls less, so the ball flew farther!': '¡La gravedad lunar jala menos, así que la pelota voló más lejos!', 'A Moon landing!': '¡Un aterrizaje lunar!',
+  // Balance the beam and lever balance
+  'The beam tips to one side. Add weight to the other side to make it level.': 'La viga se inclina hacia un lado. Pon peso del otro lado para nivelarla.',
+  'Make the beam balance. Use things from the pile.': 'Haz que la viga se equilibre. Usa cosas del montón.',
+  'Balance the beam. Put the same weight at the same spot on the other side.': 'Equilibra la viga. Pon el mismo peso en el mismo lugar del otro lado.',
+  'Same weight, same distance from the middle. Count the pegs.': 'Mismo peso, misma distancia desde el centro. Cuenta las marcas.',
+  'Balanced! The forces are equal.': '¡Equilibrada! Las fuerzas son iguales.', 'Level! Both sides pull the same.': '¡Nivelada! Los dos lados jalan igual.',
+  'a 3 kg crate at peg {p}': 'una caja de 3 kg en la marca {p}', '3 kg crates at pegs {list}': 'cajas de 3 kg en las marcas {list}',
+  'the 7 kg bowling ball at peg {p}': 'la bola de boliche de 7 kg en la marca {p}', ' and ': ' y ',
+  'Left side: {loads}.': 'Lado izquierdo: {loads}.', 'Balance it using only crates.': 'Equilíbrala usando solo cajas.',
+  'Balance it, and use the bowling ball on the right.': 'Equilíbrala y usa la bola de boliche a la derecha.',
+  'Balanced! Weight times distance is the same on both sides.': '¡Equilibrada! Peso por distancia es igual en los dos lados.', 'Level! The turning forces match.': '¡Nivelada! Las fuerzas de giro coinciden.',
+  'Weight times distance must match. Left side: {sum} = {T}.': 'Peso por distancia debe coincidir. Lado izquierdo: {sum} = {T}.',
+  'Level, but use only crates on the right.': 'Nivelada, pero usa solo cajas a la derecha.', 'Level, but use the bowling ball on the right.': 'Nivelada, pero usa la bola de boliche a la derecha.',
+  // Force and mass
+  '{secs} seconds': '{secs} segundos', '1 second': '1 segundo', 'Speed (m/s)': 'Velocidad (m/s)', 'Push (newtons)': 'Empuje (newtons)', 'Acceleration': 'Aceleración',
+  'The rocket pushes a {m} kg crate with {F} newtons for {dur}. Predict its speed, then press Go.': 'El cohete empuja una caja de {m} kg con {F} newtons durante {dur}. Predice su velocidad y luego pulsa Vamos.',
+  'Acceleration = force ÷ mass = {F} ÷ {m}. Speed = acceleration × time.': 'Aceleración = fuerza ÷ masa = {F} ÷ {m}. Velocidad = aceleración × tiempo.',
+  'Newton\'s second law! Force ÷ mass gives the acceleration.': '¡Segunda ley de Newton! Fuerza ÷ masa da la aceleración.',
+  'Make the {m} kg crate reach {sp} m/s after a 1 second push. Type the push in newtons, then press Go.': 'Haz que la caja de {m} kg llegue a {sp} m/s tras un empujón de 1 segundo. Escribe el empuje en newtons y luego pulsa Vamos.',
+  'Force = mass × acceleration. It must gain {sp} m/s in 1 second.': 'Fuerza = masa × aceleración. Debe ganar {sp} m/s en 1 segundo.', 'Just the right push! F = m × a.': '¡El empuje justo! F = m × a.',
+  'A {F} newton push acts on a {m} kg crate. Predict its acceleration in meters per second each second, then press Go.': 'Un empuje de {F} newtons actúa sobre una caja de {m} kg. Predice su aceleración en metros por segundo cada segundo y luego pulsa Vamos.',
+  'Acceleration = force ÷ mass = {F} ÷ {m}.': 'Aceleración = fuerza ÷ masa = {F} ÷ {m}.', 'Right! More mass means less acceleration for the same push.': '¡Correcto! Más masa significa menos aceleración con el mismo empuje.',
+  'It reached {v} m/s.': 'Llegó a {v} m/s.', 'It reached {v} m/s. The goal is {g} m/s.': 'Llegó a {v} m/s. La meta es {g} m/s.', 'Push harder.': 'Empuja más fuerte.', 'Push softer.': 'Empuja más suave.',
+  'It sped up by {a} m/s each second.': 'Aceleró {a} m/s cada segundo.', 'You said {g}.': 'Dijiste {g}.',
+  // Sticky crash
+  'Speed after (m/s)': 'Velocidad después (m/s)', 'Speed of the first crate': 'Velocidad de la primera caja', 'Momentum (kg m/s)': 'Cantidad de movimiento (kg m/s)',
+  'A {m1} kg crate slides at {v1} m/s into a {m2} kg crate. They stick together. Predict their speed, then press Go.': 'Una caja de {m1} kg se desliza a {v1} m/s contra una caja de {m2} kg. Se quedan pegadas. Predice su velocidad y luego pulsa Vamos.',
+  'Momentum = mass × speed stays the same. {m1} × {v1} = {p}. Share it over {mt} kg.': 'La cantidad de movimiento = masa × velocidad no cambia. {m1} × {v1} = {p}. Repártela entre {mt} kg.',
+  'Momentum is conserved! The total stays the same in a crash.': '¡La cantidad de movimiento se conserva! El total no cambia en un choque.',
+  'Make the two stuck crates move at {vf} m/s. How fast must the {m1} kg crate hit the {m2} kg crate? Type it, then press Go.': 'Haz que las dos cajas pegadas se muevan a {vf} m/s. ¿Qué tan rápido debe chocar la caja de {m1} kg contra la caja de {m2} kg? Escríbelo y luego pulsa Vamos.',
+  'Momentum after = {mt} × {vf}. The first crate alone must carry it all.': 'Cantidad de movimiento después = {mt} × {vf}. La primera caja sola debe llevarla toda.',
+  'Just right! Momentum before equals momentum after.': '¡Justo! La cantidad de movimiento antes es igual a la de después.',
+  'A {m1} kg crate slides at {v1} m/s into a {m2} kg crate and sticks. Predict the total momentum after the crash, then press Go.': 'Una caja de {m1} kg se desliza a {v1} m/s contra una caja de {m2} kg y se queda pegada. Predice la cantidad de movimiento total después del choque y luego pulsa Vamos.',
+  'Momentum = mass × speed. In a crash the total does not change.': 'Cantidad de movimiento = masa × velocidad. En un choque el total no cambia.',
+  'Momentum before equals momentum after!': '¡La cantidad de movimiento antes es igual a la de después!',
+  'They move at {v} m/s.': 'Se mueven a {v} m/s.', 'They move at {v} m/s. The goal is {g} m/s.': 'Se mueven a {v} m/s. La meta es {g} m/s.', 'Go faster.': 'Ve más rápido.', 'Go slower.': 'Ve más lento.',
+  'Momentum after: {p} kg m/s.': 'Cantidad de movimiento después: {p} kg m/s.', 'The crates did not meet. Press Go again.': 'Las cajas no se encontraron. Pulsa Vamos otra vez.',
+  // Off the table
+  'Distance (m)': 'Distancia (m)', 'Fall time (s)': 'Tiempo de caída (s)',
+  'The ball rolls off a {h} m table at {v} m/s. Predict how far out it lands, then press Launch.': 'La pelota sale rodando de una mesa de {h} m a {v} m/s. Predice a qué distancia cae y luego pulsa Lanzar.',
+  'Fall time t = √(2 × height ÷ 9.8). Distance = speed × t.': 'Tiempo de caída t = √(2 × altura ÷ 9.8). Distancia = velocidad × t.',
+  'Spot on! Sideways speed times fall time.': '¡Exacto! Velocidad horizontal por tiempo de caída.',
+  'The ball leaves a {h} m table at {v} m/s. Predict how many seconds it falls, then press Launch.': 'La pelota sale de una mesa de {h} m a {v} m/s. Predice cuántos segundos cae y luego pulsa Lanzar.',
+  'Fall time t = √(2 × height ÷ 9.8). The sideways speed does not change it.': 'Tiempo de caída t = √(2 × altura ÷ 9.8). La velocidad horizontal no lo cambia.',
+  'Right! Falling time depends only on the height.': '¡Correcto! El tiempo de caída depende solo de la altura.',
+  'Land on the {cn} mat {d} m out from a {h} m table. Type the launch speed, then press Launch.': 'Cae en el tapete {cn}, a {d} m de una mesa de {h} m. Escribe la velocidad de lanzamiento y luego pulsa Lanzar.',
+  'Fall time t = √(2 × height ÷ 9.8). Speed = distance ÷ t.': 'Tiempo de caída t = √(2 × altura ÷ 9.8). Velocidad = distancia ÷ t.', 'A perfect landing!': '¡Un aterrizaje perfecto!',
+  // Launch angle
+  'At {deg} degrees and {v} m/s the ball lands on the {cn} mat. Pick another angle that lands in the same spot, then press Launch.': 'A {deg} grados y {v} m/s la pelota cae en el tapete {cn}. Elige otro ángulo que caiga en el mismo lugar y luego pulsa Lanzar.',
+  'Two angles that add up to 90 degrees fly the same distance.': 'Dos ángulos que suman 90 grados vuelan la misma distancia.',
+  'Yes! Angles that add up to 90 degrees land together.': '¡Sí! Los ángulos que suman 90 grados caen en el mismo lugar.',
+  'The {cn} mat is {D} m away and the angle is 45 degrees. Type the launch speed, then press Launch.': 'El tapete {cn} está a {D} m y el ángulo es de 45 grados. Escribe la velocidad de lanzamiento y luego pulsa Lanzar.',
+  'At 45 degrees, distance = speed × speed ÷ 9.8. So speed = √(distance × 9.8).': 'A 45 grados, distancia = velocidad × velocidad ÷ 9.8. Así que velocidad = √(distancia × 9.8).',
+  'A perfect shot!': '¡Un tiro perfecto!',
+  'The launcher is set to {deg} degrees and {v} m/s. Predict how far the ball flies, then press Launch.': 'El lanzador está a {deg} grados y {v} m/s. Predice qué tan lejos vuela la pelota y luego pulsa Lanzar.',
+  'At 45 degrees, distance = speed × speed ÷ 9.8.': 'A 45 grados, distancia = velocidad × velocidad ÷ 9.8.', 'At {deg} degrees, distance = 0.87 × speed × speed ÷ 9.8.': 'A {deg} grados, distancia = 0.87 × velocidad × velocidad ÷ 9.8.',
+  'Great prediction! Speed and angle decide the range.': '¡Gran predicción! La velocidad y el ángulo deciden el alcance.',
+  // Landing feedback
+  'It landed {d} m away.': 'Cayó a {d} m.', 'It fell for {t} seconds.': 'Cayó durante {t} segundos.',
+  'That angle landed {d} m away. The mat was at {c} m.': 'Ese ángulo cayó a {d} m. El tapete estaba a {c} m.',
+  'The ball hit the wall. Try a higher angle.': 'La pelota chocó con el muro. Prueba un ángulo mayor.',
+  'Short by {gap} m. Type a bigger speed.': 'Faltaron {gap} m. Escribe una velocidad mayor.', 'Too far by {gap} m. Type a smaller speed.': 'Se pasó {gap} m. Escribe una velocidad menor.',
+  'Short by {gap} m. Try Moon gravity!': 'Faltaron {gap} m. ¡Prueba la gravedad lunar!', 'Short by {gap} m. Try more speed.': 'Faltaron {gap} m. Prueba más velocidad.',
+  'Too far by {gap} m. Try less speed.': 'Se pasó {gap} m. Prueba menos velocidad.', 'Hmm, that ball got lost. Launch again.': 'Mmm, esa pelota se perdió. Lanza otra vez.',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+window.DucklingLang = {
+  keys: () => Object.keys(ES),
+  missing: () => [...USED].filter(k => ES[k] == null),
+  allow: [],
+};
+// Markup written in HTML is translated once it is parsed: this script runs before the Challenges markup below, so
+// each script localizes the elements that exist when it runs.
+function localize(sel) {
+  if (LANG !== 'es') return;
+  for (const el of document.querySelectorAll(sel)) {
+    if (el.hasAttribute('title')) el.title = T(el.title);
+    if (el.hasAttribute('aria-label')) el.setAttribute('aria-label', T(el.getAttribute('aria-label')));
+    if (!el.children.length && /[a-z]/i.test(el.textContent)) el.textContent = T(el.textContent.trim());
+  }
+}
+if (LANG === 'es') { document.documentElement.lang = 'es'; document.title = T('Playground Lab'); }
+localize('#tools, #knobs, .rail button, #fire');
 const cv = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -13363,7 +13580,7 @@ function armCatapult() {
 function fireCatapult() {
   if (!catapult.armed) { armCatapult(); return; }
   world.removeConstraint(catapult.latch); catapult.latch = null; catapult.armed = false; sfx('whoosh');
-  document.getElementById('fire').textContent = 'Set it up again 🔁'; setTimeout(() => { document.getElementById('fire').textContent = 'Fire the catapult! 🚀'; }, 1200);
+  document.getElementById('fire').textContent = T('Set it up again 🔁'); setTimeout(() => { document.getElementById('fire').textContent = T('Fire the catapult! 🚀'); }, 1200);
 }
 
 // ---------------------------------------------------------------------------
@@ -13420,16 +13637,16 @@ function spawnSpot() { return [Math.random() * 6 - 3, 6 + Math.random() * 2, (Ma
 document.querySelectorAll('#tools button').forEach(b => b.addEventListener('pointerdown', e => {
   e.preventDefault(); audio(); const k = b.dataset.add;
   if (k === 'broom' && window.chRestage && chRestage()) return;
-  if (k === 'broom') { for (const t of things) remove(t); things.length = 0; sling.spring = null; loadSling(); catapult.ball = null; toast('All clear!'); return; }
+  if (k === 'broom') { for (const t of things) remove(t); things.length = 0; sling.spring = null; loadSling(); catapult.ball = null; toast(T('All clear!')); return; }
   if (k === 'pins') { const [x, y, z] = spawnSpot(); rackPins(x, z); return; }
-  add(k, ...spawnSpot()); if (k === 'balloon') toast('Balloons float up!'); if (k === 'feather') toast('Feathers fall slowly.');
+  add(k, ...spawnSpot()); if (k === 'balloon') toast(T('Balloons float up!')); if (k === 'feather') toast(T('Feathers fall slowly.'));
 }));
-document.getElementById('moon').onclick = (e) => { moon = !moon; world.gravity.set(0, moon ? -1.62 : -9.82, 0); e.currentTarget.classList.toggle('on', moon); toast(moon ? 'Moon gravity: everything floats!' : 'Earth gravity'); };
-document.getElementById('slow').onclick = (e) => { slow = !slow; e.currentTarget.classList.toggle('on', slow); toast(slow ? 'Slow motion' : 'Normal speed'); };
-document.getElementById('wind').onclick = () => { toast('Whoosh!'); sfx('whoosh'); for (const t of things) t.body.applyImpulse(new CANNON.Vec3(t.body.mass * (t.kind === 'balloon' || t.kind === 'feather' ? 6 : 1.5), 0, 0), t.body.position); };
+document.getElementById('moon').onclick = (e) => { moon = !moon; world.gravity.set(0, moon ? -1.62 : -9.82, 0); e.currentTarget.classList.toggle('on', moon); toast(moon ? T('Moon gravity: everything floats!') : T('Earth gravity')); };
+document.getElementById('slow').onclick = (e) => { slow = !slow; e.currentTarget.classList.toggle('on', slow); toast(slow ? T('Slow motion') : T('Normal speed')); };
+document.getElementById('wind').onclick = () => { toast(T('Whoosh!')); sfx('whoosh'); for (const t of things) t.body.applyImpulse(new CANNON.Vec3(t.body.mass * (t.kind === 'balloon' || t.kind === 'feather' ? 6 : 1.5), 0, 0), t.body.position); };
 document.getElementById('look').onclick = () => { camIdx = (camIdx + 1) % CAMS.length; setCam(); };
 document.getElementById('sound').onclick = (e) => { muted = !muted; e.currentTarget.textContent = muted ? '🔇' : '🔊'; };
-document.getElementById('reset').onclick = () => { build(); toast('All set up again!'); };
+document.getElementById('reset').onclick = () => { build(); toast(T('All set up again!')); };
 document.getElementById('fire').addEventListener('pointerdown', e => { e.preventDefault(); audio(); if (window.chFire && chFire()) return; fireCatapult(); });
 
 // ---------------------------------------------------------------------------
@@ -13476,7 +13693,7 @@ window.PG = { step: (t) => { for (let i = 0; i < Math.round(t * 120); i++) world
   .chPanel { position: fixed; bottom: 12px; display: none; background: rgba(255,255,255,.95); border: 3px solid var(--ink); border-radius: 20px; padding: 8px 10px; }
   #chLaunch { left: 100px; }
   #chLaunch .row { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-weight: 900; font-size: 16px; }
-  #chLaunch .lab { width: 52px; }
+  #chLaunch .lab { min-width: 52px; white-space: nowrap; }
   #chLaunch .val { min-width: 74px; text-align: center; font-size: 20px; }
   #chLaunch .st { width: 44px; height: 40px; padding: 0; font-size: 22px; }
   #chLaunch .st:disabled { opacity: .3; }
@@ -13557,41 +13774,41 @@ function flight(v, deg, o) {
 function genPlace() {
   const kind = pick(['beach', 'bowling', 'tennis', 'crate', 'beach', 'crate']), [cn, col] = pick(COLORS);
   const mx = rnd(-7, 7), side = pick([-1, 1]); let ox = mx + side * rnd(3, 5); if (!inLane(ox, 1)) ox = mx - side * rnd(3, 5);
-  const n = NAMES[kind];
-  const text = pick([`Push the ${n} onto the ${cn} mat.`, `Pull the ${n} over to the ${cn} mat.`, `Can you move the ${n} onto the ${cn} mat?`, `Slide the ${n} to the ${cn} mat.`, `The ${n} wants to sit on the ${cn} mat. Push it there.`]);
-  return { type: 'place', kind, text, hint: `Touch the ${n} and drag it with your finger.`, win: pick(['You pushed it there!', 'Right on the mat!', 'Push and pull. You did it!']),
+  const v = { n: T(NAMES[kind]), cn: T(cn) };
+  const text = T(pick(['Push the {n} onto the {cn} mat.', 'Pull the {n} over to the {cn} mat.', 'Can you move the {n} onto the {cn} mat?', 'Slide the {n} to the {cn} mat.', 'The {n} wants to sit on the {cn} mat. Push it there.']), v);
+  return { type: 'place', kind, text, hint: T('Touch the {n} and drag it with your finger.', v), win: T(pick(['You pushed it there!', 'Right on the mat!', 'Push and pull. You did it!'])),
     mat: { x: mx, z: LANE, w: 2.2, d: 1.8, col }, obj: { x: ox },
     prove() { return need(inLane(mx, 1.1) && inLane(ox, 0.6) && Math.abs(ox - mx) >= 2.5, 'mat out of lane'); } };
 }
 function genKnock() {
   if (Math.random() < 0.5) {
     const k = rnd(2, 3), x = rnd(-6, 6);
-    return { type: 'knock', text: pick(['Knock down the tower of crates.', 'Make the crate tower fall over.', `Push the ${k} crates over. Crash!`, 'Can you knock the tower down?']),
-      hint: 'Push it with your finger, or roll a ball into it.', win: pick(['Crash! Down it goes.', 'You knocked it over!']),
+    return { type: 'knock', text: T(pick(['Knock down the tower of crates.', 'Make the crate tower fall over.', 'Push the {k} crates over. Crash!', 'Can you knock the tower down?']), { k }),
+      hint: T('Push it with your finger, or roll a ball into it.'), win: T(pick(['Crash! Down it goes.', 'You knocked it over!'])),
       tower: { x, k }, needTop: k - 1,
       prove() { return need(inLane(x, 0.5) && k >= 2, 'tower'); } };
   }
   const n = rnd(3, 6), want = rnd(2, n), x = rnd(-7, 4);
-  return { type: 'knock', text: pick([`Knock down ${want} pins.`, `Can you knock over ${want} pins?`, `Make ${want} pins fall down.`]),
-    hint: 'Roll a ball into the pins, or push them with your finger.', win: pick(['Strike!', 'The pins fell down!']),
+  return { type: 'knock', text: T(pick(['Knock down {want} pins.', 'Can you knock over {want} pins?', 'Make {want} pins fall down.']), { want }),
+    hint: T('Roll a ball into the pins, or push them with your finger.'), win: T(pick(['Strike!', 'The pins fell down!'])),
     pins: { x, n }, needPins: want,
     prove() { return need(inLane(x, 0) && inLane(x + 0.6 * (n - 1), 0.3) && want <= n, 'pins'); } };
 }
 function genSlide() {
-  const v = rnd(0, 4), ball = pick(['tennis', 'beach', 'bowling']), b = NAMES[ball];
+  const v = rnd(0, 4), ball = pick(['tennis', 'beach', 'bowling']), vars = { b: T(NAMES[ball]) };
   const objs = v <= 1 ? [ball] : v <= 3 ? ['crate'] : [ball, 'crate'];
-  const text = v === 0 ? pick([`Put the ${b} at the top of the slide. Let go and watch it roll down.`, `Balls roll. Roll the ${b} down the slide.`])
-    : v === 1 ? pick([`Lift the ${b} up the slide and let it roll down.`, `Can the ${b} roll all the way down the slide?`])
+  const text = T(v === 0 ? pick(['Put the {b} at the top of the slide. Let go and watch it roll down.', 'Balls roll. Roll the {b} down the slide.'])
+    : v === 1 ? pick(['Lift the {b} up the slide and let it roll down.', 'Can the {b} roll all the way down the slide?'])
     : v <= 3 ? pick(['Boxes slide. Slide the crate down the slide.', 'Put the crate on the slide and let it slide down.', 'Can the crate slide down the slide?'])
-    : `Roll the ${b} and slide the crate down the slide.`;
-  return { type: 'slide', objs, text, hint: 'Lift it up high onto the blue slide, then let go.', win: pick(['Whee! Down the slide.', 'Balls roll and boxes slide!']),
+    : 'Roll the {b} and slide the crate down the slide.', vars);
+  return { type: 'slide', objs, text, hint: T('Lift it up high onto the blue slide, then let go.'), win: T(pick(['Whee! Down the slide.', 'Balls roll and boxes slide!'])),
     prove() { for (const k of objs) need(cmOf(k, MAT.slide).friction < SLIDE_TAN, 'too much friction for ' + k); return true; } };
 }
 function genBounce() {
   // Balls only: a ball meets the trampoline at one point and keeps its bounce, a crate lands on a corner and loses it.
-  const kind = pick(['beach', 'tennis', 'bowling', 'tennis']), H = pick([2.5, 3, 3.5, 4, 4.5, 5]), n = NAMES[kind];
-  const text = pick([`Drop the ${n} on the trampoline. Make it bounce up to the star.`, `Bounce the ${n} as high as the star.`, `Let go of the ${n} over the trampoline. Can it reach the star?`]);
-  return { type: 'bounce', kind, H, text, hint: 'Lift it up high over the pink trampoline, then let go.', win: pick(['Boing! Up to the star!', 'What a bounce!']),
+  const kind = pick(['beach', 'tennis', 'bowling', 'tennis']), H = pick([2.5, 3, 3.5, 4, 4.5, 5]), vars = { n: T(NAMES[kind]) };
+  const text = T(pick(['Drop the {n} on the trampoline. Make it bounce up to the star.', 'Bounce the {n} as high as the star.', 'Let go of the {n} over the trampoline. Can it reach the star?']), vars);
+  return { type: 'bounce', kind, H, text, hint: T('Lift it up high over the pink trampoline, then let go.'), win: T(pick(['Boing! Up to the star!', 'What a bounce!'])),
     prove() { const e = cmOf(kind, MAT.tramp).restitution; return need(KINDS[kind].mat === 'ball' && e >= 1 && H <= 6, 'star out of reach'); } };
 }
 // A big push and a small push: the ball's speed as it rolls past the flag tells which one she gave. A let-go ball
@@ -13599,12 +13816,12 @@ function genBounce() {
 // in reach.
 const PUSH_FAST = 2.5, PUSH_SLOW = 1.5;
 function genPush() {
-  const hard = Math.random() < 0.5, kind = pick(['tennis', 'beach', 'bowling']), F = rnd(-3, 7), n = NAMES[kind];
-  const text = hard ? pick([`Give the ${n} a big push. Let go before the white line. Make it zoom past the flag.`, `Push hard! Roll the ${n} past the flag, fast.`, 'A big push makes it go fast. Zoom the ball past the flag.'])
-    : pick([`Give the ${n} a small push. Let go before the white line. Make it roll slowly past the flag.`, `Gently! Roll the ${n} past the flag nice and slow.`, 'A small push makes it go slow. Roll the ball slowly past the flag.']);
+  const hard = Math.random() < 0.5, kind = pick(['tennis', 'beach', 'bowling']), F = rnd(-3, 7), vars = { n: T(NAMES[kind]) };
+  const text = T(hard ? pick(['Give the {n} a big push. Let go before the white line. Make it zoom past the flag.', 'Push hard! Roll the {n} past the flag, fast.', 'A big push makes it go fast. Zoom the ball past the flag.'])
+    : pick(['Give the {n} a small push. Let go before the white line. Make it roll slowly past the flag.', 'Gently! Roll the {n} past the flag nice and slow.', 'A small push makes it go slow. Roll the ball slowly past the flag.']), vars);
   return { type: 'flick', mode: hard ? 'hard' : 'soft', kind, flag: F, text,
-    hint: hard ? 'Drag it fast toward the flag and let go before the white line.' : 'Move your finger slowly toward the flag and let go before the white line.',
-    win: hard ? pick(['A big push, a fast roll!', 'Zoom! A big push makes it fast.']) : pick(['A small push, a slow roll!', 'Nice and gentle. A small push makes it slow.']),
+    hint: T(hard ? 'Drag it fast toward the flag and let go before the white line.' : 'Move your finger slowly toward the flag and let go before the white line.'),
+    win: T(hard ? pick(['A big push, a fast roll!', 'Zoom! A big push makes it fast.']) : pick(['A small push, a slow roll!', 'Nice and gentle. A small push makes it slow.'])),
     prove() { return need(inLane(F, 0.3) && F >= -3 && PUSH_FAST * 1.4 < 10 && PUSH_SLOW > 0.3, 'flag or speeds out of reach'); } };
 }
 function genFloat() {
@@ -13612,28 +13829,28 @@ function genFloat() {
   if (v === 0) {
     const sx = rnd(-6, 6), H = pick([3.5, 4, 4.5, 5, 5.5]), bx = sx + pick([-1, 1]) * rnd(3, 4);
     return { type: 'float', mode: 'balloon', star: { x: sx, y: H }, bx: inLane(bx, 1) ? bx : sx - (bx - sx),
-      text: pick(['Balloons float up. Let the balloon float up to the star.', 'Let go of the balloon under the star. Up it goes!', 'Help the balloon float up and touch the star.']),
-      hint: 'Drag the balloon right under the star, then let go.', win: pick(['Up, up, up to the star!', 'Balloons float up!']),
+      text: T(pick(['Balloons float up. Let the balloon float up to the star.', 'Let go of the balloon under the star. Up it goes!', 'Help the balloon float up and touch the star.'])),
+      hint: T('Drag the balloon right under the star, then let go.'), win: T(pick(['Up, up, up to the star!', 'Balloons float up!'])),
       prove() { return need(inLane(sx, 1) && H <= 6, 'star'); } };
   }
   if (v === 1) {
     const mx = rnd(-7, 7), fx = mx + pick([-1, 1]) * rnd(3, 5);
     return { type: 'float', mode: 'feather', mat: { x: mx, z: LANE, w: 2.4, d: 1.8, col }, fx: inLane(fx, 1) ? fx : mx - (fx - mx),
-      text: pick([`Feathers fall slowly. Drop the feather onto the ${cn} mat.`, `Hold the feather up high, then drop it on the ${cn} mat.`]),
-      hint: 'Lift the feather up above the mat and let go. Watch it float down.', win: pick(['Down it floats, slowly.', 'Soft landing!']),
+      text: T(pick(['Feathers fall slowly. Drop the feather onto the {cn} mat.', 'Hold the feather up high, then drop it on the {cn} mat.']), { cn: T(cn) }),
+      hint: T('Lift the feather up above the mat and let go. Watch it float down.'), win: T(pick(['Down it floats, slowly.', 'Soft landing!'])),
       prove() { return need(inLane(mx, 1.2), 'mat'); } };
   }
-  const kind = pick(['tennis', 'bowling', 'beach']), rx = rnd(-7, 7), ox = rx + pick([-1, 1]) * rnd(3, 4), n = NAMES[kind];
+  const kind = pick(['tennis', 'bowling', 'beach']), rx = rnd(-7, 7), ox = rx + pick([-1, 1]) * rnd(3, 4), vars = { n: T(NAMES[kind]) };
   return { type: 'float', mode: 'drop', kind, ring: { x: rx }, ox: inLane(ox, 1) ? ox : rx - (ox - rx),
-    text: pick([`Things fall down. Lift the ${n} up high and drop it in the ring.`, `Drop the ${n} into the ring. Down it falls!`]),
-    hint: 'Lift it up high right above the ring, then let go.', win: pick(['Down it fell, right in the ring!', 'Gravity pulls it down!']),
+    text: T(pick(['Things fall down. Lift the {n} up high and drop it in the ring.', 'Drop the {n} into the ring. Down it falls!']), vars),
+    hint: T('Lift it up high right above the ring, then let go.'), win: T(pick(['Down it fell, right in the ring!', 'Gravity pulls it down!'])),
     prove() { return need(inLane(rx, 1.2), 'ring'); } };
 }
 function genDomino() {
   const n = rnd(6, 10), s = pick([0.45, 0.5, 0.55]), x0 = rnd(-8, 8 - Math.ceil(n * s)), ball = Math.random() < 0.3;
-  const text = ball ? `Roll a ball into the first domino. Can you knock down all ${n}?`
-    : pick(['Push the first domino. Make the whole row fall.', `Knock down all ${n} dominoes.`, 'Start a chain! Tip one domino and watch them all fall.', `Tip the end domino. Can all ${n} fall down?`]);
-  return { type: 'domino', n, s, x0, ball, text, hint: 'Push the end domino toward the others. If the chain stops, push the next one.', win: pick(['A chain reaction! One push did it all.', 'They all fell down!']),
+  const text = T(ball ? 'Roll a ball into the first domino. Can you knock down all {n}?'
+    : pick(['Push the first domino. Make the whole row fall.', 'Knock down all {n} dominoes.', 'Start a chain! Tip one domino and watch them all fall.', 'Tip the end domino. Can all {n} fall down?']), { n });
+  return { type: 'domino', n, s, x0, ball, text, hint: T('Push the end domino toward the others. If the chain stops, push the next one.'), win: T(pick(['A chain reaction! One push did it all.', 'They all fell down!'])),
     // Reachable: every domino can be tipped by hand, and a tipped one leans past 15 degrees on its neighbor.
     prove() { const lean = Math.asin((s - 0.14) / 0.8) * 180 / Math.PI; return need(s < 0.8 - 0.15 && lean > 16 && inLane(x0, 0.5) && inLane(x0 + s * (n - 1), 0.5), 'domino row'); } };
 }
@@ -13660,8 +13877,8 @@ function genSpeed() {
     const c = r1(LX0 + f.x + (Math.random() - 0.5) * 1.2), [cn, col] = pick(COLORS);
     if (c - LX0 < 2.5 || c + 1.2 > 12.4) continue;
     return launchTask({ mode: 'zone', ball, zone: zoneAt(c, 2.4, col), ui: { launcher: { deg: [45, 45, 5], v: [1, 16, 1] } }, start: { deg: 45, v: 3 },
-      text: pick([`Land the ball on the ${cn} mat. Change the speed, then launch.`, `More speed sends the ball farther. Hit the ${cn} mat.`, `The angle stays the same. Pick a speed that lands on the ${cn} mat.`]),
-      hint: 'Faster launches go farther. Slower launches land closer.', win: pick(['Right on the mat! More push, more distance.', 'Bullseye! You found the right speed.']) });
+      text: T(pick(['Land the ball on the {cn} mat. Change the speed, then launch.', 'More speed sends the ball farther. Hit the {cn} mat.', 'The angle stays the same. Pick a speed that lands on the {cn} mat.']), { cn: T(cn) }),
+      hint: T('Faster launches go farther. Slower launches land closer.'), win: T(pick(['Right on the mat! More push, more distance.', 'Bullseye! You found the right speed.'])) });
   }
   return genSpeed();
 }
@@ -13671,14 +13888,14 @@ function genAim() {
     const w = pick([2, 2, 1.6]), c = r1(LX0 + f.x + (Math.random() - 0.5) * (w - 0.6));
     if (c - LX0 < 4 || c + w / 2 > 12.4) continue;
     const t = launchTask({ mode: 'zone', ball, zone: zoneAt(c, w, col), ui: { launcher: { deg: [15, 75, 5], v: [1, 16, 1] } }, start: { deg: 30, v: 6 },
-      text: pick([`Aim the launcher. Change the angle and the speed to land on the ${cn} mat.`, `Land the ball on the ${cn} mat. Try a new angle or speed each time.`]),
-      hint: 'Change one thing at a time. A higher angle flies higher, more speed flies farther.', win: pick(['Great aim!', 'Angle and speed just right!']) });
+      text: T(pick(['Aim the launcher. Change the angle and the speed to land on the {cn} mat.', 'Land the ball on the {cn} mat. Try a new angle or speed each time.']), { cn: T(cn) }),
+      hint: T('Change one thing at a time. A higher angle flies higher, more speed flies farther.'), win: T(pick(['Great aim!', 'Angle and speed just right!'])) });
     if (Math.random() < 0.55) {
       const a = r1(f.x * (0.3 + Math.random() * 0.3)), y = flight(v, deg, { r, at: a }).yAt, h = r1(Math.min(4, y - r - 0.7));
       if (!(h >= 0.9) || a < 2) continue;
       t.wall = { x: LX0 + a, h }; t.wallRel = { a: a - 0.2, b: a + 0.2, h };
-      t.text = pick([`Get the ball over the wall and onto the ${cn} mat.`, `A wall is in the way. Launch the ball over it and land on the ${cn} mat.`]);
-      t.hint = 'A higher angle sends the ball up over the wall. Then change the speed.';
+      t.text = T(pick(['Get the ball over the wall and onto the {cn} mat.', 'A wall is in the way. Launch the ball over it and land on the {cn} mat.']), { cn: T(cn) });
+      t.hint = T('A higher angle sends the ball up over the wall. Then change the speed.');
     }
     return t;
   }
@@ -13689,9 +13906,9 @@ function genCrash() {
     const D = rnd(6, 14), kk = rnd(2, 3), xt = LX0 + D, top = Math.random() < 0.5;
     const t = launchTask({ mode: 'crash', ball: 'tennis', tower: { x: xt, k: kk }, needTop: top ? 1 : kk - 1, boxRel: { a: D - 0.45, b: D + 0.45, lo: 0.9 * (kk - 1), hi: 0.9 * kk },
       ui: { launcher: { deg: [10, 75, 5], v: [1, 16, 1], balls: ['tennis', 'beach', 'bowling'] } }, start: { deg: 20, v: 6, ball: 'tennis' },
-      text: top ? pick(['Knock the top crate off the tower. Pick a ball, an angle and a speed.', 'Hit the top crate hard enough to knock it off.'])
-        : pick(['Knock the whole tower down. Heavy, fast balls carry more energy.', 'Crash into the tower and knock all the crates off.']),
-      hint: 'A heavy ball moving fast carries the most energy. Try the bowling ball.', win: pick(['Crash! That ball had lots of energy.', 'Energy moved from the ball to the crates!']) });
+      text: T(top ? pick(['Knock the top crate off the tower. Pick a ball, an angle and a speed.', 'Hit the top crate hard enough to knock it off.'])
+        : pick(['Knock the whole tower down. Heavy, fast balls carry more energy.', 'Crash into the tower and knock all the crates off.'])),
+      hint: T('A heavy ball moving fast carries the most energy. Try the bowling ball.'), win: T(pick(['Crash! That ball had lots of energy.', 'Energy moved from the ball to the crates!'])) });
     try { if (proveLaunch(t)) return t; } catch (e) { /* tower out of reach for every setting: draw again */ }
   }
   return genCrash();
@@ -13703,8 +13920,8 @@ function genMoon() {
     if (f.x < 7 || c + 1.2 > 12.4) continue;
     return launchTask({ mode: 'zone', g: G_MOON, ball: 'tennis', zone: zoneAt(c, 2.4, col), needMoon: true,
       ui: { launcher: { deg: fixed ? [45, 45, 5] : [15, 75, 5], v: [1, cap, 1] } }, start: { deg: 45, v: 2 },
-      text: pick([`The ${cn} mat is too far for Earth gravity. Turn on Moon gravity, then land the ball on the mat.`, `Gravity on the Moon pulls less. Use Moon gravity to reach the ${cn} mat.`, `This launcher only goes up to ${cap} m/s. Try it on the Moon and land on the ${cn} mat.`]),
-      hint: 'Tap the 🌙 button. Weaker gravity lets the ball fly much farther.', win: pick(['Moon gravity pulls less, so the ball flew farther!', 'A Moon landing!']) });
+      text: T(pick(['The {cn} mat is too far for Earth gravity. Turn on Moon gravity, then land the ball on the mat.', 'Gravity on the Moon pulls less. Use Moon gravity to reach the {cn} mat.', 'This launcher only goes up to {cap} m/s. Try it on the Moon and land on the {cn} mat.']), { cn: T(cn), cap }),
+      hint: T('Tap the 🌙 button. Weaker gravity lets the ball fly much farther.'), win: T(pick(['Moon gravity pulls less, so the ball flew farther!', 'A Moon landing!'])) });
   }
   return genMoon();
 }
@@ -13732,11 +13949,11 @@ function solveBeam(T, tray, rule) {
   return go(0, 0, { crate: 0, bowling: 0, n: 0 });
 }
 function descLoads(left) {
-  const list = (a) => a.length === 1 ? String(a[0]) : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+  const list = (a) => a.length === 1 ? String(a[0]) : a.slice(0, -1).join(', ') + T(' and ') + a[a.length - 1];
   const c = left.filter(l => l.kind === 'crate').map(l => l.peg).sort((a, b) => a - b), b = left.find(l => l.kind === 'bowling'), out = [];
-  if (c.length) out.push(c.length === 1 ? `a 3 kg crate at peg ${c[0]}` : `3 kg crates at pegs ${list(c)}`);
-  if (b) out.push(`the 7 kg bowling ball at peg ${b.peg}`);
-  return out.join(' and ');
+  if (c.length) out.push(c.length === 1 ? T('a 3 kg crate at peg {p}', { p: c[0] }) : T('3 kg crates at pegs {list}', { list: list(c) }));
+  if (b) out.push(T('the 7 kg bowling ball at peg {p}', { p: b.peg }));
+  return out.join(T(' and '));
 }
 function beamTask(left, rule, tray, o) {
   const T = left.reduce((s, l) => s + MASS[l.kind] * l.peg, 0);
@@ -13746,8 +13963,8 @@ function genBalance() {
   const v = rnd(0, 3), p = rnd(1, 4), q = pick([1, 2, 3, 4].filter(x => x !== p));
   const left = v === 0 ? [{ kind: 'crate', peg: p }] : v === 1 ? [{ kind: 'crate', peg: p }, { kind: 'crate', peg: p }] : v === 2 ? [{ kind: 'bowling', peg: p }] : [{ kind: 'crate', peg: p }, { kind: 'crate', peg: q }];
   return beamTask(left, 'any', { crate: 4, bowling: 1 }, {
-    text: pick(['The beam tips to one side. Add weight to the other side to make it level.', 'Make the beam balance. Use things from the pile.', 'Balance the beam. Put the same weight at the same spot on the other side.']),
-    hint: 'Same weight, same distance from the middle. Count the pegs.', win: pick(['Balanced! The forces are equal.', 'Level! Both sides pull the same.']) });
+    text: T(pick(['The beam tips to one side. Add weight to the other side to make it level.', 'Make the beam balance. Use things from the pile.', 'Balance the beam. Put the same weight at the same spot on the other side.'])),
+    hint: T('Same weight, same distance from the middle. Count the pegs.'), win: T(pick(['Balanced! The forces are equal.', 'Level! Both sides pull the same.'])) });
 }
 function genLever() {
   for (let k = 0; k < 80; k++) {
@@ -13758,9 +13975,9 @@ function genLever() {
     // the left means the bowling ball goes on the right.
     const hasB = left.some(l => l.kind === 'bowling'), rule = hasB ? 'crates' : 'bowl';
     const t = beamTask(left, rule, { crate: 5, bowling: 1 }, {
-      text: `Left side: ${descLoads(left)}. ${rule === 'crates' ? 'Balance it using only crates.' : 'Balance it, and use the bowling ball on the right.'}`,
-      hint: '', win: pick(['Balanced! Weight times distance is the same on both sides.', 'Level! The turning forces match.']) });
-    t.hint = `Weight times distance must match. Left side: ${left.map(l => MASS[l.kind] + ' × ' + l.peg).join(' + ')} = ${t.T}.`;
+      text: T('Left side: {loads}.', { loads: descLoads(left) }) + ' ' + T(rule === 'crates' ? 'Balance it using only crates.' : 'Balance it, and use the bowling ball on the right.'),
+      hint: '', win: T(pick(['Balanced! Weight times distance is the same on both sides.', 'Level! The turning forces match.'])) });
+    t.hint = T('Weight times distance must match. Left side: {sum} = {T}.', { sum: left.map(l => MASS[l.kind] + ' × ' + l.peg).join(' + '), T: t.T });
     try { if (t.prove()) return t; } catch (e) { /* no balance with the pile: draw again */ }
   }
   return genLever();
@@ -13777,30 +13994,30 @@ function genForce() {
     need(Math.abs((this.mode === 'accel' ? F / m : v) - (this.mode === 'setF' ? this.target : this.answer)) < 0.05, 'push numbers');
     return need(v <= 7 && -9 + 0.5 * v * secs < 12, 'crate leaves the ice');
   } };
-  if (v <= 1) return Object.assign(base, { mode: 'predict', F, answer: sp, unit: 'm/s', padLab: 'Speed (m/s)',
-    text: `The rocket pushes a ${m} kg crate with ${fmt(F)} newtons for ${secs} second${secs > 1 ? 's' : ''}. Predict its speed, then press Go.`,
-    hint: `Acceleration = force ÷ mass = ${fmt(F)} ÷ ${m}. Speed = acceleration × time.`, win: 'Newton\'s second law! Force ÷ mass gives the acceleration.' });
-  if (v === 2) return Object.assign(base, { mode: 'setF', target: sp, answer: F, unit: 'N', padLab: 'Push (newtons)',
-    text: `Make the ${m} kg crate reach ${fmt(sp)} m/s after a 1 second push. Type the push in newtons, then press Go.`,
-    hint: `Force = mass × acceleration. It must gain ${fmt(sp)} m/s in 1 second.`, win: 'Just the right push! F = m × a.' });
-  return Object.assign(base, { mode: 'accel', F, answer: sp, unit: 'm/s²', padLab: 'Acceleration', tol: 0.2,
-    text: `A ${fmt(F)} newton push acts on a ${m} kg crate. Predict its acceleration in meters per second each second, then press Go.`,
-    hint: `Acceleration = force ÷ mass = ${fmt(F)} ÷ ${m}.`, win: 'Right! More mass means less acceleration for the same push.' });
+  if (v <= 1) return Object.assign(base, { mode: 'predict', F, answer: sp, unit: 'm/s', padLab: T('Speed (m/s)'),
+    text: T('The rocket pushes a {m} kg crate with {F} newtons for {dur}. Predict its speed, then press Go.', { m, F: fmt(F), dur: secs > 1 ? T('{secs} seconds', { secs }) : T('1 second') }),
+    hint: T('Acceleration = force ÷ mass = {F} ÷ {m}. Speed = acceleration × time.', { F: fmt(F), m }), win: T('Newton\'s second law! Force ÷ mass gives the acceleration.') });
+  if (v === 2) return Object.assign(base, { mode: 'setF', target: sp, answer: F, unit: 'N', padLab: T('Push (newtons)'),
+    text: T('Make the {m} kg crate reach {sp} m/s after a 1 second push. Type the push in newtons, then press Go.', { m, sp: fmt(sp) }),
+    hint: T('Force = mass × acceleration. It must gain {sp} m/s in 1 second.', { sp: fmt(sp) }), win: T('Just the right push! F = m × a.') });
+  return Object.assign(base, { mode: 'accel', F, answer: sp, unit: 'm/s²', padLab: T('Acceleration'), tol: 0.2,
+    text: T('A {F} newton push acts on a {m} kg crate. Predict its acceleration in meters per second each second, then press Go.', { F: fmt(F), m }),
+    hint: T('Acceleration = force ÷ mass = {F} ÷ {m}.', { F: fmt(F), m }), win: T('Right! More mass means less acceleration for the same push.') });
 }
 function genStick() {
   for (let k = 0; k < 200; k++) {
     const m1 = rnd(1, 4), m2 = rnd(1, 4), v1 = rnd(2, 8), vf = m1 * v1 / (m1 + m2), mode = pick(['predict', 'predict', 'setV', 'momentum']);
     if (Math.abs(vf * 10 - Math.round(vf * 10)) > 1e-9 || vf < 0.5) continue;
     const base = { type: 'stick', mode, m1, m2, v1, vf: r1(vf), tol: 0.2, prove() { need(Math.abs(this.m1 * this.v1 / (this.m1 + this.m2) - this.vf) < 0.01, 'momentum numbers'); need(this.v1 <= 9, 'too fast'); return true; } };
-    if (mode === 'predict') return Object.assign(base, { answer: r1(vf), unit: 'm/s', padLab: 'Speed after (m/s)',
-      text: `A ${m1} kg crate slides at ${v1} m/s into a ${m2} kg crate. They stick together. Predict their speed, then press Go.`,
-      hint: `Momentum = mass × speed stays the same. ${m1} × ${v1} = ${m1 * v1}. Share it over ${m1 + m2} kg.`, win: 'Momentum is conserved! The total stays the same in a crash.' });
-    if (mode === 'setV') return Object.assign(base, { answer: v1, unit: 'm/s', padLab: 'Speed of the first crate', target: r1(vf),
-      text: `Make the two stuck crates move at ${fmt(vf)} m/s. How fast must the ${m1} kg crate hit the ${m2} kg crate? Type it, then press Go.`,
-      hint: `Momentum after = ${m1 + m2} × ${fmt(vf)}. The first crate alone must carry it all.`, win: 'Just right! Momentum before equals momentum after.' });
-    return Object.assign(base, { answer: m1 * v1, unit: 'kg m/s', padLab: 'Momentum (kg m/s)', tol: 0.3,
-      text: `A ${m1} kg crate slides at ${v1} m/s into a ${m2} kg crate and sticks. Predict the total momentum after the crash, then press Go.`,
-      hint: 'Momentum = mass × speed. In a crash the total does not change.', win: 'Momentum before equals momentum after!' });
+    if (mode === 'predict') return Object.assign(base, { answer: r1(vf), unit: 'm/s', padLab: T('Speed after (m/s)'),
+      text: T('A {m1} kg crate slides at {v1} m/s into a {m2} kg crate. They stick together. Predict their speed, then press Go.', { m1, v1, m2 }),
+      hint: T('Momentum = mass × speed stays the same. {m1} × {v1} = {p}. Share it over {mt} kg.', { m1, v1, p: m1 * v1, mt: m1 + m2 }), win: T('Momentum is conserved! The total stays the same in a crash.') });
+    if (mode === 'setV') return Object.assign(base, { answer: v1, unit: 'm/s', padLab: T('Speed of the first crate'), target: r1(vf),
+      text: T('Make the two stuck crates move at {vf} m/s. How fast must the {m1} kg crate hit the {m2} kg crate? Type it, then press Go.', { vf: fmt(vf), m1, m2 }),
+      hint: T('Momentum after = {mt} × {vf}. The first crate alone must carry it all.', { mt: m1 + m2, vf: fmt(vf) }), win: T('Just right! Momentum before equals momentum after.') });
+    return Object.assign(base, { answer: m1 * v1, unit: 'kg m/s', padLab: T('Momentum (kg m/s)'), tol: 0.3,
+      text: T('A {m1} kg crate slides at {v1} m/s into a {m2} kg crate and sticks. Predict the total momentum after the crash, then press Go.', { m1, v1, m2 }),
+      hint: T('Momentum = mass × speed. In a crash the total does not change.'), win: T('Momentum before equals momentum after!') });
   }
   return genStick();
 }
@@ -13816,16 +14033,16 @@ function genTable() {
       if (this.mode === 'setV') return need(Math.abs(s.x + f.x - this.zone.c) <= this.zone.w / 2 - 0.1 && s.x + f.x < 12.6, 'mat out of reach');
       const meas = this.measure === 'time' ? f.t : f.x; return need(Math.abs(meas - this.answer) <= this.tol / 2 && s.x + f.x < 12.6, 'table numbers');
     } });
-  if (mode === 'dist') return Object.assign(base, { mode: 'predict', measure: 'dist', answer: r1(v * t), tol: 0.4, unit: 'm', padLab: 'Distance (m)',
-    text: `The ball rolls off a ${h} m table at ${v} m/s. Predict how far out it lands, then press Launch.`,
-    hint: 'Fall time t = √(2 × height ÷ 9.8). Distance = speed × t.', win: 'Spot on! Sideways speed times fall time.' });
-  if (mode === 'time') return Object.assign(base, { mode: 'predict', measure: 'time', answer: r2(t), tol: 0.08, unit: 's', padLab: 'Fall time (s)',
-    text: `The ball leaves a ${h} m table at ${v} m/s. Predict how many seconds it falls, then press Launch.`,
-    hint: 'Fall time t = √(2 × height ÷ 9.8). The sideways speed does not change it.', win: 'Right! Falling time depends only on the height.' });
+  if (mode === 'dist') return Object.assign(base, { mode: 'predict', measure: 'dist', answer: r1(v * t), tol: 0.4, unit: 'm', padLab: T('Distance (m)'),
+    text: T('The ball rolls off a {h} m table at {v} m/s. Predict how far out it lands, then press Launch.', { h, v }),
+    hint: T('Fall time t = √(2 × height ÷ 9.8). Distance = speed × t.'), win: T('Spot on! Sideways speed times fall time.') });
+  if (mode === 'time') return Object.assign(base, { mode: 'predict', measure: 'time', answer: r2(t), tol: 0.08, unit: 's', padLab: T('Fall time (s)'),
+    text: T('The ball leaves a {h} m table at {v} m/s. Predict how many seconds it falls, then press Launch.', { h, v }),
+    hint: T('Fall time t = √(2 × height ÷ 9.8). The sideways speed does not change it.'), win: T('Right! Falling time depends only on the height.') });
   const vv = rnd(3, 9), d = r1(vv * t), c = r1(launchStart(base, 'tennis').x + d);
-  return Object.assign(base, { mode: 'setV', answer: vv, zone: zoneAt(c, 1.6, col), padLab: 'Speed (m/s)', unit: 'm/s', ui: { launcher: { deg: [0, 0, 5], v: [vv, vv, 1] } }, start: { deg: 0, v: 0 },
-    text: `Land on the ${cn} mat ${fmt(d)} m out from a ${h} m table. Type the launch speed, then press Launch.`,
-    hint: 'Fall time t = √(2 × height ÷ 9.8). Speed = distance ÷ t.', win: 'A perfect landing!' });
+  return Object.assign(base, { mode: 'setV', answer: vv, zone: zoneAt(c, 1.6, col), padLab: T('Speed (m/s)'), unit: 'm/s', ui: { launcher: { deg: [0, 0, 5], v: [vv, vv, 1] } }, start: { deg: 0, v: 0 },
+    text: T('Land on the {cn} mat {d} m out from a {h} m table. Type the launch speed, then press Launch.', { cn: T(cn), d: fmt(d), h }),
+    hint: T('Fall time t = √(2 × height ÷ 9.8). Speed = distance ÷ t.'), win: T('A perfect landing!') });
 }
 function genRange() {
   const mode = pick(['predict', 'predict', 'setV', 'twin']), r = RAD.tennis, [cn, col] = pick(COLORS);
@@ -13836,21 +14053,21 @@ function genRange() {
     if (wrong.length < 2 || LX0 + f.x > 12) return genRange();
     return launchTask({ mode: 'twin', ball: 'tennis', deg, hv: v, zone: zoneAt(r1(LX0 + f.x), 1.4, col), choices: [other, ...wrong].sort((a, b) => a - b).map(a => a + '°'), ans: other + '°',
       ui: { launcher: { deg: [deg, deg, 5], v: [v, v, 1] } }, start: { deg, v },
-      text: `At ${deg} degrees and ${v} m/s the ball lands on the ${cn} mat. Pick another angle that lands in the same spot, then press Launch.`,
-      hint: 'Two angles that add up to 90 degrees fly the same distance.', win: 'Yes! Angles that add up to 90 degrees land together.',
+      text: T('At {deg} degrees and {v} m/s the ball lands on the {cn} mat. Pick another angle that lands in the same spot, then press Launch.', { deg, v, cn: T(cn) }),
+      hint: T('Two angles that add up to 90 degrees fly the same distance.'), win: T('Yes! Angles that add up to 90 degrees land together.'),
       prove() { const hit = (a) => Math.abs(LX0 + flight(v, a, { r }).x - this.zone.c) <= this.zone.w / 2; need(hit(other), 'twin angle misses'); for (const w of wrong) need(!hit(w), 'wrong angle also lands'); return true; } });
   }
   if (mode === 'setV') {
     const D = rnd(5, 18), ans = r1(Math.sqrt(9.8 * D));
-    return launchTask({ mode: 'setV', ball: 'tennis', answer: ans, zone: zoneAt(LX0 + D, 1.6, col), unit: 'm/s', padLab: 'Speed (m/s)', ui: { launcher: { deg: [45, 45, 5], v: [ans, ans, 1] } }, start: { deg: 45, v: 0 },
-      text: `The ${cn} mat is ${D} m away and the angle is 45 degrees. Type the launch speed, then press Launch.`,
-      hint: 'At 45 degrees, distance = speed × speed ÷ 9.8. So speed = √(distance × 9.8).', win: 'A perfect shot!',
+    return launchTask({ mode: 'setV', ball: 'tennis', answer: ans, zone: zoneAt(LX0 + D, 1.6, col), unit: 'm/s', padLab: T('Speed (m/s)'), ui: { launcher: { deg: [45, 45, 5], v: [ans, ans, 1] } }, start: { deg: 45, v: 0 },
+      text: T('The {cn} mat is {D} m away and the angle is 45 degrees. Type the launch speed, then press Launch.', { cn: T(cn), D }),
+      hint: T('At 45 degrees, distance = speed × speed ÷ 9.8. So speed = √(distance × 9.8).'), win: T('A perfect shot!'),
       prove() { const f = flight(ans, 45, { r }); return need(Math.abs(LX0 + f.x - this.zone.c) <= this.zone.w / 2 - 0.1, 'speed misses'); } });
   }
   const deg = pick([45, 45, 30, 60]), v = deg === 45 ? rnd(5, 14) : rnd(6, 14), k = deg === 45 ? 1 : 0.87, ans = r1(k * v * v / 9.8), tol = Math.max(0.5, r1(ans * 0.05));
-  return launchTask({ mode: 'predict', measure: 'dist', ball: 'tennis', hv: v, answer: ans, tol, unit: 'm', padLab: 'Distance (m)', ui: { launcher: { deg: [deg, deg, 5], v: [v, v, 1] } }, start: { deg, v },
-    text: `The launcher is set to ${deg} degrees and ${v} m/s. Predict how far the ball flies, then press Launch.`,
-    hint: deg === 45 ? 'At 45 degrees, distance = speed × speed ÷ 9.8.' : `At ${deg} degrees, distance = 0.87 × speed × speed ÷ 9.8.`, win: 'Great prediction! Speed and angle decide the range.',
+  return launchTask({ mode: 'predict', measure: 'dist', ball: 'tennis', hv: v, answer: ans, tol, unit: 'm', padLab: T('Distance (m)'), ui: { launcher: { deg: [deg, deg, 5], v: [v, v, 1] } }, start: { deg, v },
+    text: T('The launcher is set to {deg} degrees and {v} m/s. Predict how far the ball flies, then press Launch.', { deg, v }),
+    hint: deg === 45 ? T('At 45 degrees, distance = speed × speed ÷ 9.8.') : T('At {deg} degrees, distance = 0.87 × speed × speed ÷ 9.8.', { deg }), win: T('Great prediction! Speed and angle decide the range.'),
     prove() { const f = flight(v, deg, { r }); return need(Math.abs(f.x - ans) <= tol / 2 && LX0 + f.x < 12.6, 'range numbers'); } });
 }
 
@@ -13901,10 +14118,14 @@ function record(right) {
   else { s.streak = 0; s.miss++; if (s.miss >= 2 && P.lv > 0) { P.lv--; s.miss = 0; change = -1; } }
   persist(); return change;
 }
+// Every spoken line goes through here. The utterance carries the child's language so the Spanish narrator reads
+// Spanish lines; without u.lang the compatibility script reads them in English.
+const SPEECH_LANG = LANG === 'es' ? 'es-MX' : 'en-US';
 function chSpeak(t) {
   try { speechSynthesis.cancel(); } catch (e) {}
-  try { if (window.KidTablet && KidTablet.say) KidTablet.say(t, { rate: 0.95 }); else { const u = new SpeechSynthesisUtterance(t); u.rate = 0.95; speechSynthesis.speak(u); } } catch (e) {}
+  try { if (window.KidTablet && KidTablet.say) KidTablet.say(t, { rate: 0.95, lang: SPEECH_LANG }); else { const u = new SpeechSynthesisUtterance(t); u.rate = 0.95; u.lang = SPEECH_LANG; speechSynthesis.speak(u); } } catch (e) {}
 }
+localize('#chGo, #chCard button, #chPadLab, #chLv, #chLaunch .lab, #chLaunch .ball');
 
 // ---------------------------------------------------------------------------
 // Stage pieces that are only drawn (mats, stars, lines); build() clears the bodies, these are cleared here.
@@ -13978,7 +14199,7 @@ const TYPES = {
         if (b.position.x < t.flag || b.passed) continue;
         b.passed = true; const v = Math.hypot(b.velocity.x, b.velocity.z);
         if (t.mode === 'hard' ? v >= PUSH_FAST : v <= PUSH_SLOW) return win();
-        note(t.mode === 'hard' ? 'That was a gentle roll. Push harder!' : 'That was fast! Try a smaller push.', 'bad');
+        note(T(t.mode === 'hard' ? 'That was a gentle roll. Push harder!' : 'That was fast! Try a smaller push.'), 'bad');
       }
     },
   },
@@ -14004,7 +14225,7 @@ const TYPES = {
         for (const b of kindThings(t.kind)) {
           if (held(b) || !b.chRel || b.chRel.y < 1.5 || b.position.y > r + 0.06) continue;
           if (Math.hypot(b.position.x - t.ring.x, b.position.z - LANE) <= 0.95) return win();
-          b.chRel = null; note('Close! Lift it right above the ring and try again.');
+          b.chRel = null; note(T('Close! Lift it right above the ring and try again.'));
         }
       }
     },
@@ -14036,11 +14257,11 @@ const TYPES = {
       const b = sh.body, r = RAD[sh.ball]; sh.t += DT; if (b.position.y > sh.top) sh.top = b.position.y;
       if (t.mode === 'crash') {
         if (S.p.pieces.slice(1).filter(fallen).length >= t.needTop) { sh.done = true; return win(); }
-        if (sh.t > 4) { sh.done = true; tryAgain(b.position.x < t.tower.x - 0.5 ? 'The ball did not reach the tower. Aim higher or faster.' : 'Not enough energy. Try a heavier ball or more speed.'); }
+        if (sh.t > 4) { sh.done = true; tryAgain(T(b.position.x < t.tower.x - 0.5 ? 'The ball did not reach the tower. Aim higher or faster.' : 'Not enough energy. Try a heavier ball or more speed.')); }
         return;
       }
       if (!sh.landed && sh.t > 0.05 && b.position.y <= r + 1e-6 && b.velocity.y < 0) { sh.landed = true; sh.x = b.position.x; sh.flight = sh.t; landed(t, sh); }
-      if (!sh.landed && sh.t > 15) { sh.done = true; tryAgain('Hmm, that ball got lost. Launch again.'); }
+      if (!sh.landed && sh.t > 15) { sh.done = true; tryAgain(T('Hmm, that ball got lost. Launch again.')); }
     },
   },
   beam: {
@@ -14071,7 +14292,7 @@ const TYPES = {
       const ok = ruleOk && Math.abs(torque) < 0.2 && ang < 2.5 && !grab && beam.angularVelocity.length() < 0.05;
       S.p.levelT = ok ? S.p.levelT + DT : 0; S.p.torque = torque;
       if (S.p.levelT > 1) win();
-      else if (Math.abs(torque) < 0.2 && right.n && !ruleOk && !S.p.toldRule) { S.p.toldRule = true; note(t.rule === 'crates' ? 'Level, but use only crates on the right.' : 'Level, but use the bowling ball on the right.'); }
+      else if (Math.abs(torque) < 0.2 && right.n && !ruleOk && !S.p.toldRule) { S.p.toldRule = true; note(T(t.rule === 'crates' ? 'Level, but use only crates on the right.' : 'Level, but use the bowling ball on the right.')); }
     },
   },
   ice: {
@@ -14088,7 +14309,7 @@ const TYPES = {
       const run = S.run; if (!run) return;
       if (run.lockNow && !run.lock) { run.lock = new CANNON.LockConstraint(S.p.a, S.p.b); world.addConstraint(run.lock); run.after = 0; sfx('crate', 4); }
       if (run.lock && !run.measured) { run.after += DT; if (run.after > 0.5) { run.measured = true; judgeStick(t, S.p.b.velocity.x, S.p.a.velocity.x); } }
-      if (!run.lock && (run.t = (run.t || 0) + DT) > 8) { run.measured = true; tryAgain('The crates did not meet. Press Go again.'); }
+      if (!run.lock && (run.t = (run.t || 0) + DT) > 8) { run.measured = true; tryAgain(T('The crates did not meet. Press Go again.')); }
     },
   },
 };
@@ -14115,7 +14336,7 @@ function rocketMesh(b) {
 function snap(b, peg) {
   const t = thingOf(b); if (!t) return false;
   const stack = S.p.loads.filter(l => l.peg === peg && things.includes(l.t));
-  if (stack.length >= 2) { toast('That peg is full.'); return false; }
+  if (stack.length >= 2) { toast(T('That peg is full.')); return false; }
   const h = stack.reduce((s, l) => s + 2 * restY(l.t.kind) - 0.02, 0), half = restY(t.kind) - 0.01;
   t.on = new CANNON.Vec3(peg, BEAM_ARM + 0.07 + h + half, 0);
   world.removeBody(b); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0);
@@ -14147,13 +14368,13 @@ function chFire() {
   if (S.shot && !S.shot.done && t.type === 'launch') return true;
   if (S.run && !S.run.measured) return true;
   const pv = padValue();
-  if (t.padLab && pv == null) { note('Type your answer on the number pad first.'); chSpeak('Type your answer first.'); return true; }
-  if (t.choices && !S.choice) { note('Pick an angle first.'); chSpeak('Pick an angle first.'); return true; }
+  if (t.padLab && pv == null) { note(T('Type your answer on the number pad first.')); chSpeak(T('Type your answer first.')); return true; }
+  if (t.choices && !S.choice) { note(T('Pick an angle first.')); chSpeak(T('Pick an angle first.')); return true; }
   S.locked = true; renderUI();
   if (t.type === 'launch') {
     let deg = S.L.deg, v = S.L.v;
     if (t.mode === 'setV') v = pv; if (t.mode === 'twin') deg = parseInt(S.choice, 10);
-    if (!(v > 0) || v > 30) { S.locked = false; renderUI(); note('Pick a speed between 1 and 30 m/s.'); return true; }
+    if (!(v > 0) || v > 30) { S.locked = false; renderUI(); note(T('Pick a speed between 1 and 30 m/s.')); return true; }
     if (t.mode !== 'predict' && t.mode !== 'twin' && t.mode !== 'setV') S.locked = false;
     S.L.deg = deg; aimBarrel();
     if (S.shot) drop(S.shot.body);
@@ -14175,32 +14396,32 @@ function chFire() {
 function landed(t, sh) {
   const d = sh.x - sh.x0;
   if (t.mode === 'predict') {
-    const meas = t.measure === 'time' ? sh.flight : d, guess = padValue(), unit = t.unit;
-    const said = `It ${t.measure === 'time' ? 'fell for' : 'landed'} ${fmt(t.measure === 'time' ? r2(meas) : r1(meas))} ${unit === 's' ? 'seconds' : unit === 'm' ? 'm' : unit}${t.measure === 'time' ? '' : ' away'}.`;
+    const meas = t.measure === 'time' ? sh.flight : d, guess = padValue();
+    const said = t.measure === 'time' ? T('It fell for {t} seconds.', { t: fmt(r2(meas)) }) : T('It landed {d} m away.', { d: fmt(r1(meas)) });
     sh.done = true;
-    if (Math.abs(guess - meas) <= t.tol) win(said + ' ' + t.win); else wrong(said + ` You said ${fmt(guess)}.`);
+    if (Math.abs(guess - meas) <= t.tol) win(said + ' ' + t.win); else wrong(said + ' ' + T('You said {g}.', { g: fmt(guess) }));
     return;
   }
   const inZone = Math.abs(sh.x - t.zone.c) <= t.zone.w / 2;
   sh.done = true;
   if (inZone) return win();
-  if (t.mode === 'twin') return wrong(`That angle landed ${fmt(r1(d))} m away. The mat was at ${fmt(r1(t.zone.c - LX0))} m.`);
+  if (t.mode === 'twin') return wrong(T('That angle landed {d} m away. The mat was at {c} m.', { d: fmt(r1(d)), c: fmt(r1(t.zone.c - LX0)) }));
   const short = sh.x < t.zone.c, gap = fmt(r1(Math.abs(sh.x - t.zone.c)));
-  if (t.wall && sh.x < t.wall.x) return tryAgain('The ball hit the wall. Try a higher angle.');
-  if (t.mode === 'setV') return tryAgain(short ? `Short by ${gap} m. Type a bigger speed.` : `Too far by ${gap} m. Type a smaller speed.`);
-  tryAgain(short ? `Short by ${gap} m. ${t.needMoon && !moon ? 'Try Moon gravity!' : 'Try more speed.'}` : `Too far by ${gap} m. Try less speed.`);
+  if (t.wall && sh.x < t.wall.x) return tryAgain(T('The ball hit the wall. Try a higher angle.'));
+  if (t.mode === 'setV') return tryAgain(T(short ? 'Short by {gap} m. Type a bigger speed.' : 'Too far by {gap} m. Type a smaller speed.', { gap }));
+  tryAgain(T(short ? (t.needMoon && !moon ? 'Short by {gap} m. Try Moon gravity!' : 'Short by {gap} m. Try more speed.') : 'Too far by {gap} m. Try less speed.', { gap }));
 }
 function judgeIce(t, v) {
   const a = v / t.secs;
-  if (t.mode === 'setF') { const ok = Math.abs(v - t.target) <= t.tol; return ok ? win(`It reached ${fmt(r1(v))} m/s. ` + t.win) : tryAgain(`It reached ${fmt(r1(v))} m/s. The goal is ${fmt(t.target)} m/s. ${v < t.target ? 'Push harder.' : 'Push softer.'}`); }
-  const meas = t.mode === 'accel' ? a : v, guess = padValue(), said = t.mode === 'accel' ? `It sped up by ${fmt(r1(a))} m/s each second.` : `It reached ${fmt(r1(v))} m/s.`;
-  if (Math.abs(guess - meas) <= t.tol) win(said + ' ' + t.win); else wrong(said + ` You said ${fmt(guess)}.`);
+  if (t.mode === 'setF') { const ok = Math.abs(v - t.target) <= t.tol; return ok ? win(T('It reached {v} m/s.', { v: fmt(r1(v)) }) + ' ' + t.win) : tryAgain(T('It reached {v} m/s. The goal is {g} m/s.', { v: fmt(r1(v)), g: fmt(t.target) }) + ' ' + T(v < t.target ? 'Push harder.' : 'Push softer.')); }
+  const meas = t.mode === 'accel' ? a : v, guess = padValue(), said = t.mode === 'accel' ? T('It sped up by {a} m/s each second.', { a: fmt(r1(a)) }) : T('It reached {v} m/s.', { v: fmt(r1(v)) });
+  if (Math.abs(guess - meas) <= t.tol) win(said + ' ' + t.win); else wrong(said + ' ' + T('You said {g}.', { g: fmt(guess) }));
 }
 function judgeStick(t, vb, va) {
   const v = (vb + va) / 2, p = (t.m1 + t.m2) * v;
-  if (t.mode === 'setV') { const ok = Math.abs(v - t.target) <= t.tol; return ok ? win(`They move at ${fmt(r1(v))} m/s. ` + t.win) : tryAgain(`They move at ${fmt(r1(v))} m/s. The goal is ${fmt(t.target)} m/s. ${v < t.target ? 'Go faster.' : 'Go slower.'}`); }
-  const meas = t.mode === 'momentum' ? p : v, guess = padValue(), said = t.mode === 'momentum' ? `Momentum after: ${fmt(r1(p))} kg m/s.` : `They move at ${fmt(r1(v))} m/s.`;
-  if (Math.abs(guess - meas) <= t.tol) win(said + ' ' + t.win); else wrong(said + ` You said ${fmt(guess)}.`);
+  if (t.mode === 'setV') { const ok = Math.abs(v - t.target) <= t.tol; return ok ? win(T('They move at {v} m/s.', { v: fmt(r1(v)) }) + ' ' + t.win) : tryAgain(T('They move at {v} m/s. The goal is {g} m/s.', { v: fmt(r1(v)), g: fmt(t.target) }) + ' ' + T(v < t.target ? 'Go faster.' : 'Go slower.')); }
+  const meas = t.mode === 'momentum' ? p : v, guess = padValue(), said = t.mode === 'momentum' ? T('Momentum after: {p} kg m/s.', { p: fmt(r1(p)) }) : T('They move at {v} m/s.', { v: fmt(r1(v)) });
+  if (Math.abs(guess - meas) <= t.tol) win(said + ' ' + t.win); else wrong(said + ' ' + T('You said {g}.', { g: fmt(guess) }));
 }
 
 // ---------------------------------------------------------------------------
@@ -14208,7 +14429,7 @@ function judgeStick(t, vb, va) {
 // ---------------------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
 function note(text, cls) { const m = $('chMsg'); m.textContent = text || ''; m.className = cls || ''; }
-function miss() { if (S.missed) return; S.missed = true; const ch = record(false); if (ch < 0) setTimeout(() => { chSpeak('Let us try an easier one.'); toast('Level: ' + LEVELS[P.lv].name); }, 1800); }
+function miss() { if (S.missed) return; S.missed = true; const ch = record(false); if (ch < 0) setTimeout(() => { chSpeak(T('Let us try an easier one.')); toast(T('Level: {name}', { name: T(LEVELS[P.lv].name) })); }, 1800); }
 function tryAgain(text) { S.tries++; S.locked = false; renderUI(); note(text, 'bad'); chSpeak(text); sfx('crate', 2); if (S.tries >= 3) miss(); }
 function wrong(text) { S.done = true; miss(); note(text, 'bad'); chSpeak(text); renderUI(); }
 function win(text) {
@@ -14217,7 +14438,7 @@ function win(text) {
   P.stars++; persist(); if (window.KID_STARS) KID_STARS.report();
   const say = text || S.task.win; note('⭐ ' + say, 'good'); chSpeak(say); tone(660, 0.12, 'sine', 0.2); setTimeout(() => tone(880, 0.2, 'sine', 0.2), 130);
   renderUI();
-  if (ch > 0) setTimeout(() => { toast('New level: ' + LEVELS[P.lv].name); chSpeak('New level! ' + LEVELS[P.lv].name + '.'); }, 1600);
+  if (ch > 0) setTimeout(() => { const name = T(LEVELS[P.lv].name); toast(T('New level: {name}', { name })); chSpeak(T('New level! {name}.', { name })); }, 1600);
   clearTimeout(S.timer); S.timer = setTimeout(() => { if (S.active && S.done) newChallenge(); }, ch ? 4200 : 3000);
 }
 function newChallenge() {
@@ -14235,7 +14456,7 @@ function restage() {
   build(); TYPES[S.task.type].setup(S.task);
   if (S.task.type !== 'launch' && S.task.type !== 'ice' && S.task.type !== 'stick') S.locked = false;
 }
-function chRestage() { if (!S.active) return false; restage(); S.locked = false; renderUI(); toast('All set up again!'); return true; }
+function chRestage() { if (!S.active) return false; restage(); S.locked = false; renderUI(); toast(T('All set up again!')); return true; }
 function setCamTo(c) { camera.position.set(...c.pos); camera.lookAt(...c.at); }
 function enter() {
   S.active = true; document.body.classList.add('ch'); setCamTo(chCam); S.camAlt = false; newChallenge();
@@ -14244,7 +14465,7 @@ function exitCh() {
   S.active = false; clearTimeout(S.timer); document.body.classList.remove('ch');
   for (const m of S.vis) scene.remove(m); S.vis = []; S.p = {}; S.shot = null; S.run = null; S.task = null;
   if (grab) { world.removeConstraint(grab.constraint); grab = null; }
-  build(); setCam(); renderUI(); $('fire').textContent = 'Fire the catapult! 🚀'; try { speechSynthesis.cancel(); } catch (e) {}
+  build(); setCam(); renderUI(); $('fire').textContent = T('Fire the catapult! 🚀'); try { speechSynthesis.cancel(); } catch (e) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -14255,9 +14476,9 @@ function renderUI() {
   $('chLaunch').style.display = on && t.type === 'launch' && !t.table && t.mode !== 'predict' && t.mode !== 'setV' && t.mode !== 'twin' ? 'block' : 'none';
   $('chPad').style.display = on && (t.padLab || t.choices) ? 'block' : 'none';
   if (!on) return;
-  $('chLv').textContent = LEVELS[P.lv].name; $('chStars').textContent = '⭐ ' + P.stars; $('chText').textContent = t.text;
+  $('chLv').textContent = T(LEVELS[P.lv].name); $('chStars').textContent = '⭐ ' + P.stars; $('chText').textContent = t.text;
   $('chNext').style.display = S.done ? 'inline-block' : 'none'; $('chSkip').style.display = S.done ? 'none' : 'inline-block';
-  $('fire').textContent = t.type === 'launch' ? 'Launch! 🚀' : t.type === 'ice' || t.type === 'stick' ? 'Go! 🚀' : 'Fire the catapult! 🚀';
+  $('fire').textContent = T(t.type === 'launch' ? 'Launch! 🚀' : t.type === 'ice' || t.type === 'stick' ? 'Go! 🚀' : 'Fire the catapult! 🚀');
   if (t.type === 'launch') {
     const L = t.ui.launcher; $('chBallRow').style.display = L.balls ? 'flex' : 'none';
     document.querySelectorAll('#chLaunch .ball').forEach(b => b.classList.toggle('on', b.dataset.ball === S.L.ball));
@@ -14267,7 +14488,7 @@ function renderUI() {
   if (t.padLab) { $('chPadLab').textContent = t.padLab; $('chPadVal').textContent = S.typed || ' '; $('chKeys').style.display = 'grid'; $('chPadVal').style.display = 'inline-block'; }
   else { $('chKeys').style.display = 'none'; $('chPadVal').style.display = 'none'; }
   const cc = $('chChoices'); cc.innerHTML = '';
-  if (t.choices) { $('chPadLab').textContent = 'Pick an angle'; for (const c of t.choices) { const b = document.createElement('button'); b.textContent = c; b.classList.toggle('on', S.choice === c); b.onclick = () => { if (S.locked || S.done) return; S.choice = c; renderUI(); }; cc.appendChild(b); } }
+  if (t.choices) { $('chPadLab').textContent = T('Pick an angle'); for (const c of t.choices) { const b = document.createElement('button'); b.textContent = c; b.classList.toggle('on', S.choice === c); b.onclick = () => { if (S.locked || S.done) return; S.choice = c; renderUI(); }; cc.appendChild(b); } }
 }
 (function buildKeys() {
   const k = $('chKeys');
@@ -14292,9 +14513,9 @@ $('chNext').onclick = () => newChallenge();
 cv.addEventListener('pointerdown', () => {
   if (!S.active || !grab) return; const b = grab.body, t = thingOf(b);
   const refuse = (msg) => { world.removeConstraint(grab.constraint); grab = null; toast(msg); };
-  if (S.p.beam && b === S.p.beam) return refuse('Put things on the beam.');
-  if (b.fixedLoad) return refuse('That one stays.');
-  if (S.task && (S.task.type === 'launch' || S.task.type === 'ice' || S.task.type === 'stick') && (b.p0 || b === S.p.crate || b === S.p.a || b === S.p.b)) return refuse('Use the launcher for this one.');
+  if (S.p.beam && b === S.p.beam) return refuse(T('Put things on the beam.'));
+  if (b.fixedLoad) return refuse(T('That one stays.'));
+  if (S.task && (S.task.type === 'launch' || S.task.type === 'ice' || S.task.type === 'stick') && (b.p0 || b === S.p.crate || b === S.p.a || b === S.p.b)) return refuse(T('Use the launcher for this one.'));
   if (t && t.on) unsnap(t);
   if (S.p.tether && b === S.p.balloon) { world.removeConstraint(S.p.tether); S.p.tether = null; if (S.p.string) S.p.string.visible = false; }
   b.chRel = null; b.chTramp = false; b.passed = false; S.held = b; S.trail = [];
@@ -14329,7 +14550,7 @@ function onRelease(e) {
     const l = S.p.beam.pointToLocalFrame(b.position);
     if (Math.abs(l.x) <= BEAM_HALF + 0.3 && l.y > BEAM_ARM - 0.3 && l.y < BEAM_ARM + 3.5 && Math.abs(b.position.z - LANE) < 1.3) {
       let peg = Math.round(l.x); if (peg === 0) peg = l.x < 0 ? -1 : 1; peg = Math.max(-4, Math.min(4, peg));
-      if (peg < 0 && !b.fixedLoad) { toast('The left side is set. Use the right side.'); return; }
+      if (peg < 0 && !b.fixedLoad) { toast(T('The left side is set. Use the right side.')); return; }
       snap(b, peg);
     }
   }
@@ -14358,7 +14579,7 @@ function describe(t) {
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START,
-  label: () => LEVELS[P.lv].name,
+  label: () => T(LEVELS[P.lv].name),
   exercise(i, n) {
     const out = [], bad = /NaN|undefined|null|\[object|Infinity|\u2014/;
     for (let k = 0; k < n; k++) {
