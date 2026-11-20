@@ -116,7 +116,9 @@ Chris answers parents' questions in forums under his own name. A scheduled task 
 finds the threads and drafts each reply into the Duckling Tablet Promo Queue (a Claude artifact,
 https://claude.ai/artifact/5W4LZzE3NfYAxGtcd54maw, collection `drafts`; the task's prompt is
 `docs/thread-finder-task.md`); Chris reads the draft, opens the thread, posts it himself, and marks the card posted. Nothing is ever
-posted by a task, and no account other than Chris's own is ever used.
+posted by a task, and no account other than Chris's own is ever used. The task reads Reddit through its API and the
+parenting forums in the built-in browser on Chris's computer without signing in; `docs/thread-finder-task.md` lists the
+sources. Facebook groups are behind a login, so the task never reads them. Chris finds those threads himself.
 
 What a reply is:
 
