@@ -144,10 +144,11 @@ tiempo de pantalla, apps educativas, bloquear la tablet) in the Spanish forums i
 the thread's language. A Spanish reply is neutral Latin American Spanish with tú to the parent, checked with
 `node tools/blog.mjs reply <file> --es`, and its disclosure is "Soy el creador de Duckling Tablet". What it may say
 about Spanish comes from the repo: the tablet's screens, the parent area, the parent portal, and the emails are in
-Spanish (`web/src/i18n/es.ts`, `portal/src/i18n/es.ts`, `backend/src/emails.ts`), Story Maker writes and narrates
-its stories in Spanish (`apps/story-maker`), and the other learning apps and the website are in English until their
-own translations land. A reply never says the apps or the site are in Spanish while that is so. A community found
-through a Spanish search is added to the queue's community list with its rules read before any draft.
+Spanish (`web/src/i18n/es.ts`, `portal/src/i18n/es.ts`, `backend/src/emails.ts`), every learning app plays in
+Spanish with a Spanish narrator (each app's `ES` dictionary and `manifest.json` `i18n.es`; Story Maker writes its
+stories in Spanish and Read It Say It listens in Spanish), and the website is in English until its own translation
+lands. A reply never says the site is in Spanish while that is so. A community found through a Spanish search is
+added to the queue's community list with its rules read before any draft.
 
 The card: `channel` (forum), `language` (en, es), `community` (Mumsnet), `target_title`, `target_url`, `thread_excerpt`
 (the question in the poster's words, under 300 characters), `why` (one sentence on the fit, and the community's
