@@ -262,6 +262,10 @@
   #pads.many .pad.note .lb { font-size: 22px; }
   .pad.loud .em { font-size: 44px; } .pad.soft .em { font-size: 20px; }
   #ask.long { font-size: 24px; padding: 11px 20px; }
+  #ask.xl { font-size: 20px; padding: 12px 18px; }
+  /* Long pad labels (Spanish: FUERTE, Segunda) shrink a step instead of clipping. */
+  .pad.note .lb.tight { font-size: 21px; }
+  #pads.many .pad.note .lb.tight { font-size: 18px; }
   /* The staff panel: notes, rhythms, key signatures and chord names, drawn as SVG under the dots. */
   #staff { position: absolute; left: 50%; top: 126px; transform: translateX(-50%); background: #fff; border: 4px solid var(--ink); border-radius: 18px; padding: 4px 12px; z-index: 3; pointer-events: none; box-shadow: 0 6px 0 #0007; max-width: calc(100% - 40px); }
   #staff.off { display: none; }
@@ -275,8 +279,8 @@
     <h1>🎺 Simon Orchestra</h1>
     <span id="badge">Level 1</span>
     <span id="stars">⭐ 0</span>
-    <button class="pill" id="hear" title="Play the tune again">🔊</button>
-    <button class="pill" id="skip" title="New tune">🔁</button>
+    <button class="pill" id="hear" title="Play the tune again" data-t="title">🔊</button>
+    <button class="pill" id="skip" title="New tune" data-t="title">🔁</button>
   </header>
   <div id="stage">
     <div id="ask">Watch and listen!</div>
@@ -716,7 +720,128 @@ const $ = id => document.getElementById(id);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const rint = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const T = THREE;
+const TH = THREE;
+
+// ---------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every word the child sees or hears is Spanish:
+// prompts, level names, instrument and family names, note names (do re mi fa sol la si; the staff rung names notes
+// in solfege where the English uses letters), hints and feedback. The sequences, the audio and the ladder do not
+// change. Keys are the English text; {name} placeholders are filled by T(). docs/languages-brief.md.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  'Simon Orchestra': 'Orquesta Simón', 'Play the tune again': 'Escuchar la melodía otra vez', 'New tune': 'Melodía nueva',
+  'Level {n}: {name}': 'Nivel {n}: {name}', 'Level up! ⬆️': '¡Subiste de nivel! ⬆️', 'Level up! {name}': '¡Subiste de nivel! {name}', 'Easier tunes': 'Melodías más fáciles',
+  '👆 Tap to start the music!': '👆 ¡Toca para empezar la música!',
+  // Level names
+  'Steady beat': 'Pulso constante', 'Loud and soft': 'Fuerte y suave', 'High and low': 'Agudo y grave', 'Echo 3 to 4 notes': 'Eco de 3 a 4 notas', 'Long and short': 'Largo y corto',
+  'Instrument families': 'Familias de instrumentos', 'Melodic echo': 'Eco melódico', 'Read the rhythm': 'Lee el ritmo', 'Scales': 'Escalas', 'Intervals': 'Intervalos',
+  'Major and minor': 'Mayor y menor', 'Time signatures': 'Compases', 'Chords': 'Acordes', 'Read the treble staff': 'Lee el pentagrama', 'Keys and transposing': 'Tonalidades y transporte',
+  'Chord progressions': 'Progresiones de acordes', 'Compose a phrase': 'Compón una frase',
+  // Instruments and families: the pad label, and the spoken form with its article
+  'Drum': 'Tambor', 'Marimba': 'Marimba', 'Trumpet': 'Trompeta', 'Harp': 'Arpa', 'Piano': 'Piano', 'Chimes': 'Campanas',
+  'drum': 'el tambor', 'marimba': 'la marimba', 'trumpet': 'la trompeta', 'harp': 'el arpa', 'piano': 'el piano', 'chimes': 'las campanas',
+  'Percussion': 'Percusión', 'Brass': 'Metales', 'Strings': 'Cuerdas', 'Keyboard': 'Teclados',
+  'percussion': 'percusión', 'brass': 'los metales', 'strings': 'las cuerdas', 'keyboard': 'los teclados',
+  // Notes and chords
+  'high': 'agudo', 'do mi sol': 'do mi sol', 'fa la do': 'fa la do', 'sol ti re': 'sol si re', 'la do mi': 'la do mi',
+  // Echo
+  '👀 Watch! Then play it backwards ⏪': '👀 ¡Mira! Luego tócalo al revés ⏪', '👀 Watch and listen!': '👀 ¡Mira y escucha!',
+  'Watch and listen. Then play it backwards!': 'Mira y escucha. ¡Luego tócalo al revés!', 'Watch and listen!': '¡Mira y escucha!',
+  '⏪ Your turn! Backwards!': '⏪ ¡Tu turno! ¡Al revés!', '🎵 Your turn!': '🎵 ¡Tu turno!', 'Your turn. Start with the last one!': 'Tu turno. ¡Empieza por el último!', 'Your turn!': '¡Tu turno!',
+  // Steady beat
+  '🥁 Listen to the beat!': '🥁 ¡Escucha el pulso!', 'Listen to the steady beat.': 'Escucha el pulso constante.', '🥁 Tap the beat {k} times!': '🥁 ¡Toca el pulso {k} veces!',
+  'Your turn. Tap the drum {k} times.': 'Tu turno. Toca el tambor {k} veces.', 'Oops! Listen again 👂': '¡Ay! Escucha otra vez 👂',
+  // Loud and soft
+  'Loud': 'Fuerte', 'LOUD': 'FUERTE', 'Soft': 'Suave', 'soft': 'suave', '👂 Loud or soft?': '👂 ¿Fuerte o suave?', 'Listen. Is each one loud or soft?': 'Escucha. ¿Cada sonido es fuerte o suave?',
+  '🎵 Your turn! Loud or soft?': '🎵 ¡Tu turno! ¿Fuerte o suave?', 'Your turn. Play it back, loud or soft.': 'Tu turno. Tócalo igual, fuerte o suave.',
+  // High and low
+  'Low': 'Grave', 'High': 'Agudo', '👂 High or low?': '👂 ¿Agudo o grave?', 'Listen. Is each note high or low?': 'Escucha. ¿Cada nota es aguda o grave?',
+  '🎵 Your turn! High or low?': '🎵 ¡Tu turno! ¿Agudo o grave?', 'Your turn. Play it back, high or low.': 'Tu turno. Tócalo igual, agudo o grave.',
+  // Long and short
+  '👂 Long and short!': '👂 ¡Largo y corto!', 'Listen to the long notes and the short notes.': 'Escucha las notas largas y las notas cortas.', '🥁 Tap it back in time!': '🥁 ¡Tócalo igual, a tiempo!',
+  'Your turn. Tap the long and short notes in time.': 'Tu turno. Toca las notas largas y cortas a tiempo.', '⏱️ Keep the beat. Listen again.': '⏱️ Sigue el pulso. Escucha otra vez.', 'Keep the beat. Listen again.': 'Sigue el pulso. Escucha otra vez.',
+  // Instrument families
+  '🎧 Who is playing?': '🎧 ¿Quién está tocando?', 'Listen. Which family of instruments is playing?': 'Escucha. ¿Qué familia de instrumentos está tocando?',
+  '🎧 Which family played that?': '🎧 ¿Qué familia tocó eso?', 'Which family played that?': '¿Qué familia tocó eso?', 'Not that family. Listen again 👂': 'Esa familia no. Escucha otra vez 👂',
+  'Not that family. Listen again.': 'Esa familia no. Escucha otra vez.', 'Yes. The {inst} is in the {family} family.': 'Sí. Escuchaste {inst}, de la familia de {family}.',
+  // Melodic echo
+  '👀 Watch the notes!': '👀 ¡Mira las notas!', 'Watch the notes and listen.': 'Mira las notas y escucha.', '🎵 Play it back!': '🎵 ¡Tócalo igual!', 'Your turn. Play it back.': 'Tu turno. Tócalo igual.',
+  // Read the rhythm
+  '🎼 Read it. Count in: 1 2 3 4': '🎼 Léelo. Cuenta: 1 2 3 4', 'Read the rhythm. Quarter notes get one beat, half notes two, eighth notes half a beat. Count in.': 'Lee el ritmo. Las negras duran un tiempo, las blancas dos, las corcheas medio tiempo. Cuenta.',
+  '🥁 Clap it on the drum!': '🥁 ¡Tócalo en el tambor!', 'Clap it on the drum.': 'Tócalo en el tambor.', '⏱️ Not in time. Here it is.': '⏱️ Fuera de tiempo. Así va.',
+  'Not quite in time. Listen to it once, then try again.': 'No fue a tiempo. Escúchalo una vez y luego intenta otra vez.',
+  // Scales
+  '👂 One step is missing!': '👂 ¡Falta una nota!', 'Listen to the scale. One step is missing.': 'Escucha la escala. Falta una nota.', '🎵 Which step is missing?': '🎵 ¿Qué nota falta?',
+  'Which step is missing? Tap it.': '¿Qué nota falta? Tócala.', 'Not that step. Listen again 👂': 'Esa nota no. Escucha otra vez 👂', 'Not that step. Try again 👂': 'Esa nota no. Intenta otra vez 👂',
+  'up: do to high do': 'ascendente: de do a do agudo', 'down: high do to do': 'descendente: de do agudo a do', 'do re mi fa sol': 'do re mi fa sol',
+  '🎼 The scale up': '🎼 La escala ascendente', '🎼 The scale down': '🎼 La escala descendente', '🎼 The scale': '🎼 La escala',
+  'Listen to the scale {words}.': 'Escucha la escala {words}.', '🎵 Play the scale {words}': '🎵 Toca la escala {words}', 'Your turn. Play the scale {words}.': 'Tu turno. Toca la escala {words}.',
+  // Intervals
+  '2nd': 'Segunda', '3rd': 'Tercera', '4th': 'Cuarta', '5th': 'Quinta', '6th': 'Sexta', 'Octave': 'Octava', 'step': 'paso', 'skip': 'salto', 'leap': 'salto grande',
+  '👂 How far apart?': '👂 ¿Qué tan lejos están?', 'Listen to two notes. How far apart are they?': 'Escucha dos notas. ¿Qué tan lejos están una de la otra?',
+  '🎵 Name the interval': '🎵 Nombra el intervalo', 'Name the interval.': 'Nombra el intervalo.', 'Not that one. Listen again 👂': 'Esa no. Escucha otra vez 👂',
+  'Not that one. Count the letter names from {n} up.': 'Esa no. Cuenta los nombres de las notas desde {n} hacia arriba.',
+  // Major and minor
+  'Major': 'Mayor', 'Minor': 'Menor', 'bright': 'alegre', 'dark': 'triste', '👂 Major or minor?': '👂 ¿Mayor o menor?',
+  'Listen. Does it sound major, bright, or minor, dark?': 'Escucha. ¿Suena mayor, alegre, o menor, triste?', '🎵 Major or minor?': '🎵 ¿Mayor o menor?', 'Major or minor?': '¿Mayor o menor?',
+  'Listen to the mood again 👂': 'Escucha otra vez cómo suena 👂', 'Listen to the mood again. Major sounds bright. Minor sounds dark.': 'Escucha otra vez cómo suena. Mayor suena alegre. Menor suena triste.',
+  // Time signatures
+  'beats in a bar': 'tiempos por compás', '👂 Count the beats!': '👂 ¡Cuenta los tiempos!', 'Count the beats. The strong beat is one.': 'Cuenta los tiempos. El tiempo fuerte es el uno.',
+  '🎵 In 3 or in 4?': '🎵 ¿En 3 o en 4?', 'Is it in three or in four?': '¿Está en tres o en cuatro?', 'Count from the strong beat 👂': 'Cuenta desde el tiempo fuerte 👂',
+  'Count again from the strong beat. One, and then the soft beats.': 'Cuenta otra vez desde el tiempo fuerte. Uno, y luego los tiempos suaves.',
+  // Chords
+  '{name} chord': 'acorde {name}', '🎼 {name} chord: {notes}': '🎼 Acorde {name}: {notes}', '🎼 Play the {name} chord': '🎼 Toca el acorde {name}', 'The {name} chord is {notes}.': 'El acorde {name} es {notes}.',
+  'Play the {name} chord.': 'Toca el acorde {name}.', '🎵 Play the {name} chord': '🎵 Toca el acorde {name}', 'Play the three notes of the {name} chord.': 'Toca las tres notas del acorde {name}.',
+  'Not in the {name} chord. Try again': 'No está en el acorde {name}. Intenta otra vez', 'That note is not in the {name} chord. It is {notes}.': 'Esa nota no está en el acorde {name}. El acorde es {notes}.',
+  // Read the treble staff
+  '🎼 Find this note': '🎼 Encuentra esta nota', '🎼 Find these two notes': '🎼 Encuentra estas dos notas', 'Find this note on the staff.': 'Encuentra esta nota en el pentagrama.',
+  'Find these two notes, in order.': 'Encuentra estas dos notas, en orden.', '🎵 Tap the note': '🎵 Toca la nota', '🎵 Tap the notes': '🎵 Toca las notas', 'Tap its name.': 'Toca su nombre.',
+  'Tap their names in order.': 'Toca sus nombres en orden.', 'Lines: E G B D F. Spaces: F A C E': 'Líneas: mi sol si re fa. Espacios: fa la do mi',
+  'Not that one. The lines are E, G, B, D, F. The spaces spell face.': 'Esa no. Las líneas son mi, sol, si, re, fa. Los espacios son fa, la, do, mi.',
+  // Keys and transposing
+  'C major': 'Do mayor', 'G major': 'Sol mayor', 'D major': 'Re mayor', 'A major': 'La mayor', 'F major': 'Fa mayor', 'B flat major': 'Si bemol mayor', 'E flat major': 'Mi bemol mayor', 'major': 'mayor',
+  '{n} sharp': '{n} sostenido', '{n} sharps': '{n} sostenidos', '{n} flat': '{n} bemol', '{n} flats': '{n} bemoles', 'no sharps or flats': 'ningún sostenido ni bemol',
+  '🎼 Which key is this?': '🎼 ¿Qué tonalidad es?', 'This key signature has {sig}. Which key is it?': 'Esta armadura tiene {sig}. ¿Qué tonalidad es?', '🎵 Name the key': '🎵 Nombra la tonalidad',
+  'Name the key.': 'Nombra la tonalidad.', 'Count the sharps or flats 🎼': 'Cuenta los sostenidos o bemoles 🎼', 'Count the sharps or flats. This signature has {sig}.': 'Cuenta los sostenidos o bemoles. Esta armadura tiene {sig}.',
+  '🎼 Hear it on do. Play it on re': '🎼 Escúchala en do. Tócala en re', 'This tune starts on do. Play the same tune one step higher, starting on re.': 'Esta melodía empieza en do. Toca la misma melodía un grado más alto, empezando en re.',
+  '🎵 Play it one step higher': '🎵 Tócala un grado más alto', 'Play it one step higher. Start on re.': 'Tócala un grado más alto. Empieza en re.', 'Every note moves up one step': 'Cada nota sube un grado',
+  'Every note moves up one step. Start on re.': 'Cada nota sube un grado. Empieza en re.',
+  // Chord progressions
+  '👂 Four chords': '👂 Cuatro acordes', 'Listen to four chords.': 'Escucha cuatro acordes.', '🎵 Play the chords back': '🎵 Toca los acordes igual', 'Play the four chords back.': 'Toca los cuatro acordes igual.',
+  'Not that chord. Listen again 👂': 'Ese acorde no. Escucha otra vez 👂', '👂 Listen for the hidden chord': '👂 Escucha el acorde escondido', 'One chord is hidden. Listen for it.': 'Un acorde está escondido. Escúchalo.',
+  '🎵 Which chord is hidden?': '🎵 ¿Qué acorde está escondido?', 'Which chord is hidden?': '¿Qué acorde está escondido?', '👂 Three chords. Then home': '👂 Tres acordes. Luego a casa',
+  'Three chords. Which chord brings the phrase home?': 'Tres acordes. ¿Qué acorde lleva la frase a casa?', '🎵 Bring it home': '🎵 Llévala a casa', 'Which chord brings it home?': '¿Qué acorde la lleva a casa?',
+  'Home is the I chord 🏠': 'La casa es el acorde I 🏠', 'Not home yet. A phrase comes home on the one chord.': 'Todavía no llegó a casa. Una frase llega a casa en el acorde uno.',
+  // Compose a phrase
+  'End on do': 'Termina en do', 'Start and end on do': 'Empieza y termina en do', 'Steps only. End on do': 'Solo pasos. Termina en do', 'No leap past a 5th. End on do': 'Sin saltos de más de una quinta. Termina en do',
+  'Make an eight note tune. End on do.': 'Haz una melodía de ocho notas. Termina en do.', 'Make an eight note tune. Start on do and end on do.': 'Haz una melodía de ocho notas. Empieza en do y termina en do.',
+  'Make an eight note tune using only steps. End on do.': 'Haz una melodía de ocho notas usando solo pasos. Termina en do.',
+  'Make an eight note tune. No leap bigger than a fifth. End on do.': 'Haz una melodía de ocho notas. Sin saltos de más de una quinta. Termina en do.',
+  'It ended on {n}. End on do.': 'Terminó en {n}. Termina en do.', 'It started on {n}. Start on do.': 'Empezó en {n}. Empieza en do.', '{a} to {b} is not a step.': 'De {a} a {b} no es un paso.',
+  '{a} to {b} leaps too far.': 'De {a} a {b} el salto es muy grande.', 'Use at least three different notes.': 'Usa al menos tres notas diferentes.',
+  '✏️ Rule: {rule}': '✏️ Regla: {rule}', '✏️ 8 notes. {rule}': '✏️ 8 notas. {rule}', 'Two notes to a bar. Here is do.': 'Dos notas por compás. Aquí está do.', 'Your turn. Eight notes.': 'Tu turno. Ocho notas.',
+  'Try again.': 'Intenta otra vez.', '{bad} Try again.': '{bad} Intenta otra vez.',
+  // Round
+  '⏱️ Too early. Listen again.': '⏱️ Muy pronto. Escucha otra vez.', '⏱️ Too late. Listen again.': '⏱️ Muy tarde. Escucha otra vez.', 'Too early. Listen again.': 'Muy pronto. Escucha otra vez.',
+  'Too late. Listen again.': 'Muy tarde. Escucha otra vez.', 'Oops! Listen again.': '¡Ay! Escucha otra vez.', 'Not that one. Listen again!': 'Esa no. ¡Escucha otra vez!', 'Almost! Here it comes again.': '¡Casi! Aquí va otra vez.',
+  '🎉 Bravo!': '🎉 ¡Bravo!', '🌟 Beautiful music!': '🌟 ¡Qué linda música!', '👏 Encore!': '👏 ¡Otra!', '🎶 You did it!': '🎶 ¡Lo lograste!',
+  'Bravo!': '¡Bravo!', 'Beautiful music!': '¡Qué linda música!', 'You did it!': '¡Lo lograste!', 'What a concert!': '¡Qué concierto!',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+window.DucklingLang = { keys: () => Object.keys(ES), missing: () => [...USED].filter(k => ES[k] == null), allow: [] };
+if (LANG === 'es') {
+  document.documentElement.lang = 'es';
+  document.title = T('Simon Orchestra');
+  document.querySelector('header h1').textContent = '🎺 ' + T('Simon Orchestra');
+  document.querySelectorAll('[data-t="title"]').forEach(el => { el.title = T(el.title); });
+}
 
 // ---------------------------------------------------------------------------
 // Instruments, pitches and names.
@@ -730,17 +855,18 @@ const FAMILY = [{ name: 'Percussion', emoji: '🥁', color: '#FF1E46' }, { name:
 const C4 = 261.63;
 const hz = semi => C4 * Math.pow(2, semi / 12);
 const MAJOR = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17];
-const SOLF = ['do', 're', 'mi', 'fa', 'sol', 'la', 'ti', 'do', 're', 'mi', 'fa'];
+const SOLF = LANG === 'es' ? ['do', 're', 'mi', 'fa', 'sol', 'la', 'si', 'do', 're', 'mi', 'fa'] : ['do', 're', 'mi', 'fa', 'sol', 'la', 'ti', 'do', 're', 'mi', 'fa'];
 const LETTER = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F'];
 const DEGC = ['#FF1E46', '#FF7A00', '#FFC300', '#22D35B', '#1E6BFF', '#8A3FFC', '#FF4F8B'];
 const degHz = d => hz(MAJOR[d]);
 const noteName = d => LETTER[d] + (4 + Math.floor(d / 7));
 const CHORDS = { I: [0, 2, 4], IV: [3, 5, 7], V: [4, 6, 1], vi: [5, 7, 2] };
 const CHORD_NAMES = { I: 'do mi sol', IV: 'fa la do', V: 'sol ti re', vi: 'la do mi' };
+const chordNotes = n => T(CHORD_NAMES[n]);
 const PITCHED = [1, 2, 3, 4, 5];
 // A pad: what the child taps. inst and f (one pitch or a chord of pitches) make its sound, stage says which model lights.
-const padInst = i => ({ name: INST[i].name, emoji: INST[i].emoji, color: INST[i].color, inst: i, f: INST[i].f, v: 1, stage: i });
-const padNote = (inst, d, stage, letters) => ({ name: SOLF[d], label: letters ? noteName(d) : SOLF[d], sub: letters ? '' : (d >= 7 ? 'high ' : '') + LETTER[d], emoji: INST[inst].emoji, color: DEGC[d % 7], inst, f: degHz(d), v: 1, stage, deg: d });
+const padInst = i => ({ name: T(INST[i].name), emoji: INST[i].emoji, color: INST[i].color, inst: i, f: INST[i].f, v: 1, stage: i });
+const padNote = (inst, d, stage, letters) => ({ name: SOLF[d], label: letters && LANG !== 'es' ? noteName(d) : SOLF[d], sub: LANG === 'es' ? (d >= 7 ? T('high') : '') : letters ? '' : (d >= 7 ? 'high ' : '') + LETTER[d], emoji: INST[inst].emoji, color: DEGC[d % 7], inst, f: degHz(d), v: 1, stage, deg: d });
 const stageOf = pads => pads.map(p => ({ inst: p.inst, color: p.color }));
 const notePads = (inst, degs, letters) => { const pads = degs.map((d, k) => padNote(inst, d, k, letters)); return { pads, stage: stageOf(pads) }; };
 const choicePads = list => list.map((c, k) => ({ name: c.name, label: c.label || c.name, sub: c.sub || '', emoji: c.emoji || '', color: c.color || INST[k % 6].color, inst: c.inst == null ? 4 : c.inst, f: c.f == null ? INST[4].f : c.f, v: c.v == null ? 0.6 : c.v, stage: c.stage }));
@@ -814,8 +940,8 @@ function echoTune(n, len, step, back) {
   const pads = []; for (let i = 0; i < n; i++) pads.push(padInst(i));
   return { kind: 'echo', pads, stage: stageOf(pads), seq: m.seq, n, step, back: m.back,
     play: m.seq.map((i, k) => ({ pads: [i], gap: step, dot: k })), answer: m.answer,
-    ask: back ? '👀 Watch! Then play it backwards ⏪' : '👀 Watch and listen!', cls: back ? 'back' : '', sayWatch: back ? 'Watch and listen. Then play it backwards!' : 'Watch and listen!',
-    turn: back ? '⏪ Your turn! Backwards!' : '🎵 Your turn!', sayTurn: back ? 'Your turn. Start with the last one!' : 'Your turn!',
+    ask: T(back ? '👀 Watch! Then play it backwards ⏪' : '👀 Watch and listen!'), cls: back ? 'back' : '', sayWatch: T(back ? 'Watch and listen. Then play it backwards!' : 'Watch and listen!'),
+    turn: T(back ? '⏪ Your turn! Backwards!' : '🎵 Your turn!'), sayTurn: T(back ? 'Your turn. Start with the last one!' : 'Your turn!'),
     desc: 'echo ' + m.seq.map(i => INST[i].name).join(' ') };
 }
 
@@ -823,32 +949,32 @@ function echoTune(n, len, step, back) {
 function genBeat() {
   const k = rint(3, 6), pads = [padInst(0)];
   return { kind: 'beat', pads, stage: stageOf(pads), play: Array.from({ length: k }, (_, i) => ({ pads: [0], gap: 0.6, dot: i })), answer: Array(k).fill(0),
-    ask: '🥁 Listen to the beat!', sayWatch: 'Listen to the steady beat.', turn: `🥁 Tap the beat ${k} times!`, sayTurn: `Your turn. Tap the drum ${k} times.`,
-    missText: 'Oops! Listen again 👂', desc: `steady beat x${k}` };
+    ask: T('🥁 Listen to the beat!'), sayWatch: T('Listen to the steady beat.'), turn: T('🥁 Tap the beat {k} times!', { k }), sayTurn: T('Your turn. Tap the drum {k} times.', { k }),
+    missText: T('Oops! Listen again 👂'), desc: `steady beat x${k}` };
 }
 // Rung 1. The same instrument plays loud or soft; the child echoes with the LOUD pad and the soft pad.
 function genDynamics() {
   const inst = pick([0, 1, 4]), len = rint(2, 3);
   const pads = [
-    { name: 'Loud', label: 'LOUD', emoji: INST[inst].emoji, color: INST[inst].color, inst, f: INST[inst].f, v: 1, stage: 0, cls: 'loud' },
-    { name: 'Soft', label: 'soft', emoji: INST[inst].emoji, color: '#8A3FFC', inst, f: INST[inst].f, v: 0.2, stage: 0, cls: 'soft' },
+    { name: T('Loud'), label: T('LOUD'), emoji: INST[inst].emoji, color: INST[inst].color, inst, f: INST[inst].f, v: 1, stage: 0, cls: 'loud' },
+    { name: T('Soft'), label: T('soft'), emoji: INST[inst].emoji, color: '#8A3FFC', inst, f: INST[inst].f, v: 0.2, stage: 0, cls: 'soft' },
   ];
   let seq; do { seq = Array.from({ length: len }, () => rint(0, 1)); } while (new Set(seq).size < 2);
   return { kind: 'dynamics', pads, stage: [{ inst, color: INST[inst].color }], play: seq.map((i, k) => ({ pads: [i], gap: 0.9, dot: k })), answer: seq,
-    ask: '👂 Loud or soft?', sayWatch: 'Listen. Is each one loud or soft?', turn: '🎵 Your turn! Loud or soft?', sayTurn: 'Your turn. Play it back, loud or soft.',
-    desc: 'dynamics ' + seq.map(i => pads[i].name).join(' ') };
+    ask: T('👂 Loud or soft?'), sayWatch: T('Listen. Is each one loud or soft?'), turn: T('🎵 Your turn! Loud or soft?'), sayTurn: T('Your turn. Play it back, loud or soft.'),
+    desc: 'dynamics ' + seq.map(i => ['Loud', 'Soft'][i]).join(' ') };
 }
 // Rung 2. Two copies of one instrument, a low note and a high note an octave apart.
 function genHighLow() {
   const inst = pick([1, 3, 4, 5]), len = rint(2, 3);
   const pads = [
-    { name: 'Low', label: 'Low', sub: '⬇️', emoji: INST[inst].emoji, color: '#1E6BFF', inst, f: hz(0), v: 1, stage: 0 },
-    { name: 'High', label: 'High', sub: '⬆️', emoji: INST[inst].emoji, color: '#FFC300', inst, f: hz(12), v: 0.8, stage: 1 },
+    { name: T('Low'), label: T('Low'), sub: '⬇️', emoji: INST[inst].emoji, color: '#1E6BFF', inst, f: hz(0), v: 1, stage: 0 },
+    { name: T('High'), label: T('High'), sub: '⬆️', emoji: INST[inst].emoji, color: '#FFC300', inst, f: hz(12), v: 0.8, stage: 1 },
   ];
   let seq; do { seq = Array.from({ length: len }, () => rint(0, 1)); } while (new Set(seq).size < 2);
   return { kind: 'pitch', pads, stage: stageOf(pads), play: seq.map((i, k) => ({ pads: [i], gap: 0.9, dot: k })), answer: seq,
-    ask: '👂 High or low?', sayWatch: 'Listen. Is each note high or low?', turn: '🎵 Your turn! High or low?', sayTurn: 'Your turn. Play it back, high or low.',
-    desc: 'pitch ' + seq.map(i => pads[i].name).join(' ') };
+    ask: T('👂 High or low?'), sayWatch: T('Listen. Is each note high or low?'), turn: T('🎵 Your turn! High or low?'), sayTurn: T('Your turn. Play it back, high or low.'),
+    desc: 'pitch ' + seq.map(i => ['Low', 'High'][i]).join(' ') };
 }
 // Rung 4. Long and short notes on the drum. The child taps them back in time; each gap may be 150 ms early or late.
 function genRhythm() {
@@ -858,18 +984,18 @@ function genRhythm() {
   let t = 0; const total = durs.reduce((a, b) => a + b, 0);
   const blocks = durs.map(d => { const b = { at: t / total, w: d / total }; t += d; return b; });
   return { kind: 'rhythm', pads, stage: stageOf(pads), play: durs.map((d, i) => ({ pads: [0], gap: d, dot: i })), answer: Array(k).fill(0), timed: true, gaps: durs.slice(0, k - 1),
-    staff: { blocks }, ask: '👂 Long and short!', sayWatch: 'Listen to the long notes and the short notes.', turn: '🥁 Tap it back in time!', sayTurn: 'Your turn. Tap the long and short notes in time.',
-    missText: '⏱️ Keep the beat. Listen again.', sayMiss: 'Keep the beat. Listen again.', desc: 'rhythm ' + durs.map(d => d === S ? 'short' : 'long').join(' ') };
+    staff: { blocks }, ask: T('👂 Long and short!'), sayWatch: T('Listen to the long notes and the short notes.'), turn: T('🥁 Tap it back in time!'), sayTurn: T('Your turn. Tap the long and short notes in time.'),
+    missText: T('⏱️ Keep the beat. Listen again.'), sayMiss: T('Keep the beat. Listen again.'), desc: 'rhythm ' + durs.map(d => d === S ? 'short' : 'long').join(' ') };
 }
 // Rung 5. One instrument plays unseen; the child names its family. The right answer lights the player.
 function genFamily() {
   const inst = rint(0, 5), fam = INST[inst].family, base = INST[inst].f;
   const riff = inst === 0 ? [base, base, base] : [base, base * 1.25, base * 1.5];
-  const pads = choicePads(FAMILY.map((f, k) => ({ name: f.name, emoji: f.emoji, color: f.color, inst: [0, 2, 3, 4][k], f: [196, 392, 440, 523.3][k], v: 0.6 })));
+  const pads = choicePads(FAMILY.map((f, k) => ({ name: T(f.name), emoji: f.emoji, color: f.color, inst: [0, 2, 3, 4][k], f: [196, 392, 440, 523.3][k], v: 0.6 })));
   const all = INST.map((x, i) => ({ inst: i, color: x.color }));
   return { kind: 'family', pads, stage: all, wide: true, play: riff.map(f => ({ sound: [{ inst, f, v: 1 }], gap: 0.5 })), answer: [fam], reveal: inst,
-    ask: '🎧 Who is playing?', sayWatch: 'Listen. Which family of instruments is playing?', turn: '🎧 Which family played that?', sayTurn: 'Which family played that?',
-    missText: 'Not that family. Listen again 👂', sayMiss: 'Not that family. Listen again.', sayWin: `Yes. The ${INST[inst].name.toLowerCase()} is in the ${FAMILY[fam].name.toLowerCase()} family.`,
+    ask: T('🎧 Who is playing?'), sayWatch: T('Listen. Which family of instruments is playing?'), turn: T('🎧 Which family played that?'), sayTurn: T('Which family played that?'),
+    missText: T('Not that family. Listen again 👂'), sayMiss: T('Not that family. Listen again.'), sayWin: T('Yes. The {inst} is in the {family} family.', { inst: T(INST[inst].name.toLowerCase()), family: T(FAMILY[fam].name.toLowerCase()) }),
     desc: `family ${INST[inst].name} = ${FAMILY[fam].name}` };
 }
 // Rung 6. Five to six notes on do re mi fa sol, shown as note heads on a two-line staff.
@@ -879,7 +1005,7 @@ function genMelody() {
   const at = spread(len);
   return { kind: 'melody', pads, stage, play: seq.map((d, k) => ({ pads: [d], gap: 0.6, dot: k, show: k })), answer: seq,
     staff: { lines: 2, notes: seq.map((d, k) => ({ pos: d, at: at[k], type: 'head' })) },
-    ask: '👀 Watch the notes!', sayWatch: 'Watch the notes and listen.', turn: '🎵 Play it back!', sayTurn: 'Your turn. Play it back.',
+    ask: T('👀 Watch the notes!'), sayWatch: T('Watch the notes and listen.'), turn: T('🎵 Play it back!'), sayTurn: T('Your turn. Play it back.'),
     desc: 'melody ' + seq.map(d => SOLF[d]).join(' ') };
 }
 // Two bars of 4/4 from quarter notes, half notes and pairs of eighths.
@@ -899,8 +1025,8 @@ function genReadRhythm() {
   const demo = notes.map((n, i) => ({ pads: [0], gap: gaps[i], dot: i, show: i })).concat([{ gap: 0.4 }], countIn);
   return { kind: 'notation', pads, stage: stageOf(pads), play: countIn, demo, answer: Array(onsets).fill(0), timed: true, gaps: gaps.slice(0, onsets - 1), hearDemo: true,
     staff: { lines: 1, notes, bars: [0.5], end: 1 },
-    ask: '🎼 Read it. Count in: 1 2 3 4', sayWatch: 'Read the rhythm. Quarter notes get one beat, half notes two, eighth notes half a beat. Count in.', turn: '🥁 Clap it on the drum!', sayTurn: 'Clap it on the drum.',
-    missText: '⏱️ Not in time. Here it is.', sayMiss: 'Not quite in time. Listen to it once, then try again.', desc: 'read rhythm ' + cells.join(' ') };
+    ask: T('🎼 Read it. Count in: 1 2 3 4'), sayWatch: T('Read the rhythm. Quarter notes get one beat, half notes two, eighth notes half a beat. Count in.'), turn: T('🥁 Clap it on the drum!'), sayTurn: T('Clap it on the drum.'),
+    missText: T('⏱️ Not in time. Here it is.'), sayMiss: T('Not quite in time. Listen to it once, then try again.'), desc: 'read rhythm ' + cells.join(' ') };
 }
 // Rung 8. Play the scale in order, or hear a scale with one silent step and tap the missing note.
 function genScale() {
@@ -910,27 +1036,27 @@ function genScale() {
     const m = rint(1, 6), seq = [0, 1, 2, 3, 4, 5, 6, 7], at = spread(8);
     return { kind: 'scale', pads, stage, play: seq.map((d, k) => d === m ? { gap: 0.55, show: k } : { pads: [d], gap: 0.55, show: k }), answer: [m], staffOffset: m,
       staff: { lines: 5, clef: true, notes: seq.map((d, k) => d === m ? { pos: d - 2, at: at[k], type: 'q', text: '?', ghost: true } : { pos: d - 2, at: at[k], type: 'q' }) },
-      ask: '👂 One step is missing!', sayWatch: 'Listen to the scale. One step is missing.', turn: '🎵 Which step is missing?', sayTurn: 'Which step is missing? Tap it.',
-      missText: 'Not that step. Listen again 👂', desc: 'scale missing ' + SOLF[m] };
+      ask: T('👂 One step is missing!'), sayWatch: T('Listen to the scale. One step is missing.'), turn: T('🎵 Which step is missing?'), sayTurn: T('Which step is missing? Tap it.'),
+      missText: T('Not that step. Listen again 👂'), desc: 'scale missing ' + SOLF[m] };
   }
   const seq = kind === 'up' ? [0, 1, 2, 3, 4, 5, 6, 7] : kind === 'down' ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4];
-  const words = kind === 'up' ? 'up: do to high do' : kind === 'down' ? 'down: high do to do' : 'do re mi fa sol', at = spread(seq.length);
+  const words = T(kind === 'up' ? 'up: do to high do' : kind === 'down' ? 'down: high do to do' : 'do re mi fa sol'), at = spread(seq.length);
   return { kind: 'scale', pads, stage, play: seq.map((d, k) => ({ pads: [d], gap: 0.45, dot: k, show: k })), answer: seq,
     staff: { lines: 5, clef: true, notes: seq.map((d, k) => ({ pos: d - 2, at: at[k], type: 'q' })) },
-    ask: `🎼 The scale ${kind === 'five' ? '' : kind}`.trim(), sayWatch: `Listen to the scale ${words}.`, turn: `🎵 Play the scale ${words}`, sayTurn: `Your turn. Play the scale ${words}.`,
-    missText: 'Not that step. Try again 👂', desc: 'scale ' + kind };
+    ask: T(kind === 'up' ? '🎼 The scale up' : kind === 'down' ? '🎼 The scale down' : '🎼 The scale'), sayWatch: T('Listen to the scale {words}.', { words }), turn: T('🎵 Play the scale {words}', { words }), sayTurn: T('Your turn. Play the scale {words}.', { words }),
+    missText: T('Not that step. Try again 👂'), desc: 'scale ' + kind };
 }
 // Rung 9. Two notes play; the child names the interval. Steps are 2nds, skips are 3rds, anything wider is a leap.
 const INTERVALS = [{ k: 1, name: '2nd', sub: 'step' }, { k: 2, name: '3rd', sub: 'skip' }, { k: 3, name: '4th', sub: 'leap' }, { k: 4, name: '5th', sub: 'leap' }, { k: 5, name: '6th', sub: 'leap' }, { k: 7, name: 'Octave', sub: 'leap' }];
 function genInterval() {
   const inst = pick(PITCHED), lo = rint(0, 3), iv = pick(INTERVALS), hi = lo + iv.k;
   const others = shuffle(INTERVALS.filter(x => x !== iv)).slice(0, 2), set = [iv].concat(others).sort((a, b) => a.k - b.k);
-  const pads = choicePads(set.map((x, k) => ({ name: x.name, sub: x.sub, emoji: ['🎵', '🎶', '🎼'][k], inst, f: degHz(lo + x.k), v: 0.7 })));
+  const pads = choicePads(set.map((x, k) => ({ name: T(x.name), sub: T(x.sub), emoji: ['🎵', '🎶', '🎼'][k], inst, f: degHz(lo + x.k), v: 0.7 })));
   return { kind: 'interval', pads, stage: [{ inst, color: INST[inst].color }], wide: true, answer: [set.indexOf(iv)],
     play: [{ sound: [{ inst, f: degHz(lo), v: 1 }], stage: [0], gap: 0.7, show: 0 }, { sound: [{ inst, f: degHz(hi), v: 1 }], stage: [0], gap: 0.7, show: 1 }, { sound: [{ inst, f: degHz(lo), v: 0.8 }, { inst, f: degHz(hi), v: 0.8 }], stage: [0], gap: 0.9 }],
     staff: { lines: 5, clef: true, notes: [{ pos: lo - 2, at: 0.3, type: 'q' }, { pos: hi - 2, at: 0.7, type: 'q' }] },
-    ask: '👂 How far apart?', sayWatch: 'Listen to two notes. How far apart are they?', turn: '🎵 Name the interval', sayTurn: 'Name the interval.',
-    missText: 'Not that one. Listen again 👂', sayMiss: `Not that one. Count the letter names from ${LETTER[lo]} up.`, desc: `interval ${SOLF[lo]} to ${SOLF[hi]} = ${iv.name}` };
+    ask: T('👂 How far apart?'), sayWatch: T('Listen to two notes. How far apart are they?'), turn: T('🎵 Name the interval'), sayTurn: T('Name the interval.'),
+    missText: T('Not that one. Listen again 👂'), sayMiss: T('Not that one. Count the letter names from {n} up.', { n: LANG === 'es' ? SOLF[lo] : LETTER[lo] }), desc: `interval ${SOLF[lo]} to ${SOLF[hi]} = ${iv.name}` };
 }
 // Rung 10. A chord or a short phrase, major or minor.
 function genMode() {
@@ -939,19 +1065,19 @@ function genMode() {
   const play = chord
     ? [{ sound: [0, third, 7].map(s => ({ inst, f: f(s), v: 0.7 })), stage: [0], gap: 1.2 }, { sound: [0, third, 7].map(s => ({ inst, f: f(s), v: 0.7 })), stage: [0], gap: 1.2 }]
     : [0, third, 7, third, 0].map(s => ({ sound: [{ inst, f: f(s), v: 1 }], stage: [0], gap: 0.5 }));
-  const pads = choicePads([{ name: 'Major', sub: 'bright', emoji: '☀️', color: '#FFC300', inst, f: [f(0), f(4), f(7)], v: 0.5 }, { name: 'Minor', sub: 'dark', emoji: '🌙', color: '#1E6BFF', inst, f: [f(0), f(3), f(7)], v: 0.5 }]);
+  const pads = choicePads([{ name: T('Major'), sub: T('bright'), emoji: '☀️', color: '#FFC300', inst, f: [f(0), f(4), f(7)], v: 0.5 }, { name: T('Minor'), sub: T('dark'), emoji: '🌙', color: '#1E6BFF', inst, f: [f(0), f(3), f(7)], v: 0.5 }]);
   return { kind: 'mode', pads, stage: [{ inst, color: INST[inst].color }], wide: true, play, answer: [minor ? 1 : 0],
-    ask: '👂 Major or minor?', sayWatch: 'Listen. Does it sound major, bright, or minor, dark?', turn: '🎵 Major or minor?', sayTurn: 'Major or minor?',
-    missText: 'Listen to the mood again 👂', sayMiss: 'Listen to the mood again. Major sounds bright. Minor sounds dark.', desc: `mode ${chord ? 'chord' : 'phrase'} ${minor ? 'minor' : 'major'}` };
+    ask: T('👂 Major or minor?'), sayWatch: T('Listen. Does it sound major, bright, or minor, dark?'), turn: T('🎵 Major or minor?'), sayTurn: T('Major or minor?'),
+    missText: T('Listen to the mood again 👂'), sayMiss: T('Listen to the mood again. Major sounds bright. Minor sounds dark.'), desc: `mode ${chord ? 'chord' : 'phrase'} ${minor ? 'minor' : 'major'}` };
 }
 // Rung 11. A strong beat then weak beats, in 3 or in 4. The child counts and picks the number.
 function genMeter() {
   const n = pick([3, 4]), bars = n === 3 ? 3 : 2, play = [];
   for (let b = 0; b < bars; b++) for (let i = 0; i < n; i++) play.push(i === 0 ? { sound: [{ inst: 0, f: 196, v: 1 }], stage: [0], gap: 0.5 } : { sound: [{ inst: 0, f: 330, v: 0.3 }], gap: 0.5 });
-  const pads = choicePads([{ name: '3', label: '3', sub: 'beats in a bar', emoji: '🥁', color: '#22D35B', inst: 0, f: 196, v: 0.6 }, { name: '4', label: '4', sub: 'beats in a bar', emoji: '🥁', color: '#FF7A00', inst: 0, f: 196, v: 0.6 }]);
+  const pads = choicePads([{ name: '3', label: '3', sub: T('beats in a bar'), emoji: '🥁', color: '#22D35B', inst: 0, f: 196, v: 0.6 }, { name: '4', label: '4', sub: T('beats in a bar'), emoji: '🥁', color: '#FF7A00', inst: 0, f: 196, v: 0.6 }]);
   return { kind: 'meter', pads, stage: [{ inst: 0, color: INST[0].color }], wide: true, play, answer: [n === 3 ? 0 : 1],
-    ask: '👂 Count the beats!', sayWatch: 'Count the beats. The strong beat is one.', turn: '🎵 In 3 or in 4?', sayTurn: 'Is it in three or in four?',
-    missText: 'Count from the strong beat 👂', sayMiss: 'Count again from the strong beat. One, and then the soft beats.', desc: `meter ${n}` };
+    ask: T('👂 Count the beats!'), sayWatch: T('Count the beats. The strong beat is one.'), turn: T('🎵 In 3 or in 4?'), sayTurn: T('Is it in three or in four?'),
+    missText: T('Count from the strong beat 👂'), sayMiss: T('Count again from the strong beat. One, and then the soft beats.'), desc: `meter ${n}` };
 }
 // Rung 12. The I, IV or V chord, shown on the staff and named; the child plays its three notes in any order.
 function genChord() {
@@ -959,11 +1085,11 @@ function genChord() {
   const name = pick(['I', 'IV', 'V']), degs = CHORDS[name], named = rint(0, 1) === 0;
   const notes = degs.map(d => ({ pos: d - 2, at: 0.5, type: 'head' }));
   return { kind: 'chord', pads, stage, answer: degs.slice(), anyOrder: true, play: [{ pads: [degs[0]], gap: 0.8, v: 0.8 }],
-    staff: { lines: 5, clef: true, notes, text: `${name} chord` },
+    staff: { lines: 5, clef: true, notes, text: T('{name} chord', { name }) },
     onWin: () => { playEvent({ pads: degs, v: 0.7 }, 1.0); return 1.2; },
-    ask: named ? `🎼 ${name} chord: ${CHORD_NAMES[name]}` : `🎼 Play the ${name} chord`, sayWatch: named ? `The ${name} chord is ${CHORD_NAMES[name]}.` : `Play the ${name} chord.`,
-    turn: `🎵 Play the ${name} chord`, sayTurn: `Play the three notes of the ${name} chord.`,
-    missText: `Not in the ${name} chord. Try again`, sayMiss: `That note is not in the ${name} chord. It is ${CHORD_NAMES[name]}.`, desc: `chord ${name}${named ? ' named' : ''}` };
+    ask: named ? T('🎼 {name} chord: {notes}', { name, notes: chordNotes(name) }) : T('🎼 Play the {name} chord', { name }), sayWatch: named ? T('The {name} chord is {notes}.', { name, notes: chordNotes(name) }) : T('Play the {name} chord.', { name }),
+    turn: T('🎵 Play the {name} chord', { name }), sayTurn: T('Play the three notes of the {name} chord.', { name }),
+    missText: T('Not in the {name} chord. Try again', { name }), sayMiss: T('That note is not in the {name} chord. It is {notes}.', { name, notes: chordNotes(name) }), desc: `chord ${name}${named ? ' named' : ''}` };
 }
 // Rung 13. One or two notes on the treble staff; the child taps the pad with that letter name.
 function genTreble() {
@@ -974,8 +1100,8 @@ function genTreble() {
   return { kind: 'treble', pads, stage, answer: seq, play: [{ gap: 0.3 }],
     staff: { lines: 5, clef: true, notes: seq.map((i, k) => ({ pos: degs[i] - 2, at: at[k], type: 'q' })) },
     onWin: () => { seq.forEach((i, k) => setTimeout(() => hit(i, 0.4), k * 450 * speed())); return count * 0.5; },
-    ask: count === 1 ? '🎼 Find this note' : '🎼 Find these two notes', sayWatch: count === 1 ? 'Find this note on the staff.' : 'Find these two notes, in order.', turn: '🎵 Tap the note' + (count === 1 ? '' : 's'), sayTurn: count === 1 ? 'Tap its name.' : 'Tap their names in order.',
-    missText: 'Lines: E G B D F. Spaces: F A C E', sayMiss: 'Not that one. The lines are E, G, B, D, F. The spaces spell face.', desc: 'treble ' + seq.map(i => noteName(degs[i])).join(' ') };
+    ask: T(count === 1 ? '🎼 Find this note' : '🎼 Find these two notes'), sayWatch: T(count === 1 ? 'Find this note on the staff.' : 'Find these two notes, in order.'), turn: T(count === 1 ? '🎵 Tap the note' : '🎵 Tap the notes'), sayTurn: T(count === 1 ? 'Tap its name.' : 'Tap their names in order.'),
+    missText: T('Lines: E G B D F. Spaces: F A C E'), sayMiss: T('Not that one. The lines are E, G, B, D, F. The spaces spell face.'), desc: 'treble ' + seq.map(i => noteName(degs[i])).join(' ') };
 }
 // Rung 14. Name a key from its signature, or play a tune one step higher than it was played.
 const KEYS = [{ name: 'C major', sharps: 0, root: 0 }, { name: 'G major', sharps: 1, root: 7 }, { name: 'D major', sharps: 2, root: 2 }, { name: 'A major', sharps: 3, root: 9 }, { name: 'F major', flats: 1, root: 5 }, { name: 'B flat major', flats: 2, root: 10 }, { name: 'E flat major', flats: 3, root: 3 }];
@@ -983,58 +1109,59 @@ function genKeys() {
   const inst = pick([1, 3, 4]);
   if (rint(0, 1) === 0) {
     const key = pick(KEYS), others = shuffle(KEYS.filter(k => k !== key)).slice(0, 2), set = shuffle([key].concat(others));
-    const sig = key.sharps ? `${key.sharps} sharp${key.sharps > 1 ? 's' : ''}` : key.flats ? `${key.flats} flat${key.flats > 1 ? 's' : ''}` : 'no sharps or flats';
-    const pads = choicePads(set.map((k, i) => ({ name: k.name, label: k.name.replace(' major', ''), sub: 'major', emoji: '🎼', color: ['#FF7A00', '#22D35B', '#1E6BFF'][i], inst, f: [0, 4, 7].map(s => hz(k.root + s)), v: 0.5 })));
+    const sig = key.sharps ? T(key.sharps > 1 ? '{n} sharps' : '{n} sharp', { n: key.sharps }) : key.flats ? T(key.flats > 1 ? '{n} flats' : '{n} flat', { n: key.flats }) : T('no sharps or flats');
+    const pads = choicePads(set.map((k, i) => ({ name: T(k.name), label: T(k.name).replace(/ (major|mayor)$/, ''), sub: T('major'), emoji: '🎼', color: ['#FF7A00', '#22D35B', '#1E6BFF'][i], inst, f: [0, 4, 7].map(s => hz(k.root + s)), v: 0.5 })));
     return { kind: 'key', pads, stage: [{ inst, color: INST[inst].color }], wide: true, answer: [set.indexOf(key)],
       play: [{ sound: [0, 4, 7].map(s => ({ inst, f: hz(key.root + s), v: 0.7 })), stage: [0], gap: 1.2 }],
       staff: { lines: 5, clef: true, key: { sharps: key.sharps || 0, flats: key.flats || 0 }, notes: [] },
-      ask: '🎼 Which key is this?', sayWatch: `This key signature has ${sig}. Which key is it?`, turn: '🎵 Name the key', sayTurn: 'Name the key.',
-      missText: 'Count the sharps or flats 🎼', sayMiss: `Count the sharps or flats. This signature has ${sig}.`, desc: `key ${key.name}` };
+      ask: T('🎼 Which key is this?'), sayWatch: T('This key signature has {sig}. Which key is it?', { sig }), turn: T('🎵 Name the key'), sayTurn: T('Name the key.'),
+      missText: T('Count the sharps or flats 🎼'), sayMiss: T('Count the sharps or flats. This signature has {sig}.', { sig }), desc: `key ${key.name}` };
   }
   const { pads, stage } = notePads(inst, [0, 1, 2, 3, 4, 5, 6, 7]);
   const seq = walkVaried(4, 0, 5, 2, 0, 3), up = seq.map(d => d + 1), at = spread(4);
   return { kind: 'key', pads, stage, answer: up, staffOffset: 4, play: seq.map((d, k) => ({ pads: [d], gap: 0.55, show: k })),
     staff: { lines: 5, clef: true, notes: seq.map((d, k) => ({ pos: d - 2, at: at[k] * 0.45 + 0.02, type: 'q' })).concat(up.map((d, k) => ({ pos: d - 2, at: at[k] * 0.45 + 0.53, type: 'q', ghost: true }))), bars: [0.5] },
-    ask: '🎼 Hear it on do. Play it on re', sayWatch: 'This tune starts on do. Play the same tune one step higher, starting on re.', turn: '🎵 Play it one step higher', sayTurn: 'Play it one step higher. Start on re.',
-    missText: 'Every note moves up one step', sayMiss: 'Every note moves up one step. Start on re.', desc: 'transpose ' + seq.map(d => SOLF[d]).join(' ') + ' > ' + up.map(d => SOLF[d]).join(' ') };
+    ask: T('🎼 Hear it on do. Play it on re'), sayWatch: T('This tune starts on do. Play the same tune one step higher, starting on re.'), turn: T('🎵 Play it one step higher'), sayTurn: T('Play it one step higher. Start on re.'),
+    missText: T('Every note moves up one step'), sayMiss: T('Every note moves up one step. Start on re.'), desc: 'transpose ' + seq.map(d => SOLF[d]).join(' ') + ' > ' + up.map(d => SOLF[d]).join(' ') };
 }
 // Rung 15. Four chord pads. Echo a progression, fill the missing chord, or bring a phrase home to I.
 const PROGS = [['I', 'V', 'vi', 'IV'], ['I', 'IV', 'V', 'I'], ['vi', 'IV', 'I', 'V'], ['I', 'vi', 'IV', 'V'], ['I', 'IV', 'vi', 'V'], ['IV', 'I', 'V', 'I']];
 function genProgression() {
   const inst = pick([3, 4]), names = ['I', 'IV', 'V', 'vi'];
-  const pads = choicePads(names.map((n, k) => ({ name: n + ' chord', label: n, sub: CHORD_NAMES[n], emoji: INST[inst].emoji, color: DEGC[[0, 3, 4, 5][k]], inst, f: CHORDS[n].map(degHz), v: 0.55, stage: k })));
+  const pads = choicePads(names.map((n, k) => ({ name: T('{name} chord', { name: n }), label: n, sub: chordNotes(n), emoji: INST[inst].emoji, color: DEGC[[0, 3, 4, 5][k]], inst, f: CHORDS[n].map(degHz), v: 0.55, stage: k })));
   const stage = stageOf(pads), prog = pick(PROGS), idx = prog.map(n => names.indexOf(n)), mode = pick(['echo', 'echo', 'blank', 'home']);
   const chordEv = (k, extra) => Object.assign({ pads: [idx[k]], gap: 0.9 }, extra || {});
   if (mode === 'echo') return { kind: 'progression', pads, stage, wide: true, answer: idx, play: idx.map((_, k) => chordEv(k, { dot: k })),
-    ask: '👂 Four chords', sayWatch: 'Listen to four chords.', turn: '🎵 Play the chords back', sayTurn: 'Play the four chords back.',
-    missText: 'Not that chord. Listen again 👂', desc: 'progression echo ' + prog.join(' ') };
+    ask: T('👂 Four chords'), sayWatch: T('Listen to four chords.'), turn: T('🎵 Play the chords back'), sayTurn: T('Play the four chords back.'),
+    missText: T('Not that chord. Listen again 👂'), desc: 'progression echo ' + prog.join(' ') };
   if (mode === 'blank') {
     const b = rint(1, 3), shown = prog.map((n, k) => k === b ? '?' : n).join('  ');
     return { kind: 'progression', pads, stage, wide: true, answer: [idx[b]], play: idx.map((_, k) => chordEv(k)),
-      staff: { text: shown, big: true }, ask: '👂 Listen for the hidden chord', sayWatch: 'One chord is hidden. Listen for it.', turn: '🎵 Which chord is hidden?', sayTurn: 'Which chord is hidden?',
-      missText: 'Not that chord. Listen again 👂', desc: 'progression blank ' + shown };
+      staff: { text: shown, big: true }, ask: T('👂 Listen for the hidden chord'), sayWatch: T('One chord is hidden. Listen for it.'), turn: T('🎵 Which chord is hidden?'), sayTurn: T('Which chord is hidden?'),
+      missText: T('Not that chord. Listen again 👂'), desc: 'progression blank ' + shown };
   }
   const lead = pick([['I', 'IV', 'V'], ['I', 'vi', 'V'], ['IV', 'I', 'V'], ['vi', 'IV', 'V']]), li = lead.map(n => names.indexOf(n));
   return { kind: 'progression', pads, stage, wide: true, answer: [0], play: li.map(i => ({ pads: [i], gap: 0.9 })),
-    staff: { text: lead.join('  ') + '  ?', big: true }, ask: '👂 Three chords. Then home', sayWatch: 'Three chords. Which chord brings the phrase home?', turn: '🎵 Bring it home', sayTurn: 'Which chord brings it home?',
-    missText: 'Home is the I chord 🏠', sayMiss: 'Not home yet. A phrase comes home on the one chord.', desc: 'progression home ' + lead.join(' ') };
+    staff: { text: lead.join('  ') + '  ?', big: true }, ask: T('👂 Three chords. Then home'), sayWatch: T('Three chords. Which chord brings the phrase home?'), turn: T('🎵 Bring it home'), sayTurn: T('Which chord brings it home?'),
+    missText: T('Home is the I chord 🏠'), sayMiss: T('Not home yet. A phrase comes home on the one chord.'), desc: 'progression home ' + lead.join(' ') };
 }
 // Rung 16. Eight notes, two to a bar, that follow a rule. The app checks the rule and plays the phrase back.
 const RULES = [
-  { text: 'End on do', say: 'Make an eight note tune. End on do.', check: s => s[7] % 7 !== 0 ? `It ended on ${SOLF[s[7]]}. End on do.` : null },
-  { text: 'Start and end on do', say: 'Make an eight note tune. Start on do and end on do.', check: s => s[0] % 7 !== 0 ? `It started on ${SOLF[s[0]]}. Start on do.` : s[7] % 7 !== 0 ? `It ended on ${SOLF[s[7]]}. End on do.` : null },
-  { text: 'Steps only. End on do', steps: true, say: 'Make an eight note tune using only steps. End on do.', check: s => { for (let i = 1; i < 8; i++) if (Math.abs(s[i] - s[i - 1]) > 1) return `${SOLF[s[i - 1]]} to ${SOLF[s[i]]} is not a step.`; return s[7] % 7 !== 0 ? `It ended on ${SOLF[s[7]]}. End on do.` : null; } },
-  { text: 'No leap past a 5th. End on do', say: 'Make an eight note tune. No leap bigger than a fifth. End on do.', check: s => { for (let i = 1; i < 8; i++) if (Math.abs(s[i] - s[i - 1]) > 4) return `${SOLF[s[i - 1]]} to ${SOLF[s[i]]} leaps too far.`; return s[7] % 7 !== 0 ? `It ended on ${SOLF[s[7]]}. End on do.` : null; } },
+  { text: 'End on do', say: 'Make an eight note tune. End on do.', check: s => endOnDo(s) },
+  { text: 'Start and end on do', say: 'Make an eight note tune. Start on do and end on do.', check: s => s[0] % 7 !== 0 ? T('It started on {n}. Start on do.', { n: SOLF[s[0]] }) : endOnDo(s) },
+  { text: 'Steps only. End on do', steps: true, say: 'Make an eight note tune using only steps. End on do.', check: s => { for (let i = 1; i < 8; i++) if (Math.abs(s[i] - s[i - 1]) > 1) return T('{a} to {b} is not a step.', { a: SOLF[s[i - 1]], b: SOLF[s[i]] }); return endOnDo(s); } },
+  { text: 'No leap past a 5th. End on do', say: 'Make an eight note tune. No leap bigger than a fifth. End on do.', check: s => { for (let i = 1; i < 8; i++) if (Math.abs(s[i] - s[i - 1]) > 4) return T('{a} to {b} leaps too far.', { a: SOLF[s[i - 1]], b: SOLF[s[i]] }); return endOnDo(s); } },
 ];
+function endOnDo(s) { return s[7] % 7 !== 0 ? T('It ended on {n}. End on do.', { n: SOLF[s[7]] }) : null; }
 function genCompose() {
   const inst = pick(PITCHED), { pads, stage } = notePads(inst, [0, 1, 2, 3, 4, 5, 6, 7]), rule = pick(RULES);
-  const base = rule.check, check = s => base(s) || (new Set(s).size < 3 ? 'Use at least three different notes.' : null);
+  const base = rule.check, check = s => base(s) || (new Set(s).size < 3 ? T('Use at least three different notes.') : null);
   const solution = rule.steps ? [1, 2, 3, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 3, 1, 0];
   return { kind: 'compose', pads, stage, len: 8, answer: null, rule: check, solution, play: [{ pads: [0], gap: 0.8, v: 0.8 }],
     staff: { lines: 5, clef: true, notes: [], slots: 8, bars: [0.25, 0.5, 0.75] },
     onWin: () => { const s = taps.slice(); s.forEach((d, k) => setTimeout(() => { hit(d, 0.3); drawStaff(tune, k); }, k * 450 * speed())); return s.length * 0.45 + 0.4; },
-    ask: `✏️ Rule: ${rule.text}`, sayWatch: rule.say + ' Two notes to a bar. Here is do.', turn: `✏️ 8 notes. ${rule.text}`, sayTurn: 'Your turn. Eight notes.',
-    sayMiss: 'Try again.', desc: 'compose: ' + rule.text };
+    ask: T('✏️ Rule: {rule}', { rule: T(rule.text) }), sayWatch: T(rule.say) + ' ' + T('Two notes to a bar. Here is do.'), turn: T('✏️ 8 notes. {rule}', { rule: T(rule.text) }), sayTurn: T('Your turn. Eight notes.'),
+    sayMiss: T('Try again.'), desc: 'compose: ' + rule.text };
 }
 
 // ---------------------------------------------------------------------------
@@ -1089,36 +1216,36 @@ function buzz() { const a = audio(); if (!a) return; const t = a.currentTime; co
 function fanfare() { const a = audio(); if (!a) return; const t = a.currentTime + 0.02; [0, 1, 2, 3, 4, 5].forEach((i, k) => PLAY[[1, 2, 3, 4, 5, 4][k]](a, t + k * 0.11)); PLAY[0](a, t + 0.66); PLAY[5](a, t + 0.66); }
 Kit.sfx = k => { if (k === 'pop') playSound(1); };
 const plain = t => String(t || '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{FE0F}\u{200D}]/gu, '').replace(/\s+/g, ' ').trim();
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.95; u.pitch = 1.15; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.95; u.pitch = 1.15; speechSynthesis.speak(u); } catch (e) {} }
 
 // ---------------------------------------------------------------------------
 // The orchestra.
 // ---------------------------------------------------------------------------
 const K = Kit.init($('stage'));
-const m = (geo, color, o) => new T.Mesh(geo, Kit.mat(color, o));
-const box = (w, h, d, c, x, y, z) => { const b = m(new T.BoxGeometry(w, h, d), c); b.position.set(x || 0, y || 0, z || 0); return b; };
-const cyl = (rt, rb, h, c, x, y, z, seg) => { const b = m(new T.CylinderGeometry(rt, rb, h, seg || 20), c); b.position.set(x || 0, y || 0, z || 0); return b; };
-function eyesOn(g, y, z, r) { for (const s of [-1, 1]) { const w = m(new T.SphereGeometry(r, 12, 8), '#ffffff'); w.position.set(s * r * 1.5, y, z); const p = m(new T.SphereGeometry(r * 0.55, 10, 6), '#1b1230'); p.position.set(s * r * 1.5, y + r * 0.1, z + r * 0.6); g.add(w, p); } }
+const m = (geo, color, o) => new TH.Mesh(geo, Kit.mat(color, o));
+const box = (w, h, d, c, x, y, z) => { const b = m(new TH.BoxGeometry(w, h, d), c); b.position.set(x || 0, y || 0, z || 0); return b; };
+const cyl = (rt, rb, h, c, x, y, z, seg) => { const b = m(new TH.CylinderGeometry(rt, rb, h, seg || 20), c); b.position.set(x || 0, y || 0, z || 0); return b; };
+function eyesOn(g, y, z, r) { for (const s of [-1, 1]) { const w = m(new TH.SphereGeometry(r, 12, 8), '#ffffff'); w.position.set(s * r * 1.5, y, z); const p = m(new TH.SphereGeometry(r * 0.55, 10, 6), '#1b1230'); p.position.set(s * r * 1.5, y + r * 0.1, z + r * 0.6); g.add(w, p); } }
 const BUILD = [
-  c => { const g = new T.Group(); g.add(cyl(0.6, 0.6, 0.7, c, 0, 0.55), cyl(0.62, 0.62, 0.05, '#FFF3E0', 0, 0.92)); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, l = cyl(0.02, 0.02, 0.72, '#FFC300', Math.cos(a) * 0.61, 0.55, Math.sin(a) * 0.61, 6); l.rotation.z = 0.4 * (i % 2 ? 1 : -1); g.add(l); }
+  c => { const g = new TH.Group(); g.add(cyl(0.6, 0.6, 0.7, c, 0, 0.55), cyl(0.62, 0.62, 0.05, '#FFF3E0', 0, 0.92)); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, l = cyl(0.02, 0.02, 0.72, '#FFC300', Math.cos(a) * 0.61, 0.55, Math.sin(a) * 0.61, 6); l.rotation.z = 0.4 * (i % 2 ? 1 : -1); g.add(l); }
     for (const s of [-1, 1]) { const st = cyl(0.03, 0.03, 0.8, '#C68B59', s * 0.25, 1.2, 0.1, 8); st.rotation.z = s * 0.5; st.name = 'stick'; g.add(st); } g.add(cyl(0.05, 0.05, 0.25, '#2B2140', 0, 0.12)); eyesOn(g, 0.6, 0.6, 0.08); return g; },
-  c => { const g = new T.Group(); const cols = ['#FF1E46', '#FF7A00', '#FFC300', '#22D35B', '#1E6BFF', '#B53DFF']; for (let i = 0; i < 6; i++) { const b = box(0.2, 0.08, 1.0 - i * 0.1, cols[i], -0.55 + i * 0.22, 0.85, 0); b.name = 'bar'; g.add(b); }
+  c => { const g = new TH.Group(); const cols = ['#FF1E46', '#FF7A00', '#FFC300', '#22D35B', '#1E6BFF', '#B53DFF']; for (let i = 0; i < 6; i++) { const b = box(0.2, 0.08, 1.0 - i * 0.1, cols[i], -0.55 + i * 0.22, 0.85, 0); b.name = 'bar'; g.add(b); }
     g.add(box(1.4, 0.08, 0.08, c, 0, 0.78, 0.4), box(1.4, 0.08, 0.08, c, 0, 0.78, -0.4)); for (const x of [-0.6, 0.6]) for (const z of [-0.4, 0.4]) g.add(cyl(0.04, 0.04, 0.8, c, x, 0.4, z, 8)); eyesOn(g, 0.6, 0.45, 0.07); return g; },
-  c => { const g = new T.Group(); const tube = cyl(0.08, 0.08, 1.0, c, 0, 0.9, 0, 12); tube.rotation.z = Math.PI / 2; const bell = m(new T.CylinderGeometry(0.35, 0.08, 0.45, 20, 1, true), c, { metalness: 0.15, roughness: 0.25, side: T.DoubleSide }); bell.rotation.z = Math.PI / 2; bell.position.set(0.7, 0.9, 0);
-    g.add(tube, bell, cyl(0.05, 0.05, 0.25, '#B8860B', -0.55, 0.9, 0)); for (let i = 0; i < 3; i++) g.add(cyl(0.035, 0.035, 0.22, '#FFE45C', -0.15 + i * 0.13, 1.06, 0, 8)); const loop = m(new T.TorusGeometry(0.18, 0.05, 8, 20), c); loop.position.set(0.05, 0.75, 0); g.add(loop);
-    g.add(cyl(0.05, 0.05, 0.5, '#2B2140', 0, 0.35), cyl(0.3, 0.3, 0.05, '#2B2140', 0, 0.05)); eyesOn(g, 0.92, 0.1, 0.06); g.traverse(x => { if (x.material && x.material.color.getHexString() === new T.Color(c).getHexString()) x.material = Kit.mat(c, { metalness: 0.15, roughness: 0.25 }); }); return g; },
-  c => { const g = new T.Group(); const pts = []; for (let i = 0; i <= 20; i++) { const t = i / 20; pts.push(new T.Vector3(-0.5 + t * 0.9, 0.2 + Math.sin(t * Math.PI) * 0.3 + t * 1.2, 0)); }
-    g.add(m(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 30, 0.06, 8), c)); const post = cyl(0.07, 0.09, 1.6, c, -0.5, 1.0, 0, 10); post.rotation.z = -0.1; g.add(post, box(0.5, 0.1, 0.35, c, -0.3, 0.12, 0));
+  c => { const g = new TH.Group(); const tube = cyl(0.08, 0.08, 1.0, c, 0, 0.9, 0, 12); tube.rotation.z = Math.PI / 2; const bell = m(new TH.CylinderGeometry(0.35, 0.08, 0.45, 20, 1, true), c, { metalness: 0.15, roughness: 0.25, side: TH.DoubleSide }); bell.rotation.z = Math.PI / 2; bell.position.set(0.7, 0.9, 0);
+    g.add(tube, bell, cyl(0.05, 0.05, 0.25, '#B8860B', -0.55, 0.9, 0)); for (let i = 0; i < 3; i++) g.add(cyl(0.035, 0.035, 0.22, '#FFE45C', -0.15 + i * 0.13, 1.06, 0, 8)); const loop = m(new TH.TorusGeometry(0.18, 0.05, 8, 20), c); loop.position.set(0.05, 0.75, 0); g.add(loop);
+    g.add(cyl(0.05, 0.05, 0.5, '#2B2140', 0, 0.35), cyl(0.3, 0.3, 0.05, '#2B2140', 0, 0.05)); eyesOn(g, 0.92, 0.1, 0.06); g.traverse(x => { if (x.material && x.material.color.getHexString() === new TH.Color(c).getHexString()) x.material = Kit.mat(c, { metalness: 0.15, roughness: 0.25 }); }); return g; },
+  c => { const g = new TH.Group(); const pts = []; for (let i = 0; i <= 20; i++) { const t = i / 20; pts.push(new TH.Vector3(-0.5 + t * 0.9, 0.2 + Math.sin(t * Math.PI) * 0.3 + t * 1.2, 0)); }
+    g.add(m(new TH.TubeGeometry(new TH.CatmullRomCurve3(pts), 30, 0.06, 8), c)); const post = cyl(0.07, 0.09, 1.6, c, -0.5, 1.0, 0, 10); post.rotation.z = -0.1; g.add(post, box(0.5, 0.1, 0.35, c, -0.3, 0.12, 0));
     for (let i = 0; i < 7; i++) { const x = -0.38 + i * 0.12, top = 0.2 + Math.sin((x + 0.5) / 0.9 * Math.PI) * 0.3 + (x + 0.5) / 0.9 * 1.2; const s = cyl(0.008, 0.008, top - 0.2, ['#FFFFFF', '#FFE45C'][i % 2], x, 0.2 + (top - 0.2) / 2, 0, 4); s.name = 'string'; g.add(s); }
     eyesOn(g, 1.2, 0.1, 0.06); return g; },
-  c => { const g = new T.Group(); g.add(box(1.3, 0.35, 0.6, c, 0, 0.75, 0), box(1.3, 0.5, 0.08, c, 0, 1.15, -0.26)); for (let i = 0; i < 8; i++) { const k = box(0.14, 0.06, 0.3, '#ffffff', -0.56 + i * 0.16, 0.95, 0.15); k.name = 'key'; g.add(k); }
+  c => { const g = new TH.Group(); g.add(box(1.3, 0.35, 0.6, c, 0, 0.75, 0), box(1.3, 0.5, 0.08, c, 0, 1.15, -0.26)); for (let i = 0; i < 8; i++) { const k = box(0.14, 0.06, 0.3, '#ffffff', -0.56 + i * 0.16, 0.95, 0.15); k.name = 'key'; g.add(k); }
     for (const i of [0, 1, 3, 4, 5]) g.add(box(0.08, 0.08, 0.18, '#2B2140', -0.48 + i * 0.16, 0.99, 0.08)); for (const x of [-0.55, 0.55]) g.add(cyl(0.05, 0.05, 0.6, '#2B2140', x, 0.3, 0, 8)); eyesOn(g, 1.2, -0.2, 0.08); return g; },
-  c => { const g = new T.Group(); g.add(box(1.3, 0.08, 0.08, c, 0, 1.7, 0), cyl(0.05, 0.05, 1.7, c, -0.65, 0.85, 0, 8), cyl(0.05, 0.05, 1.7, c, 0.65, 0.85, 0, 8), box(1.5, 0.08, 0.5, c, 0, 0.04, 0));
+  c => { const g = new TH.Group(); g.add(box(1.3, 0.08, 0.08, c, 0, 1.7, 0), cyl(0.05, 0.05, 1.7, c, -0.65, 0.85, 0, 8), cyl(0.05, 0.05, 1.7, c, 0.65, 0.85, 0, 8), box(1.5, 0.08, 0.5, c, 0, 0.04, 0));
     for (let i = 0; i < 6; i++) { const h = 1.1 - i * 0.12, t = cyl(0.05, 0.05, h, '#E0E6F0', -0.45 + i * 0.18, 1.62 - h / 2, 0, 10); t.material = Kit.mat('#E0E6F0', { metalness: 0.7, roughness: 0.2 }); t.name = 'chime'; g.add(t); } eyesOn(g, 1.82, 0.05, 0.06); return g; },
 ];
 // Stage, spotlights and the arc of instruments.
 const stage = cyl(5.8, 6.1, 0.4, '#8A3FFC', 0, 0.2, -0.5, 48); K.scene.add(stage);
-const rim = new T.Mesh(new T.TorusGeometry(5.9, 0.08, 8, 64), Kit.mat('#FFC300', { emissive: new T.Color('#FFC300'), emissiveIntensity: 0.8 })); rim.rotation.x = Math.PI / 2; rim.position.set(0, 0.4, -0.5); K.scene.add(rim);
+const rim = new TH.Mesh(new TH.TorusGeometry(5.9, 0.08, 8, 64), Kit.mat('#FFC300', { emissive: new TH.Color('#FFC300'), emissiveIntensity: 0.8 })); rim.rotation.x = Math.PI / 2; rim.position.set(0, 0.4, -0.5); K.scene.add(rim);
 K.sky('night'); K.weather('night');
 let inst = [], stageKey = '';
 // Puts one model per entry of spec ({ inst, color }) on the arc. A rung may show one soloist or up to nine copies.
@@ -1126,13 +1253,13 @@ function layout(spec) {
   inst.forEach(o => K.scene.remove(o.g, o.glow, o.beam)); inst = [];
   const n = spec.length, arc = n <= 3 ? 1.2 : n === 4 ? 1.6 : n <= 6 ? 2.0 : n <= 8 ? 2.25 : 2.4, s = n === 1 ? 1.6 : n <= 4 ? 1.35 : n === 5 ? 1.2 : n === 6 ? 1.05 : n <= 8 ? 0.88 : 0.8;
   for (let i = 0; i < n; i++) {
-    const c = spec[i].color, g = new T.Group(), body = BUILD[spec[i].inst](c); g.add(body);
+    const c = spec[i].color, g = new TH.Group(), body = BUILD[spec[i].inst](c); g.add(body);
     // An unseen tap target, so a tap between the bars or strings still counts.
-    const hitBox = new T.Mesh(new T.CylinderGeometry(0.85, 0.85, 2.0, 12), new T.MeshBasicMaterial({ visible: false })); hitBox.position.y = 0.9; g.add(hitBox);
+    const hitBox = new TH.Mesh(new TH.CylinderGeometry(0.85, 0.85, 2.0, 12), new TH.MeshBasicMaterial({ visible: false })); hitBox.position.y = 0.9; g.add(hitBox);
     const a = n === 1 ? 0 : (-0.5 + i / (n - 1)) * arc, r = 4.2;
     g.position.set(Math.sin(a) * r, 0.4, -Math.cos(a) * r * 0.55 + 0.6); g.rotation.y = -a * 0.6; g.scale.setScalar(s);
-    const glow = new T.Mesh(new T.CircleGeometry(0.9, 32), new T.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.35 })); glow.rotation.x = -Math.PI / 2; glow.position.copy(g.position); glow.position.y = 0.42;
-    const beam = new T.Mesh(new T.ConeGeometry(1.1, 7, 24, 1, true), new T.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.0, depthWrite: false, side: T.DoubleSide })); beam.position.copy(g.position); beam.position.y = 3.9;
+    const glow = new TH.Mesh(new TH.CircleGeometry(0.9, 32), new TH.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.35 })); glow.rotation.x = -Math.PI / 2; glow.position.copy(g.position); glow.position.y = 0.42;
+    const beam = new TH.Mesh(new TH.ConeGeometry(1.1, 7, 24, 1, true), new TH.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.0, depthWrite: false, side: TH.DoubleSide })); beam.position.copy(g.position); beam.position.y = 3.9;
     K.scene.add(g, glow, beam);
     const mats = []; body.traverse(x => { if (x.isMesh) { x.material = x.material.clone(); mats.push(x.material); } });
     inst.push({ g, body, glow, beam, mats, s, lit: 0, base: g.position.clone(), color: c, inst: spec[i].inst });
@@ -1142,8 +1269,8 @@ function layout(spec) {
 // Lighting up a model: a spotlight, a glow, a bounce, its moving parts and flying notes.
 function glow(si, dur, color) {
   const o = inst[si]; if (!o) return; o.lit = dur;
-  for (let k = 0; k < 3; k++) setTimeout(() => K.note({ position: o.g.position.clone().add(new T.Vector3(0, 0.6 * o.s, 0)), scale: { x: o.s } }), k * 90);
-  K.burst(o.g.position.clone().add(new T.Vector3(0, 1.2 * o.s, 0)), [color || o.color, '#ffffff', '#FFE45C'], 14, { speed: 3.5 });
+  for (let k = 0; k < 3; k++) setTimeout(() => K.note({ position: o.g.position.clone().add(new TH.Vector3(0, 0.6 * o.s, 0)), scale: { x: o.s } }), k * 90);
+  K.burst(o.g.position.clone().add(new TH.Vector3(0, 1.2 * o.s, 0)), [color || o.color, '#ffffff', '#FFE45C'], 14, { speed: 3.5 });
   o.t0 = performance.now();
 }
 function padLit(pi, dur) { const pad = $('pads').children[pi]; if (pad) { pad.classList.add('lit'); setTimeout(() => pad.classList.remove('lit'), Math.max(180, dur * 800)); } }
@@ -1182,7 +1309,7 @@ function buildPads(t) {
   const w = Math.max(60, Math.min(maxW, Math.floor((avail - gap * (n - 1)) / n)));
   t.pads.forEach((p, i) => {
     const b = document.createElement('button'); b.className = 'pad' + (p.label ? ' note' : '') + (p.cls ? ' ' + p.cls : ''); b.style.background = p.color; b.style.width = w + 'px';
-    if (p.label) { b.innerHTML = `<span class="em">${p.emoji}</span><span class="lb">${p.label}</span>` + (p.sub ? `<span class="sb">${p.sub}</span>` : ''); } else b.textContent = p.emoji;
+    if (p.label) { b.innerHTML = `<span class="em">${p.emoji}</span><span class="lb${p.label.length > (t.wide ? 9 : 5) ? ' tight' : ''}">${p.label}</span>` + (p.sub ? `<span class="sb">${p.sub}</span>` : ''); } else b.textContent = p.emoji;
     b.title = p.name || p.label; b.dataset.i = i; b.onpointerdown = e => { e.preventDefault(); press(i); }; pads.appendChild(b);
   });
   pads.classList.toggle('many', n >= 8);
@@ -1246,7 +1373,7 @@ let tune = null, phase = 'idle', pos = 0, missed = false, playToken = 0, taps = 
 const TOL = 150; // ms early or late a timed tap may land
 const speed = () => (window.SIMON_ORCHESTRA && window.SIMON_ORCHESTRA.fast) ? 0.12 : 1;
 const sleep = s => new Promise(r => setTimeout(r, s * 1000 * speed()));
-function setAsk(text, cls) { const a = $('ask'); a.textContent = text; a.className = (cls || '') + (text.length > 24 ? ' long' : ''); }
+function setAsk(text, cls) { const a = $('ask'); a.textContent = text; a.className = (cls || '') + (text.length > 44 ? ' long xl' : text.length > 24 ? ' long' : ''); }
 function dots() { const d = $('dots'); d.innerHTML = ''; const n = tune.answer ? tune.answer.length : tune.len; for (let i = 0; i < n; i++) { const e = document.createElement('div'); e.className = 'dot' + (phase === 'input' && i < pos ? ' on' : ''); d.appendChild(e); } }
 function newRound(speak = true) {
   playToken++; missed = false; pos = 0; taps = []; demoNext = false;
@@ -1284,7 +1411,7 @@ function press(i) {
   if (tune.rule) {
     hit(i, 0.3); taps.push(i); pos = taps.length; dots();
     tune.staff.notes = taps.map((d, k) => ({ pos: tune.pads[d].deg - 2, at: spread(tune.len)[k], type: 'q' })); drawStaff(tune, pos - 1);
-    if (pos === tune.len) { const bad = tune.rule(taps); if (bad) miss('✏️ ' + bad, bad + ' Try again.'); else win(); }
+    if (pos === tune.len) { const bad = tune.rule(taps); if (bad) miss('✏️ ' + bad, T('{bad} Try again.', { bad })); else win(); }
     return;
   }
   if (tune.anyOrder && taps.includes(i)) { hit(i, 0.3); return; }
@@ -1299,38 +1426,38 @@ function press(i) {
   }
   // Wrong note (or a tap out of time): only the first miss on a tune counts. Then the tune plays again.
   const bump = tune.pads[i]; if (bump && bump.stage != null && inst[bump.stage]) inst[bump.stage].t0 = performance.now() - 0.1;
-  miss(why ? (why === 'early' ? '⏱️ Too early. Listen again.' : '⏱️ Too late. Listen again.') : tune.missText, why ? `Too ${why}. Listen again.` : tune.sayMiss);
+  miss(why ? T(why === 'early' ? '⏱️ Too early. Listen again.' : '⏱️ Too late. Listen again.') : tune.missText, why ? T(why === 'early' ? 'Too early. Listen again.' : 'Too late. Listen again.') : tune.sayMiss);
 }
 function miss(text, spoken) {
   phase = 'oops'; buzz(); K.quake(); let change = 0;
   if (!missed) { missed = true; change = record(false); }
-  setAsk(text || 'Oops! Listen again 👂', ''); say(spoken || pick(['Oops! Listen again.', 'Not that one. Listen again!', 'Almost! Here it comes again.']));
-  badge(); if (change < 0) toast('Easier tunes');
+  setAsk(text || T('Oops! Listen again 👂'), ''); say(spoken || T(pick(['Oops! Listen again.', 'Not that one. Listen again!', 'Almost! Here it comes again.'])));
+  badge(); if (change < 0) toast(T('Easier tunes'));
   demoNext = !!tune.demo;
   setTimeout(() => { if (phase === 'oops') playTune(false, demoNext); }, 1300 * speed());
 }
 async function win() {
   phase = 'won'; P.stars++; const change = missed ? 0 : record(true); badge();
-  setAsk(pick(['🎉 Bravo!', '🌟 Beautiful music!', '👏 Encore!', '🎶 You did it!']), 'turn');
-  say(tune.sayWin || pick(['Bravo!', 'Beautiful music!', 'You did it!', 'What a concert!']));
+  setAsk(T(pick(['🎉 Bravo!', '🌟 Beautiful music!', '👏 Encore!', '🎶 You did it!'])), 'turn');
+  say(tune.sayWin || T(pick(['Bravo!', 'Beautiful music!', 'You did it!', 'What a concert!'])));
   if (tune.reveal != null && inst[tune.reveal]) { glow(tune.reveal, 1.0); playSound(inst[tune.reveal].inst); }
   const extra = tune.onWin ? (tune.onWin() || 0) : 0, wait = extra * 1000 * speed();
   setTimeout(() => {
     fanfare(); K.weather('confetti');
-    inst.forEach((o, k) => setTimeout(() => { o.t0 = performance.now(); K.burst(o.g.position.clone().add(new T.Vector3(0, 1.5, 0)), [o.color, '#FFE45C', '#ffffff'], 18, { speed: 4 }); }, k * 110));
+    inst.forEach((o, k) => setTimeout(() => { o.t0 = performance.now(); K.burst(o.g.position.clone().add(new TH.Vector3(0, 1.5, 0)), [o.color, '#FFE45C', '#ffffff'], 18, { speed: 4 }); }, k * 110));
   }, wait);
-  if (change > 0) { setTimeout(() => { toast('Level up! ⬆️'); say('Level up! ' + LEVELS[P.lv].name); }, 900 + wait); }
+  if (change > 0) { setTimeout(() => { toast(T('Level up! ⬆️')); say(T('Level up! {name}', { name: T(LEVELS[P.lv].name) })); }, 900 + wait); }
   const my = playToken;
   setTimeout(() => { K.weather('night'); if (my === playToken && !window.SIMON_ORCHESTRA.hold) newRound(); }, 3200 * speed() + wait);
 }
-function badge() { $('badge').textContent = `Level ${P.lv + 1}: ${LEVELS[P.lv].name}`; $('stars').textContent = '⭐ ' + P.stars; }
+function badge() { $('badge').textContent = T('Level {n}: {name}', { n: P.lv + 1, name: T(LEVELS[P.lv].name) }); $('stars').textContent = '⭐ ' + P.stars; }
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1600); }
 $('hear').onclick = () => { audio(); if (phase === 'input') playTune(false, !!tune.hearDemo); };
 $('skip').onclick = () => { audio(); newRound(); };
 // Tapping a model in the 3D scene works like its pad. A model with no pad (the family rung) just plays its sound.
-const ray = new T.Raycaster();
+const ray = new TH.Raycaster();
 $('stage').addEventListener('pointerdown', e => {
-  const r = K.renderer.domElement.getBoundingClientRect(); ray.setFromCamera(new T.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), K.camera);
+  const r = K.renderer.domElement.getBoundingClientRect(); ray.setFromCamera(new TH.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), K.camera);
   const hitObj = ray.intersectObjects(inst.map(o => o.g), true)[0]; if (!hitObj) return;
   const si = inst.findIndex(o => { let x = hitObj.object; while (x) { if (x === o.g) return true; x = x.parent; } return false; }); if (si < 0) return;
   const pi = tune ? tune.pads.findIndex(p => p.stage === si) : -1;
@@ -1339,7 +1466,7 @@ $('stage').addEventListener('pointerdown', e => {
 K.camZ = 7.0; K.camera.position.set(0, 3.4, innerWidth / Math.max(1, innerHeight) < 1.2 ? 9.4 : 7.0);
 // With a staff panel on screen the camera looks a little higher, so the orchestra sits below the panel.
 function aim() { K.camera.lookAt(0, tune && tune.staff ? 2.4 : 1.1, -1.4); }
-tune = LEVELS[P.lv].gen(); layout(tune.stage); aim(); buildPads(tune); badge(); dots(); drawStaff(tune, -1); setAsk('👆 Tap to start the music!', 'turn');
+tune = LEVELS[P.lv].gen(); layout(tune.stage); aim(); buildPads(tune); badge(); dots(); drawStaff(tune, -1); setAsk(T('👆 Tap to start the music!'), 'turn');
 document.addEventListener('pointerdown', function first() { audio(); if (phase === 'idle') newRound(); }, { once: true });
 
 // ---------------------------------------------------------------------------
@@ -1383,7 +1510,7 @@ function checkTune(t, i) {
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START,
-  label: () => LEVELS[P.lv].name,
+  label: () => T(LEVELS[P.lv].name),
   exercise: (i, n) => { const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); checkTune(t, i); out.push(t.desc); } return out; },
 };
 
