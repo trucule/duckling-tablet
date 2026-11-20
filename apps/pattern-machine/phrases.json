@@ -1,28 +1,65 @@
 {
- "source": "63ad152ea6639d7783693b990f09b84872f773c0e5e290a345f187935a239a60",
+ "source": "116f7a12e3b947c65ea364014cf5bb9c121d9ac852ae0483b29a6f38a256f150",
  "lines": [
   {
-   "text": "4, minus 5, minus 14, minus 23. Is this pattern arithmetic or geometric, and what comes next? Tap it.",
+   "text": "2, menos 1, menos 4, menos 7. ¿Esta sucesión es aritmética o geométrica, y qué sigue? Tócalo.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "20, 24, 28, 32. Is this pattern arithmetic or geometric, and what comes next? Tap it.",
    "rate": -10
   },
   {
-   "text": "Find the rule from the three pairs. Then, when 7 goes in, what comes out? Type it.",
+   "text": "Encuentra la regla con los tres pares. Luego, si entra 6, ¿qué sale? Escríbelo.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Esta máquina la pinta de azul. ¿Qué sale? Tócala.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Esta máquina la pinta de naranja. ¿Qué sale? Tócala.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Este patrón usa dos pasos cada vez. 3, 8, 23, 68. ¿Qué sigue? Tócalo.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Find the rule from the three pairs. Then, when 10 goes in, what comes out? Type it.",
    "rate": -10
   },
   {
-   "text": "Let's try an easier one next.",
-   "rate": -10
+   "text": "La figura pasa por 2 máquinas. La primera la gira media vuelta. La última la pinta de naranja. ¿Qué sale al final?",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "La tabla muestra n y su valor. ¿Qué expresión da todos los valores de la tabla? Tócala.",
+   "rate": -10,
+   "lang": "es"
   },
   {
    "text": "Look at what went in and what came out. Which rule is inside the machine?",
    "rate": -10
   },
   {
-   "text": "Not that one. Look again!",
-   "rate": -10
+   "text": "Los puntos están en una misma recta. Encuentra la pendiente y dónde cruza el eje y. ¿Qué ecuación corresponde? Tócala.",
+   "rate": -10,
+   "lang": "es"
   },
   {
-   "text": "The shape goes through 2 machines. First one paints it yellow. Last one flips it like a mirror. What comes out at the end?",
+   "text": "Mira lo que entró y lo que salió. ¿Qué regla hay dentro de la máquina?",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "The shape goes through 2 machines. First one flips it like a mirror. Last one paints it green. What comes out at the end?",
    "rate": -10
   },
   {
@@ -34,19 +71,19 @@
    "rate": -10
   },
   {
-   "text": "This machine flips it like a mirror. What comes out? Tap it.",
+   "text": "This machine makes it bigger. What comes out? Tap it.",
    "rate": -10
   },
   {
-   "text": "This machine paints it blue. What comes out? Tap it.",
+   "text": "This machine paints it orange. What comes out? Tap it.",
    "rate": -10
   },
   {
-   "text": "This pattern uses two steps each time. 3, 8, 23, 68. What comes next? Tap it.",
+   "text": "This machine paints it pink. What comes out? Tap it.",
    "rate": -10
   },
   {
-   "text": "Type a number first.",
+   "text": "This pattern uses two steps each time. 4, 9, 24, 69. What comes next? Tap it.",
    "rate": -10
   }
  ]

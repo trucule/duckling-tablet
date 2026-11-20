@@ -1,7 +1,7 @@
 {
   "id": "pattern-machine",
   "name": "Pattern Machine",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Machines turn, flip, paint and resize shapes, then work on numbers. Predict the output, find the hidden rule, follow chains of machines, and climb to function tables, sequences and lines.",
   "subjects": [
     "math",
@@ -22,5 +22,21 @@
       "Following multi-step processes",
       "Checking an answer against evidence"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Máquina de patrones",
+      "description": "Las máquinas giran, voltean, pintan y cambian el tamaño de las figuras, y después trabajan con números. Predice lo que sale, encuentra la regla escondida, sigue cadenas de máquinas y sube hasta tablas de funciones, sucesiones y rectas.",
+      "about": {
+        "concept": "Funciones e inferencia. Una máquina aplica una regla a una figura; el niño predice lo que sale, descubre una regla escondida a partir de ejemplos y sigue una cadena de máquinas, que es la forma del pensamiento algebraico.",
+        "progression": "Las máquinas que giran o pintan una figura llevan a máquinas de dos pasos, reglas escondidas que se descubren con ejemplos y cadenas de tres máquinas. Después la máquina trabaja con números: patrones de una y dos operaciones, máquinas de funciones, patrones de figuras que crecen, expresiones como 2n + 3, sucesiones con negativos y fracciones, sucesiones aritméticas y geométricas, el término enésimo, rectas a partir de tablas y gráficas, y reglas recursivas para octavo grado.",
+        "lifeSkills": [
+          "Descubrir reglas a partir de ejemplos",
+          "Predecir resultados",
+          "Seguir procesos de varios pasos",
+          "Comprobar una respuesta con la evidencia"
+        ]
+      }
+    }
   }
 }
