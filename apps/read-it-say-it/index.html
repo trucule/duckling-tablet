@@ -299,7 +299,9 @@
   #gear { position: absolute; left: 12px; bottom: 12px; z-index: 5; font-size: 26px; width: 58px; height: 58px; border-radius: 50%; border: 3px solid var(--ink); background: #ffffffcc; }
   #gear .ring { position: absolute; inset: -6px; border-radius: 50%; border: 5px solid transparent; }
   #gear.hold .ring { border-color: #FF2D87; transition: border-color 1.5s; }
-  #parent { position: absolute; left: 12px; bottom: 82px; z-index: 6; background: #fff; border: 4px solid var(--ink); border-radius: 22px; padding: 14px 16px; display: none; width: 360px; }
+  /* Fixed to the screen, not the stage: when the card above is tall (a passage summary) the stage is short, and a panel
+     clipped by it would lose its top. Over the card it can grow to the full height of the screen. */
+  #parent { position: fixed; left: 12px; bottom: 82px; z-index: 6; background: #fff; border: 4px solid var(--ink); border-radius: 22px; padding: 14px 16px; display: none; width: 360px; }
   #parent.on { display: block; }
   #parent h3 { margin: 0 0 8px; font-size: 20px; }
   #parent button { display: block; width: 100%; text-align: left; font-size: 19px; font-weight: 700; border: 3px solid var(--ink); border-radius: 14px; background: #fff; padding: 10px 12px; margin: 6px 0; }
@@ -499,6 +501,9 @@ window.Kit = (function () {
     jellyfish(c) { c = c || '#C77DFF'; const g = new T.Group(); const b = new T.Group(); b.name = 'hover'; const dome = new T.Mesh(new T.SphereGeometry(0.4, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(c, { transparent: true, opacity: 0.85 }));
       add(b, dome); eyes(b, 0, 0.18, 0.3, 0.05, 0.12); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(b, mesh('cyl', '#FF8FE0', 0.025, 0.5, 0.025, Math.cos(a) * 0.25, -0.25, Math.sin(a) * 0.25)); } b.position.y = 0.9; add(g, b); return g; },
     starfish(c) { const g = new T.Group(); const s = new T.Mesh(starGeo, mat(c || '#FF6B6B')); s.scale.set(0.45, 0.45, 0.5); s.rotation.x = -Math.PI / 2; s.position.y = 0.1; add(g, s); eyes(g, 0, 0.22, 0.05, 0.06, 0.1); return g; },
+    unicorn(c) { const g = M.horse(c || '#F5F0FF'); g.children[9].material = mat('#FF8FE0'); g.children[14].material = mat('#FF8FE0'); const horn = mesh('cone', '#FFD60A', 0.05, 0.32, 0.05, 0, 1.55, 0.7); horn.rotation.x = -0.3; add(g, horn); return g; },
+    grape(c) { c = c || '#8A3FFC'; const g = new T.Group(); [[0, 0.75, 0], [0.16, 0.62, 0.08], [-0.16, 0.62, 0.08], [0.08, 0.45, -0.06], [-0.08, 0.45, -0.06], [0, 0.28, 0.04], [0.2, 0.42, 0.14], [-0.2, 0.42, 0.14]].forEach(([x, y, z]) => add(g, mesh('sphere', c, 0.14, 0.14, 0.14, x, y, z)));
+      add(g, mesh('cyl', '#7A4A20', 0.02, 0.2, 0.02, 0, 0.95, 0)); const l = mesh('sphere', '#38E54D', 0.14, 0.03, 0.08, 0.12, 0.98, 0); l.rotation.z = 0.4; add(g, l); return g; },
     // People for story scenes: shirt color c. girl has long hair and a dress, man is taller with a hat.
     person(c, o) { o = o || {}; c = c || '#3A86FF'; const g = new T.Group(), hair = o.hair || '#5A3A1A', skin = o.skin || '#F2C9A0', t = o.tall || 1;
       for (const s of [-1, 1]) add(g, mesh('cyl', o.pants || '#2B2140', 0.07, 0.42 * t, 0.07, s * 0.1, 0.21 * t, 0));
@@ -819,12 +824,78 @@ window.Kit = (function () {
 </script>
 <script src="speech.js"></script>
 <script src="passages.js"></script>
+<script src="passages-es.js"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const cap = s => s[0].toUpperCase() + s.slice(1);
+
+// ---------------------------------------------------------------------------
+// Language. On a Spanish tablet (KidTablet.language) every line the child sees or hears is Spanish: the screen text
+// through T(), the rungs below the passages from the Spanish makers further down, the passages from passages-es.js,
+// and the listener from the Spanish Vosk model (speech.js). Ids, storage keys, scene words and the English text stay.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  'Read It Say It Make It': 'Léelo, dilo, hazlo', '📖 Read It Say It Make It': '📖 Léelo, dilo, hazlo', 'New sentence': 'Otra oración',
+  '🎤 Read it!': '🎤 ¡Léelo!', '✅ I read it!': '✅ ¡Ya lo leí!', '🔊 Hear it': '🔊 Escúchalo', 'Next ▶': 'Siguiente ▶', '👂 Listening...': '👂 Escuchando...',
+  'For grown-ups: press and hold': 'Para adultos: mantén presionado', 'For grown-ups: how she reads': 'Para adultos: cómo lee',
+  '🎤 Microphone checks her reading': '🎤 El micrófono revisa su lectura',
+  '👆 She taps each word as she reads it (in stories, a button for each sentence)': '👆 Toca cada palabra mientras la lee (en los cuentos, un botón por oración)',
+  '✅ Trust me: one "I read it" button': '✅ Confiar: un solo botón de "Ya lo leí"',
+  'Tap the microphone, then read the yellow part out loud. Tap an underlined word to learn what it means.': 'Toca el micrófono y lee la parte amarilla en voz alta. Toca una palabra subrayada para saber qué significa.',
+  'Read the yellow part out loud, then tap the green button. Tap an underlined word to learn what it means.': 'Lee la parte amarilla en voz alta y luego toca el botón verde. Toca una palabra subrayada para saber qué significa.',
+  'Read each word out loud and tap it.': 'Lee cada palabra en voz alta y tócala.', 'Read it out loud, then tap the green button.': 'Léelo en voz alta y luego toca el botón verde.',
+  'Tap the microphone, then read it out loud.': 'Toca el micrófono y luego léelo en voz alta.',
+  '“{title}” by {by}': '“{title}”, de {by}', '{title} (grade {g})': '{title} (grado {g})',
+  'This part asks a question. Let your voice go up at the end.': 'Esta parte es una pregunta. Sube la voz al final.',
+  'This part is exciting. Read it with energy.': 'Esta parte es emocionante. Léela con energía.',
+  'Someone is talking. Read it the way they would say it.': 'Alguien está hablando. Léelo como lo diría esa persona.',
+  '✅ I read the yellow part': '✅ Ya leí la parte amarilla', 'Speech check: {state}': 'Revisión de la voz: {state}',
+  'offline (Vosk), ready': 'sin internet (Vosk), lista', 'loading the offline listener...': 'cargando el oído sin internet...', 'the browser listener': 'el oído del navegador',
+  'no microphone check, so words are tapped': 'sin micrófono, así que se tocan las palabras',
+  'the Spanish listener is not on this tablet yet, so the check is skipped': 'el oído en español todavía no está en esta tableta, así que no se revisa',
+  'Level {n}: {name}': 'Nivel {n}: {name}', 'Shorter sentences': 'Oraciones más cortas', 'An easier story': 'Un cuento más fácil',
+  'Read the yellow part out loud!': '¡Lee la parte amarilla en voz alta!', 'Read it out loud!': '¡Léelo en voz alta!',
+  'The microphone is not working, so tap the green button after each part.': 'El micrófono no funciona, así que toca el botón verde después de cada parte.',
+  'The microphone is not working, so tap each word as you read it.': 'El micrófono no funciona, así que toca cada palabra mientras la lees.',
+  'Almost! Tap 🔊 to hear the yellow part, then tap the microphone and keep going.': '¡Casi! Toca 🔊 para oír la parte amarilla, luego toca el micrófono y sigue.',
+  'Almost! Tap 🔊 to hear it, then try again.': '¡Casi! Toca 🔊 para oírlo y luego intenta otra vez.', 'Almost! Let us try that again.': '¡Casi! Vamos a intentarlo otra vez.',
+  'Start with the first word, then go in order.': 'Empieza con la primera palabra y sigue en orden.',
+  'Keep going!': '¡Sigue así!', 'Nice! Next part.': '¡Bien! La siguiente parte.', 'Great! Keep reading.': '¡Muy bien! Sigue leyendo.',
+  'Nice! Tap the microphone for the next part.': '¡Bien! Toca el micrófono para la siguiente parte.', 'Nice! Now the next part.': '¡Bien! Ahora la siguiente parte.',
+  'You read the whole passage! Now some questions.': '¡Leíste todo el texto! Ahora unas preguntas.', 'Question {n} of {total}': 'Pregunta {n} de {total}',
+  'Read the question, then tap the best answer.': 'Lee la pregunta y toca la mejor respuesta.',
+  'Not quite. Think about what the passage said, and try another answer.': 'Casi. Piensa en lo que decía el texto e intenta otra respuesta.',
+  'Yes, that is right!': '¡Sí, es correcto!', 'Right!': '¡Correcto!', 'Good thinking!': '¡Bien pensado!',
+  'You read {n} words. {q} of {total} questions right on the first try.': 'Leíste {n} palabras. {q} de {total} preguntas correctas al primer intento.',
+  'You read {n} words at {wpm} words a minute. {q} of {total} questions right on the first try.': 'Leíste {n} palabras a {wpm} palabras por minuto. {q} de {total} preguntas correctas al primer intento.',
+  'That counts toward the next level!': '¡Eso cuenta para el siguiente nivel!', 'Next time, try reading it all without help.': 'La próxima vez, intenta leerlo todo sin ayuda.',
+  'Next time, think about what happens in the story.': 'La próxima vez, piensa en lo que pasa en el cuento.', 'Tap Next for a new passage.': 'Toca Siguiente para otro texto.',
+  'Level up! ⬆️': '¡Subiste de nivel! ⬆️', 'Level up!': '¡Subiste de nivel!',
+  'You read it! Watch it come to life!': '¡Lo leíste! ¡Mira cómo cobra vida!', 'Great reading! Here it comes!': '¡Qué bien lees! ¡Aquí viene!', 'Yes! Watch this!': '¡Sí! ¡Mira esto!',
+  'Tap Next for a new sentence.': 'Toca Siguiente para otra oración.', 'Now you read it! Tap the microphone.': '¡Ahora léelo tú! Toca el micrófono.', 'Now you read it!': '¡Ahora léelo tú!',
+  'Getting my ears ready...': 'Preparando mis oídos...',
+  'The microphone check is not working, so tap each word as you read it.': 'La revisión con el micrófono no funciona, así que toca cada palabra mientras la lees.',
+  'The Spanish listener is not on this tablet yet. Read out loud, then tap the green button.': 'El oído en español todavía no está en esta tableta. Lee en voz alta y luego toca el botón verde.',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+// allow: Vosk is the listener's name; "color" is the Spanish word too ("el color de los ojos" in a passage).
+window.DucklingLang = { keys: () => Object.keys(ES), missing: () => [...USED].filter(k => ES[k] == null), allow: ['Vosk', 'color'] };
+// The markup is written in English once; on a Spanish tablet its text is set from T() at startup.
+if (LANG === 'es') {
+  document.documentElement.lang = 'es'; document.title = T('Read It Say It Make It');
+  for (const el of document.querySelectorAll('header h1, #parent h3, #parent button, #mic, #trust, #listen, #next')) el.textContent = T(el.textContent.trim());
+  for (const el of document.querySelectorAll('[title]')) el.title = T(el.title);
+}
 
 // ---------------------------------------------------------------------------
 // Sentence makers. Each sentence comes with a scene: things to put on the stage and steps to act out.
@@ -901,7 +972,7 @@ function scene(actors, steps, pre) { return { actors, steps, pre: pre || {} }; }
 //    15     16    Make a case          7th to 8th (g 7)  an argument paragraph, then its claim and its evidence
 //    16     17    Sum it up            8th (g 8)    academic vocabulary, then the best one-sentence summary of three
 // Every passage level has at least eight passages, each read one sentence at a time with tap-to-answer questions.
-const LEVELS = [
+const EN_LEVELS = [
   { name: 'Three words', g: -1, gen: () => make(() => { const c = clause({ verbs: ['hops', 'runs', 'jumps', 'spins', 'dances', 'sleeps', 'sings', 'swims', 'flies'] });
     return { text: `The ${c.an.s} ${c.verb}.`, scene: scene([actor(c.an, [])], [{ a: 0, verb: c.verb }]) }; }) },
   { name: 'Four words', g: -1, gen: () => make(() => { const c = clause({}); const adj = adjFor(1);
@@ -935,6 +1006,123 @@ const LEVELS = [
     return { text: `First the ${phrase(c1, a1)} ${c1.verb} ${relText(r1, p1)}, then ${n} ${phrase(c2, a2, true)} ${vform(c2.verb, true)} ${relText(r2, p2, true)}.`,
       scene: scene([actor(c1.an, a1), actor(c2.an, a2, NUMS.indexOf(n) + 2)], [{ a: 0, verb: c1.verb, rel: r1, place: p1 }, { a: 1, verb: c2.verb, rel: r2, place: p2 }]) }; }) },
 ];
+// ---------------------------------------------------------------------------
+// The Spanish rungs below the passages (LANG es). Spanish reading starts with letters and syllables, so the first four
+// rungs are letters, syllables and frequent words, and the next four are sentences built the way the English ones
+// are, with the same scene words (models, verbs, places). Each rung has the grade of the English rung in its place,
+// so a child opens on the same rung in either language.
+//   index  level  name                  grade        what she reads
+//     0      1    Las vocales           pre-K (g -1) "A de abeja." a vowel and a word that starts with it
+//     1      2    Las letras            pre-K (g -1) "M de mamá." a consonant and a word
+//     2      3    Las sílabas           K (g 0)      "pa to pato." the syllables, then the word
+//     3      4    Palabras frecuentes   K (g 0)      "Aquí está el gato." frequent words around an animal
+//     4      5    Oraciones cortas      1st (g 1)    "El gato rojo salta."
+//     5      6    Adónde va             1st (g 1)    "La rana salta a la roca.", "Dos patos nadan en el lago."
+//     6      7    El clima y la hora    1st (g 1)    "Está lloviendo, así que ...", "Cuando sale el sol, ..."
+//     7      8    Primero y luego       2nd (g 2)    "Primero ..., luego ..."
+// ---------------------------------------------------------------------------
+// A Spanish noun: the word, its plural, the model that shows it, whether it is feminine, and (for animals) what it does.
+const N = (w, p, m, f, moves, o) => Object.assign({ w, p, m, f: !!f, moves: moves || ['spins', 'dances', 'jumps'] }, o || {});
+const ES_ANIMALS = [N('gato', 'gatos', 'cat', 0, LAND), N('perro', 'perros', 'dog', 0, LAND), N('rana', 'ranas', 'frog', 1, ['hops', 'jumps', 'spins', 'sings', 'swims', 'sleeps']),
+  N('cerdo', 'cerdos', 'pig', 0, LAND), N('pato', 'patos', 'duck', 0, ['hops', 'runs', 'swims', 'spins', 'sings', 'flies']), N('conejo', 'conejos', 'bunny', 0, ['hops', 'jumps', 'runs', 'spins', 'dances', 'sleeps']),
+  N('oso', 'osos', 'bear', 0, ['runs', 'dances', 'sleeps', 'spins', 'sings']), N('zorro', 'zorros', 'fox', 0, ['runs', 'jumps', 'spins', 'dances', 'sleeps']),
+  N('vaca', 'vacas', 'cow', 1, ['runs', 'dances', 'sleeps', 'sings', 'spins']), N('gallina', 'gallinas', 'hen', 1, ['hops', 'runs', 'spins', 'sings', 'sleeps']),
+  N('pájaro', 'pájaros', 'bird', 0, ['flies', 'sings', 'hops', 'spins'], { flier: true }), N('búho', 'búhos', 'owl', 0, ['flies', 'sleeps', 'sings', 'spins'], { flier: true }),
+  N('abeja', 'abejas', 'bee', 1, ['flies', 'spins', 'dances'], { flier: true }), N('pez', 'peces', 'fish', 0, ['swims', 'spins'], { water: true }), N('oveja', 'ovejas', 'sheep', 1, ['runs', 'jumps', 'sleeps', 'hops'])];
+// Words for the letter rungs: each starts with its letter and has a model to show.
+const ES_LETTER_WORDS = {
+  A: [N('abeja', '', 'bee', 1, ['flies']), N('árbol', '', 'tree'), N('avión', '', 'jet', 0, ['flies']), N('auto', '', 'car')],
+  E: [N('estrella', '', 'star', 1), N('escarabajo', '', 'bug')],
+  I: [N('insecto', '', 'bug'), N('invierno', '', 'snowflake')],
+  O: [N('oso', '', 'bear'), N('oveja', '', 'sheep', 1), N('orca', '', 'whale', 1, ['swims', 'spins'])],
+  U: [N('uva', '', 'grape', 1), N('unicornio', '', 'unicorn', 0, ['jumps', 'runs', 'dances'])],
+  B: [N('barco', '', 'ship'), N('búho', '', 'owl', 0, ['flies']), N('ballena', '', 'whale', 1, ['swims', 'spins']), N('balón', '', 'ball')],
+  C: [N('casa', '', 'house', 1), N('caballo', '', 'horse', 0, ['runs', 'jumps']), N('conejo', '', 'bunny', 0, ['hops']), N('corona', '', 'crown', 1), N('cohete', '', 'rocket', 0, ['flies']), N('campana', '', 'bell', 1)],
+  D: [N('dragón', '', 'dragon', 0, ['flies', 'dances'])],
+  F: [N('flor', '', 'flower', 1), N('fuego', '', 'fire'), N('faro', '', 'lighthouse'), N('fantasma', '', 'ghost', 0, ['flies', 'spins'])],
+  G: [N('gato', '', 'cat', 0, ['hops', 'spins']), N('gallina', '', 'hen', 1, ['hops']), N('globo', '', 'balloon', 0, ['flies']), N('girasol', '', 'sunflower')],
+  H: [N('huevo', '', 'egg'), N('hormiga', '', 'ant', 1, ['runs'])],
+  L: [N('luna', '', 'moon', 1), N('libro', '', 'book'), N('lobo', '', 'wolf', 0, ['runs', 'sings']), N('lámpara', '', 'lamp', 1)],
+  M: [N('mamá', '', 'woman', 1), N('mariposa', '', 'butterfly', 1, ['flies']), N('manzana', '', 'apple', 1), N('medusa', '', 'jellyfish', 1, ['swims']), N('murciélago', '', 'bat', 0, ['flies']), N('montaña', '', 'hill', 1, ['spins'])],
+  N: [N('nube', '', 'cloud', 1), N('nido', '', 'nest'), N('nieve', '', 'snowflake', 1), N('niño', '', 'boy'), N('niña', '', 'girl', 1)],
+  P: [N('pato', '', 'duck', 0, ['swims', 'hops']), N('perro', '', 'dog', 0, ['runs', 'jumps']), N('pez', '', 'fish', 0, ['swims']), N('pastel', '', 'cake'), N('papá', '', 'man'), N('pelota', '', 'ball', 1), N('pájaro', '', 'bird', 0, ['flies']), N('planta', '', 'plant', 1), N('piedra', '', 'rock', 1)],
+  R: [N('rana', '', 'frog', 1, ['hops', 'jumps']), N('robot', '', 'robot'), N('regalo', '', 'gift'), N('roca', '', 'rock', 1)],
+  S: [N('sol', '', 'sun'), N('serpiente', '', 'snake', 1, ['spins', 'dances']), N('sombrero', '', 'hat'), N('sapo', '', 'frog', 0, ['hops', 'jumps'])],
+  T: [N('tren', '', 'train', 0, ['runs']), N('tambor', '', 'drum'), N('taza', '', 'cup', 1), N('torre', '', 'tower', 1)],
+  V: [N('vaca', '', 'cow', 1, ['runs', 'dances'])],
+  Z: [N('zorro', '', 'fox', 0, ['runs', 'jumps'])],
+};
+// The syllable rung: a word split into the syllables she reads before the whole word.
+const ES_SYLLABLES = [['pa to', 'pato'], ['ga to', 'gato'], ['pe rro', 'perro'], ['ra na', 'rana'], ['lu na', 'luna'], ['ca sa', 'casa'], ['o so', 'oso'], ['va ca', 'vaca'], ['zo rro', 'zorro'],
+  ['lo bo', 'lobo'], ['nu be', 'nube'], ['ni do', 'nido'], ['ni ño', 'niño'], ['ni ña', 'niña'], ['sa po', 'sapo'], ['ta za', 'taza'], ['to rre', 'torre'], ['li bro', 'libro'], ['glo bo', 'globo'],
+  ['hue vo', 'huevo'], ['ro ca', 'roca'], ['fa ro', 'faro'], ['fue go', 'fuego'], ['bar co', 'barco'], ['bú ho', 'búho'], ['ba lón', 'balón'], ['tam bor', 'tambor'], ['dra gón', 'dragón'],
+  ['a be ja', 'abeja'], ['ár bol', 'árbol'], ['a vión', 'avión'], ['co ne jo', 'conejo'], ['ca ba llo', 'caballo'], ['co ro na', 'corona'], ['co he te', 'cohete'], ['cam pa na', 'campana'],
+  ['ga lli na', 'gallina'], ['pe lo ta', 'pelota'], ['pá ja ro', 'pájaro'], ['re ga lo', 'regalo'], ['man za na', 'manzana'], ['me du sa', 'medusa'], ['hor mi ga', 'hormiga'], ['pas tel', 'pastel'],
+  ['plan ta', 'planta'], ['pie dra', 'piedra'], ['o ve ja', 'oveja'], ['ba lle na', 'ballena'], ['es tre lla', 'estrella'], ['ma ri po sa', 'mariposa'], ['som bre ro', 'sombrero'], ['gi ra sol', 'girasol'],
+  ['fan tas ma', 'fantasma'], ['mon ta ña', 'montaña'], ['lám pa ra', 'lámpara'], ['ser pien te', 'serpiente'], ['u va', 'uva'], ['in sec to', 'insecto'], ['nie ve', 'nieve']];
+const ES_WORD_OF = {}; for (const list of Object.values(ES_LETTER_WORDS)) for (const w of list) ES_WORD_OF[w.w] = w;
+// Verbs in the third person, singular and plural, keyed by the English scene verb.
+const ES_VERB = { hops: ['brinca', 'brincan'], runs: ['corre', 'corren'], jumps: ['salta', 'saltan'], spins: ['gira', 'giran'], dances: ['baila', 'bailan'], sleeps: ['duerme', 'duermen'], sings: ['canta', 'cantan'], swims: ['nada', 'nadan'], flies: ['vuela', 'vuelan'] };
+// Adjectives: masculine, feminine, masculine plural, feminine plural, keyed by the English word the scene reads.
+const ES_ADJ = { red: ['rojo', 'roja', 'rojos', 'rojas'], blue: ['azul', 'azul', 'azules', 'azules'], pink: ['rosado', 'rosada', 'rosados', 'rosadas'], green: ['verde', 'verde', 'verdes', 'verdes'],
+  purple: ['morado', 'morada', 'morados', 'moradas'], yellow: ['amarillo', 'amarilla', 'amarillos', 'amarillas'], orange: ['anaranjado', 'anaranjada', 'anaranjados', 'anaranjadas'],
+  big: ['grande', 'grande', 'grandes', 'grandes'], little: ['pequeño', 'pequeña', 'pequeños', 'pequeñas'], tiny: ['chiquito', 'chiquita', 'chiquitos', 'chiquitas'], giant: ['gigante', 'gigante', 'gigantes', 'gigantes'],
+  happy: ['feliz', 'feliz', 'felices', 'felices'], sleepy: ['dormilón', 'dormilona', 'dormilones', 'dormilonas'], silly: ['chistoso', 'chistosa', 'chistosos', 'chistosas'] };
+const ES_PLACE = { rock: ['roca', 1], tree: ['árbol', 0], house: ['casa', 1], pond: ['lago', 0], hill: ['colina', 1], bed: ['cama', 1], box: ['caja', 1], nest: ['nido', 0] };
+const ES_NUMS = ['dos', 'tres', 'cuatro'];
+const esArt = (an, plural, indef) => indef ? (plural ? (an.f ? 'unas' : 'unos') : (an.f ? 'una' : 'un')) : plural ? (an.f ? 'las' : 'los') : (an.f ? 'la' : 'el');
+const esAdj = (k, an, plural) => ES_ADJ[k][(plural ? 2 : 0) + (an.f ? 1 : 0)];
+// "gato rojo", "gatos grandes y rojos": the noun, then its adjectives.
+function esPhrase(an, adjs, plural) { const noun = plural ? an.p : an.w, a = adjs.map(k => esAdj(k, an, plural)); return [noun, a.length > 1 ? a.join(' y ') : a[0]].filter(Boolean).join(' '); }
+const esVerb = (verb, plural) => ES_VERB[verb][plural ? 1 : 0];
+// Where it goes, with "al" and "del" where Spanish joins the words.
+function esRel(r, p, verb) {
+  const [name, f] = ES_PLACE[p], el = f ? 'la ' + name : 'el ' + name, al = f ? 'a la ' + name : 'al ' + name, del = f ? 'de la ' + name : 'del ' + name;
+  if (r === 'to') return p === 'nest' ? 'a su nido' : al;
+  if (r === 'on') return (verb === 'sleeps' ? 'en ' : 'sobre ') + el;
+  if (r === 'over') return 'por encima ' + del;
+  if (r === 'around') return 'alrededor ' + del;
+  if (r === 'under') return 'debajo ' + del;
+  if (r === 'in') return 'en ' + el;
+  return 'adentro ' + del;   // into
+}
+const esClause = o => clause(Object.assign({ animals: ES_ANIMALS }, o));
+const thing = w => ({ model: w.m, count: 1, adjs: [] });
+const ES_LEVELS = [
+  { name: 'Las vocales', g: -1, gen: () => make(() => { const L = pick(['A', 'E', 'I', 'O', 'U']), w = pick(ES_LETTER_WORDS[L]);
+    return { kind: 'word', text: `${L} de ${w.w}.`, scene: scene([thing(w)], [{ a: 0, verb: pick(w.moves) }]) }; }) },
+  { name: 'Las letras', g: -1, gen: () => make(() => { const L = pick(Object.keys(ES_LETTER_WORDS).filter(l => !'AEIOU'.includes(l))), w = pick(ES_LETTER_WORDS[L]);
+    return { kind: 'word', text: `${L} de ${w.w}.`, scene: scene([thing(w)], [{ a: 0, verb: pick(w.moves) }]) }; }) },
+  { name: 'Las sílabas', g: 0, gen: () => make(() => { const [syl, word] = pick(ES_SYLLABLES), w = ES_WORD_OF[word];
+    return { kind: 'word', text: `${syl} ${word}.`, scene: scene([thing(w)], [{ a: 0, verb: pick(w.moves) }]) }; }) },
+  { name: 'Palabras frecuentes', g: 0, gen: () => make(() => {
+    const c = esClause({}), an = c.an, el = esArt(an), un = esArt(an, false, true), step = { a: 0, verb: c.verb };
+    const kind = rnd(0, 7);
+    if (kind === 0) { let c2; do { c2 = esClause({}); } while (c2.an === an); return { text: `Hay ${un} ${an.w} y ${esArt(c2.an, false, true)} ${c2.an.w}.`, scene: scene([actor(an, []), actor(c2.an, [])], [step, { a: 1, verb: c2.verb, together: true }]) }; }
+    const adj = adjFor(1);
+    const text = [`Yo veo ${un} ${an.w}.`, `Aquí está ${el} ${an.w}.`, `Mi ${an.w} está aquí.`, `${an.f ? 'Esta' : 'Este'} es mi ${an.w}.`, `¿Dónde está ${el} ${an.w}?`, `${cap(el)} ${an.w} es ${esAdj(adj[0], an)}.`, `¡Mira ${el} ${an.w}!`][kind - 1];
+    return { text, scene: scene([actor(an, kind === 6 ? adj : [])], [step]) }; }) },
+  { name: 'Oraciones cortas', g: 1, gen: () => make(() => { const c = esClause({}); const adj = Math.random() < 0.5 ? [] : adjFor(1);
+    return { text: `${cap(esArt(c.an))} ${esPhrase(c.an, adj)} ${esVerb(c.verb)}.`, scene: scene([actor(c.an, adj)], [{ a: 0, verb: c.verb }]) }; }) },
+  { name: 'Adónde va', g: 1, gen: () => make(() => { const c = esClause({ place: true }); const [r, p] = c.pl;
+    if (Math.random() < 0.5) { const adj = adjFor(rnd(0, 1)); return { text: `${cap(esArt(c.an))} ${esPhrase(c.an, adj)} ${esVerb(c.verb)} ${esRel(r, p, c.verb)}.`, scene: scene([actor(c.an, adj)], [{ a: 0, verb: c.verb, rel: r, place: p }]) }; }
+    const n = pick(ES_NUMS), adj = adjFor(1); return { text: `${cap(n)} ${esPhrase(c.an, adj, true)} ${esVerb(c.verb, true)} ${esRel(r, p, c.verb)}.`, scene: scene([actor(c.an, adj, ES_NUMS.indexOf(n) + 2)], [{ a: 0, verb: c.verb, rel: r, place: p }]) }; }) },
+  { name: 'El clima y la hora', g: 1, gen: () => make(() => {
+    const kind = pick(['sunrise', 'rain', 'snow', 'night']);
+    if (kind === 'rain') { const c = esClause({ animals: ES_ANIMALS.filter(a => !a.water && !a.flier), verbs: ['runs', 'hops', 'jumps'] }); const adj = adjFor(1);
+      return { text: `Está lloviendo, así que ${esArt(c.an)} ${esPhrase(c.an, adj)} ${esVerb(c.verb)} adentro de la casa.`, scene: scene([actor(c.an, adj)], [{ a: 0, verb: c.verb, rel: 'into', place: 'house' }], { weather: 'rain', sky: 'storm' }) }; }
+    if (kind === 'snow') { const c = esClause({ place: true, animals: ES_ANIMALS.filter(a => !a.water) }); const n = pick(ES_NUMS); const [r, p] = c.pl;
+      return { text: `Empieza a nevar y ${n} ${esPhrase(c.an, [pick(['little', 'happy', 'silly'])], true)} ${esVerb(c.verb, true)} ${esRel(r, p, c.verb)}.`, scene: scene([actor(c.an, [], ES_NUMS.indexOf(n) + 2)], [{ a: 0, verb: c.verb, rel: r, place: p }], { weather: 'snow', sky: 'snow', late: true }) }; }
+    if (kind === 'night') { const c = esClause({ animals: ES_ANIMALS.filter(a => !a.water && a.moves.includes('sleeps')), verbs: ['sleeps'], place: true }); const [r, p] = c.pl;
+      return { text: `De noche, ${esArt(c.an)} ${esPhrase(c.an, ['sleepy'])} duerme ${esRel(r, p, 'sleeps')}.`, scene: scene([actor(c.an, ['sleepy'])], [{ a: 0, verb: 'sleeps', rel: r, place: p }], { sky: 'night', weather: 'night', late: true }) }; }
+    const c = esClause({ place: true, verbs: ['flies', 'runs', 'hops', 'jumps', 'dances'] }); const [r, p] = c.pl; const adj = adjFor(1);
+    return { text: `Cuando sale el sol, ${esArt(c.an)} ${esPhrase(c.an, adj)} ${esVerb(c.verb)} ${esRel(r, p, c.verb)}.`, scene: scene([actor(c.an, adj)], [{ a: 0, verb: c.verb, rel: r, place: p }], { sunrise: true }) }; }) },
+  { name: 'Primero y luego', g: 2, gen: () => make(() => { const c1 = esClause({ place: true }); let c2; do { c2 = esClause({ place: true }); } while (c2.an === c1.an || c2.pl[1] === c1.pl[1]);
+    const a1 = adjFor(1), a2 = adjFor(1), n = pick(ES_NUMS), [r1, p1] = c1.pl, [r2, p2] = c2.pl;
+    return { text: `Primero ${esArt(c1.an)} ${esPhrase(c1.an, a1)} ${esVerb(c1.verb)} ${esRel(r1, p1, c1.verb)}, luego ${n} ${esPhrase(c2.an, a2, true)} ${esVerb(c2.verb, true)} ${esRel(r2, p2, c2.verb)}.`,
+      scene: scene([actor(c1.an, a1), actor(c2.an, a2, ES_NUMS.indexOf(n) + 2)], [{ a: 0, verb: c1.verb, rel: r1, place: p1 }, { a: 1, verb: c2.verb, rel: r2, place: p2 }]) }; }) },
+];
+const LEVELS = LANG === 'es' ? ES_LEVELS : EN_LEVELS;
 const SENTENCE_LEVELS = LEVELS.length;
 
 // ---------------------------------------------------------------------------
@@ -942,7 +1130,7 @@ const SENTENCE_LEVELS = LEVELS.length;
 // A "|" in the text breaks a long sentence into two reading parts. A blank line starts a new paragraph. In a poem
 // every line is a reading part and a blank line ends a stanza. Each part may have a scene cue.
 // ---------------------------------------------------------------------------
-const SENTENCE_END = /\s*\|\s*|(?<!\b(?:Mr|Mrs|Ms|Dr|St)\.)(?<=[.!?;:]['"’”)]?)\s+(?=['"‘“(]?[A-Z])/;
+const SENTENCE_END = /\s*\|\s*|(?<!\b(?:Mr|Mrs|Ms|Dr|St|Sr|Sra|Srta|Dra)\.)(?<=[.!?;:]['"’”)]?)\s+(?=['"‘“(¿¡]?[A-ZÁÉÍÓÚÑ])/;
 function buildPassage(src, tier) {
   tier = tier || {};
   const words = [], chunks = [];
@@ -971,8 +1159,8 @@ function hearWords(t, c) {
 }
 // The words from part ci to the end, as the listener hears them, with the passage word each one belongs to.
 function restWords() { const out = { words: [], owner: [] }; for (let k = ci; k < task.chunks.length; k++) { const h = hearWords(task, task.chunks[k]); out.words.push(...h.words); out.owner.push(...h.owner); } return out; }
-const glossKey = w => String(w).toLowerCase().replace(/’/g, "'").replace(/^[^a-z]+|[^a-z]+$/g, '').replace(/'s$/, '');
-for (const tier of (window.RISI_PASSAGES || [])) {
+const glossKey = w => String(w).toLowerCase().replace(/’/g, "'").replace(/^[^a-záéíóúüñ]+|[^a-záéíóúüñ]+$/g, '').replace(/'s$/, '');
+for (const tier of ((LANG === 'es' ? window.RISI_PASSAGES_ES : window.RISI_PASSAGES) || [])) {
   const pool = tier.list.map(src => buildPassage(src, tier));
   LEVELS.push({ name: tier.name, grade: tier.grade, g: tier.g, passage: true, pool, words: tier.words, gen() { let t, guard = 0; do { t = pick(pool); } while (t.text === lastText && pool.length > 1 && guard++ < 20); lastText = t.text; return t; } });
 }
@@ -1027,7 +1215,7 @@ Kit.sfx = sfx;
 let speaking = null;
 function say(t, onWord, onEnd) {
   try {
-    speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.85; u.pitch = 1.1;
+    speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.85; u.pitch = 1.1;
     let got = false;
     if (onWord) u.onboundary = e => { if (e.name && e.name !== 'word') return; got = true; onWord(t.slice(0, e.charIndex).split(' ').length - 1); };
     u.onend = () => { if (onEnd) onEnd(); };
@@ -1123,11 +1311,12 @@ let task = null, got = [], missed = false, phase = 'read', round = 0, listenTime
 // Passage state: the chunk being read, reading time, quiz progress.
 let ci = 0, hw = null, rest = null, readMs = 0, chunkT0 = 0, qi = 0, qFirst = 0, qMissed = false, quizOrder = [];
 const isPassage = () => !!(task && task.kind === 'passage');
-function engineMode() { if (P.mode === 'trust') return 'trust'; if (P.mode === 'tap') return 'tap'; return RISpeech.engine === 'vosk' || RISpeech.engine === 'webspeech' || RISpeech.status === 'loading' ? 'mic' : 'tap'; }
+function engineMode() { if (P.mode === 'trust') return 'trust'; if (P.mode === 'tap') return 'tap'; if (RISpeech.status === 'unavailable') return 'trust'; return RISpeech.engine === 'vosk' || RISpeech.engine === 'webspeech' || RISpeech.status === 'loading' ? 'mic' : 'tap'; }
 function readHint() {
   const m = engineMode();
-  if (isPassage()) return m === 'mic' ? 'Tap the microphone, then read the yellow part out loud. Tap an underlined word to learn what it means.' : 'Read the yellow part out loud, then tap the green button. Tap an underlined word to learn what it means.';
-  return m === 'tap' ? 'Read each word out loud and tap it.' : m === 'trust' ? 'Read it out loud, then tap the green button.' : 'Tap the microphone, then read it out loud.';
+  if (RISpeech.status === 'unavailable' && P.mode === 'auto') return T('The Spanish listener is not on this tablet yet. Read out loud, then tap the green button.');
+  if (isPassage()) return m === 'mic' ? T('Tap the microphone, then read the yellow part out loud. Tap an underlined word to learn what it means.') : T('Read the yellow part out loud, then tap the green button. Tap an underlined word to learn what it means.');
+  return m === 'tap' ? T('Read each word out loud and tap it.') : m === 'trust' ? T('Read it out loud, then tap the green button.') : T('Tap the microphone, then read it out loud.');
 }
 function newRound() {
   stopListening(); clearTimeout(nextTimer); hideGloss(); round++; missed = false; phase = 'read'; tapPos = 0;
@@ -1141,7 +1330,7 @@ function newRound() {
   if (isPassage()) warmUp(task);
   status(readHint());
 }
-function setTitle() { const g = LEVELS[P.lv].grade; $('ptitle').textContent = isPassage() ? (task.by ? `“${task.title}” by ${task.by}` : task.title) + (g ? ` (grade ${g})` : '') : ''; }
+function setTitle() { const g = LEVELS[P.lv].grade, title = isPassage() ? (task.by ? T('“{title}” by {by}', { title: task.title, by: task.by }) : task.title) : ''; $('ptitle').textContent = isPassage() ? (g ? T('{title} (grade {g})', { title, g }) : title) : ''; }
 function renderWords() {
   const box = $('words'); box.innerHTML = ''; box.scrollTop = 0;
   const breaks = {}; if (isPassage()) for (const c of task.chunks) if (c.brk) breaks[c.a] = c.brk;
@@ -1166,9 +1355,9 @@ function exprHint() {
   const el = $('expr'); let t = '';
   if (isPassage() && task.expr && phase === 'read' && ci < task.chunks.length) {
     const c = task.chunks[ci], last = task.words[c.b - 1].replace(/['"’”)]+$/, ''), first = task.words[c.a];
-    if (/\?$/.test(last)) t = 'This part asks a question. Let your voice go up at the end.';
-    else if (/!$/.test(last)) t = 'This part is exciting. Read it with energy.';
-    else if (/^['"‘“]/.test(first) || /['"’”]$/.test(task.words[c.b - 1])) t = 'Someone is talking. Read it the way they would say it.';
+    if (/\?$/.test(last)) t = T('This part asks a question. Let your voice go up at the end.');
+    else if (/!$/.test(last)) t = T('This part is exciting. Read it with energy.');
+    else if (/^['"‘“]/.test(first) || /['"’”]$/.test(task.words[c.b - 1])) t = T('Someone is talking. Read it the way they would say it.');
   }
   el.textContent = t; el.classList.toggle('on', !!t);
 }
@@ -1176,26 +1365,26 @@ function controls() {
   const m = engineMode(), pas = isPassage(), reading = phase === 'read';
   $('mic').style.display = m === 'mic' && reading ? '' : 'none';
   $('trust').style.display = (m === 'trust' || (pas && m === 'tap')) && reading ? 'inline-block' : 'none';
-  $('trust').textContent = pas ? '✅ I read the yellow part' : '✅ I read it!';
+  $('trust').textContent = pas ? T('✅ I read the yellow part') : T('✅ I read it!');
   $('listen').style.display = '';
   $('next').style.display = phase === 'won' ? 'inline-block' : 'none';
   $('mic').disabled = m === 'mic' && RISpeech.status === 'loading';
   [...$('parent').querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.mode === P.mode));
-  $('engineInfo').textContent = 'Speech check: ' + (RISpeech.engine === 'vosk' ? 'offline (Vosk), ready' : RISpeech.status === 'loading' ? 'loading the offline listener...' : RISpeech.engine === 'webspeech' ? 'the browser listener' : 'no microphone check, so words are tapped') + (RISpeech.error ? ' (' + RISpeech.error + ')' : '');
+  $('engineInfo').textContent = T('Speech check: {state}', { state: RISpeech.engine === 'vosk' ? T('offline (Vosk), ready') : RISpeech.status === 'loading' ? T('loading the offline listener...') : RISpeech.status === 'unavailable' ? T('the Spanish listener is not on this tablet yet, so the check is skipped') : RISpeech.engine === 'webspeech' ? T('the browser listener') : T('no microphone check, so words are tapped') }) + (RISpeech.error ? ' (' + RISpeech.error + ')' : '');
   exprHint();
 }
 // The badge keeps to the level name so it fits a 1024-wide header; the grade band goes with the passage title.
-function badge() { const lv = LEVELS[P.lv]; $('badge').textContent = `Level ${P.lv + 1}: ${lv.name}`; $('stars').textContent = '⭐ ' + P.stars; }
+function badge() { const lv = LEVELS[P.lv]; $('badge').textContent = T('Level {n}: {name}', { n: P.lv + 1, name: lv.name }); $('stars').textContent = '⭐ ' + P.stars; }
 function status(t) { $('status').textContent = t; }
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1600); }
-function miss() { if (!missed) { missed = true; const c = record(false); badge(); if (c < 0) toast(P.lv < SENTENCE_LEVELS ? 'Shorter sentences' : 'An easier story'); } }
+function miss() { if (!missed) { missed = true; const c = record(false); badge(); if (c < 0) toast(P.lv < SENTENCE_LEVELS ? T('Shorter sentences') : T('An easier story')); } }
 const chunkWords = () => isPassage() ? hw.words : task.words;
 const limitFor = () => 5 + chunkWords().length * 1.3;
 
 // Tap-a-word meanings.
 function showGloss(i, el) {
   const w = task.words[i], g = task.gloss[glossKey(w)], box = $('gloss'); if (!g) return false;
-  const clean = w.replace(/^[^A-Za-z']+|[^A-Za-z']+$/g, '');
+  const clean = w.replace(/^[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ']+|[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ']+$/g, '');
   box.innerHTML = ''; const b = document.createElement('b'); b.textContent = clean; box.append(b, document.createTextNode(': ' + g));
   box.classList.add('on'); const r = el.getBoundingClientRect(), bw = Math.min(420, innerWidth - 24);
   box.style.left = Math.max(12, Math.min(innerWidth - bw - 12, r.left - 20)) + 'px'; box.style.top = (r.bottom + 10) + 'px';
@@ -1212,22 +1401,22 @@ async function startListening() {
   // While she reads a sentence the 3D stage rests, so the page has time for every bit of sound. A passage's sketch
   // keeps drawing as she reads, at a low frame rate.
   listening = true; if (isPassage()) K.lowPower = true; else K.paused = true;
-  $('mic').classList.add('on'); $('mic').textContent = '👂 Listening...'; status(isPassage() ? 'Read the yellow part out loud!' : 'Read it out loud!');
+  $('mic').classList.add('on'); $('mic').textContent = T('👂 Listening...'); status(isPassage() ? T('Read the yellow part out loud!') : T('Read it out loud!'));
   const my = round;
   try {
     // A passage is heard as one stream from the current part to the end, so nothing is lost between sentences.
     rest = isPassage() ? restWords() : null;
     await RISpeech.start(rest ? rest.words : chunkWords(), (text, fin) => { if (my === round) heard(text, fin); });
   } catch (e) {
-    listening = false; K.paused = false; K.lowPower = false; $('mic').classList.remove('on'); $('mic').textContent = '🎤 Read it!';
-    status('The microphone is not working, so ' + (isPassage() ? 'tap the green button after each part.' : 'tap each word as you read it.')); RISpeech.engine = 'tap'; RISpeech.error = String(e.message || e); controls(); return;
+    listening = false; K.paused = false; K.lowPower = false; $('mic').classList.remove('on'); $('mic').textContent = T('🎤 Read it!');
+    status(isPassage() ? T('The microphone is not working, so tap the green button after each part.') : T('The microphone is not working, so tap each word as you read it.')); RISpeech.engine = 'tap'; RISpeech.error = String(e.message || e); controls(); return;
   }
   chunkT0 = performance.now(); armTimer();
 }
 function armTimer() { const my = round, c = ci; clearTimeout(listenTimer); listenTimer = setTimeout(() => { if (my === round && c === ci && phase === 'read') timeUp(); }, limitFor() * 1000 * (window.READ_IT_SAY_IT.timeScale || 1)); }
 function stopListening() {
   if (listening && chunkT0) readMs += performance.now() - chunkT0; chunkT0 = 0;
-  clearTimeout(listenTimer); RISpeech.stop(); listening = false; K.paused = false; K.lowPower = false; $('mic').classList.remove('on'); $('mic').textContent = '🎤 Read it!';
+  clearTimeout(listenTimer); RISpeech.stop(); listening = false; K.paused = false; K.lowPower = false; $('mic').classList.remove('on'); $('mic').textContent = T('🎤 Read it!');
 }
 function heard(text, fin) {
   window.READ_IT_SAY_IT.heardText = text;
@@ -1257,19 +1446,19 @@ function timeUp() {
   stopListening(); miss();
   const c = isPassage() ? task.chunks[ci] : { a: 0, b: task.words.length };
   [...$('words').querySelectorAll('.w')].forEach((el, i) => el.classList.toggle('missed', i >= c.a && i < c.b && !got[i]));
-  sfx('wrong'); status(isPassage() ? 'Almost! Tap 🔊 to hear the yellow part, then tap the microphone and keep going.' : 'Almost! Tap 🔊 to hear it, then try again.'); say('Almost! Let us try that again.');
+  sfx('wrong'); status(isPassage() ? T('Almost! Tap 🔊 to hear the yellow part, then tap the microphone and keep going.') : T('Almost! Tap 🔊 to hear it, then try again.')); say(T('Almost! Let us try that again.'));
 }
 // Tap mode: tap each word in order while reading it. In a passage, a tap on a word shows what it means or says it.
 function tapWord(i, e) {
   if (isPassage()) {
     const el = $('words').querySelectorAll('.w')[i];
-    if (!showGloss(i, el) && !listening) { hideGloss(); say(task.words[i].replace(/[^A-Za-z' -]/g, '')); }
+    if (!showGloss(i, el) && !listening) { hideGloss(); say(task.words[i].replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]/g, '')); }
     return;
   }
   if (phase !== 'read') return;
   const m = engineMode();
-  if (m === 'mic') { if (!listening) say(task.words[i].replace(/[^A-Za-z' ]/g, '')); return; }
-  if (i !== tapPos) { const el = $('words').children[i]; el.classList.remove('no'); void el.offsetWidth; el.classList.add('no'); sfx('wrong'); status('Start with the first word, then go in order.'); return; }
+  if (m === 'mic') { if (!listening) say(task.words[i].replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ' ]/g, '')); return; }
+  if (i !== tapPos) { const el = $('words').children[i]; el.classList.remove('no'); void el.offsetWidth; el.classList.add('no'); sfx('wrong'); status(T('Start with the first word, then go in order.')); return; }
   got[i] = true; tapPos++; sfx('word', i); paint();
   if (tapPos === task.words.length) success();
 }
@@ -1284,32 +1473,32 @@ function chunkDone() {
   if (ci >= task.chunks.length) { paint(); return passageRead(); }
   hw = hearWords(task, task.chunks[ci]); paint(); exprHint();
   const el = $('words').querySelectorAll('.w')[task.chunks[ci].a]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
-  if (listening) { armTimer(); status(pick(['Keep going!', 'Nice! Next part.', 'Great! Keep reading.'])); }
-  else status(engineMode() === 'mic' ? 'Nice! Tap the microphone for the next part.' : pick(['Nice! Now the next part.', 'Great! Keep reading.']));
+  if (listening) { armTimer(); status(T(pick(['Keep going!', 'Nice! Next part.', 'Great! Keep reading.']))); }
+  else status(engineMode() === 'mic' ? T('Nice! Tap the microphone for the next part.') : T(pick(['Nice! Now the next part.', 'Great! Keep reading.'])));
 }
 // The whole passage is read: the scene takes a bow, then the questions.
 async function passageRead() {
   stopListening(); phase = 'quiz'; controls(); hideGloss();
-  status('You read the whole passage! Now some questions.');
+  status(T('You read the whole passage! Now some questions.'));
   for (const h of K.things) if (!h.userData.busy && !['house', 'tree', 'lighthouse', 'hill', 'pond', 'tower', 'treehouse'].includes(h.userData.name)) K.act(h, 'hop', { times: 1 });
   const my = round; await K.wait(window.READ_IT_SAY_IT.hold ? 0.1 : 1.2); if (my !== round) return;
   $('words').style.display = 'none'; quizOrder = task.quiz.map(q => shuffle(q.slice(1).map((t, k) => ({ t, right: k === 0 })))); showQuestion();
 }
 function showQuestion() {
   const box = $('quiz'), q = task.quiz[qi]; qMissed = false; box.innerHTML = ''; box.classList.add('on');
-  const n = document.createElement('div'); n.className = 'n'; n.textContent = `Question ${qi + 1} of ${task.quiz.length}`;
+  const n = document.createElement('div'); n.className = 'n'; n.textContent = T('Question {n} of {total}', { n: qi + 1, total: task.quiz.length });
   const h = document.createElement('div'); h.className = 'q'; h.textContent = q[0];
   const opts = document.createElement('div'); opts.className = 'opts';
   quizOrder[qi].forEach((o, k) => { const b = document.createElement('button'); b.className = 'opt'; b.textContent = o.t; b.dataset.k = k; b.dataset.right = o.right ? 1 : 0; b.onclick = () => answer(k, b); opts.appendChild(b); });
-  box.append(n, h, opts); status('Read the question, then tap the best answer.');
+  box.append(n, h, opts); status(T('Read the question, then tap the best answer.'));
 }
 function answer(k, b) {
   if (phase !== 'quiz' || b.classList.contains('right')) return;
   const o = quizOrder[qi][k];
-  if (!o.right) { qMissed = true; b.classList.remove('wrong'); void b.offsetWidth; b.classList.add('wrong'); sfx('wrong'); status('Not quite. Think about what the passage said, and try another answer.'); return; }
+  if (!o.right) { qMissed = true; b.classList.remove('wrong'); void b.offsetWidth; b.classList.add('wrong'); sfx('wrong'); status(T('Not quite. Think about what the passage said, and try another answer.')); return; }
   b.classList.add('right'); sfx('pop'); sfx('word', 6); if (!qMissed) qFirst++;
   [...$('quiz').querySelectorAll('.opt')].forEach(x => x.disabled = true);
-  status(pick(['Yes, that is right!', 'Right!', 'Good thinking!'])); const my = round;
+  status(T(pick(['Yes, that is right!', 'Right!', 'Good thinking!']))); const my = round;
   setTimeout(() => { if (my !== round) return; qi++; if (qi < task.quiz.length) showQuestion(); else finishPassage(); }, window.READ_IT_SAY_IT.hold ? 50 : 1100);
 }
 // Right first try: read without help or running out of time, and at least two questions right on the first answer.
@@ -1318,22 +1507,23 @@ function finishPassage() {
   P.stars += 1 + qFirst; const change = record(right); badge(); controls();
   const wpm = readMs > 3000 && engineMode() === 'mic' ? Math.round(task.words.length / (readMs / 60000)) : 0;
   const box = $('quiz'); box.innerHTML = ''; const d = document.createElement('div'); d.className = 'sum';
-  d.textContent = `You read ${task.words.length} words` + (wpm ? ` at ${wpm} words a minute` : '') + `. ${qFirst} of ${n} questions right on the first try.`;
-  const d2 = document.createElement('div'); d2.className = 'n'; d2.textContent = right ? 'That counts toward the next level!' : missed ? 'Next time, try reading it all without help.' : 'Next time, think about what happens in the story.';
+  const v = { n: task.words.length, wpm, q: qFirst, total: n };
+  d.textContent = wpm ? T('You read {n} words at {wpm} words a minute. {q} of {total} questions right on the first try.', v) : T('You read {n} words. {q} of {total} questions right on the first try.', v);
+  const d2 = document.createElement('div'); d2.className = 'n'; d2.textContent = right ? T('That counts toward the next level!') : missed ? T('Next time, try reading it all without help.') : T('Next time, think about what happens in the story.');
   box.append(d, d2); sfx('magic'); K.weather('confetti'); setTimeout(() => K.weather(K.skyNow() === 'night' ? 'night' : 'clear'), 2500);
-  status('Tap Next for a new passage.'); if (change > 0) { toast('Level up! ⬆️'); sfx('up'); say('Level up!'); }
+  status(T('Tap Next for a new passage.')); if (change > 0) { toast(T('Level up! ⬆️')); sfx('up'); say(T('Level up!')); }
   window.READ_IT_SAY_IT.last = { right, qFirst, wpm, missed };
 }
 async function success() {
   if (phase !== 'read') return;
   stopListening(); phase = 'won'; P.stars++; const change = missed ? 0 : record(true); badge();
   got = got.map(() => true); paint(); [...$('words').children].forEach((el, i) => setTimeout(() => { el.classList.remove('missed'); el.classList.add('done'); }, i * 70));
-  sfx('magic'); status(pick(['You read it! Watch it come to life!', 'Great reading! Here it comes!', 'Yes! Watch this!'])); controls();
+  sfx('magic'); status(T(pick(['You read it! Watch it come to life!', 'Great reading! Here it comes!', 'Yes! Watch this!']))); controls();
   const my = round;
   await play(task.scene, my).catch(e => { window.READ_IT_SAY_IT.errors.push(String(e && e.message || e)); });
   if (my !== round) return;
-  if (change > 0) { toast('Level up! ⬆️'); sfx('up'); say('Level up!'); }
-  status('Tap Next for a new sentence.');
+  if (change > 0) { toast(T('Level up! ⬆️')); sfx('up'); say(T('Level up!')); }
+  status(T('Tap Next for a new sentence.'));
   if (!window.READ_IT_SAY_IT.hold) nextTimer = setTimeout(() => { if (my === round) newRound(); }, 3500);
 }
 function hearIt() {
@@ -1345,7 +1535,7 @@ function hearIt() {
   const els = [...$('words').querySelectorAll('.w')], c = isPassage() ? task.chunks[ci] : { a: 0, b: task.words.length };
   const text = task.words.slice(c.a, c.b).join(' ');
   say(text, i => { els.forEach((e, j) => e.classList.toggle('now', j === c.a + i)); }, () => els.forEach(e => e.classList.remove('now')));
-  status(engineMode() === 'mic' ? 'Now you read it! Tap the microphone.' : 'Now you read it!');
+  status(engineMode() === 'mic' ? T('Now you read it! Tap the microphone.') : T('Now you read it!'));
 }
 
 // ---------------------------------------------------------------------------
@@ -1392,7 +1582,7 @@ function cue(str) {
     } catch (e) { window.READ_IT_SAY_IT && window.READ_IT_SAY_IT.errors.push(String(e.message || e)); }
   }
 }
-$('mic').onclick = () => { if (listening) { stopListening(); status('Tap the microphone, then read it out loud.'); } else startListening(); };
+$('mic').onclick = () => { if (listening) { stopListening(); status(T('Tap the microphone, then read it out loud.')); } else startListening(); };
 $('trust').onclick = trustMe;
 $('listen').onclick = hearIt;
 $('next').onclick = () => newRound();
@@ -1412,12 +1602,13 @@ $('parent').addEventListener('pointerdown', e => e.stopPropagation());
 // Start the offline listener; until it is ready (or if it cannot start) she can tap the words.
 function bootSpeech() {
   if (P.mode !== 'auto') return;
-  $('bar').style.display = 'block'; status('Getting my ears ready...');
+  $('bar').style.display = 'block'; status(T('Getting my ears ready...'));
   RISpeech.loadVosk(p => { $('bar').firstChild.style.width = Math.round(p * 100) + '%'; })
     .then(() => { $('bar').style.display = 'none'; controls(); if (phase === 'read' && !listening) status(readHint()); })
-    .catch(() => { $('bar').style.display = 'none'; RISpeech.engine = RISpeech.hasWebSpeech() ? 'webspeech' : 'tap'; controls(); if (phase === 'read' && !listening) status(readHint()); });
+    // A Spanish tablet without its model skips the check (engineMode) rather than judging Spanish with another listener.
+    .catch(() => { $('bar').style.display = 'none'; RISpeech.engine = LANG === 'en' && RISpeech.hasWebSpeech() ? 'webspeech' : 'tap'; controls(); if (phase === 'read' && !listening) status(readHint()); });
 }
-RISpeech.onEngineLost = () => { stopListening(); controls(); status('The microphone check is not working, so tap each word as you read it.'); };
+RISpeech.onEngineLost = () => { stopListening(); controls(); status(T('The microphone check is not working, so tap each word as you read it.')); };
 newRound();
 bootSpeech();
 
@@ -1457,7 +1648,7 @@ function checkTask(t, lv, i) {
     if (!t.scene || !t.scene.actors.length || !t.scene.steps.length) throw new Error(where + ': no scene for "' + t.text + '"');
     for (const a of t.scene.actors) if (!Kit.models[a.model]) throw new Error(where + ': unknown model ' + a.model);
     for (const s of t.scene.steps) { if (!VERB[s.verb]) throw new Error(where + ': unknown verb ' + s.verb); if (s.place && !PLACES[s.place]) throw new Error(where + ': unknown place ' + s.place); }
-    if (!/^[A-Z].*\.$/.test(t.text)) throw new Error(where + ': not a sentence "' + t.text + '"');
+    if (t.kind !== 'word' && !/^[¿¡]?[A-ZÁÉÍÓÚÑ].*[.!?]$/.test(t.text)) throw new Error(where + ': not a sentence "' + t.text + '"');
     return;
   }
   const w = `${where} "${t.title}"`;

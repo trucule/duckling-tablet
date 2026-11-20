@@ -1,7 +1,7 @@
 {
   "id": "read-it-say-it",
   "name": "Read It Say It Make It",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Read a passage out loud and the tablet listens, marking each word as it is read; then answer about it and make something from it. Speech checking runs on the tablet, offline.",
   "subjects": [
     "reading"
@@ -23,5 +23,21 @@
       "Understanding what was read",
       "Turning what was read into something made"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Léelo, dilo, hazlo",
+      "description": "Lee un texto en voz alta y la tableta escucha, marcando cada palabra a medida que la lees; después responde preguntas sobre el texto y haz algo con él. La revisión de la voz corre en la tableta, sin internet.",
+      "about": {
+        "concept": "Fluidez lectora con respuesta inmediata. La niña o el niño lee un texto en voz alta y cada palabra se ilumina cuando el oído la escucha, así que leer se vuelve una actividad con un resultado visible en lugar de una actividad silenciosa. Las preguntas y el paso de hacer algo después comprueban que el significado llegó.",
+        "progression": "La lectura en voz alta empieza con las vocales y las letras en preescolar, sigue con sílabas y palabras frecuentes en kínder y oraciones cortas en primero, y luego pasan a los textos: cuentos cortos con una pregunta de quién o qué, párrafos con idea principal, textos para leer con emoción, historias reales con vocabulario en contexto, cuentos para leer entre líneas, dos párrafos para comparar, poemas, párrafos que defienden una idea con pruebas, y textos de octavo grado con vocabulario académico y un resumen para elegir. Cada texto se lee oración por oración y las preguntas se responden tocando.",
+        "lifeSkills": [
+          "Leer en voz alta con confianza",
+          "Hablar con claridad",
+          "Entender lo que se lee",
+          "Convertir lo leído en algo hecho"
+        ]
+      }
+    }
   }
 }
