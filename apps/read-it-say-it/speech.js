@@ -2,10 +2,17 @@
 // Engines, best first:
 //   vosk       Offline. The Vosk engine and a small English model live in vosk/*.js (see tools/build-read-it-say-it-vendor.py)
 //              and run on the page. It listens with a grammar made of the sentence's words plus "[unk]".
-//   webspeech  The browser's own recognizer (webkitSpeechRecognition), used only if Vosk cannot start.
+//              On a Spanish tablet (KidTablet.language es) the same engine loads the Spanish model instead. That model is
+//              not packed in the app: the first time it is needed the app fetches its files from the Duckling API
+//              (GET /models/vosk-small-es/<file>, the list in vosk/model-list.js) and keeps them in IndexedDB, so
+//              later starts work offline. While the files cannot be had (offline on first use, or the server does not
+//              have them yet) the status is "unavailable" and the app skips the check instead of judging Spanish with
+//              the English model.
+//   webspeech  The browser's own recognizer (webkitSpeechRecognition), used only if Vosk cannot start. English only.
 //   tap        No microphone check: she taps each word as she reads it out loud.
 window.RISpeech = (function () {
-  const S = { engine: 'tap', status: 'idle', error: '', progress: 0, vocab: null };
+  const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+  const S = { engine: 'tap', status: 'idle', error: '', progress: 0, vocab: null, lang: LANG };
   const loadScript = src => new Promise((res, rej) => {
     const s = document.createElement('script'); s.src = src; s.onload = res;
     s.onerror = () => rej(new Error('could not load ' + src)); document.head.appendChild(s);
@@ -15,8 +22,46 @@ window.RISpeech = (function () {
     const st = new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'));
     return new Uint8Array(await new Response(st).arrayBuffer());
   }
-  const norm = w => String(w).toLowerCase().replace(/\u2019/g, "'").replace(/[^a-z']/g, '').replace(/^'+|'+$/g, '');
+  // The letters a word is made of: Spanish keeps its accents and ñ, since the Spanish model's words carry them.
+  const LETTERS = LANG === 'es' ? "a-záéíóúüñ" : 'a-z';
+  const NOT_LETTER = new RegExp("[^" + LETTERS + "']", 'g'), NOT_LETTER_SPACE = new RegExp("[^" + LETTERS + "' ]", 'g');
+  const norm = w => String(w).toLowerCase().replace(/\u2019/g, "'").replace(NOT_LETTER, '').replace(/^'+|'+$/g, '');
   S.norm = norm;
+
+  // The Spanish model, fetched once from the API and kept on the tablet.
+  const ES_MODEL = 'vosk-small-es';
+  const API = ((window.KidTablet && window.KidTablet.apiUrl) || 'https://api.ducklingtablet.com').replace(/\/$/, '');
+  const modelDb = new Promise(res => {
+    try {
+      const r = indexedDB.open('read-it-say-it-models', 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore('files'); };
+      r.onsuccess = () => res(r.result); r.onerror = () => res(null);
+    } catch (e) { res(null); }
+  });
+  async function idb(mode, fn) {
+    const d = await modelDb; if (!d) return undefined;
+    return new Promise(res => { try { const q = fn(d.transaction('files', mode).objectStore('files')); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); } catch (e) { res(undefined); } });
+  }
+  // What a model file must look like, so an error page or a JSON body is never kept as a model: Kaldi binaries start
+  // with "\0B", an OpenFst file with its magic number, the word list with "word number" lines. Other files are text.
+  function looksRight(name, b) {
+    if (!b || !b.length) return false;
+    if (name === 'am/final.mdl') return b[0] === 0 && b[1] === 0x42;
+    if (name === 'graph/HCLr.fst') return b[0] === 0xd6 && b[1] === 0xfd && b[2] === 0xb2 && b[3] === 0x7e;
+    if (name === 'graph/words.txt') return /^\S+ \d+\r?\n\S+ \d+/.test(new TextDecoder().decode(b.subarray(0, 200)));
+    return b[0] !== 0x7b && b[0] !== 0x3c;   // not "{" and not "<"
+  }
+  async function modelFile(name) {
+    const key = ES_MODEL + '/' + name;
+    const kept = await idb('readonly', s => s.get(key));
+    if (kept) { const b = new Uint8Array(kept); if (looksRight(name, b)) return b; }
+    const r = await fetch(API + '/models/' + ES_MODEL + '/' + name, { mode: 'cors', credentials: 'omit' });
+    if (!r.ok) throw new Error('model ' + name + ': ' + r.status);
+    const buf = await r.arrayBuffer(), b = new Uint8Array(buf);
+    if (!looksRight(name, b)) throw new Error('model ' + name + ': not a model file');
+    await idb('readwrite', s => s.put(buf, key));
+    return b;
+  }
 
   let V = null, model = null, loading = null;
   S.loadVosk = function (onProgress) {
@@ -25,10 +70,17 @@ window.RISpeech = (function () {
     loading = (async () => {
       if (typeof DecompressionStream === 'undefined') throw new Error('no DecompressionStream');
       await loadScript('vosk/model-list.js');
-      const n = window.RISI_MODEL_FILES, steps = n + 3; let step = 0;
+      const es = LANG === 'es', names = window.RISI_MODEL_NAMES;
+      const n = es ? names.length : window.RISI_MODEL_FILES, steps = n + 3; let step = 0;
       const tick = () => { S.progress = ++step / steps; if (onProgress) onProgress(S.progress); };
+      // The Spanish files first, so a tablet without them does not spend time on the engine.
+      const esFiles = {};
+      if (es) {
+        try { for (const name of names) { esFiles[name] = await modelFile(name); tick(); } }
+        catch (err) { err.unavailable = true; throw err; }
+      }
       await loadScript('vosk/vosk-engine.js'); tick();
-      for (let i = 0; i < n; i++) { await loadScript('vosk/model-' + i + '.js'); tick(); }
+      if (!es) for (let i = 0; i < n; i++) { await loadScript('vosk/model-' + i + '.js'); tick(); }
       const wasm = b64bytes(window.RISI_WASM); window.RISI_WASM = null;
       V = await window.LoadVosk({ wasmBinary: wasm, print() {}, printErr() {} });
       try { V.SetLogLevel(-1); } catch (e) {}
@@ -36,11 +88,15 @@ window.RISpeech = (function () {
       const made = new Set();
       const mkdirs = path => { const parts = path.split('/'); let cur = ''; for (let i = 0; i < parts.length - 1; i++) { cur += '/' + parts[i]; if (!made.has(cur)) { try { V.FS.mkdir('/m' + cur); } catch (e) {} made.add(cur); } } };
       V.FS.mkdir('/m');
-      for (const name of window.RISI_MODEL_NAMES) {
-        const e = window.RISI_MODEL[name];
-        if (!e || e.parts.length !== e.n) throw new Error('model file missing: ' + name);
-        const bytes = await gunzip(b64bytes(e.parts.join('')));
-        delete window.RISI_MODEL[name];
+      for (const name of names) {
+        let bytes;
+        if (es) { bytes = esFiles[name]; delete esFiles[name]; }
+        else {
+          const e = window.RISI_MODEL[name];
+          if (!e || e.parts.length !== e.n) throw new Error('model file missing: ' + name);
+          bytes = await gunzip(b64bytes(e.parts.join('')));
+          delete window.RISI_MODEL[name];
+        }
         if (name === 'graph/words.txt') {
           const text = new TextDecoder().decode(bytes); S.vocab = new Set();
           for (const line of text.split('\n')) { const w = line.split(' ')[0]; if (w) S.vocab.add(w); }
@@ -51,7 +107,7 @@ window.RISpeech = (function () {
       tick();
       S.engine = 'vosk'; S.status = 'ready';
       return true;
-    })().catch(err => { S.status = 'failed'; S.error = String(err && err.message || err); loading = null; throw err; });
+    })().catch(err => { S.status = err && err.unavailable ? 'unavailable' : 'failed'; S.error = String(err && err.message || err); loading = null; throw err; });
     return loading;
   };
   S.hasWebSpeech = () => !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -97,7 +153,7 @@ window.RISpeech = (function () {
     }
     if (S.engine === 'webspeech') {
       const R = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-      R.lang = 'en-US'; R.continuous = true; R.interimResults = true;
+      R.lang = LANG === 'es' ? 'es-MX' : 'en-US'; R.continuous = true; R.interimResults = true;
       session.seen = 0; session.skip = 0;
       session.retarget = () => { session.skip = session.seen; session.finals = []; session.partial = ''; };
       R.onresult = e => { let fin = [], part = ''; session.seen = e.results.length; for (let i = session.skip; i < e.results.length; i++) { const r = e.results[i]; if (r.isFinal) fin.push(r[0].transcript); else part += r[0].transcript; } session.finals = fin.map(clean); session.partial = clean(part); emit(false); };
@@ -109,7 +165,7 @@ window.RISpeech = (function () {
   };
   S.retarget = function (words) { if (cur && cur.retarget) { cur.retarget(words); return true; } return false; };
   S.stop = function () { if (cur) { cur.stopped = true; if (cur.end) cur.end(); cur = null; } };
-  const clean = t => String(t || '').toLowerCase().replace(/\[unk\]/g, ' ').replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const clean = t => String(t || '').toLowerCase().replace(/\[unk\]/g, ' ').replace(NOT_LETTER_SPACE, ' ').replace(/\s+/g, ' ').trim();
 
   // Words the offline listener can hear. Without a word list (the browser listener) every word counts as known.
   S.known = w => !S.vocab || S.vocab.has(norm(w));
@@ -144,8 +200,11 @@ window.RISpeech = (function () {
   // Read well enough: the last word, nearly every main word, and most small words. Short words like "the" are often
   // swallowed when a child reads fast, so up to one in three of them may be missed; the listener also drops a word now
   // and then, so in a sentence of eight words or more one main word in eight may be missed too.
-  const SMALL = new Set(['the', 'a', 'an', 'to', 'and', 'it', 'its', 'their', 'on', 'in', 'is', 'so', 'of', 'then',
-    'was', 'he', 'she', 'his', 'her', 'i', 'for', 'with', 'at', 'as', 'but', 'or', 'by', 'had', 'be', 'that', 'this', 'from', 'were', 'they', 'we', 'my', 'all']);
+  const SMALL = LANG === 'es'
+    ? new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'y', 'o', 'a', 'al', 'de', 'del', 'en', 'con', 'sin', 'por', 'para', 'que', 'se', 'su', 'sus',
+      'lo', 'le', 'les', 'es', 'son', 'era', 'fue', 'mi', 'mis', 'tu', 'tus', 'yo', 'me', 'te', 'no', 'ni', 'si', 'ya', 'muy', 'más', 'como', 'hay', 'está', 'pero', 'ella', 'él'])
+    : new Set(['the', 'a', 'an', 'to', 'and', 'it', 'its', 'their', 'on', 'in', 'is', 'so', 'of', 'then',
+      'was', 'he', 'she', 'his', 'her', 'i', 'for', 'with', 'at', 'as', 'but', 'or', 'by', 'had', 'be', 'that', 'this', 'from', 'were', 'they', 'we', 'my', 'all']);
   S.passes = (words, got) => {
     // The sentence must be read to the end: its last word, or its last main word when it ends on a small word ("in it").
     let end = got.length - 1; while (end > 0 && SMALL.has(norm(words[end])) && !got[end]) end--;

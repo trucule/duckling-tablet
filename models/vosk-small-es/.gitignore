@@ -1,0 +1,4 @@
+# Model files are placed on the server by hand (see ../README.md) and never committed.
+*
+!.gitignore
+!.gitkeep
