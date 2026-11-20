@@ -257,7 +257,7 @@
   #saved { margin-left: auto; color: #fff; font-weight: 800; font-size: 16px; opacity: 0; transition: opacity .3s; white-space: nowrap; }
   #saved.on { opacity: 1; }
   nav { background: var(--nav); display: flex; flex-direction: column; gap: 6px; padding: 8px 8px; overflow-y: auto; touch-action: pan-y; }
-  nav button { border: 0; border-radius: 16px; background: var(--navbtn); color: #fff; padding: 8px 4px; font-size: 15px; font-weight: 800; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 66px; }
+  nav button { border: 0; border-radius: 16px; background: var(--navbtn); color: #fff; padding: 8px 4px; font-size: 15px; font-weight: 800; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 66px; flex-shrink: 0; text-align: center; }
   nav button .e { font-size: 28px; line-height: 1.1; }
   nav button.on { background: #FFE45C; color: var(--ink); }
   nav .sep { height: 2px; background: #4b3f73; margin: 4px 6px; border-radius: 2px; }
@@ -267,7 +267,7 @@
   #views button, #turn button { border: 3px solid var(--ink); background: #ffffffdd; border-radius: 999px; font-size: 17px; font-weight: 800; padding: 8px 14px; }
   #views button.on { background: #FFE45C; }
   #turn { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 8px; z-index: 2; }
-  #tryon { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 3; display: none; align-items: center; gap: 12px; background: #fff; border: 4px solid var(--ink); border-radius: 22px; padding: 8px 10px 8px 18px; box-shadow: 0 5px 0 #2B2140; white-space: nowrap; }
+  #tryon { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 3; display: none; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 12px; max-width: calc(100% - 24px); box-sizing: border-box; background: #fff; border: 4px solid var(--ink); border-radius: 22px; padding: 8px 10px 8px 18px; box-shadow: 0 5px 0 #2B2140; white-space: nowrap; }
   #tryon.on { display: flex; }
   #tryon b { font-size: 22px; }
   #tryon button { border: 3px solid var(--ink); border-radius: 16px; font-size: 20px; font-weight: 900; padding: 8px 16px; }
@@ -326,6 +326,7 @@
 <script src="models/catalog.js"></script>
 <script src="real.js"></script>
 <script src="extras.js"></script>
+<script src="lang.js"></script>
 <script src="avatar.js"></script>
 </body>
 </html>

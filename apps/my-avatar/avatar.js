@@ -4,6 +4,9 @@
 // has spent are saved here and sent to the home screen (KidHome), which shows her portrait and star balance.
 'use strict';
 const T = THREE;
+// The child's language and the translation helper (lang.js). tr() returns the English text as it is on an English tablet.
+const LX = window.AVATAR_LANG || { LANG: 'en', T: (s, vars) => (vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s) };
+const LANG = LX.LANG, tr = LX.T;
 // The realistic avatar (real.js and models/) when its files are here; otherwise the drawn one below.
 const REAL = window.REAL_AVATAR && window.REAL_AVATAR.ok ? window.REAL_AVATAR : null;
 T.ColorManagement.legacyMode = false;         // colours are written as sRGB and lit in linear light
@@ -412,7 +415,7 @@ function buildReal(P0) {
 }
 function loadingNote(on) {
   let n = $('loading');
-  if (!n && on) { n = el('div', '', 'Getting ready...'); n.id = 'loading'; stage.appendChild(n); }
+  if (!n && on) { n = el('div', '', tr('Getting ready...')); n.id = 'loading'; stage.appendChild(n); }
   if (n) n.classList.toggle('on', !!on);
 }
 
@@ -899,7 +902,7 @@ function nav() {
   for (const c of CATS) {
     if (!c) { const s = document.createElement('div'); s.className = 'sep'; n.appendChild(s); continue; }
     const b = document.createElement('button'); b.className = c.id === cat ? 'on' : ''; b.dataset.c = c.id;
-    b.innerHTML = `<span class="e">${c.e}</span>${c.name}${c.shop ? ' ⭐' : ''}`;
+    b.innerHTML = `<span class="e">${c.e}</span>${tr(c.name)}${c.shop ? ' ⭐' : ''}`;
     b.onclick = () => { cat = c.id; stopTrying(); setView(c.view); nav(); render(); };
     n.appendChild(b);
   }
@@ -907,11 +910,11 @@ function nav() {
 function set(k, v) { S.design[k] = v; persist(); if (k === 'place') buildPlace(v); if (k === 'theme') applyTheme(v); rebuild(); render(); }
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
 function opts(title, k, list) {
-  const p = $('panel'); p.appendChild(el('h3', '', title)); const r = el('div', 'row'); p.appendChild(r);
-  for (const [v, name] of list) { const b = el('button', 'opt' + (S.design[k] === v ? ' on' : ''), name); b.dataset.k = k; b.dataset.v = v; b.onclick = () => set(k, v); r.appendChild(b); }
+  const p = $('panel'); p.appendChild(el('h3', '', tr(title))); const r = el('div', 'row'); p.appendChild(r);
+  for (const [v, name] of list) { const b = el('button', 'opt' + (S.design[k] === v ? ' on' : ''), tr(name, null, k)); b.dataset.k = k; b.dataset.v = v; b.onclick = () => set(k, v); r.appendChild(b); }
 }
 function swatches(title, k, colors, priced) {
-  const p = $('panel'); p.appendChild(el('h3', '', title)); const r = el('div', 'row'); p.appendChild(r);
+  const p = $('panel'); p.appendChild(el('h3', '', tr(title))); const r = el('div', 'row'); p.appendChild(r);
   for (const c of colors) {
     const b = el('button', 'sw' + (S.design[k] === c ? ' on' : '')); b.style.background = c; b.dataset.k = k; b.dataset.v = c; b.title = c;
     const dye = priced && SHOP.find(i => i.color === c);
@@ -920,11 +923,11 @@ function swatches(title, k, colors, priced) {
     r.appendChild(b);
   }
 }
-function toggle(title, k) { const p = $('panel'); p.appendChild(el('h3', '', title)); const r = el('div', 'row'); p.appendChild(r); for (const [v, n] of [[true, 'Yes'], [false, 'No']]) { const b = el('button', 'opt' + (S.design[k] === v ? ' on' : ''), n); b.dataset.k = k; b.dataset.v = String(v); b.onclick = () => set(k, v); r.appendChild(b); } }
+function toggle(title, k) { const p = $('panel'); p.appendChild(el('h3', '', tr(title))); const r = el('div', 'row'); p.appendChild(r); for (const [v, n] of [[true, 'Yes'], [false, 'No']]) { const b = el('button', 'opt' + (S.design[k] === v ? ' on' : ''), tr(n)); b.dataset.k = k; b.dataset.v = String(v); b.onclick = () => set(k, v); r.appendChild(b); } }
 function render() {
   const p = $('panel'); p.innerHTML = ''; const c = CATS.find(x => x && x.id === cat);
-  p.appendChild(el('h2', '', c.e + ' ' + c.name));
-  $('balance').innerHTML = ''; $('balance').append('⭐ ' + balance()); const sm = el('small', '', 'to spend'); $('balance').appendChild(sm);
+  p.appendChild(el('h2', '', c.e + ' ' + tr(c.name)));
+  $('balance').innerHTML = ''; $('balance').append('⭐ ' + balance()); const sm = el('small', '', tr('to spend')); $('balance').appendChild(sm);
   if (REAL && !REAL.failed && renderReal()) return;
   switch (cat) {
     case 'body': swatches('Skin', 'skin', SKIN); opts('Height', 'height', LOOK.height); opts('Build', 'build', LOOK.build); break;
@@ -932,7 +935,7 @@ function render() {
     case 'eyes': opts('Eye shape', 'eyeShape', LOOK.eyeShape); swatches('Eye color', 'eyeColor', EYES); opts('Eyebrows', 'brows', LOOK.brows); toggle('Eyelashes', 'lashes'); opts('Glasses', 'glasses', LOOK.glasses); if (S.design.glasses !== 'none') swatches('Glasses color', 'glassesColor', GLASSCOL); break;
     case 'hair': opts('Hair style', 'hair', LOOK.hair); swatches('Hair color', 'hairColor', HAIR); swatches('Fun colors ⭐', 'hairColor', Object.keys(DYES), true); break;
     case 'clothes': opts('Top', 'top', LOOK.top); swatches('Top color', 'topColor', CLOTH); if (S.design.top !== 'dress') { opts('Bottoms', 'bottom', LOOK.bottom); swatches('Bottoms color', 'bottomColor', CLOTH); } opts('Shoes', 'shoes', LOOK.shoes); swatches('Shoe color', 'shoesColor', SHOECOL);
-      if (S.design.outfit) p.appendChild(el('h3', '', 'You are wearing an outfit from the Outfits shop. Take it off there to see these clothes.')); break;
+      if (S.design.outfit) p.appendChild(el('h3', '', tr('You are wearing an outfit from the Outfits shop. Take it off there to see these clothes.'))); break;
     case 'pose': opts('Pose', 'pose', LOOK.pose); break;
     default: shop(c);
   }
@@ -946,7 +949,7 @@ function renderReal() {
     case 'eyes': swatches('Eye color', 'eyeColor', EYES); opts('Eyebrows', 'brows', LOOK.brows); toggle('Eyelashes', 'lashes'); opts('Glasses', 'glasses', LOOK.glasses); return true;
     case 'hair': opts('Hair style', 'hair', LOOK.hair); swatches('Hair color', 'hairColor', HAIR); swatches('Fun colors ⭐', 'hairColor', Object.keys(DYES), true); return true;
     case 'clothes':
-      if (d.outfit) p.appendChild(el('h3', '', 'You are wearing an outfit from the Outfits shop. Take it off there to see these clothes.'));
+      if (d.outfit) p.appendChild(el('h3', '', tr('You are wearing an outfit from the Outfits shop. Take it off there to see these clothes.')));
       opts('Top or dress', 'top', LOOK.top); if (tints(d.top)) swatches('Top color', 'topColor', CLOTH);
       if (!REAL.isDress(d.top)) { opts('Bottoms', 'bottom', LOOK.bottom); if (tints(d.bottom)) swatches('Bottoms color', 'bottomColor', CLOTH); }
       opts('Socks', 'socks', LOOK.socks); opts('Shoes', 'shoes', LOOK.shoes); if (tints(d.shoes)) swatches('Shoe color', 'shoesColor', SHOECOL);
@@ -957,36 +960,36 @@ function renderReal() {
 }
 let tuneT = null;
 function sliders(title, list) {
-  const p = $('panel'); p.appendChild(el('h3', '', title));
+  const p = $('panel'); p.appendChild(el('h3', '', tr(title)));
   const box = el('div', 'sliders'); p.appendChild(box);
   for (const [k, name] of list) {
-    const row = el('label', 'slide'); row.appendChild(el('span', '', name));
+    const row = el('label', 'slide'); row.appendChild(el('span', '', tr(name)));
     const r = document.createElement('input'); r.type = 'range'; r.min = -100; r.max = 100; r.step = 5; r.dataset.k = k;
     r.value = Math.round(((S.design.tune || {})[k] || 0) * 100);
     r.oninput = () => { S.design.tune = Object.assign({}, S.design.tune, { [k]: +r.value / 100 }); rebuild(); clearTimeout(tuneT); tuneT = setTimeout(() => persist(), 400); };
     r.ondblclick = () => { r.value = 0; r.oninput(); };
     row.appendChild(r); box.appendChild(row);
   }
-  const reset = el('button', 'opt', 'Start over'); reset.onclick = () => { S.design.tune = {}; persist(); rebuild(); render(); }; p.appendChild(reset);
+  const reset = el('button', 'opt', tr('Start over')); reset.onclick = () => { S.design.tune = {}; persist(); rebuild(); render(); }; p.appendChild(reset);
 }
 function shop(c) {
   const p = $('panel');
-  p.appendChild(el('h3', '', 'Tap to try it on. Buy it with your stars to keep it.'));
+  p.appendChild(el('h3', '', tr('Tap to try it on. Buy it with your stars to keep it.')));
   if (c.id === 'home') {
     // How her picture looks on the home screen, with what she is trying.
     const pick = k => (trying && trying.slot === k ? trying.id : S.design[k]);
-    const img = document.createElement('img'); img.className = 'homepic'; img.alt = 'Your picture on the home screen';
+    const img = document.createElement('img'); img.className = 'homepic'; img.alt = tr('Your picture on the home screen');
     try { img.src = portrait({ badgebg: pick('badgebg'), frame: pick('frame') }); } catch (e) {}
     p.appendChild(img);
   }
   for (const slot of c.shop) {
     const names = { hat: 'Hats', shades: 'Fun glasses', neck: 'Around your neck', back: 'On your back', hold: 'In your hand', outfit: 'Outfits', pet: 'Pets', place: 'Places', sparkle: 'Sparkles', badgebg: 'Backgrounds', frame: 'Frames', theme: 'App colors' };
-    if (c.shop.length > 1) p.appendChild(el('h3', '', names[slot]));
+    if (c.shop.length > 1) p.appendChild(el('h3', '', tr(names[slot])));
     const r = el('div', 'row'); p.appendChild(r);
     for (const it of SHOP.filter(i => i.slot === slot)) {
       const own = S.owned.includes(it.id), on = S.design[slot] === it.id;
       const b = el('button', 'item' + (own ? ' owned' : '') + (on ? ' on' : '') + (trying === it ? ' trying' : '')); b.dataset.id = it.id;
-      b.append(el('span', 'e', it.e), el('span', 'n', it.name), el('span', 'p', own ? (on ? 'Wearing' : 'Yours') : '⭐ ' + it.price));
+      b.append(el('span', 'e', it.e), el('span', 'n', tr(it.name)), el('span', 'p', own ? tr(on ? 'Wearing' : 'Yours') : tr('⭐ {price}', { price: it.price })));
       b.onclick = () => own ? set(slot, on ? null : it.id) : tryOn(it);
       r.appendChild(b);
     }
@@ -997,7 +1000,7 @@ function tryOn(it) {
   if (it.slot === 'theme') applyTheme(it.id);
   if (it.slot === 'place') buildPlace(it.id); rebuild(pv);
   const short = balance() < it.price;
-  $('tryname').textContent = `${it.e} ${it.name}`; $('buy').textContent = short ? `⭐ ${it.price} (need ${it.price - balance()} more)` : `Buy for ⭐ ${it.price}`;
+  $('tryname').textContent = `${it.e} ${tr(it.name)}`; $('buy').textContent = short ? tr('⭐ {price} (need {n} more)', { price: it.price, n: it.price - balance() }) : tr('Buy for ⭐ {price}', { price: it.price });
   $('buy').classList.toggle('short', short); $('tryon').classList.add('on'); render();
 }
 function stopTrying() { if (!trying) return; trying = null; $('tryon').classList.remove('on'); applyTheme(S.design.theme); buildPlace(S.design.place); rebuild(); }
@@ -1010,8 +1013,8 @@ function applyTheme(id) {
 $('takeoff').onclick = () => { stopTrying(); render(); };
 $('buy').onclick = () => {
   const it = trying; if (!it) return;
-  if (balance() < it.price) return modal(`You need ${it.price - balance()} more stars for the ${it.name}. Play your games to earn more!`, [['OK', null]]);
-  modal(`Buy the ${it.name} for ${it.price} stars?`, [['Yes!', () => buy(it)], ['Not now', null, 'no']]);
+  if (balance() < it.price) return modal(tr('You need {n} more stars for the {name}. Play your games to earn more!', { n: it.price - balance(), name: tr(it.name) }), [[tr('OK'), null]]);
+  modal(tr('Buy the {name} for {price} stars?', { name: tr(it.name), price: it.price }), [[tr('Yes!'), () => buy(it)], [tr('Not now'), null, 'no']]);
 };
 function buy(it) {
   if (S.owned.includes(it.id) || balance() < it.price) return false;
@@ -1019,7 +1022,7 @@ function buy(it) {
   if (it.slot === 'dye') S.design.hairColor = it.color; else S.design[it.slot] = it.id;
   if (it.slot === 'theme') applyTheme(it.id);
   trying = null; $('tryon').classList.remove('on'); persist(); buildPlace(S.design.place); rebuild(); render();
-  say(`You got the ${it.name}!`); return true;
+  say(tr('You got the {name}!', { name: tr(it.name) })); return true;
 }
 function modal(text, buttons) {
   $('mtext').textContent = text; const box = $('mbtns'); box.innerHTML = '';
@@ -1027,7 +1030,7 @@ function modal(text, buttons) {
   $('modal').classList.add('on');
 }
 function rebuild(preview) { lastPreview = preview || null; try { build(S.design, preview); } catch (e) { window.MY_AVATAR.errors.push(e.message); console.error(e); } }
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.95; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.95; u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; speechSynthesis.speak(u); } catch (e) {} }
 
 // Stars earned in other apps change while she plays; check now and then while this app is open.
 setInterval(() => { if (!document.hidden) { const b = $('balance').firstChild; if (b && b.textContent !== '⭐ ' + balance()) render(); } }, 5000);
@@ -1041,5 +1044,11 @@ window.MY_AVATAR = {
   portraitDue: () => portraitDue, showingDesign: () => showingDesign(),
   real: () => (REAL ? { ready: REAL.ready, failed: REAL.failed, need: REAL.need(Object.assign({}, S.design, lastPreview || {})), textures: !!REAL.texturesReady, errors: REAL.errors.slice() } : null),
 };
-applyTheme(S.design.theme); buildPlace(S.design.place); rebuild(); nav(); render(); setView('body'); resize();
+// The markup written in index.html, in the child's language. Keys are the English text as written there.
+function translateMarkup() {
+  if (LANG === 'es') document.documentElement.lang = 'es';
+  document.title = tr('My Avatar');
+  for (const n of document.querySelectorAll('header h1, #saved, #buy, #takeoff, #views button')) n.textContent = tr(n.textContent.trim());
+}
+translateMarkup(); applyTheme(S.design.theme); buildPlace(S.design.place); rebuild(); nav(); render(); setView('body'); resize();
 restoreFromHome().then(() => { if (!S.savedAt) persist(true); else sendHome(true); });
