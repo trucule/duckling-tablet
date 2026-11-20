@@ -1,7 +1,7 @@
 {
   "id": "simon-orchestra",
   "name": "Simon Orchestra",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Six instruments on a 3D stage play, and the child plays it back: beats, loud and soft, echoes, rhythms, scales, intervals, chords and a staff to read.",
   "subjects": [
     "music",
@@ -23,5 +23,22 @@
       "Recognizing instrument sounds",
       "Reading simple music notation"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Orquesta Simón",
+      "description": "Seis instrumentos tocan en un escenario 3D y el niño los imita: pulsos, fuerte y suave, ecos, ritmos, escalas, intervalos, acordes y un pentagrama para leer.",
+      "about": {
+        "concept": "Escucha, memoria e ideas musicales. La orquesta toca o el pentagrama muestra algo, y el niño responde en los botones; cada peldaño nombra una idea que enseñaría un maestro de música, desde un pulso constante hasta las progresiones de acordes.",
+        "progression": "Preescolar empieza con un pulso constante, fuerte y suave, y agudo y grave; luego los ecos crecen hasta melodías en un pentagrama de dos líneas, ritmos tocados a tiempo, familias de instrumentos, escalas e intervalos. Los peldaños más altos piden mayor y menor, compases, los acordes I IV V, leer el pentagrama en clave de sol, armaduras y transporte, progresiones de acordes y una frase de ocho notas compuesta según una regla.",
+        "lifeSkills": [
+          "Recordar instrucciones de varios pasos",
+          "Escuchar con atención",
+          "Mantener un pulso constante",
+          "Reconocer el sonido de los instrumentos",
+          "Leer notación musical sencilla"
+        ]
+      }
+    }
   }
 }
