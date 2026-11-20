@@ -249,7 +249,8 @@ function WindowsLockdown({ status, childName, refresh }: { status: LockdownStatu
   const w = status.windows;
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const suggested = (childName || 'Child').replace(/[^A-Za-z0-9 ._-]/g, '').slice(0, 20) || 'Child';
+  // Letters in any alphabet stay, so a Sofía gets a tablet named for her and not for Sofa.
+  const suggested = (childName || 'Child').replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 20) || 'Child';
   // null until the parent types: then the box holds exactly what they typed, even when they clear it.
   const [name, setName] = useState<string | null>(null);
   const [changing, setChanging] = useState(false);

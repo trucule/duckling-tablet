@@ -1065,7 +1065,9 @@ const SPELL = [
 // The grade each spell rung is for (-1 pre-K, 0 K, 1 to 8), in ladder order. A child opens on the first rung at her grade.
 const SPELL_GRADES = [-1, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 6, 7, 8];
 // Names for the signature rung: the child's name first, then family and friends so forty draws are not all one word.
-const childName = (() => { const n = String((window.KidTablet && KidTablet.childName) || '').replace(/[^A-Za-z]/g, ''); return n ? n.charAt(0).toUpperCase() + n.slice(1).toLowerCase() : ''; })();
+// A name keeps its letters in any alphabet. In English the app has no glyphs for accents, so Sofía is traced as Sofia;
+// in Spanish the marks are drawn, so it stays Sofía. (The old filter dropped the accented letter and traced Sofa.)
+const childName = (() => { let n = String((window.KidTablet && KidTablet.childName) || ''); if (LANG !== 'es') n = n.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); n = n.replace(/[^\p{L}]/gu, ''); return n ? n.charAt(0).toUpperCase() + n.slice(1).toLowerCase() : ''; })();
 const NAMES = BANK.names.map((n, i) => (i % 2 === 0 && i < 8 && childName) ? childName : n);
 // Words the reading rung shows in cursive; the choices come from the same bank.
 const READ_WORDS = BANK.read;
