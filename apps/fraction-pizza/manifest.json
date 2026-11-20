@@ -1,7 +1,7 @@
 {
   "id": "fraction-pizza",
   "name": "Fraction Pizza",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Cut pizzas and pies and serve slices: halves and quarters, equal fractions, adding slices, fractions on a number line, then mixed numbers, multiplying and dividing fractions, percents, decimals, rates and probability.",
   "subjects": [
     "math"
@@ -21,5 +21,21 @@
       "Comparing portions",
       "Explaining why two amounts are the same"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Pizza de fracciones",
+      "description": "Corta pizzas y pasteles y sirve rebanadas: medios y cuartos, fracciones equivalentes, suma de rebanadas, fracciones en la recta numérica, y luego números mixtos, multiplicación y división de fracciones, porcentajes, decimales, razones y probabilidad.",
+      "about": {
+        "concept": "Las fracciones como partes de un entero y como posiciones en una recta. Cortar y servir rebanadas hace concretas las partes iguales, las fracciones equivalentes y la suma de fracciones antes de escribirlas.",
+        "progression": "Primero se corta una pizza en pedazos iguales; después se sirven medios, cuartos, tercios, sextos y octavos, se nombran y se emparejan fracciones equivalentes, se suman rebanadas, se colocan fracciones en una recta numérica y se comparan. Los peldaños superiores vuelven a rebanar pizzas para fracciones equivalentes y denominadores distintos, y luego cubren números mixtos, la fracción de un grupo, multiplicación y división de fracciones, porcentajes, decimales, pedidos proporcionales y tasas unitarias, y la probabilidad de una rebanada al azar en su forma más simple.",
+        "lifeSkills": [
+          "Repartir comida y tiempo de forma justa",
+          "Leer recetas y medidas",
+          "Comparar porciones",
+          "Explicar por qué dos cantidades son iguales"
+        ]
+      }
+    }
   }
 }
