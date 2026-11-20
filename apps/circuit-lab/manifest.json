@@ -1,7 +1,7 @@
 {
   "id": "circuit-lab",
   "name": "Circuit Lab",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Wire batteries, bulbs, switches, resistors and coils on a 3D board, from closing one gap to Ohm's law, logic gates and circuit diagrams.",
   "subjects": [
     "science"
@@ -21,5 +21,21 @@
       "Planning a layout before building",
       "Persistence when the first try does not work"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Laboratorio de circuitos",
+      "description": "Conecta pilas, focos, interruptores, resistencias y bobinas en un tablero 3D, desde cerrar un hueco hasta la ley de Ohm, las compuertas lógicas y los diagramas de circuitos.",
+      "about": {
+        "concept": "Pensamiento de sistemas con electricidad: un circuito funciona solo cuando el camino está cerrado, y la forma de acomodar las partes cambia lo que pasa. Serie y paralelo se ven como focos tenues y brillantes antes de presentar las palabras.",
+        "progression": "La escalera empieza con arrastrar un cable a un hueco y avanza por interruptores, zumbadores, focos en serie y en paralelo y casas rompecabezas para 4.º grado. Los peldaños altos agregan la prueba de quitar un foco para reconocer el paralelo, conductores y aislantes, el brillo según pilas y resistencias, la ley de Ohm en un teclado numérico, voltaje y corriente en serie y en paralelo, compuertas Y y O con interruptores, electroimanes, y relacionar diagramas de símbolos estándar con circuitos armados para 8.º grado.",
+        "lifeSkills": [
+          "Resolver problemas paso a paso",
+          "Entender cómo funcionan las cosas de la casa",
+          "Planear un diseño antes de construir",
+          "Seguir intentando cuando el primer intento no funciona"
+        ]
+      }
+    }
   }
 }

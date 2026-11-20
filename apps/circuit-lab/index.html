@@ -259,7 +259,7 @@
   #done { position: absolute; right: 18px; bottom: 18px; width: 110px; height: 110px; border-radius: 50%; border: 5px solid var(--ink); background: var(--leaf); font-size: 54px; font-weight: 900; cursor: pointer; z-index: 2; box-shadow: 0 7px 0 var(--ink); }
   #done:active { transform: translateY(4px); box-shadow: 0 3px 0 var(--ink); }
   #ask.long { font-size: 21px; padding: 7px 16px; }
-  #quiz { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: none; gap: 24px; z-index: 2; align-items: center; }
+  #quiz { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: none; gap: 24px; z-index: 2; align-items: center; width: max-content; max-width: 96%; }
   #quiz.on { display: flex; }
   #quiz button { border: 5px solid var(--ink); border-radius: 26px; padding: 16px 30px; font-size: 30px; font-weight: 900; cursor: pointer; box-shadow: 0 7px 0 var(--ink); }
   #qa { background: var(--pink); color: #fff; } #qb { background: var(--sky); } #qc { background: var(--sun); }
@@ -336,6 +336,170 @@ const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.f
 const range = n => Array.from({ length: n }, (_, i) => i);
 
 // ---------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every prompt, level name, part name, hint,
+// explanation and label drawn on the board is Spanish, and the narrator speaks Spanish. The circuits, the solver and
+// the ladder do not change. Keys are the English text; T() looks each one up (docs/languages-brief.md).
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  // Header and buttons.
+  'Circuit Lab': 'Laboratorio de circuitos', 'New puzzle': 'Nuevo reto', 'New': 'Nuevo', 'Hear it again': 'Escúchalo otra vez', 'Done': 'Listo',
+  'Level {n}: {name}': 'Nivel {n}: {name}', 'Next ▶': 'Siguiente ▶',
+  // Level names.
+  'Close the gap': 'Cierra el hueco', 'Make a loop': 'Arma el circuito', 'Switch it on': 'Enciéndelo', 'Doorbell': 'Timbre', 'Two in a row': 'Dos en fila',
+  'Which is brighter?': '¿Cuál brilla más?', 'Bright rooms': 'Cuartos brillantes', 'Double power': 'Doble fuerza', 'A switch for each room': 'Un interruptor por cuarto',
+  'Puzzle house': 'Casa rompecabezas', 'Doorbell house': 'Casa con timbre', 'One bulb out': 'Un foco menos', 'Conductor or not': '¿Conduce o no?',
+  'More batteries': 'Más pilas', 'Resistors': 'Resistencias', "Ohm's law": 'Ley de Ohm', 'Share or split': 'Compartir o dividir', 'Logic gates': 'Compuertas lógicas',
+  'Electromagnets': 'Electroimanes', 'Circuit diagrams': 'Diagramas de circuitos',
+  // Materials: the short label on the tray icon. matName() adds the article for a sentence.
+  'copper': 'cobre', 'foil': 'aluminio', 'paper clip': 'clip', 'iron nail': 'clavo', 'salt water': 'agua salada', 'pencil lead': 'grafito',
+  'rubber': 'caucho', 'wood': 'madera', 'plastic': 'plástico', 'glass': 'vidrio', 'paper': 'papel', 'cloth': 'tela', 'That': 'Eso',
+  // Building prompts.
+  'Drag a wire into the gap to light the room!': '¡Arrastra un cable al hueco para iluminar el cuarto!',
+  'Connect the battery to the bulb with wires. Make a full loop!': 'Conecta la pila al foco con cables. ¡Haz un circuito completo!',
+  'Add a switch to the loop, then tap it to turn the light on.': 'Agrega un interruptor al circuito y tócalo para encender la luz.',
+  'Build a doorbell! Add a switch so the buzzer can ring.': '¡Arma un timbre! Agrega un interruptor para que el zumbador suene.',
+  'Put 2 bulbs in ONE loop, one after the other. How bright are they?': 'Pon 2 focos en UN solo circuito, uno tras otro. ¿Cuánto brillan?',
+  'Light 2 rooms, and make BOTH bulbs bright!': '¡Ilumina 2 cuartos y haz que LOS DOS focos brillen mucho!',
+  'Add a second battery to make the bulb SUPER bright!': '¡Agrega otra pila para que el foco brille SÚPER fuerte!',
+  'Light both rooms bright. Give each room its own switch!': 'Ilumina bien los dos cuartos. ¡Dale a cada cuarto su propio interruptor!',
+  'Puzzle house! Light all 3 rooms bright with just these wires.': '¡Casa rompecabezas! Ilumina bien los 3 cuartos solo con estos cables.',
+  'Light 2 rooms bright and wire the doorbell. Each one gets its own switch!': 'Ilumina bien 2 cuartos y conecta el timbre. ¡Cada uno con su propio interruptor!',
+  'Light both bulbs. Then we test the wiring.': 'Enciende los dos focos. Después probamos el cableado.',
+  'Light 2 bulbs. Then one of them comes out.': 'Enciende 2 focos. Después uno de ellos se quita.',
+  'Now tap one bulb to take it out. The other bulb must stay on.': 'Ahora toca un foco para quitarlo. El otro foco debe seguir encendido.',
+  'One bulb out, and the other stays on. Each bulb has its own path. That is a parallel circuit.': 'Un foco se quitó y el otro sigue encendido. Cada foco tiene su propio camino. Eso es un circuito en paralelo.',
+  'Fill the gap with a material that conducts.': 'Llena el hueco con un material que conduzca.',
+  'Light the bulb. Only a conductor lets electricity through.': 'Enciende el foco. Solo un conductor deja pasar la electricidad.',
+  'One gap. Which material carries the current?': 'Un hueco. ¿Qué material lleva la corriente?',
+  'Two gaps. Find the two conductors.': 'Dos huecos. Encuentra los dos conductores.',
+  'Fill both gaps. Only conductors will do.': 'Llena los dos huecos. Solo sirven los conductores.',
+  'Add a resistor so the bulb glows dim.': 'Agrega una resistencia para que el foco brille poco.',
+  'Put the resistor in the loop. Watch the bulb go dim.': 'Pon la resistencia en el circuito. Mira cómo el foco baja su brillo.',
+  'Use both resistors to make the bulb as dim as you can.': 'Usa las dos resistencias para que el foco brille lo menos posible.',
+  'A resistor slows the current, so the bulb glows dim.': 'Una resistencia frena la corriente, así que el foco brilla poco.',
+  'Two resistors in a row slow the current even more. More resistance, less current, dimmer bulb.': 'Dos resistencias en fila frenan la corriente todavía más. Más resistencia, menos corriente, menos brillo.',
+  'Build an AND gate. The light comes on only when BOTH switches are on.': 'Arma una compuerta Y. La luz se enciende solo cuando LOS DOS interruptores están encendidos.',
+  'Build an AND gate with 3 switches. All three must be on to light the bulb.': 'Arma una compuerta Y con 3 interruptores. Los tres deben estar encendidos para prender el foco.',
+  'All the switches sit in one loop, so every one must be closed. That is AND.': 'Todos los interruptores están en un solo circuito, así que todos deben estar cerrados. Eso es una compuerta Y.',
+  'Build an OR gate. EITHER switch alone turns the light on.': 'Arma una compuerta O. CUALQUIERA de los dos interruptores enciende la luz por sí solo.',
+  'Build an OR gate with 3 switches. Any one of them turns the light on.': 'Arma una compuerta O con 3 interruptores. Cualquiera de ellos enciende la luz.',
+  'Each switch has its own path, so any one of them closes the circuit. That is OR.': 'Cada interruptor tiene su propio camino, así que cualquiera de ellos cierra el circuito. Eso es una compuerta O.',
+  // Quizzes: which house, which coil, which diagram.
+  'Which house will glow brighter? Guess before the lights come on!': '¿Qué casa brillará más? ¡Adivina antes de que se prendan las luces!',
+  'Look at the batteries. Which house glows brighter?': 'Mira las pilas. ¿Qué casa brilla más?',
+  'Which house gets more push from its batteries?': '¿Qué casa recibe más empuje de sus pilas?',
+  '⬅ Left house': '⬅ Casa izquierda', 'Right house ➡': 'Casa derecha ➡', '⬅ Left coil': '⬅ Bobina izquierda', 'Right coil ➡': 'Bobina derecha ➡',
+  'Left': 'Izquierda', 'Middle': 'Centro', 'Right': 'Derecha',
+  'One bulb gets all the push. Two bulbs in a row share it, so they glow dim.': 'Un foco recibe todo el empuje. Dos focos en fila lo comparten, así que brillan poco.',
+  'Side by side, each bulb has its own path, so both glow bright. In a row, they share and glow dim.': 'Lado a lado, cada foco tiene su propio camino, así que los dos brillan mucho. En fila, comparten y brillan poco.',
+  'Two batteries stacked the same way give more push, so the bulb glows brighter.': 'Dos pilas puestas en el mismo sentido dan más empuje, así que el foco brilla más.',
+  'Two batteries in a row add up to 6 volts. More volts push more current, so the bulb glows brighter.': 'Dos pilas en fila suman 6 voltios. Más voltios empujan más corriente, así que el foco brilla más.',
+  'Three batteries in a row make 9 volts. Every battery you add in a row gives the bulb more push.': 'Tres pilas en fila hacen 9 voltios. Cada pila que agregas en fila le da más empuje al foco.',
+  'Both houses have two batteries. In one they point the same way and add up. In the other they push against each other and cancel out.': 'Las dos casas tienen dos pilas. En una apuntan al mismo lado y se suman. En la otra empujan en contra y se cancelan.',
+  'Two batteries and one bulb: all 6 volts go to one bulb. Two batteries and two bulbs in a row: the bulbs share the 6 volts.': 'Dos pilas y un foco: los 6 voltios van a un solo foco. Dos pilas y dos focos en fila: los focos comparten los 6 voltios.',
+  'Both houses have two bulbs in a row. The house with two batteries has twice the push, so its bulbs glow brighter.': 'Las dos casas tienen dos focos en fila. La casa con dos pilas tiene el doble de empuje, así que sus focos brillan más.',
+  'Three batteries in a row give three times the volts of one. The bulb gets much more push.': 'Tres pilas en fila dan el triple de voltios que una. El foco recibe mucho más empuje.',
+  'Tap the houses in order. Brightest first.': 'Toca las casas en orden. Primero la más brillante.',
+  'Look closer. Count the batteries and the resistors.': 'Mira con atención. Cuenta las pilas y las resistencias.',
+  'Every resistor in the loop slows the current, so the bulb glows dimmer. More batteries push harder, so the bulb glows brighter.': 'Cada resistencia en el circuito frena la corriente, así que el foco brilla menos. Más pilas empujan más fuerte, así que el foco brilla más.',
+  'In which house does each bulb get the full 3 volts?': '¿En qué casa recibe cada foco los 3 voltios completos?',
+  'Side by side, each bulb has its own path across the battery, so each one gets the full 3 volts.': 'Lado a lado, cada foco tiene su propio camino a la pila, así que cada uno recibe los 3 voltios completos.',
+  'In which house do the two bulbs share the 3 volts?': '¿En qué casa comparten los dos focos los 3 voltios?',
+  'In a row, the voltage splits between the bulbs. Each one gets about 1.5 volts.': 'En fila, el voltaje se reparte entre los focos. Cada uno recibe cerca de 1.5 voltios.',
+  'Which house pulls more current out of the battery?': '¿Qué casa saca más corriente de la pila?',
+  'Two paths let more current flow. The battery in the parallel house works harder and runs down sooner.': 'Dos caminos dejan pasar más corriente. La pila de la casa en paralelo trabaja más y se gasta antes.',
+  'In which house does all of the battery current pass through each bulb?': '¿En qué casa pasa toda la corriente de la pila por cada foco?',
+  'One loop means one current. Every part in a row carries the same current.': 'Un solo circuito, una sola corriente. Cada parte en fila lleva la misma corriente.',
+  'Take one bulb out. In which house does the other bulb stay lit?': 'Quita un foco. ¿En qué casa sigue encendido el otro foco?',
+  'In the parallel house each bulb has its own path, so one can go without breaking the other. In a row, one gap stops everything.': 'En la casa en paralelo cada foco tiene su propio camino, así que uno puede faltar sin apagar al otro. En fila, un hueco detiene todo.',
+  'Look at the paths. Then try the other house.': 'Mira los caminos. Luego prueba la otra casa.',
+  'Look again. Then guess the other house!': '¡Mira otra vez y elige la otra casa!',
+  'Which coil picks up more paper clips?': '¿Qué bobina levanta más clips?',
+  'Which coil picks up more paper clips? One has an iron core.': '¿Qué bobina levanta más clips? Una tiene un núcleo de hierro.',
+  'More turns of wire make a stronger magnet. 50 turns pull harder than 20.': 'Más vueltas de cable hacen un imán más fuerte. 50 vueltas atraen más que 20.',
+  'Two batteries push more current through the coil. More current makes a stronger magnet.': 'Dos pilas empujan más corriente por la bobina. Más corriente hace un imán más fuerte.',
+  'An iron core gathers the magnetic field. The same coil pulls much harder with iron inside.': 'Un núcleo de hierro concentra el campo magnético. La misma bobina atrae mucho más con hierro adentro.',
+  'An open switch stops the current. No current, no magnet, and the clips drop.': 'Un interruptor abierto detiene la corriente. Sin corriente no hay imán, y los clips se caen.',
+  'Turns matter a lot. 60 turns on one battery beat 20 turns on two.': 'Las vueltas importan mucho. 60 vueltas con una pila atraen más que 20 vueltas con dos.',
+  'Both coils have an iron core. The one with more turns wraps more field around it.': 'Las dos bobinas tienen núcleo de hierro. La que tiene más vueltas junta más campo a su alrededor.',
+  'Look at the turns, the batteries and the core. Then try the other coil.': 'Mira las vueltas, las pilas y el núcleo. Luego prueba la otra bobina.',
+  '{n} turns': '{n} vueltas',
+  'Which diagram shows this circuit?': '¿Qué diagrama muestra este circuito?',
+  'Count the lamps and look for a switch or a zigzag. Then try again.': 'Cuenta las lámparas y busca un interruptor o un zigzag. Luego intenta otra vez.',
+  'Tap the house that matches this diagram.': 'Toca la casa que corresponde a este diagrama.',
+  'Count the lamps in the diagram. Then look again.': 'Cuenta las lámparas del diagrama. Luego mira otra vez.',
+  'The long and short lines are the battery. The circle with a cross is the lamp. One loop, one lamp.': 'La línea larga y la corta son la pila. El círculo con una cruz es la lámpara. Un circuito, una lámpara.',
+  'Two lamp symbols on one loop, one after the other. That is series.': 'Dos símbolos de lámpara en un solo circuito, uno tras otro. Eso es en serie.',
+  'Each lamp sits on its own branch between the same two wires. That is parallel.': 'Cada lámpara está en su propia rama entre los mismos dos cables. Eso es en paralelo.',
+  'The gap with a lever is an open switch. It sits in the same loop as the lamp, so the lamp is off.': 'El hueco con una palanca es un interruptor abierto. Está en el mismo circuito que la lámpara, así que la lámpara está apagada.',
+  'The zigzag is a resistor. It is in the loop with the lamp, so the lamp glows dim.': 'El zigzag es una resistencia. Está en el circuito con la lámpara, así que la lámpara brilla poco.',
+  'Two pairs of long and short lines are two cells in a row: a 6 volt battery.': 'Dos pares de líneas larga y corta son dos celdas en fila: una pila de 6 voltios.',
+  'Two lamps on their own branches, and one open switch on the way back to the battery.': 'Dos lámparas en sus propias ramas y un interruptor abierto en el camino de regreso a la pila.',
+  // Ohm's law on the number pad.
+  '{v} volts push through {r} ohms. How many amps flow?': '{v} voltios empujan a través de {r} ohmios. ¿Cuántos amperios pasan?',
+  '{i} amps flow through {r} ohms. How many volts push them?': '{i} amperios pasan por {r} ohmios. ¿Cuántos voltios los empujan?',
+  '{v} volts push {i} amps. How many ohms is the resistor?': '{v} voltios empujan {i} amperios. ¿Cuántos ohmios tiene la resistencia?',
+  'V = I × R. {v} ÷ {r} = {i} amps.': 'V = I × R. {v} ÷ {r} = {i} amperios.', 'V = I × R. {i} × {r} = {v} volts.': 'V = I × R. {i} × {r} = {v} voltios.',
+  'V = I × R. {v} ÷ {i} = {r} ohms.': 'V = I × R. {v} ÷ {i} = {r} ohmios.',
+  'Amps = volts ÷ ohms.': 'Amperios = voltios ÷ ohmios.', 'Volts = amps × ohms.': 'Voltios = amperios × ohmios.', 'Ohms = volts ÷ amps.': 'Ohmios = voltios ÷ amperios.',
+  // Cards, hints and feedback.
+  'Short circuit! ⚡': '¡Cortocircuito! ⚡',
+  'The electricity found a shortcut with no bulb, and the battery gets hot. Take that wire away.': 'La electricidad encontró un atajo sin foco y la pila se calienta. Quita ese cable.',
+  'It went out!': '¡Se apagó!', 'Both on! 💡': '¡Los dos encendidos! 💡', 'Not yet!': '¡Todavía no!', 'Let us try an easier one.': 'Vamos a probar uno más fácil.',
+  'There is a shortcut with no bulb. Take a wire away.': 'Hay un atajo sin foco. Quita un cable.',
+  'Add {n} bulb.': 'Agrega {n} foco.', 'Add {n} bulbs.': 'Agrega {n} focos.',
+  'Take one bulb out to test it. Tap the bulb.': 'Quita un foco para probarlo. Toca el foco.',
+  'A switch is off. Tap the switch to turn it on.': 'Un interruptor está apagado. Tócalo para encenderlo.',
+  'Use all {n} switches in the circuit.': 'Usa los {n} interruptores en el circuito.',
+  'One switch alone must not light it. Put the switches one after another in the same loop.': 'Un solo interruptor no debe encenderlo. Pon los interruptores uno tras otro en el mismo circuito.',
+  'Each switch needs its own path to the bulb. Put them side by side on separate paths.': 'Cada interruptor necesita su propio camino al foco. Ponlos lado a lado en caminos separados.',
+  '{m} is an insulator. Electricity cannot get through it. Try another material.': '{m} es aislante. La electricidad no pasa por ahí. Prueba otro material.',
+  'The other bulb went out. In a row, one gap breaks the whole loop. Put the bulb back, give each bulb its own path, and test again.': 'El otro foco se apagó. En fila, un hueco rompe todo el circuito. Vuelve a poner el foco, dale a cada foco su propio camino y prueba otra vez.',
+  'If the light went out, tap the new battery to flip it around.': 'Si la luz se apagó, toca la pila nueva para darle la vuelta.',
+  'Electricity needs a full loop: out of the battery, through the bulb, and back.': 'La electricidad necesita un circuito completo: sale de la pila, pasa por el foco y regresa.',
+  'The buzzer needs a full loop back to the battery too.': 'El zumbador también necesita un circuito completo de regreso a la pila.',
+  'Put the switch in the loop, so it can stop the electricity.': 'Pon el interruptor en el circuito para que pueda detener la electricidad.',
+  'Each room needs its own switch on its own path.': 'Cada cuarto necesita su propio interruptor en su propio camino.',
+  'Dimmer still. Put the other resistor in the loop too.': 'Todavía más tenue. Pon también la otra resistencia en el circuito.',
+  'Too bright. Put the resistor in the loop with the bulb.': 'Brilla demasiado. Pon la resistencia en el circuito con el foco.',
+  'These are bright. Put both bulbs in one loop, one after the other, so they share.': 'Estos brillan mucho. Pon los dos focos en un solo circuito, uno tras otro, para que compartan.',
+  'Dim! Give each bulb its own path back to the battery.': '¡Brillan poco! Dale a cada foco su propio camino de regreso a la pila.',
+  'Add the second battery in the loop. Point its + the same way as the first one.': 'Agrega la segunda pila al circuito. Apunta su + hacia el mismo lado que la primera.',
+  'Keep going!': '¡Sigue así!',
+  'Lights on!': '¡Luces encendidas!', 'You did it!': '¡Lo lograste!', 'Super circuit!': '¡Súper circuito!', 'Bright idea!': '¡Qué buena idea!',
+  'Two bulbs in a row share the battery, so each one glows dim.': 'Dos focos en fila comparten la pila, así que cada uno brilla poco.',
+  'Each bulb has its own path, so they all glow bright.': 'Cada foco tiene su propio camino, así que todos brillan mucho.',
+  'Two batteries give double push!': '¡Dos pilas dan el doble de empuje!',
+  '{a} and {b} conduct. Electricity flows through it.': '{a} y {b} conducen. La electricidad pasa por ahí.',
+  '{m} conducts. Electricity flows through it.': '{m} conduce. La electricidad pasa por ahí.',
+  'Level up! ⭐': '¡Subiste de nivel! ⭐', 'Level up!': '¡Subiste de nivel!',
+  'Great guess!': '¡Buena respuesta!', 'You got it!': '¡Lo lograste!', 'Right!': '¡Correcto!', 'Now you know!': '¡Ahora ya lo sabes!',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+// Spanish articles for the materials, for a sentence such as "El cobre conduce." The label on the tray has none.
+const ES_ART = { copper: 'el', foil: 'el', clip: 'el', nail: 'el', saltwater: 'el', graphite: 'el', rubber: 'el', wood: 'la', plastic: 'el', glass: 'el', paper: 'el', cloth: 'la' };
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+window.DucklingLang = {
+  keys: () => Object.keys(ES),
+  missing: () => [...USED].filter(k => ES[k] == null),
+  allow: [],
+};
+if (LANG === 'es') {
+  document.documentElement.lang = 'es';
+  document.title = T('Circuit Lab');
+  document.querySelector('header h1').textContent = '⚡ ' + T('Circuit Lab');
+  $('skip').textContent = '🔀 ' + T('New'); $('skip').title = T('New puzzle');
+  $('hear').title = T('Hear it again'); $('done').title = T('Done');
+}
+
+// ---------------------------------------------------------------------------
 // Circuit model and solver
 // ---------------------------------------------------------------------------
 // A board is a grid of nodes. A part sits on the edge between two neighbor nodes.
@@ -364,6 +528,8 @@ const MATS = {
   cloth: { name: 'cloth', cond: false, color: '#FF8FB1', shape: 'box' },
 };
 const CONDUCTORS = Object.keys(MATS).filter(m => MATS[m].cond), INSULATORS = Object.keys(MATS).filter(m => !MATS[m].cond);
+// A material's name in the child's language. inSentence adds the Spanish article ("el cobre"); English has none.
+const matName = (m, inSentence) => (inSentence && LANG === 'es' && ES_ART[m] ? ES_ART[m] + ' ' : '') + T(MATS[m].name);
 const kindOf = p => p.t === 'mat' ? p.m : p.t;
 
 function ends(e) { const s = e.split(','), i = +s[1], j = +s[2]; return s[0] === 'h' ? [[i, j], [i + 1, j]] : [[i, j], [i, j + 1]]; }
@@ -523,31 +689,31 @@ const LEVELS = [
     const w = rnd(2, 3), [x0, y0] = spot(w, 1), loop = rectLoop(x0, y0, w, 1);
     const bat = 'v,' + x0 + ',' + y0, bulb = 'v,' + (x0 + w) + ',' + y0, wires = shuffle(without(loop, bat, bulb));
     const gaps = wires.slice(0, rnd(1, 2));
-    return lvl({ text: 'Drag a wire into the gap to light the room!', goal: { bulbs: 1, bright: 'lit' },
+    return lvl({ text: T('Drag a wire into the gap to light the room!'), goal: { bulbs: 1, bright: 'lit' },
       fixed: [part(bat, 'battery'), part(bulb, 'bulb'), ...without(wires, gaps).map(e => part(e, 'wire'))],
       solution: gaps.map(e => part(e, 'wire')), inv: { wire: gaps.length + 1 } });
   } },
   { name: 'Make a loop', g: 0, gen() {
     const L = loopWithLoad('bulb', 2, 4);
-    return lvl({ text: 'Connect the battery to the bulb with wires. Make a full loop!', goal: { bulbs: 1, bright: 'lit' },
+    return lvl({ text: T('Connect the battery to the bulb with wires. Make a full loop!'), goal: { bulbs: 1, bright: 'lit' },
       fixed: [part(L.bat, 'battery'), part(L.ld, 'bulb')], solution: L.wires.map(e => part(e, 'wire')), inv: { wire: L.wires.length + 2 } });
   } },
   { name: 'Switch it on', g: 1, gen() {
     const L = loopWithLoad('bulb', 2, 4), wires = shuffle(L.wires.slice()), sw = wires[0], gaps = wires.slice(1, 1 + rnd(1, 2));
-    return lvl({ text: 'Add a switch to the loop, then tap it to turn the light on.', goal: { bulbs: 1, bright: 'lit', ctrl: 'any' },
+    return lvl({ text: T('Add a switch to the loop, then tap it to turn the light on.'), goal: { bulbs: 1, bright: 'lit', ctrl: 'any' },
       fixed: [part(L.bat, 'battery'), part(L.ld, 'bulb'), ...without(wires, sw, gaps).map(e => part(e, 'wire'))],
       solution: [part(sw, 'switch'), ...gaps.map(e => part(e, 'wire'))], inv: { wire: gaps.length + 1, switch: 1 } });
   } },
   { name: 'Doorbell', g: 2, gen() {
     const L = loopWithLoad('buzzer', 2, 4), wires = shuffle(L.wires.slice()), sw = wires[0], gaps = wires.slice(1, 1 + rnd(1, 2));
-    return lvl({ text: 'Build a doorbell! Add a switch so the buzzer can ring.', goal: { bulbs: 0, buzzer: true, ctrl: 'any' },
+    return lvl({ text: T('Build a doorbell! Add a switch so the buzzer can ring.'), goal: { bulbs: 0, buzzer: true, ctrl: 'any' },
       fixed: [part(L.bat, 'battery'), part(L.ld, 'buzzer'), ...without(wires, sw, gaps).map(e => part(e, 'wire'))],
       solution: [part(sw, 'switch'), ...gaps.map(e => part(e, 'wire'))], inv: { wire: gaps.length + 1, switch: 1 } });
   } },
   { name: 'Two in a row', g: 2, gen() {
     const w = rnd(3, 4), h = rnd(1, 2), [x0, y0] = spot(w, h), loop = rectLoop(x0, y0, w, h), left = vcol(x0, y0, h);
     const bat = pick(left), bulbs = shuffle(without(loop, left)).slice(0, 2), wires = shuffle(without(loop, bat, bulbs)), gaps = wires.slice(0, rnd(1, 2));
-    return lvl({ text: 'Put 2 bulbs in ONE loop, one after the other. How bright are they?', goal: { bulbs: 2, bright: 'dim' },
+    return lvl({ text: T('Put 2 bulbs in ONE loop, one after the other. How bright are they?'), goal: { bulbs: 2, bright: 'dim' },
       fixed: [part(bat, 'battery'), ...without(wires, gaps).map(e => part(e, 'wire'))],
       solution: [...bulbs.map(e => part(e, 'bulb')), ...gaps.map(e => part(e, 'wire'))], inv: { bulb: 2, wire: gaps.length + 2 } });
   } },
@@ -556,7 +722,7 @@ const LEVELS = [
     const a = rnd(1, 2), b = rnd(1, 2), h = rnd(1, 2), [x0, y0] = spot(a + b, h), xs = [x0, x0 + a, x0 + a + b], L = ladder(xs, y0, h);
     const bat = pick(L.rungs[0]), bulbs = [pick(L.rungs[1]), pick(L.rungs[2])];
     const wires = shuffle(without([...L.rails, ...L.rungs.flat()], bat, bulbs)), keep = wires.slice(0, Math.floor(wires.length / 2)), gaps = without(wires, keep);
-    return lvl({ text: 'Light 2 rooms, and make BOTH bulbs bright!', goal: { bulbs: 2, bright: 'bright' },
+    return lvl({ text: T('Light 2 rooms, and make BOTH bulbs bright!'), goal: { bulbs: 2, bright: 'bright' },
       fixed: [part(bat, 'battery'), ...keep.map(e => part(e, 'wire'))],
       solution: [...bulbs.map(e => part(e, 'bulb')), ...gaps.map(e => part(e, 'wire'))], inv: { bulb: 2, wire: gaps.length + 2 } });
   } },
@@ -567,14 +733,14 @@ const LEVELS = [
     const sol = [part(slot, 'battery', { dir: 1 }), ...gaps.map(e => part(e, 'wire'))];
     const goal = { bulbs: 1, bright: 'super' };
     if (!evaluate(build(fixed, sol), goal).ok) sol[0].dir = -1;
-    return lvl({ text: 'Add a second battery to make the bulb SUPER bright!', goal, fixed, solution: sol, inv: { battery: 1, wire: gaps.length + 1 } });
+    return lvl({ text: T('Add a second battery to make the bulb SUPER bright!'), goal, fixed, solution: sol, inv: { battery: 1, wire: gaps.length + 1 } });
   } },
   { name: 'A switch for each room', g: 4, gen() {
     const a = rnd(1, 2), b = rnd(1, 2), [x0, y0] = spot(a + b, 2), xs = [x0, x0 + a, x0 + a + b], L = ladder(xs, y0, 2);
     const bat = pick(L.rungs[0]), bulbs = [], sws = [];
     for (const k of [1, 2]) { const r = shuffle(L.rungs[k].slice()); bulbs.push(r[0]); sws.push(r[1]); }
     const wires = shuffle(without([...L.rails, ...L.rungs[0]], bat)), keep = wires.slice(0, Math.ceil(wires.length / 2)), gaps = without(wires, keep);
-    return lvl({ text: 'Light both rooms bright. Give each room its own switch!', goal: { bulbs: 2, bright: 'bright', ctrl: 'each' },
+    return lvl({ text: T('Light both rooms bright. Give each room its own switch!'), goal: { bulbs: 2, bright: 'bright', ctrl: 'each' },
       fixed: [part(bat, 'battery'), ...bulbs.map(e => part(e, 'bulb')), ...keep.map(e => part(e, 'wire'))],
       solution: [...sws.map(e => part(e, 'switch')), ...gaps.map(e => part(e, 'wire'))], inv: { switch: 2, wire: gaps.length + 1 } });
   } },
@@ -582,7 +748,7 @@ const LEVELS = [
     const sp = [rnd(1, 2), rnd(1, 2), rnd(1, 2)], h = rnd(1, 2), [x0, y0] = spot(sp[0] + sp[1] + sp[2], h);
     const xs = [x0, x0 + sp[0], x0 + sp[0] + sp[1], x0 + sp[0] + sp[1] + sp[2]], L = ladder(xs, y0, h);
     const bat = pick(L.rungs[0]), bulbs = [1, 2, 3].map(k => pick(L.rungs[k])), rungWires = without(L.rungs.flat(), bat, bulbs);
-    return lvl({ text: 'Puzzle house! Light all 3 rooms bright with just these wires.', goal: { bulbs: 3, bright: 'bright' },
+    return lvl({ text: T('Puzzle house! Light all 3 rooms bright with just these wires.'), goal: { bulbs: 3, bright: 'bright' },
       fixed: [part(bat, 'battery'), ...bulbs.map(e => part(e, 'bulb')), ...rungWires.map(e => part(e, 'wire'))],
       solution: L.rails.map(e => part(e, 'wire')), inv: { wire: L.rails.length + rnd(0, 1) } });
   } },
@@ -592,7 +758,7 @@ const LEVELS = [
     const bat = pick(L.rungs[0]), kinds = shuffle(['bulb', 'bulb', 'buzzer']), loads = [], sws = [];
     [1, 2, 3].forEach((k, n) => { const r = shuffle(L.rungs[k].slice()); loads.push(part(r[0], kinds[n])); sws.push(r[1]); });
     const wires = shuffle(without([...L.rails, ...L.rungs[0]], bat)), keep = wires.slice(0, Math.ceil(wires.length / 2)), gaps = without(wires, keep);
-    return lvl({ text: 'Light 2 rooms bright and wire the doorbell. Each one gets its own switch!', goal: { bulbs: 2, bright: 'bright', buzzer: true, ctrl: 'each' },
+    return lvl({ text: T('Light 2 rooms bright and wire the doorbell. Each one gets its own switch!'), goal: { bulbs: 2, bright: 'bright', buzzer: true, ctrl: 'each' },
       fixed: [part(bat, 'battery'), ...loads, ...keep.map(e => part(e, 'wire'))],
       solution: [...sws.map(e => part(e, 'switch')), ...gaps.map(e => part(e, 'wire'))], inv: { switch: 3, wire: gaps.length + 1 } });
   } },
@@ -601,10 +767,10 @@ const LEVELS = [
     const { L } = roomsLayout(2, rnd(1, 2));
     const bat = pick(L.rungs[0]), bulbs = [pick(L.rungs[1]), pick(L.rungs[2])];
     const wires = shuffle(without([...L.rails, ...L.rungs.flat()], bat, bulbs)), keep = wires.slice(0, Math.floor(wires.length / 2)), gaps = without(wires, keep);
-    return lvl({ text: pick(['Light both bulbs. Then we test the wiring.', 'Light 2 bulbs. Then one of them comes out.']), test: true,
-      testText: 'Now tap one bulb to take it out. The other bulb must stay on.',
+    return lvl({ text: T(pick(['Light both bulbs. Then we test the wiring.', 'Light 2 bulbs. Then one of them comes out.'])), test: true,
+      testText: T('Now tap one bulb to take it out. The other bulb must stay on.'),
       goal: { bulbs: 2, bright: 'lit' }, goal2: { bulbs: 1, exact: 1, bright: 'lit' },
-      win: 'One bulb out, and the other stays on. Each bulb has its own path. That is a parallel circuit.',
+      win: T('One bulb out, and the other stays on. Each bulb has its own path. That is a parallel circuit.'),
       fixed: [part(bat, 'battery'), ...keep.map(e => part(e, 'wire'))],
       solution: [...bulbs.map(e => part(e, 'bulb')), ...gaps.map(e => part(e, 'wire'))], inv: { bulb: 2, wire: gaps.length + 2 } });
   } },
@@ -613,8 +779,8 @@ const LEVELS = [
     const L = loopWithLoad('bulb', 2, 4), wires = shuffle(L.wires.slice()), nGap = rnd(1, 2), gaps = wires.slice(0, nGap);
     const conds = shuffle(CONDUCTORS.slice()).slice(0, nGap), insul = shuffle(INSULATORS.slice()).slice(0, 2);
     const inv = {}; shuffle([...conds, ...insul]).forEach(m => { inv[m] = 1; });
-    const text = nGap === 1 ? pick(['Fill the gap with a material that conducts.', 'Light the bulb. Only a conductor lets electricity through.', 'One gap. Which material carries the current?'])
-      : pick(['Two gaps. Find the two conductors.', 'Fill both gaps. Only conductors will do.']);
+    const text = T(nGap === 1 ? pick(['Fill the gap with a material that conducts.', 'Light the bulb. Only a conductor lets electricity through.', 'One gap. Which material carries the current?'])
+      : pick(['Two gaps. Find the two conductors.', 'Fill both gaps. Only conductors will do.']));
     return lvl({ text, goal: { bulbs: 1, bright: 'lit' }, mats: true,
       fixed: [part(L.bat, 'battery'), part(L.ld, 'bulb'), ...without(wires, gaps).map(e => part(e, 'wire'))],
       solution: gaps.map((e, k) => part(e, 'mat', { m: conds[k] })), inv });
@@ -675,7 +841,7 @@ function smallCirc(kind, o) {
   else if (kind === 'sw') { simple(); add('v,3,0', 'bulb'); add('h,2,1', 'switch', { on: false }); }
   else if (kind === 'parsw') { lad(); add('v,2,0', 'bulb'); add('v,3,0', 'bulb'); add('h,1,1', 'switch', { on: false }); }
   else if (kind === 'coil') {
-    simple(); add('v,3,0', 'coil', { turns: o.turns, core: !!o.core, label: o.turns + ' turns' });
+    simple(); add('v,3,0', 'coil', { turns: o.turns, core: !!o.core, label: T('{n} turns', { n: o.turns }) });
     if (o.batteries === 2) { add('h,1,1', 'battery'); orient(c, ['h,1,1'], 'max'); }
     if (o.open) add('h,2,0', 'switch', { on: false });
   } else if (kind === 'ohm') {
@@ -705,8 +871,8 @@ function brighterQuiz(bank) {
   const q = pick(bank), flip = Math.random() < 0.5;
   const A = smallCirc(flip ? q.b : q.a), B = smallCirc(flip ? q.a : q.b);
   const boards = [A, B], ans = maxBright(A) > maxBright(B) ? 'A' : 'B';
-  return { quiz: true, kind: 'quiz', text: bank === QUIZ ? QUIZ_TEXT[0] : pick(QUIZ_TEXT), boards, A, B, ans, why: q.why, kinds: flip ? [q.b, q.a] : [q.a, q.b],
-    choices: ['⬅ Left house', 'Right house ➡'],
+  return { quiz: true, kind: 'quiz', text: T(bank === QUIZ ? QUIZ_TEXT[0] : pick(QUIZ_TEXT)), boards, A, B, ans, why: T(q.why), kinds: flip ? [q.b, q.a] : [q.a, q.b],
+    choices: [T('⬅ Left house'), T('Right house ➡')],
     check() { const a = maxBright(A), b = maxBright(B), hi = Math.max(a, b), lo = Math.min(a, b); return hi > lo * 1.5 && (a > b ? 'A' : 'B') === ans && !solve(A).short && !solve(B).short; } };
 }
 
@@ -714,8 +880,8 @@ function brighterQuiz(bank) {
 function resistorBuild() {
   const L = loopWithLoad('bulb', 2, 4), wires = shuffle(L.wires.slice()), n = rnd(1, 2), slots = wires.slice(0, n), gaps = wires.slice(n, n + rnd(0, 1));
   const goal = n === 1 ? { bulbs: 1, bright: 'dim' } : { bulbs: 1, bright: 'dim', max: 0.3 };
-  return lvl({ text: n === 1 ? pick(['Add a resistor so the bulb glows dim.', 'Put the resistor in the loop. Watch the bulb go dim.']) : 'Use both resistors to make the bulb as dim as you can.',
-    goal, win: n === 1 ? 'A resistor slows the current, so the bulb glows dim.' : 'Two resistors in a row slow the current even more. More resistance, less current, dimmer bulb.',
+  return lvl({ text: T(n === 1 ? pick(['Add a resistor so the bulb glows dim.', 'Put the resistor in the loop. Watch the bulb go dim.']) : 'Use both resistors to make the bulb as dim as you can.'),
+    goal, win: T(n === 1 ? 'A resistor slows the current, so the bulb glows dim.' : 'Two resistors in a row slow the current even more. More resistance, less current, dimmer bulb.'),
     fixed: [part(L.bat, 'battery'), part(L.ld, 'bulb'), ...without(wires, slots, gaps).map(e => part(e, 'wire'))],
     solution: [...slots.map(e => part(e, 'resistor')), ...gaps.map(e => part(e, 'wire'))], inv: { resistor: n, wire: gaps.length + 1 } });
 }
@@ -723,21 +889,21 @@ const ORDER_KINDS = ['two', 'one', 'r1', 'r2'];
 function orderQuiz() {
   const kinds = shuffle(ORDER_KINDS.slice()).slice(0, 3), boards = kinds.map(k => smallCirc(k));
   const br = boards.map(maxBright), order = [0, 1, 2].sort((i, j) => br[j] - br[i]).map(i => 'ABC'[i]);
-  return { quiz: true, kind: 'order', text: 'Tap the houses in order. Brightest first.', boards, kinds, order, step: 0,
-    choices: ['Left', 'Middle', 'Right'], wrongSay: 'Look closer. Count the batteries and the resistors.',
-    why: 'Every resistor in the loop slows the current, so the bulb glows dimmer. More batteries push harder, so the bulb glows brighter.',
+  return { quiz: true, kind: 'order', text: T('Tap the houses in order. Brightest first.'), boards, kinds, order, step: 0,
+    choices: [T('Left'), T('Middle'), T('Right')], wrongSay: T('Look closer. Count the batteries and the resistors.'),
+    why: T('Every resistor in the loop slows the current, so the bulb glows dimmer. More batteries push harder, so the bulb glows brighter.'),
     check() { const s = order.map(ch => br['ABC'.indexOf(ch)]); return s.every((v, i) => i === 0 || s[i - 1] > v * 1.4) && new Set(kinds).size === 3; } };
 }
 
 // Rung 15: Ohm's law.
 function ohmTask() {
   const R = rnd(1, 6), I = rnd(1, Math.min(6, Math.floor(24 / R))), V = I * R, ask = pick(['I', 'I', 'V', 'R']);
-  const text = ask === 'I' ? V + ' volts push through ' + R + ' ohms. How many amps flow?'
-    : ask === 'V' ? I + ' amps flow through ' + R + ' ohms. How many volts push them?'
-    : V + ' volts push ' + I + ' amps. How many ohms is the resistor?';
+  const text = ask === 'I' ? T('{v} volts push through {r} ohms. How many amps flow?', { v: V, r: R })
+    : ask === 'V' ? T('{i} amps flow through {r} ohms. How many volts push them?', { i: I, r: R })
+    : T('{v} volts push {i} amps. How many ohms is the resistor?', { v: V, i: I });
   const answer = ask === 'I' ? I : ask === 'V' ? V : R, unit = ask === 'I' ? 'A' : ask === 'V' ? 'V' : 'Ω';
-  const why = 'V = I × R. ' + (ask === 'I' ? V + ' ÷ ' + R + ' = ' + I + ' amps.' : ask === 'V' ? I + ' × ' + R + ' = ' + V + ' volts.' : V + ' ÷ ' + I + ' = ' + R + ' ohms.');
-  const hint = ask === 'I' ? 'Amps = volts ÷ ohms.' : ask === 'V' ? 'Volts = amps × ohms.' : 'Ohms = volts ÷ amps.';
+  const why = ask === 'I' ? T('V = I × R. {v} ÷ {r} = {i} amps.', { v: V, r: R, i: I }) : ask === 'V' ? T('V = I × R. {i} × {r} = {v} volts.', { v: V, r: R, i: I }) : T('V = I × R. {v} ÷ {i} = {r} ohms.', { v: V, r: R, i: I });
+  const hint = T(ask === 'I' ? 'Amps = volts ÷ ohms.' : ask === 'V' ? 'Volts = amps × ohms.' : 'Ohms = volts ÷ amps.');
   const circ = smallCirc('ohm', { V, R, I, ask });
   return { quiz: true, kind: 'pad', text, circ, boards: [circ], V, R, I, ask, answer, unit, why, hint, choices: [],
     check() { const s = solve(circ), i = Math.abs(s.cur['v,3,0']); return Number.isInteger(answer) && answer >= 1 && answer <= 24 && Math.abs(i - I) < 0.05 && !s.short; } };
@@ -764,15 +930,15 @@ function clone(c) { return { cols: c.cols, rows: c.rows, ideal: c.ideal, parts: 
 function shareQuiz() {
   const q = pick(SHARE), flip = Math.random() < 0.5, kinds = flip ? ['series', 'parallel'] : ['parallel', 'series'];
   const boards = kinds.map(k => smallCirc(k)), P = boards[kinds.indexOf('parallel')], S = boards[kinds.indexOf('series')];
-  return { quiz: true, kind: 'quiz', text: q.text, boards, kinds, ans: 'AB'[kinds.indexOf(q.ans)], why: q.why, choices: ['⬅ Left house', 'Right house ➡'],
-    wrongSay: 'Look at the paths. Then try the other house.', check() { return q.check(stats(P), stats(S), P, S); } };
+  return { quiz: true, kind: 'quiz', text: T(q.text), boards, kinds, ans: 'AB'[kinds.indexOf(q.ans)], why: T(q.why), choices: [T('⬅ Left house'), T('Right house ➡')],
+    wrongSay: T('Look at the paths. Then try the other house.'), check() { return q.check(stats(P), stats(S), P, S); } };
 }
 
 // Rung 17: logic gates.
 function andGate() {
   const n = rnd(2, 3), L = loopWithLoad('bulb', 3, 4), wires = shuffle(L.wires.slice()), slots = wires.slice(0, n), gaps = wires.slice(n, n + rnd(0, 1));
-  return lvl({ text: n === 2 ? 'Build an AND gate. The light comes on only when BOTH switches are on.' : 'Build an AND gate with 3 switches. All three must be on to light the bulb.',
-    goal: { bulbs: 1, bright: 'lit', logic: 'and', n }, win: 'All the switches sit in one loop, so every one must be closed. That is AND.',
+  return lvl({ text: T(n === 2 ? 'Build an AND gate. The light comes on only when BOTH switches are on.' : 'Build an AND gate with 3 switches. All three must be on to light the bulb.'),
+    goal: { bulbs: 1, bright: 'lit', logic: 'and', n }, win: T('All the switches sit in one loop, so every one must be closed. That is AND.'),
     fixed: [part(L.bat, 'battery'), part(L.ld, 'bulb'), ...without(wires, slots, gaps).map(e => part(e, 'wire'))],
     solution: [...slots.map(e => part(e, 'switch')), ...gaps.map(e => part(e, 'wire'))], inv: { switch: n, wire: gaps.length + 1 } });
 }
@@ -781,8 +947,8 @@ function orGate() {
   const bat = pick(L.rungs[0]), bulb = 'h,' + rnd(xs[0], xs[1] - 1) + ',' + y0, slots = [], rungWires = [];
   for (let k = 1; k <= n; k++) { const r = shuffle(L.rungs[k].slice()); slots.push(r[0]); rungWires.push(...r.slice(1)); }
   const railWires = shuffle(without(L.rails, bulb)), gaps = railWires.slice(0, rnd(0, 1));
-  return lvl({ text: n === 2 ? 'Build an OR gate. EITHER switch alone turns the light on.' : 'Build an OR gate with 3 switches. Any one of them turns the light on.',
-    goal: { bulbs: 1, bright: 'lit', logic: 'or', n }, win: 'Each switch has its own path, so any one of them closes the circuit. That is OR.',
+  return lvl({ text: T(n === 2 ? 'Build an OR gate. EITHER switch alone turns the light on.' : 'Build an OR gate with 3 switches. Any one of them turns the light on.'),
+    goal: { bulbs: 1, bright: 'lit', logic: 'or', n }, win: T('Each switch has its own path, so any one of them closes the circuit. That is OR.'),
     fixed: [part(bat, 'battery'), part(bulb, 'bulb'), ...without(L.rungs[0], bat).map(e => part(e, 'wire')), ...rungWires.map(e => part(e, 'wire')), ...without(railWires, gaps).map(e => part(e, 'wire'))],
     solution: [...slots.map(e => part(e, 'switch')), ...gaps.map(e => part(e, 'wire'))], inv: { switch: n, wire: gaps.length + 1 } });
 }
@@ -799,8 +965,8 @@ const COILS = [
 function coilQuiz() {
   const q = pick(COILS), flip = Math.random() < 0.5, specs = flip ? [q.b, q.a] : [q.a, q.b];
   const boards = specs.map(o => smallCirc('coil', o)), pull = boards.map(c => Math.max(0, ...Object.values(solve(c).pull)));
-  return { quiz: true, kind: 'quiz', noHouse: true, text: q.text || 'Which coil picks up more paper clips?', boards, specs, ans: pull[0] > pull[1] ? 'A' : 'B', why: q.why,
-    choices: ['⬅ Left coil', 'Right coil ➡'], wrongSay: 'Look at the turns, the batteries and the core. Then try the other coil.',
+  return { quiz: true, kind: 'quiz', noHouse: true, text: T(q.text || 'Which coil picks up more paper clips?'), boards, specs, ans: pull[0] > pull[1] ? 'A' : 'B', why: T(q.why),
+    choices: [T('⬅ Left coil'), T('Right coil ➡')], wrongSay: T('Look at the turns, the batteries and the core. Then try the other coil.'),
     check() { const hi = Math.max(...pull), lo = Math.min(...pull); return hi > lo * 1.5 && boards.every(c => !solve(c).short); } };
 }
 
@@ -818,14 +984,14 @@ const DIAG_KINDS = Object.keys(DIAG);
 function diagramOk(kind) { const c = smallCirc(kind), s = solve(c), got = ofType(c, 'bulb').map(e => cls(s.bright[e])).sort(); return !s.short && JSON.stringify(got) === JSON.stringify(DIAG[kind].want.slice().sort()); }
 function boardToDiagram() {
   const kinds = shuffle(DIAG_KINDS.slice()).slice(0, 3), kind = pick(kinds), board = smallCirc(kind);
-  return { quiz: true, kind: 'b2d', text: 'Which diagram shows this circuit?', boards: [board], kinds, ans: 'ABC'[kinds.indexOf(kind)], why: DIAG[kind].why,
-    choices: kinds.map(schematic), lightsOn: true, wrongSay: 'Count the lamps and look for a switch or a zigzag. Then try again.',
+  return { quiz: true, kind: 'b2d', text: T('Which diagram shows this circuit?'), boards: [board], kinds, ans: 'ABC'[kinds.indexOf(kind)], why: T(DIAG[kind].why),
+    choices: kinds.map(schematic), lightsOn: true, wrongSay: T('Count the lamps and look for a switch or a zigzag. Then try again.'),
     check() { return new Set(kinds).size === 3 && kinds.every(k => schematic(k).length > 40) && diagramOk(kind); } };
 }
 function diagramToBoard() {
   const kinds = shuffle(DIAG_KINDS.slice()).slice(0, 3), kind = pick(kinds), boards = kinds.map(k => smallCirc(k));
-  return { quiz: true, kind: 'd2b', text: 'Tap the house that matches this diagram.', boards, kinds, ans: 'ABC'[kinds.indexOf(kind)], why: DIAG[kind].why,
-    choices: ['Left', 'Middle', 'Right'], diagram: schematic(kind), lightsOn: true, wrongSay: 'Count the lamps in the diagram. Then look again.',
+  return { quiz: true, kind: 'd2b', text: T('Tap the house that matches this diagram.'), boards, kinds, ans: 'ABC'[kinds.indexOf(kind)], why: T(DIAG[kind].why),
+    choices: [T('Left'), T('Middle'), T('Right')], diagram: schematic(kind), lightsOn: true, wrongSay: T('Count the lamps in the diagram. Then look again.'),
     check() { return new Set(kinds).size === 3 && schematic(kind).length > 40 && kinds.every(diagramOk); } };
 }
 // Standard symbols on a small white card. Each symbol is drawn along its own x axis and rotated onto the loop.
@@ -893,7 +1059,7 @@ function record(right) {
 // ---------------------------------------------------------------------------
 // Sound and speech
 // ---------------------------------------------------------------------------
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.92; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.92; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
 let AC = null;
 function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
 function tone(f, d = 0.15, type = 'sine', vol = 0.18, when = 0) {
@@ -981,7 +1147,9 @@ function labelTex(txt) {
   g.fillStyle = '#fff'; g.strokeStyle = '#2B2140'; g.lineWidth = 8;
   const x = 8, y = 8, w = 240, h = 80, r = 24;
   g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); g.fill(); g.stroke();
-  g.fillStyle = '#2B2140'; g.font = '900 52px Segoe UI, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 128, 52);
+  // A longer word ("50 vueltas") shrinks to stay inside the label.
+  let fs = 52; g.font = '900 ' + fs + 'px Segoe UI, sans-serif'; while (fs > 28 && g.measureText(txt).width > 220) { fs -= 2; g.font = '900 ' + fs + 'px Segoe UI, sans-serif'; }
+  g.fillStyle = '#2B2140'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 128, 52);
   const t = new THREE.CanvasTexture(c); LABELS[txt] = t; return t;
 }
 const GLOW = glowTex(), PLUS = textTex('+', '#2B2140', '#FFC93C');
@@ -1137,8 +1305,9 @@ const ICON = {
 };
 for (const m in MATS) {
   const M = MATS[m], top = M.shape === 'cup' ? '<path d="M14 18 q7 -6 14 0 t14 0 t14 0 t10 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>' : M.shape === 'rod' ? '<rect x="12" y="20" width="56" height="10" rx="5" fill="#ffffff55"/>' : '';
+  const name = matName(m), fs = name.length > 11 ? 11 : 14;
   ICON[m] = '<svg viewBox="0 0 80 60"><rect x="8" y="6" width="64" height="32" rx="7" fill="' + M.color + '" stroke="#2B2140" stroke-width="4"/>' + top +
-    '<text x="40" y="55" font-size="14" font-weight="800" font-family="Segoe UI, sans-serif" text-anchor="middle" fill="#2B2140">' + M.name + '</text></svg>';
+    '<text x="40" y="55" font-size="' + fs + '" font-weight="800" font-family="Segoe UI, sans-serif" text-anchor="middle" fill="#2B2140">' + name + '</text></svg>';
 }
 const ORDER = ['wire', 'bulb', 'switch', 'buzzer', 'battery', 'resistor'];
 
@@ -1177,10 +1346,16 @@ function newRound(speak = true) {
   $('tray').style.display = k === 'build' ? 'flex' : 'none'; $('done').style.display = k === 'build' ? 'block' : 'none';
   $('pad').classList.toggle('on', k === 'pad'); $('padv').textContent = ''; $('padv').classList.remove('no');
   $('ask').textContent = task.text; $('ask').classList.toggle('long', task.text.length > 56);
-  $('badge').textContent = 'Level ' + (P.lv + 1) + ': ' + LEVELS[P.lv].name;
+  $('badge').textContent = T('Level {n}: {name}', { n: P.lv + 1, name: T(LEVELS[P.lv].name) });
+  fitBadge();
   $('stars').textContent = '⭐ ' + P.stars;
   renderTray(); fit();
   if (speak) say(task.text);
+}
+// A long level name shrinks to fit the badge instead of being cut off.
+function fitBadge() {
+  const el = $('badge'); let fs = 17; el.style.fontSize = '';
+  while (fs > 12 && el.scrollWidth > el.clientWidth) { fs--; el.style.fontSize = fs + 'px'; }
 }
 function setChoices() {
   const btns = [$('qa'), $('qb'), $('qc')], ch = task.choices || [];
@@ -1206,7 +1381,7 @@ function changed(e) {
   buzzer(!s.short && ofType(circ, 'buzzer').some(x => Math.abs(s.cur[x]) >= BUZZ));
   if (s.short && !lastShort) {
     SND.zap(); const bat = ofType(circ, 'battery')[0]; if (bat) burst(board.mid(bat).add(board.group.position), [0xFFF27A, 0xFF8A3D, 0xffffff], 30, 4);
-    showCard('Short circuit! ⚡', 'The electricity found a shortcut with no bulb, and the battery gets hot. Take that wire away.', true);
+    showCard(T('Short circuit! ⚡'), T('The electricity found a shortcut with no bulb, and the battery gets hot. Take that wire away.'), true);
     miss();
   } else if (!s.short && anyLit) SND.light();
   lastShort = s.short;
@@ -1215,59 +1390,59 @@ function changed(e) {
     else { won = true; setTimeout(winRound, 650); }
   } else if (task.phase === 'test' && !won && ofType(circ, 'bulb').length === 1 && r.why === 'dark') {
     // The bulb came out and the other one went dark: the lesson of this rung, said at once.
-    SND.miss(); const h = hintFor(r); showCard('It went out!', h, true); say(h); miss();
+    SND.miss(); const h = hintFor(r); showCard(T('It went out!'), h, true); say(h); miss();
   }
 }
 function enterTest() {
   task.phase = 'test'; $('ask').textContent = task.testText; $('ask').classList.toggle('long', task.testText.length > 56);
-  showCard('Both on! 💡', task.testText, false, false); say(task.testText);
+  showCard(T('Both on! 💡'), task.testText, false, false); say(task.testText);
 }
 function hintFor(r) {
   const g = goalNow();
-  if (r.why === 'short') return 'There is a shortcut with no bulb. Take a wire away.';
-  if (r.why === 'bulbs') return 'Add ' + g.bulbs + (g.bulbs === 1 ? ' bulb.' : ' bulbs.');
-  if (r.why === 'exact') return 'Take one bulb out to test it. Tap the bulb.';
-  if (r.why === 'off') return 'A switch is off. Tap the switch to turn it on.';
-  if (r.why === 'switches') return 'Use all ' + g.n + ' switches in the circuit.';
-  if (r.why === 'logicAnd') return 'One switch alone must not light it. Put the switches one after another in the same loop.';
-  if (r.why === 'logicOr') return 'Each switch needs its own path to the bulb. Put them side by side on separate paths.';
+  if (r.why === 'short') return T('There is a shortcut with no bulb. Take a wire away.');
+  if (r.why === 'bulbs') return T(g.bulbs === 1 ? 'Add {n} bulb.' : 'Add {n} bulbs.', { n: g.bulbs });
+  if (r.why === 'exact') return T('Take one bulb out to test it. Tap the bulb.');
+  if (r.why === 'off') return T('A switch is off. Tap the switch to turn it on.');
+  if (r.why === 'switches') return T('Use all {n} switches in the circuit.', { n: g.n });
+  if (r.why === 'logicAnd') return T('One switch alone must not light it. Put the switches one after another in the same loop.');
+  if (r.why === 'logicOr') return T('Each switch needs its own path to the bulb. Put them side by side on separate paths.');
   if (r.why === 'dark' || r.why === 'buzz') {
     const ins = Object.values(circ.parts).find(p => p.t === 'mat' && !MATS[p.m].cond);
-    if (ins) return MATS[ins.m].name.charAt(0).toUpperCase() + MATS[ins.m].name.slice(1) + ' is an insulator. Electricity cannot get through it. Try another material.';
-    if (task.phase === 'test') return 'The other bulb went out. In a row, one gap breaks the whole loop. Put the bulb back, give each bulb its own path, and test again.';
+    if (ins) return cap(T('{m} is an insulator. Electricity cannot get through it. Try another material.', { m: matName(ins.m, true) }));
+    if (task.phase === 'test') return T('The other bulb went out. In a row, one gap breaks the whole loop. Put the bulb back, give each bulb its own path, and test again.');
   }
-  if (r.why === 'dark') return g.bright === 'super' ? 'If the light went out, tap the new battery to flip it around.' : 'Electricity needs a full loop: out of the battery, through the bulb, and back.';
-  if (r.why === 'buzz') return 'The buzzer needs a full loop back to the battery too.';
-  if (r.why === 'ctrl') return 'Put the switch in the loop, so it can stop the electricity.';
-  if (r.why === 'ctrlEach') return 'Each room needs its own switch on its own path.';
+  if (r.why === 'dark') return T(g.bright === 'super' ? 'If the light went out, tap the new battery to flip it around.' : 'Electricity needs a full loop: out of the battery, through the bulb, and back.');
+  if (r.why === 'buzz') return T('The buzzer needs a full loop back to the battery too.');
+  if (r.why === 'ctrl') return T('Put the switch in the loop, so it can stop the electricity.');
+  if (r.why === 'ctrlEach') return T('Each room needs its own switch on its own path.');
   if (r.why === 'level') {
-    if (g.max) return 'Dimmer still. Put the other resistor in the loop too.';
-    if (g.bright === 'dim' && task.inv.resistor) return 'Too bright. Put the resistor in the loop with the bulb.';
-    if (g.bright === 'dim') return 'These are bright. Put both bulbs in one loop, one after the other, so they share.';
-    if (g.bright === 'bright') return 'Dim! Give each bulb its own path back to the battery.';
-    if (g.bright === 'super') return 'Add the second battery in the loop. Point its + the same way as the first one.';
+    if (g.max) return T('Dimmer still. Put the other resistor in the loop too.');
+    if (g.bright === 'dim' && task.inv.resistor) return T('Too bright. Put the resistor in the loop with the bulb.');
+    if (g.bright === 'dim') return T('These are bright. Put both bulbs in one loop, one after the other, so they share.');
+    if (g.bright === 'bright') return T('Dim! Give each bulb its own path back to the battery.');
+    if (g.bright === 'super') return T('Add the second battery in the loop. Point its + the same way as the first one.');
   }
-  return 'Keep going!';
+  return T('Keep going!');
 }
 function doneTap() {
   if (won || KIND() !== 'build') return;
   const r = evaluate(circ, goalNow());
   if (r.ok) { if (task.test && task.phase !== 'test') { enterTest(); return; } won = true; winRound(); return; }
-  SND.miss(); showCard('Not yet!', hintFor(r), true); say(hintFor(r)); miss();
+  SND.miss(); const h = hintFor(r); showCard(T('Not yet!'), h, true); say(h); miss();
 }
-function miss() { if (!missed) { missed = true; const ch = record(false); if (ch < 0) setTimeout(() => say('Let us try an easier one.'), 1800); } }
+function miss() { if (!missed) { missed = true; const ch = record(false); if (ch < 0) setTimeout(() => say(T('Let us try an easier one.')), 1800); } }
 function winRound() {
   const right = !missed; let ch = 0; if (right) ch = record(true);
   P.stars++; persist(); $('stars').textContent = '⭐ ' + P.stars; SND.win(); confetti();
   const center = board && board.house ? board.house.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, 1, 0);
   burst(center.add(new THREE.Vector3(0, 1.5, 0)), [0xFF4F8B, 0xFFC93C, 0x58C7F0, 0x5CD38B, 0x9B6BFF], 50, 5);
-  let msg = pick(['Lights on!', 'You did it!', 'Super circuit!', 'Bright idea!']), sub = '';
-  if (task.goal && task.goal.bright === 'dim') sub = 'Two bulbs in a row share the battery, so each one glows dim.';
-  if (task.goal && task.goal.bright === 'bright' && task.goal.bulbs > 1) sub = 'Each bulb has its own path, so they all glow bright.';
-  if (task.goal && task.goal.bright === 'super') sub = 'Two batteries give double push!';
+  let msg = T(pick(['Lights on!', 'You did it!', 'Super circuit!', 'Bright idea!'])), sub = '';
+  if (task.goal && task.goal.bright === 'dim') sub = T('Two bulbs in a row share the battery, so each one glows dim.');
+  if (task.goal && task.goal.bright === 'bright' && task.goal.bulbs > 1) sub = T('Each bulb has its own path, so they all glow bright.');
+  if (task.goal && task.goal.bright === 'super') sub = T('Two batteries give double push!');
   if (task.win) sub = task.win;
-  if (task.mats) { const used = Object.values(circ.parts).filter(p => !p.fixed && p.t === 'mat').map(p => MATS[p.m].name); sub = (used.length > 1 ? used.join(' and ') + ' conduct.' : (used[0] || 'That') + ' conducts.') + ' Electricity flows through it.'; sub = sub.charAt(0).toUpperCase() + sub.slice(1); }
-  if (ch > 0) sub = (sub ? sub + ' ' : '') + 'Level up! ⭐';
+  if (task.mats) { const used = Object.values(circ.parts).filter(p => !p.fixed && p.t === 'mat').map(p => matName(p.m, true)); sub = cap(used.length > 1 ? T('{a} and {b} conduct. Electricity flows through it.', { a: used[0], b: used[1] }) : T('{m} conducts. Electricity flows through it.', { m: used[0] || T('That') })); }
+  if (ch > 0) sub = (sub ? sub + ' ' : '') + T('Level up! ⭐');
   $('tray').style.display = 'none'; $('done').style.display = 'none';
   showCard(msg + ' ⭐', sub, false, true); say(msg + ' ' + sub);
   nextTimer = setTimeout(() => newRound(), 6500);
@@ -1282,7 +1457,7 @@ function answer(side) {
     if (task.step < task.order.length) return;
     quizWin(); return;
   }
-  if (side !== task.ans) { btn.classList.add('no'); SND.miss(); if (!missed) miss(); say(task.wrongSay || 'Look again. Then guess the other house!'); return; }
+  if (side !== task.ans) { btn.classList.add('no'); SND.miss(); if (!missed) miss(); say(task.wrongSay || T('Look again. Then guess the other house!')); return; }
   quizBoards.forEach(b => { b.lightsOn = true; }); SND.light(); [$('qa'), $('qb'), $('qc')][idx].classList.add('done'); quizWin();
 }
 function quizWin() {
@@ -1291,7 +1466,7 @@ function quizWin() {
     const right = !missed; let ch = 0; if (right) ch = record(true);
     P.stars++; persist(); $('stars').textContent = '⭐ ' + P.stars; SND.win(); confetti();
     $('quiz').classList.remove('on'); $('pad').classList.remove('on');
-    showCard((right ? pick(['Great guess!', 'You got it!', 'Right!']) : 'Now you know!') + ' ⭐', task.why + (ch > 0 ? ' Level up!' : ''), false, true); say(task.why);
+    showCard(T(right ? pick(['Great guess!', 'You got it!', 'Right!']) : 'Now you know!') + ' ⭐', task.why + (ch > 0 ? ' ' + T('Level up!') : ''), false, true); say(task.why);
     nextTimer = setTimeout(() => newRound(), 5200);
   }, 900);
 }
@@ -1307,11 +1482,11 @@ function padSubmit() {
   if (!typed) return;
   if (Number(typed) === task.answer) { $('padv').textContent = typed + ' ' + task.unit; SND.light(); quizWin(); return; }
   SND.miss(); const v = $('padv'); v.classList.remove('no'); void v.offsetWidth; v.classList.add('no');
-  showCard('Not yet!', task.hint, true); say(task.hint); if (!missed) miss(); typed = ''; setTimeout(() => { v.textContent = ''; }, 500);
+  showCard(T('Not yet!'), task.hint, true); say(task.hint); if (!missed) miss(); typed = ''; setTimeout(() => { v.textContent = ''; }, 500);
 }
 function showCard(t, sub, bad, next) {
   const c = $('card'); c.className = 'on' + (bad ? ' bad' : next ? ' win' : '');
-  c.innerHTML = '<div class="c">' + t + (sub ? '<small>' + sub + '</small>' : '') + (next ? '<button class="pill" id="nextBtn">Next ▶</button>' : '') + '</div>';
+  c.innerHTML = '<div class="c">' + t + (sub ? '<small>' + sub + '</small>' : '') + (next ? '<button class="pill" id="nextBtn">' + T('Next ▶') + '</button>' : '') + '</div>';
   if (next) $('nextBtn').onclick = () => newRound(); else setTimeout(() => { if (!c.classList.contains('win')) hideCard(); }, 2600);
 }
 function hideCard() { $('card').className = ''; $('card').innerHTML = ''; }
@@ -1442,7 +1617,7 @@ window.CIRCUIT_LAB = {
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START,
-  label: () => LEVELS[P.lv].name,
+  label: () => T(LEVELS[P.lv].name),
   exercise(i, n) {
     const out = [], bad = /NaN|undefined|null|\[object/;
     for (let k = 0; k < n; k++) {
