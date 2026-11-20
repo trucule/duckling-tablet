@@ -244,6 +244,9 @@
   header h1 { font-size: 26px; margin: 0; font-weight: 900; color: #fff; text-shadow: 0 3px 0 var(--ink); white-space: nowrap; }
   #badge { font-size: 16px; font-weight: 900; background: var(--sun); border: 3px solid var(--ink); border-radius: 999px; padding: 5px 14px; min-width: 0; max-width: 360px; text-align: center; line-height: 1.15; }
   #badge.pop { animation: pop .6s; }
+  /* Spanish titles and level names are longer; a smaller title and badge keep the badge to two lines at 1024 wide. */
+  html[lang="es"] header h1 { font-size: 22px; }
+  html[lang="es"] #badge { font-size: 14px; }
   #stars { font-size: 22px; font-weight: 900; background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 4px 12px; margin-right: auto; white-space: nowrap; }
   .pill { border: 3px solid var(--ink); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 20px; font-weight: 900; white-space: nowrap; }
   .pill:active { transform: scale(.94); }
@@ -352,6 +355,92 @@ const $ = id => document.getElementById(id);
 const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every line the child reads or hears is Spanish:
+// level names, prompts, hints, the notes after a reveal, the words on the machine screens and the narrator. The
+// patterns, the generators, the ladder, the ids and the English text do not change. Keys are the English text with
+// {name} placeholders; docs/languages-brief.md. The shape is "la figura", so every rule line says "la": la gira,
+// la voltea, la pinta de amarillo, la hace más pequeña. Colors after "pintar de" stay in the masculine form.
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  'Pattern Machine': 'Máquina de patrones', 'Hear it': 'Escúchalo', 'type it': 'escríbelo', 'Go': 'Listo',
+  'This game needs 3D graphics, which are not working on this device right now.': 'Este juego necesita gráficos 3D, que ahora no funcionan en este dispositivo.',
+  'Level {n} of {total} · {name}': 'Nivel {n} de {total} · {name}',
+  // Level names.
+  'Paint and grow': 'Pinta y agranda', 'Turn it': 'Gírala', 'Flip it': 'Voltéala', 'Find the rule': 'Encuentra la regla', 'Rule detective': 'Detective de reglas',
+  'Two machines': 'Dos máquinas', 'Three machines': 'Tres máquinas', 'Secret pair': 'Par secreto', 'Missing machine': 'La máquina que falta',
+  'Number patterns': 'Patrones de números', 'Two-step patterns': 'Patrones de dos pasos', 'Function machine': 'Máquina de funciones', 'Machine output': 'Salida de la máquina',
+  'Growing shapes': 'Figuras que crecen', 'Write the rule': 'Escribe la regla', 'Negatives and fractions': 'Negativos y fracciones', 'Arithmetic or geometric': 'Aritmética o geométrica',
+  'The nth term': 'El término enésimo', 'Lines and tables': 'Rectas y tablas', 'Recursive rules': 'Reglas recursivas',
+  // Colors and the words on the machine screens.
+  'pink': 'rosa', 'yellow': 'amarillo', 'blue': 'azul', 'green': 'verde', 'orange': 'naranja',
+  '¼ turn': '¼ de vuelta', '½ turn': '½ vuelta', 'flip': 'espejo', 'bigger': 'más grande', 'smaller': 'más pequeña',
+  // What a machine does, spoken after "This machine" or "The first one".
+  'turns it a quarter turn, the way a clock goes': 'la gira un cuarto de vuelta, como las manecillas del reloj', 'turns it a half turn': 'la gira media vuelta',
+  'flips it like a mirror': 'la voltea como un espejo', 'paints it {c}': 'la pinta de {c}', 'makes it bigger': 'la hace más grande', 'makes it smaller': 'la hace más pequeña',
+  // Shape rungs.
+  'What comes out?': '¿Qué sale?', 'This machine {r}. What comes out? Tap it.': 'Esta máquina {r}. ¿Qué sale? Tócala.',
+  'What comes out of the end?': '¿Qué sale al final?', 'Next one {r}. ': 'La siguiente {r}. ',
+  'The shape goes through {n} machines. First one {a}. {mid}Last one {b}. What comes out at the end?': 'La figura pasa por {n} máquinas. La primera {a}. {mid}La última {b}. ¿Qué sale al final?',
+  'Which rule is inside?': '¿Qué regla hay adentro?', 'Look at what went in and what came out. Which rule is inside the machine?': 'Mira lo que entró y lo que salió. ¿Qué regla hay dentro de la máquina?',
+  'Which two rules are inside?': '¿Qué dos reglas hay adentro?', 'Two secret machines. Look at what went in and what came out. Which two rules, in which order?': 'Dos máquinas secretas. Mira lo que entró y lo que salió. ¿Qué dos reglas hay, y en qué orden?',
+  'Which machine is missing?': '¿Qué máquina falta?', 'One machine is a mystery. The first one {a}. The last one {b}. Which rule goes in the middle?': 'Una máquina es un misterio. La primera {a}. La última {b}. ¿Qué regla va en medio?',
+  // Number rungs.
+  'minus {n}': 'menos {n}', 'in': 'entra', 'out': 'sale', 'value': 'valor', 'term {n}': 'término {n}', 'Figure {n}': 'Figura {n}',
+  'What comes next?': '¿Qué sigue?', 'Each step: {rule}.': 'Cada paso: {rule}.',
+  'A number pattern. {terms}. What comes next? Tap it.': 'Un patrón de números. {terms}. ¿Qué sigue? Tócalo.',
+  'This pattern uses two steps each time. {terms}. What comes next? Tap it.': 'Este patrón usa dos pasos cada vez. {terms}. ¿Qué sigue? Tócalo.',
+  'The rule is {rule}.': 'La regla es {rule}.', 'Three numbers went in and three came out. Which rule is inside the machine? Tap it.': 'Entraron tres números y salieron tres. ¿Qué regla hay dentro de la máquina? Tócala.',
+  'The rule is {rule}. When {x} goes in, {y} comes out.': 'La regla es {rule}. Cuando entra {x}, sale {y}.', 'What comes out for {x}?': '¿Qué sale si entra {x}?',
+  'Find the rule from the three pairs. Then, when {x} goes in, what comes out? Type it.': 'Encuentra la regla con los tres pares. Luego, si entra {x}, ¿qué sale? Escríbelo.',
+  'Figure {N} has {ans} squares. Each new figure adds {a}. The rule is {rule}.': 'La figura {N} tiene {ans} cuadrados. Cada figura nueva agrega {a}. La regla es {rule}.',
+  'How many squares in figure {N}?': '¿Cuántos cuadrados tiene la figura {N}?',
+  'The pattern grows. Count the squares in figure 1, figure 2 and figure 3. How many squares will figure {N} have? Type it.': 'El patrón crece. Cuenta los cuadrados de la figura 1, la figura 2 y la figura 3. ¿Cuántos cuadrados tendrá la figura {N}? Escríbelo.',
+  'Which rule gives these?': '¿Qué regla da estos valores?', 'The table shows n and its value. Which expression gives every value in the table? Tap it.': 'La tabla muestra n y su valor. ¿Qué expresión da todos los valores de la tabla? Tócala.',
+  'A pattern of fractions. Look at how much it changes each time.': 'Un patrón de fracciones. Mira cuánto cambia cada vez.', 'A pattern of decimals. {terms}.': 'Un patrón de decimales. {terms}.',
+  '{intro} What comes next? Tap it.': '{intro} ¿Qué sigue? Tócalo.', 'Each step adds {n}.': 'Cada paso suma {n}.', 'Each step takes away {n}.': 'Cada paso quita {n}.',
+  'Arithmetic': 'Aritmética', 'Geometric': 'Geométrica', 'next {n}': 'siguiente {n}', 'Arithmetic or geometric?': '¿Aritmética o geométrica?',
+  'Arithmetic: each term adds {n}.': 'Aritmética: cada término suma {n}.', 'Arithmetic: each term takes away {n}.': 'Aritmética: cada término quita {n}.',
+  'Geometric: each term is multiplied by {r}.': 'Geométrica: cada término se multiplica por {r}.', 'Geometric: each term is divided by 2.': 'Geométrica: cada término se divide entre 2.',
+  'Geometric: each term is divided by 3.': 'Geométrica: cada término se divide entre 3.',
+  '{terms}. Is this pattern arithmetic or geometric, and what comes next? Tap it.': '{terms}. ¿Esta sucesión es aritmética o geométrica, y qué sigue? Tócalo.',
+  'What is term {N}?': '¿Cuál es el término {N}?', 'Term {N} is {ans}. Term n is {expr}.': 'El término {N} es {ans}. El término n es {expr}.',
+  '{terms}, and so on. What is term {N}? Type it.': '{terms}, y así sigue. ¿Cuál es el término {N}? Escríbelo.',
+  'Which line fits?': '¿Qué recta es?', '{line}. The slope is {m}. The line crosses the y axis at {b}.': '{line}. La pendiente es {m}. La recta cruza el eje y en {b}.',
+  'The points sit on one line. Find the slope and where it crosses the y axis. Which equation fits? Tap it.': 'Los puntos están en una misma recta. Encuentra la pendiente y dónde cruza el eje y. ¿Qué ecuación corresponde? Tócala.',
+  'The table gives x and y. Find the slope and the starting value. Which equation fits? Tap it.': 'La tabla muestra x e y. Encuentra la pendiente y el valor inicial. ¿Qué ecuación corresponde? Tócala.',
+  'Each term is the sum of the two terms before it.': 'Cada término es la suma de los dos términos anteriores.',
+  'Each term is double the term before it, plus {c}.': 'Cada término es el doble del término anterior, más {c}.', 'Each term is double the term before it, minus {c}.': 'Cada término es el doble del término anterior, menos {c}.',
+  'Each term is 3 times the term before it, minus {c}.': 'Cada término es 3 veces el término anterior, menos {c}.',
+  'Each term is the term before it plus the term number.': 'Cada término es el término anterior más el número del término.',
+  'Term {N} is {ans}.': 'El término {N} es {ans}.', 'The first two terms are {a} and {b}.': 'Los dos primeros términos son {a} y {b}.', 'The first term is {a}.': 'El primer término es {a}.',
+  '{text} {start} What is term {N}? Type it.': '{text} {start} ¿Cuál es el término {N}? Escríbelo.',
+  // Playing.
+  'Type a number first.': 'Primero escribe un número.', "Let's try an easier one next.": 'Vamos a probar uno más fácil.', 'It is {n}.': 'Es {n}.',
+  'The answer is {n}. Here is why.': 'La respuesta es {n}. Mira por qué.', 'Not that one. Look again!': 'Esa no es. ¡Mira otra vez!',
+  'Great thinking! ⭐': '¡Bien pensado! ⭐', 'You got it! ⭐': '¡Lo lograste! ⭐', 'Great thinking!': '¡Bien pensado!', 'You got it!': '¡Lo lograste!', 'Level up! {name}.': '¡Subiste de nivel! {name}.',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+window.DucklingLang = {
+  keys: () => Object.keys(ES),
+  missing: () => [...USED].filter(k => ES[k] == null),
+  allow: [],
+};
+if (LANG === 'es') {
+  document.documentElement.lang = 'es';
+  document.title = T('Pattern Machine');
+  $('app').querySelector('h1').textContent = '⚙️ ' + T('Pattern Machine');
+  $('hear').textContent = '🔈 ' + T('Hear it');
+  $('enter').textContent = T('Go');
+  $('nogl').textContent = T('This game needs 3D graphics, which are not working on this device right now.');
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // Shapes and rules. A shape is { shape, color, rot, flip, size }. What you see is the shape flipped (if flip) and then
@@ -547,8 +636,10 @@ function checkQuestion(q) {
 // that exactly one choice fits, or that the typed answer follows.
 const MINUS = '−', TIMES = '×', DIV = '÷';
 const fmt = n => (n < 0 ? MINUS : '') + Math.abs(n);
-const sp = n => (n < 0 ? 'minus ' : '') + Math.abs(n);
+const sp = n => n < 0 ? T('minus {n}', { n: Math.abs(n) }) : String(Math.abs(n));
 const spList = a => a.map(sp).join(', ');
+// A shown number such as "−1.5" read aloud: the minus sign becomes a word.
+const spText = s => s.startsWith(MINUS) ? T('minus {n}', { n: s.slice(1) }) : s;
 const gcd = (a, b) => b ? gcd(b, a % b) : Math.abs(a);
 function fmtFrac(num, den) {
   const g = gcd(Math.abs(num), den) || 1; num /= g; den /= g;
@@ -608,10 +699,10 @@ function growCells(a, b, n) {
 }
 // A recursive rule in words, evaluated from its spec so the check does not share the generator's code path.
 const REC = {
-  sum: { words: () => 'Each term is the sum of the two terms before it.', step: (t, i) => t[i - 1] + t[i - 2], rule: () => 'a + b' },
-  double: { words: s => `Each term is double the term before it, ${s.c < 0 ? 'minus' : 'plus'} ${Math.abs(s.c)}.`, step: (t, i, s) => 2 * t[i - 1] + s.c, rule: s => ruleText({ a: 2, b: s.c }) },
-  triple: { words: s => `Each term is 3 times the term before it, minus ${s.c}.`, step: (t, i, s) => 3 * t[i - 1] - s.c, rule: s => ruleText({ a: 3, b: -s.c }) },
-  plusn: { words: () => 'Each term is the term before it plus the term number.', step: (t, i) => t[i - 1] + (i + 1), rule: () => '+ n' },
+  sum: { words: () => T('Each term is the sum of the two terms before it.'), step: (t, i) => t[i - 1] + t[i - 2], rule: () => 'a + b' },
+  double: { words: s => T(s.c < 0 ? 'Each term is double the term before it, minus {c}.' : 'Each term is double the term before it, plus {c}.', { c: Math.abs(s.c) }), step: (t, i, s) => 2 * t[i - 1] + s.c, rule: s => ruleText({ a: 2, b: s.c }) },
+  triple: { words: s => T('Each term is 3 times the term before it, minus {c}.', { c: s.c }), step: (t, i, s) => 3 * t[i - 1] - s.c, rule: s => ruleText({ a: 3, b: -s.c }) },
+  plusn: { words: () => T('Each term is the term before it plus the term number.'), step: (t, i) => t[i - 1] + (i + 1), rule: () => '+ n' },
 };
 function recSeq(s) { const t = s.start.slice(); for (let i = t.length; i < s.N; i++) t.push(REC[s.v].step(t, i, s)); return t; }
 
@@ -635,7 +726,7 @@ const NUMGEN = {
     const shown = terms.slice(0, 4), next = terms[4], t = shown[3], d = t - shown[2];
     const wrong = pickWrong(shuffle([t + d + 1, t + d - 1, t + 2 * d, t + d + 2, t + d - 2, t + 1, t + 10, t * 2, shown[2] + t]), v => v === next || v < 0 || v > 200, 3);
     if (!wrong) return null;
-    const q = seqQuestion(shown, next, wrong, FAM_ONE, { short: 'What comes next?', speak: `A number pattern. ${spList(shown)}. What comes next? Tap it.` }, ruleText(r), `Each step: ${ruleText(r)}.`);
+    const q = seqQuestion(shown, next, wrong, FAM_ONE, { short: T('What comes next?'), speak: T('A number pattern. {terms}. What comes next? Tap it.', { terms: spList(shown) }) }, ruleText(r), T('Each step: {rule}.', { rule: ruleText(r) }));
     q.lim = 200; return q;
   },
   // 4th: two operations each step, such as times 2 plus 1.
@@ -646,7 +737,7 @@ const NUMGEN = {
     const shown = terms.slice(0, 4), next = terms[4], t = shown[3], d = t - shown[2];
     const wrong = pickWrong(shuffle([t * r.a, t + r.b, next + 1, next - 1, t + d, t + 2 * d, t * r.a - r.b, next + 2, t * (r.a + 1) + r.b]), v => v === next || v < 0 || v > 999, 3);
     if (!wrong) return null;
-    const q = seqQuestion(shown, next, wrong, FAM_TWO, { short: 'What comes next?', speak: `This pattern uses two steps each time. ${spList(shown)}. What comes next? Tap it.` }, ruleText(r), `Each step: ${ruleText(r)}.`);
+    const q = seqQuestion(shown, next, wrong, FAM_TWO, { short: T('What comes next?'), speak: T('This pattern uses two steps each time. {terms}. What comes next? Tap it.', { terms: spList(shown) }) }, ruleText(r), T('Each step: {rule}.', { rule: ruleText(r) }));
     q.lim = 999; return q;
   },
   // 4th/5th: three in and out pairs; which rule is inside?
@@ -660,9 +751,9 @@ const NUMGEN = {
     const wrong = pickWrong(shuffle(cands), s => !okRule(s) || fitsAll(s, pairs), 3, ruleText);
     if (!wrong) return null;
     return { mode: 'choice', pairs, choices: [r, ...wrong].map(ruleText), meta: [r, ...wrong], answer: 0,
-      board: { table: { head: ['in', 'out'], rows: pairs.map(([x, y]) => [fmt(x), fmt(y)]) } },
-      reveal: { note: `The rule is ${ruleText(r)}.` }, ruleText: ruleText(r), lim: 99, nums: pairs.flat(),
-      words: { short: 'Which rule is inside?', speak: 'Three numbers went in and three came out. Which rule is inside the machine? Tap it.' },
+      board: { table: { head: [T('in'), T('out')], rows: pairs.map(([x, y]) => [fmt(x), fmt(y)]) } },
+      reveal: { note: T('The rule is {rule}.', { rule: ruleText(r) }) }, ruleText: ruleText(r), lim: 99, nums: pairs.flat(),
+      words: { short: T('Which rule is inside?'), speak: T('Three numbers went in and three came out. Which rule is inside the machine? Tap it.') },
       desc: pairs.map(p => p.join('>')).join(' ') + ' rule ' + ruleText(r) };
   },
   // 5th: find the rule from three pairs, then type the output for a new input.
@@ -671,9 +762,9 @@ const NUMGEN = {
     const xs = pickDistinct(r.b < 0 && r.a === 1 ? -r.b : 1, 12, 4), pairs = xs.slice(0, 3).map(x => [x, affine(r, x)]), nx = xs[3], ans = affine(r, nx);
     if (pairs.some(([, y]) => y < 0 || y > 99) || ans < 0 || ans > 120) return null;
     return { mode: 'type', pairs, newX: nx, answer: ans, neg: false, lim: 120, nums: pairs.flat().concat([nx, ans]),
-      board: { table: { head: ['in', 'out'], rows: pairs.map(([x, y]) => [fmt(x), fmt(y)]).concat([[fmt(nx), '?']]) } },
-      reveal: { cell: fmt(ans), note: `The rule is ${ruleText(r)}. When ${nx} goes in, ${ans} comes out.` }, ruleText: ruleText(r),
-      words: { short: `What comes out for ${nx}?`, speak: `Find the rule from the three pairs. Then, when ${nx} goes in, what comes out? Type it.` },
+      board: { table: { head: [T('in'), T('out')], rows: pairs.map(([x, y]) => [fmt(x), fmt(y)]).concat([[fmt(nx), '?']]) } },
+      reveal: { cell: fmt(ans), note: T('The rule is {rule}. When {x} goes in, {y} comes out.', { rule: ruleText(r), x: nx, y: ans }) }, ruleText: ruleText(r),
+      words: { short: T('What comes out for {x}?', { x: nx }), speak: T('Find the rule from the three pairs. Then, when {x} goes in, what comes out? Type it.', { x: nx }) },
       desc: pairs.map(p => p.join('>')).join(' ') + ` ${nx}>?` + ` = ${ans}` };
   },
   // 5th: a growing shape pattern; how many squares in figure N?
@@ -683,8 +774,8 @@ const NUMGEN = {
     const figs = [1, 2, 3].map(n => growCells(a, b, n));
     return { mode: 'type', a, b, N, figs, answer: ans, neg: false, lim: 100, nums: [a, b, N, ans],
       board: { draw: { kind: 'grow', a, b } },
-      reveal: { note: `Figure ${N} has ${ans} squares. Each new figure adds ${a}. The rule is ${exprText({ a, b })}.` }, ruleText: exprText({ a, b }),
-      words: { short: `How many squares in figure ${N}?`, speak: `The pattern grows. Count the squares in figure 1, figure 2 and figure 3. How many squares will figure ${N} have? Type it.` },
+      reveal: { note: T('Figure {N} has {ans} squares. Each new figure adds {a}. The rule is {rule}.', { N, ans, a, rule: exprText({ a, b }) }) }, ruleText: exprText({ a, b }),
+      words: { short: T('How many squares in figure {N}?', { N }), speak: T('The pattern grows. Count the squares in figure 1, figure 2 and figure 3. How many squares will figure {N} have? Type it.', { N }) },
       desc: `figures ${[1, 2, 3].map(n => a * n + b).join(', ')} -> figure ${N} = ${ans}` };
   },
   // 6th: a table of n and value; which expression gives it?
@@ -698,9 +789,9 @@ const NUMGEN = {
     const wrong = pickWrong(shuffle(cands), s => !okRule(s) || fitsAll(s, pairs), 3, exprText);
     if (!wrong) return null;
     return { mode: 'choice', pairs, choices: [r, ...wrong].map(s => exprText(s)), meta: [r, ...wrong], answer: 0, lim: 40, nums: vals,
-      board: { table: { head: ['n', ...ns.map(String)], rows: [['value', ...vals.map(fmt)]], rowHead: true } },
-      reveal: { note: `The rule is ${exprText(r)}.` }, ruleText: exprText(r),
-      words: { short: 'Which rule gives these?', speak: 'The table shows n and its value. Which expression gives every value in the table? Tap it.' },
+      board: { table: { head: ['n', ...ns.map(String)], rows: [[T('value'), ...vals.map(fmt)]], rowHead: true } },
+      reveal: { note: T('The rule is {rule}.', { rule: exprText(r) }) }, ruleText: exprText(r),
+      words: { short: T('Which rule gives these?'), speak: T('The table shows n and its value. Which expression gives every value in the table? Tap it.') },
       desc: `n 1..4 -> ${vals.join(', ')} rule ${exprText(r)}` };
   },
   // 6th: arithmetic sequences past zero, in fractions or in decimals.
@@ -714,32 +805,32 @@ const NUMGEN = {
     if (new Set(scaled).size < 5) return null;
     const wrong = pickWrong(shuffle([next + den, next - den, t + 2 * step, t - step, next + unit, next - unit, t, next + 2 * unit, next - 2 * unit]), s => s === next || s < floor || show(s) === show(next), 3, show);
     if (!wrong) return null;
-    const spoken = v === 'frac' ? 'A pattern of fractions. Look at how much it changes each time.' : v === 'dec' ? `A pattern of decimals. ${shown.map(show).map(s => s.replace(MINUS, 'minus ')).join(', ')}.` : `${spList(shown)}.`;
+    const spoken = v === 'frac' ? T('A pattern of fractions. Look at how much it changes each time.') : v === 'dec' ? T('A pattern of decimals. {terms}.', { terms: shown.map(show).map(spText).join(', ') }) : `${spList(shown)}.`;
     return { mode: 'choice', scaled: shown, show, choices: [next, ...wrong].map(show), meta: [next, ...wrong], answer: 0, lim: 999 * den, nums: shown.concat([next], wrong),
       board: { cards: seqCards(shown.map(show), [{ text: '?', q: true }]), arrows: true },
-      reveal: { cards: { 4: show(next) }, note: `Each step ${step < 0 ? 'takes away' : 'adds'} ${show(Math.abs(step))}.` }, ruleText: (step < 0 ? MINUS : '+') + ' ' + show(Math.abs(step)),
-      words: { short: 'What comes next?', speak: `${spoken} What comes next? Tap it.` },
+      reveal: { cards: { 4: show(next) }, note: T(step < 0 ? 'Each step takes away {n}.' : 'Each step adds {n}.', { n: show(Math.abs(step)) }) }, ruleText: (step < 0 ? MINUS : '+') + ' ' + show(Math.abs(step)),
+      words: { short: T('What comes next?'), speak: T('{intro} What comes next? Tap it.', { intro: spoken }) },
       desc: `${shown.map(show).join(', ')} -> ${show(next)}` };
   },
   // 7th: arithmetic or geometric, and the next term.
   arithGeo() {
     const geo = Math.random() < 0.5; let terms, ruleTxt, note;
-    if (!geo) { const d = pick([-1, 1]) * ri(2, 12); terms = seqFrom({ a: 1, b: d }, ri(1, 30), 5); if (Math.min(...terms) < -40) return null; ruleTxt = (d < 0 ? MINUS : '+') + ' ' + Math.abs(d); note = `Arithmetic: each term ${d < 0 ? 'takes away' : 'adds'} ${Math.abs(d)}.`; }
+    if (!geo) { const d = pick([-1, 1]) * ri(2, 12); terms = seqFrom({ a: 1, b: d }, ri(1, 30), 5); if (Math.min(...terms) < -40) return null; ruleTxt = (d < 0 ? MINUS : '+') + ' ' + Math.abs(d); note = T(d < 0 ? 'Arithmetic: each term takes away {n}.' : 'Arithmetic: each term adds {n}.', { n: Math.abs(d) }); }
     else {
       const w = pick(['up', 'up', 'half', 'third']);
-      if (w === 'up') { const r = pick([2, 2, 3]); terms = seqFrom({ a: r, b: 0 }, ri(1, 6), 5); ruleTxt = TIMES + ' ' + r; note = `Geometric: each term is multiplied by ${r}.`; }
-      else if (w === 'half') { const a = ri(1, 12) * 16; terms = [a, a / 2, a / 4, a / 8, a / 16]; ruleTxt = DIV + ' 2'; note = 'Geometric: each term is divided by 2.'; }
-      else { const a = ri(1, 3) * 81; terms = [a, a / 3, a / 9, a / 27, a / 81]; ruleTxt = DIV + ' 3'; note = 'Geometric: each term is divided by 3.'; }
+      if (w === 'up') { const r = pick([2, 2, 3]); terms = seqFrom({ a: r, b: 0 }, ri(1, 6), 5); ruleTxt = TIMES + ' ' + r; note = T('Geometric: each term is multiplied by {r}.', { r }); }
+      else if (w === 'half') { const a = ri(1, 12) * 16; terms = [a, a / 2, a / 4, a / 8, a / 16]; ruleTxt = DIV + ' 2'; note = T('Geometric: each term is divided by 2.'); }
+      else { const a = ri(1, 3) * 81; terms = [a, a / 3, a / 9, a / 27, a / 81]; ruleTxt = DIV + ' 3'; note = T('Geometric: each term is divided by 3.'); }
       if (Math.max(...terms) > 600) return null;
     }
     const shown = terms.slice(0, 4), next = terms[4], t = shown[3], d = t - shown[2];
     const wrongNext = geo ? t + d : t + 2 * d;
     if (wrongNext === next) return null;
     const meta = [{ geo, next }, { geo: !geo, next }, { geo, next: wrongNext }, { geo: !geo, next: wrongNext }];
-    return { mode: 'choice', terms: shown, choices: meta.map(m => `${m.geo ? 'Geometric' : 'Arithmetic'}\nnext ${fmt(m.next)}`), meta, answer: 0, lim: 999, nums: shown.concat([next, wrongNext]),
+    return { mode: 'choice', terms: shown, choices: meta.map(m => `${T(m.geo ? 'Geometric' : 'Arithmetic')}\n${T('next {n}', { n: fmt(m.next) })}`), meta, answer: 0, lim: 999, nums: shown.concat([next, wrongNext]),
       board: { cards: seqCards(shown.map(fmt), [{ text: '?', q: true }]), arrows: true },
       reveal: { cards: { 4: fmt(next) }, note }, ruleText: ruleTxt,
-      words: { short: 'Arithmetic or geometric?', speak: `${spList(shown)}. Is this pattern arithmetic or geometric, and what comes next? Tap it.` },
+      words: { short: T('Arithmetic or geometric?'), speak: T('{terms}. Is this pattern arithmetic or geometric, and what comes next? Tap it.', { terms: spList(shown) }) },
       desc: `${shown.join(', ')} -> ${geo ? 'geometric' : 'arithmetic'} ${next}` };
   },
   // 7th: the nth term of an arithmetic sequence.
@@ -748,9 +839,9 @@ const NUMGEN = {
     const shown = seqFrom({ a: 1, b: d }, a, 4), ans = a + (N - 1) * d, r = { a: d, b: a - d };
     if (Math.abs(ans) > 1500) return null;
     return { mode: 'type', terms: shown, N, answer: ans, neg: true, lim: 1500, nums: shown.concat([ans]),
-      board: { cards: shown.map((t, i) => ({ text: fmt(t), sub: `term ${i + 1}` })).concat([{ text: '...', plain: true }, { text: '?', q: true, sub: `term ${N}` }]) },
-      reveal: { cards: { 5: fmt(ans) }, note: `Term ${N} is ${fmt(ans)}. Term n is ${exprText(r)}.` }, ruleText: exprText(r),
-      words: { short: `What is term ${N}?`, speak: `${spList(shown)}, and so on. What is term ${N}? Type it.` },
+      board: { cards: shown.map((t, i) => ({ text: fmt(t), sub: T('term {n}', { n: i + 1 }) })).concat([{ text: '...', plain: true }, { text: '?', q: true, sub: T('term {n}', { n: N }) }]) },
+      reveal: { cards: { 5: fmt(ans) }, note: T('Term {N} is {ans}. Term n is {expr}.', { N, ans: fmt(ans), expr: exprText(r) }) }, ruleText: exprText(r),
+      words: { short: T('What is term {N}?', { N }), speak: T('{terms}, and so on. What is term {N}? Type it.', { terms: spList(shown), N }) },
       desc: `${shown.map(fmt).join(', ')} -> term ${N} = ${fmt(ans)}` };
   },
   // 8th: a table of x and y, or points on a grid; which line is it?
@@ -763,8 +854,8 @@ const NUMGEN = {
     if (!wrong) return null;
     return { mode: 'choice', pairs: pts, choices: [r, ...wrong].map(lineText), meta: [r, ...wrong], answer: 0, lim: 12, nums: pts.flat(),
       board: graph ? { draw: { kind: 'grid', pts, R } } : { table: { head: ['x', ...xs.map(fmt)], rows: [['y', ...pts.map(p => fmt(p[1]))]], rowHead: true } },
-      reveal: { line: r, note: `${lineText(r)}. The slope is ${fmt(m)}. The line crosses the y axis at ${fmt(b)}.` }, ruleText: 'y =\n' + exprText(r, 'x'),
-      words: { short: 'Which line fits?', speak: graph ? 'The points sit on one line. Find the slope and where it crosses the y axis. Which equation fits? Tap it.' : 'The table gives x and y. Find the slope and the starting value. Which equation fits? Tap it.' },
+      reveal: { line: r, note: T('{line}. The slope is {m}. The line crosses the y axis at {b}.', { line: lineText(r), m: fmt(m), b: fmt(b) }) }, ruleText: 'y =\n' + exprText(r, 'x'),
+      words: { short: T('Which line fits?'), speak: T(graph ? 'The points sit on one line. Find the slope and where it crosses the y axis. Which equation fits? Tap it.' : 'The table gives x and y. Find the slope and the starting value. Which equation fits? Tap it.') },
       desc: `${graph ? 'graph' : 'table'} ${pts.map(p => `(${p.join(',')})`).join(' ')} -> ${lineText(r)}` };
   },
   // 8th: a recursive rule in words.
@@ -777,9 +868,9 @@ const NUMGEN = {
     const t = recSeq(s), ans = t[s.N - 1], text = REC[v].words(s), k = s.start.length;
     if (Math.abs(ans) > 999 || (v !== 'sum' && new Set(t).size < t.length)) return null;   // no fixed points such as 3, 3, 3
     return { mode: 'type', rspec: s, answer: ans, neg: true, lim: 999, nums: t,
-      board: { rule: text, cards: t.map((x, i) => i < k ? { text: fmt(x), sub: `term ${i + 1}` } : i === s.N - 1 ? { text: '?', q: true, sub: `term ${s.N}` } : { text: '_', blank: true, sub: `term ${i + 1}` }) },
-      reveal: { cards: Object.fromEntries(t.map((x, i) => [i, fmt(x)]).slice(k)), note: `Term ${s.N} is ${fmt(ans)}.` }, ruleText: REC[v].rule(s),
-      words: { short: `What is term ${s.N}?`, speak: `${text} ${k === 2 ? `The first two terms are ${sp(s.start[0])} and ${sp(s.start[1])}.` : `The first term is ${sp(s.start[0])}.`} What is term ${s.N}? Type it.` },
+      board: { rule: text, cards: t.map((x, i) => i < k ? { text: fmt(x), sub: T('term {n}', { n: i + 1 }) } : i === s.N - 1 ? { text: '?', q: true, sub: T('term {n}', { n: s.N }) } : { text: '_', blank: true, sub: T('term {n}', { n: i + 1 }) }) },
+      reveal: { cards: Object.fromEntries(t.map((x, i) => [i, fmt(x)]).slice(k)), note: T('Term {N} is {ans}.', { N: s.N, ans: fmt(ans) }) }, ruleText: REC[v].rule(s),
+      words: { short: T('What is term {N}?', { N: s.N }), speak: T('{text} {start} What is term {N}? Type it.', { text, start: k === 2 ? T('The first two terms are {a} and {b}.', { a: sp(s.start[0]), b: sp(s.start[1]) }) : T('The first term is {a}.', { a: sp(s.start[0]) }), N: s.N }) },
       desc: `${v} ${s.start.join(',')} -> term ${s.N} = ${fmt(ans)}` };
   },
 };
@@ -844,18 +935,18 @@ const describe = t => t.kind === 'num' ? `${t.level}: ${t.desc}` : `${t.level}: 
 
 // ---------------------------------------------------------------------------------------------------------------
 // Words.
-const RSAY = r => r.t === 'turn' ? 'turns it a quarter turn, the way a clock goes' : r.t === 'half' ? 'turns it a half turn' : r.t === 'flip' ? 'flips it like a mirror'
-  : r.t === 'paint' ? `paints it ${CNAMES[r.c]}` : r.t === 'grow' ? 'makes it bigger' : 'makes it smaller';
+const RSAY = r => r.t === 'turn' ? T('turns it a quarter turn, the way a clock goes') : r.t === 'half' ? T('turns it a half turn') : r.t === 'flip' ? T('flips it like a mirror')
+  : r.t === 'paint' ? T('paints it {c}', { c: T(CNAMES[r.c]) }) : r.t === 'grow' ? T('makes it bigger') : T('makes it smaller');
 function words(q) {
   if (q.kind === 'num') return q.words;
   const r = q.rows[0].rules;
   if (q.kind === 'predict') {
-    if (r.length === 1) return { short: 'What comes out?', speak: `This machine ${RSAY(r[0])}. What comes out? Tap it.` };
-    return { short: `What comes out of the end?`, speak: `The shape goes through ${r.length} machines. First one ${RSAY(r[0])}. ${r.length === 3 ? `Next one ${RSAY(r[1])}. ` : ''}Last one ${RSAY(r[r.length - 1])}. What comes out at the end?` };
+    if (r.length === 1) return { short: T('What comes out?'), speak: T('This machine {r}. What comes out? Tap it.', { r: RSAY(r[0]) }) };
+    return { short: T('What comes out of the end?'), speak: T('The shape goes through {n} machines. First one {a}. {mid}Last one {b}. What comes out at the end?', { n: r.length, a: RSAY(r[0]), mid: r.length === 3 ? T('Next one {r}. ', { r: RSAY(r[1]) }) : '', b: RSAY(r[r.length - 1]) }) };
   }
-  if (q.kind === 'infer') return r.length === 1 ? { short: 'Which rule is inside?', speak: 'Look at what went in and what came out. Which rule is inside the machine?' }
-    : { short: 'Which two rules are inside?', speak: 'Two secret machines. Look at what went in and what came out. Which two rules, in which order?' };
-  return { short: 'Which machine is missing?', speak: `One machine is a mystery. The first one ${RSAY(r[0])}. The last one ${RSAY(r[2])}. Which rule goes in the middle?` };
+  if (q.kind === 'infer') return r.length === 1 ? { short: T('Which rule is inside?'), speak: T('Look at what went in and what came out. Which rule is inside the machine?') }
+    : { short: T('Which two rules are inside?'), speak: T('Two secret machines. Look at what went in and what came out. Which two rules, in which order?') };
+  return { short: T('Which machine is missing?'), speak: T('One machine is a mystery. The first one {a}. The last one {b}. Which rule goes in the middle?', { a: RSAY(r[0]), b: RSAY(r[2]) }) };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -891,7 +982,7 @@ const SFX = {
   no: () => { tone(240, 0.15, 'square', 0.08); tone(190, 0.22, 'square', 0.08, 0.12); },
   up: () => [392, 523, 659, 784, 1046, 1318, 1568].forEach((f, i) => tone(f, 0.2, 'square', 0.06, i * 0.06)),
 };
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
 
 // ---------------------------------------------------------------------------------------------------------------
 // Rule pictures, drawn on a canvas. Used on machine screens (as a texture) and on the answer cards.
@@ -905,7 +996,8 @@ function iconCanvas(r) {
   g.beginPath(); g.roundRect ? g.roundRect(8, 8, 240, 240, 40) : g.rect(8, 8, 240, 240); g.fill();
   g.lineWidth = 14; g.strokeStyle = ink; g.stroke();
   g.lineCap = 'round'; g.lineJoin = 'round';
-  const label = (t, y = 226) => { g.fillStyle = ink; g.font = '900 38px Segoe UI, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(t, 128, y); };
+  // The word under the picture; a longer Spanish word gets a smaller font so it stays inside the frame.
+  const label = (t, y = 226) => { g.fillStyle = ink; g.textAlign = 'center'; let size = 38; for (; size > 20; size -= 2) { g.font = `900 ${size}px Segoe UI, system-ui, sans-serif`; if (g.measureText(t).width <= 216) break; } g.fillText(t, 128, y); };
   const arrowHead = (x, y, ang, s = 26) => { g.beginPath(); g.moveTo(x + Math.cos(ang) * s, y + Math.sin(ang) * s); g.lineTo(x + Math.cos(ang + 2.3) * s, y + Math.sin(ang + 2.3) * s); g.lineTo(x + Math.cos(ang - 2.3) * s, y + Math.sin(ang - 2.3) * s); g.closePath(); g.fillStyle = ink; g.fill(); };
   if (!r) { g.fillStyle = '#FFE45C'; g.font = '900 170px Segoe UI, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('?', 128, 190); }
   else if (r.t === 'turn' || r.t === 'half') {
@@ -914,22 +1006,22 @@ function iconCanvas(r) {
     g.strokeStyle = ink; g.lineWidth = 12; g.beginPath(); g.arc(128, 104, 70, a0, a1); g.stroke();
     g.beginPath(); g.arc(128, 104, 70, 0, Math.PI * 2); g.setLineDash([10, 14]); g.lineWidth = 5; g.stroke(); g.setLineDash([]);
     arrowHead(128 + Math.cos(a1) * 70, 104 + Math.sin(a1) * 70, a1 + Math.PI / 2);
-    label(r.t === 'turn' ? '¼ turn' : '½ turn');
+    label(T(r.t === 'turn' ? '¼ turn' : '½ turn'));
   } else if (r.t === 'flip') {
     g.fillStyle = '#FF3D8B'; g.beginPath(); g.moveTo(108, 50); g.lineTo(108, 160); g.lineTo(44, 160); g.closePath(); g.fill(); g.lineWidth = 8; g.stroke();
     g.fillStyle = '#FF3D8B88'; g.beginPath(); g.moveTo(148, 50); g.lineTo(148, 160); g.lineTo(212, 160); g.closePath(); g.fill(); g.stroke();
     g.setLineDash([12, 12]); g.lineWidth = 7; g.beginPath(); g.moveTo(128, 30); g.lineTo(128, 180); g.stroke(); g.setLineDash([]);
-    label('flip');
+    label(T('flip'));
   } else if (r.t === 'paint') {
     g.fillStyle = hex(COLORS[r.c]); g.beginPath(); g.moveTo(128, 30); g.bezierCurveTo(200, 110, 200, 180, 128, 180); g.bezierCurveTo(56, 180, 56, 110, 128, 30); g.fill(); g.lineWidth = 10; g.stroke();
     g.fillStyle = '#ffffffaa'; g.beginPath(); g.arc(106, 140, 14, 0, Math.PI * 2); g.fill();
-    label(CNAMES[r.c]);
+    label(T(CNAMES[r.c]));
   } else {
     const small = [40, 120, 48], big = [120, 46, 100], [a, b] = r.t === 'grow' ? [small, big] : [big, small];
     g.fillStyle = '#ffffff'; g.lineWidth = 9;
     g.fillRect(a[0], a[1], a[2], a[2]); g.strokeRect(a[0], a[1], a[2], a[2]);
     g.fillStyle = '#FF3D8B'; g.fillRect(b[0], b[1], b[2], b[2]); g.strokeRect(b[0], b[1], b[2], b[2]);
-    label(r.t === 'grow' ? 'bigger' : 'smaller');
+    label(T(r.t === 'grow' ? 'bigger' : 'smaller'));
   }
   return ICONS[k] = cv;
 }
@@ -1136,7 +1228,7 @@ function tell(text, bad = false, ms = 1300) {
   const t = $('toast'); t.textContent = text; t.className = 'on' + (bad ? ' bad' : '');
   clearTimeout(tell.h); tell.h = setTimeout(() => { t.className = bad ? 'bad' : ''; }, ms / SPEED);
 }
-function showBadge() { $('badge').textContent = `Level ${P.lv + 1} of ${LEVELS.length} · ${LEVELS[P.lv].name}`; $('stars').textContent = '⭐ ' + P.stars; }
+function showBadge() { $('badge').textContent = T('Level {n} of {total} · {name}', { n: P.lv + 1, total: LEVELS.length, name: T(LEVELS[P.lv].name) }); $('stars').textContent = '⭐ ' + P.stars; }
 
 // The board for number rungs: a rule in words, cards, a table, a drawing, and after the reveal a note.
 let boardCanvas = null;
@@ -1168,7 +1260,7 @@ function drawGrow(cv, a, b) {
       g.fillStyle = k === 'fix' ? '#FFC93C' : '#FF4F8B'; g.fillRect(x + c * cell, base - (r + 1) * cell, cell, cell);
       g.strokeStyle = '#2B2140'; g.lineWidth = 2; g.strokeRect(x + c * cell + 1, base - (r + 1) * cell + 1, cell - 2, cell - 2);
     }
-    g.fillStyle = '#2B2140'; g.font = '900 16px Segoe UI, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('Figure ' + (i + 1), x + widths[i] / 2, base + 26);
+    g.fillStyle = '#2B2140'; g.font = '900 16px Segoe UI, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(T('Figure {n}', { n: i + 1 }), x + widths[i] / 2, base + 26);
     x += widths[i] + gap;
   });
 }
@@ -1217,7 +1309,7 @@ function applyReveal(q) {
 
 // The number pad.
 let typed = '', wrongTyped = 0;
-function showEntry() { const e = $('entry'); e.innerHTML = ''; if (!typed) e.append(el('span', 'ph', 'type it')); else e.textContent = typed.replace('-', MINUS); }
+function showEntry() { const e = $('entry'); e.innerHTML = ''; if (!typed) e.append(el('span', 'ph', T('type it'))); else e.textContent = typed.replace('-', MINUS); }
 function key(k) {
   if (busy || !q || q.kind !== 'num' || q.mode !== 'type') return;
   ac(); SFX.tap();
@@ -1230,16 +1322,16 @@ function key(k) {
 async function submit() {
   if (busy || !q || q.kind !== 'num' || q.mode !== 'type') return;
   const n = Number(typed);
-  if (typed === '' || typed === '-' || !Number.isFinite(n)) { tell('Type a number first.', true, 900); return; }
+  if (typed === '' || typed === '-' || !Number.isFinite(n)) { tell(T('Type a number first.'), true, 900); return; }
   ac(); SFX.tap();
   if (n !== q.answer) {
     wrongTyped++; SFX.no(); typed = ''; showEntry();
-    if (!missed) { missed = true; const change = record(false); showBadge(); if (change === -1) say("Let's try an easier one next."); }
+    if (!missed) { missed = true; const change = record(false); showBadge(); if (change === -1) say(T("Let's try an easier one next.")); }
     if (wrongTyped >= 3) {   // after three tries the machine shows the answer and moves on
-      busy = true; tell(`It is ${fmt(q.answer)}.`, true, 2400); say(`The answer is ${sp(q.answer)}. Here is why.`);
+      busy = true; tell(T('It is {n}.', { n: fmt(q.answer) }), true, 2400); say(T('The answer is {n}. Here is why.', { n: sp(q.answer) }));
       await playNum(); await tween(1.6, () => {}); newQuestion(); return;
     }
-    tell('Not that one. Look again!', true); return;
+    tell(T('Not that one. Look again!'), true); return;
   }
   await finish(-1);
 }
@@ -1278,10 +1370,10 @@ async function choose(i) {
   if (busy || !q || tried.has(i)) return;
   ac(); SFX.tap();
   if (i !== q.answer) {
-    tried.add(i); SFX.no(); tell('Not that one. Look again!', true);
+    tried.add(i); SFX.no(); tell(T('Not that one. Look again!'), true);
     if (q.kind === 'predict') { const p = pedestals[i]; p.userData.off = true; const x = p.position.x; tween(0.4, k => { p.position.x = x + Math.sin(k * 25) * 0.12 * (1 - k); }); p.userData.sh.traverse(o => { if (o.isMesh) { o.material = mat(0x9A90B0); } }); }
     else { const b = $('choices').children[i]; b.classList.add('no'); }
-    if (!missed) { missed = true; const change = record(false); showBadge(); if (change === -1) say("Let's try an easier one next."); }
+    if (!missed) { missed = true; const change = record(false); showBadge(); if (change === -1) say(T("Let's try an easier one next.")); }
     return;
   }
   await finish(i);
@@ -1292,8 +1384,8 @@ async function finish(i) {
   const first = !missed; P.stars++; solved++;
   const change = first ? record(true) : 0; showBadge();
   if (q.kind !== 'predict' && i >= 0) $('choices').children[i].classList.add('yes');
-  SFX.yes(); tell(first ? 'Great thinking! ⭐' : 'You got it! ⭐');
-  say(change === 1 ? `Level up! ${LEVELS[P.lv].name}.` : first ? 'Great thinking!' : 'You got it!');
+  SFX.yes(); tell(T(first ? 'Great thinking! ⭐' : 'You got it! ⭐'));
+  say(change === 1 ? T('Level up! {name}.', { name: T(LEVELS[P.lv].name) }) : T(first ? 'Great thinking!' : 'You got it!'));
   if (change === 1) setTimeout(() => { SFX.up(); const b = $('badge'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }, 500 / SPEED);
   await (q.kind === 'num' ? playNum() : play());
   await tween(0.8, () => {});
@@ -1366,7 +1458,7 @@ window.PATTERN_MACHINE = {
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START_LEVEL,
-  label: () => LEVELS[P.lv].name,
+  label: () => T(LEVELS[P.lv].name),
   exercise: (i, n) => {
     const out = [];
     for (let k = 0; k < n; k++) { const t = generate(i); const c = checkAny(t); if (!c.ok) throw new Error(c.why.join('; ')); out.push(describe(t)); }
