@@ -1,29 +1,4 @@
 {
- "source": "e6e05fcdbcb210d6cb5128e53e6f12db94bacff216e6293c708948558e882c3e",
- "lines": [
-  {
-   "text": "Draw first, then tap Check.",
-   "rate": -5
-  },
-  {
-   "text": "Now it is your home screen picture!",
-   "rate": -5
-  },
-  {
-   "text": "Pick a magic filter for your picture!",
-   "rate": -5
-  },
-  {
-   "text": "Sketch lines erased. Nice and clean!",
-   "rate": -5
-  },
-  {
-   "text": "That did not work. Try again in a moment.",
-   "rate": -5
-  },
-  {
-   "text": "Time to color! Tap a shape with the paint bucket, or paint with a brush.",
-   "rate": -5
-  }
- ]
+ "source": "c097009887950b0b81e9fdbf02bc1318e05cd3307a351cc8b4fc374884fd79ce",
+ "lines": []
 }

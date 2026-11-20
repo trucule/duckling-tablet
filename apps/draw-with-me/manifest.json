@@ -1,7 +1,7 @@
 {
   "id": "draw-with-me",
   "name": "Draw With Me",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "152 step by step drawing lessons from simple to detailed, with a drawing of the day and a surprise pick.",
   "subjects": [
     "art"
@@ -12,6 +12,22 @@
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/draw-with-me",
+  "i18n": {
+    "es": {
+      "name": "Dibuja conmigo",
+      "description": "Lecciones de dibujo paso a paso, de sencillas a detalladas, con un dibujo del día y una elección sorpresa.",
+      "about": {
+        "concept": "Descomponer una forma compleja en trazos simples, en orden. Cada lección muestra una línea a la vez, así la niña o el niño aprende que un dibujo detallado es una secuencia de movimientos pequeños que se pueden repetir.",
+        "progression": "El dibujo libre va desde animales de cuatro trazos hasta escenas detalladas con sombreado, con un dibujo del día y una elección sorpresa. La escalera de Retos empieza en el grado de arte del niño y sube desde formas y colores en preescolar, pasando por proporción, simetría, sombreado y perspectiva, hasta teoría del color y principios de diseño en octavo grado, con cada dibujo revisado en el lienzo.",
+        "lifeSkills": [
+          "Control motor fino",
+          "Dividir una tarea grande en pasos",
+          "Paciencia con una tarea larga",
+          "Confianza para crear algo desde cero"
+        ]
+      }
+    }
+  },
   "about": {
     "concept": "Decomposing a complex shape into simple strokes, in order. Each lesson shows one line at a time, so the child learns that a detailed picture is a sequence of small, repeatable moves.",
     "progression": "Free play runs from four-stroke animals to detailed scenes with shading, with a drawing of the day and a surprise pick. The Challenges ladder starts at the child's art grade and climbs from shapes and colors in pre-K through proportion, symmetry, shading and perspective to color theory and design principles in 8th grade, each drawing checked on the canvas.",
