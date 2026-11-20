@@ -1,7 +1,7 @@
 {
   "id": "word-wizard",
   "name": "Word Wizard",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Hear a word, tap the letters into place, and the right word casts a spell in a 3D world.",
   "subjects": [
     "reading"
@@ -12,6 +12,22 @@
   "permissions": [],
   "minShell": "1.0.0",
   "source": "trucule/Surface-Pro-X-KidSetup apps/word-wizard",
+  "i18n": {
+    "es": {
+      "name": "Mago de las palabras",
+      "description": "Escucha una palabra, toca las letras en su lugar, y la palabra bien escrita lanza un hechizo en un mundo 3D.",
+      "about": {
+        "concept": "Fonética y ortografía con respuesta inmediata. El niño escucha una palabra, pone sus letras en orden y ve cómo la palabra bien escrita actúa en un mundo 3D, así que la relación entre sonido y letra se practica palabra por palabra.",
+        "progression": "Palabras de tres letras llevan a palabras de cuatro y cinco letras con tildes y eñe, hechizos de dos palabras, plurales y diminutivos, prefijos, palabras compuestas, dígrafos, sílabas, prefijos y sufijos, homófonos y tildes elegidos a partir de una oración hablada, raíces griegas y latinas, vocabulario académico a partir de una definición hablada, palabras difíciles escritas en un teclado de letras, y matices de significado y lenguaje figurado en octavo grado. El niño empieza en el nivel que corresponde al grado de lectura que fijó su familia y sube con cuatro aciertos seguidos.",
+        "lifeSkills": [
+          "Leer las palabras por sus sonidos",
+          "Ortografía",
+          "Escuchar con atención",
+          "Leer letreros y etiquetas"
+        ]
+      }
+    }
+  },
   "about": {
     "concept": "Phonics and spelling with immediate feedback. The child hears a word, places its letters in order, and sees the right spelling act in a 3D world, so sound-to-letter mapping is practiced word by word.",
     "progression": "Three-letter words with short vowels lead to blends, longer words, two-word spells, endings, prefixes and compound words, then vowel teams, syllables, prefixes and suffixes, homophones chosen from a spoken sentence, Greek and Latin roots, academic vocabulary from a spoken definition, spelling demons typed on a letter keyboard, and word connotation and figurative language at 8th grade. The child starts at the rung that matches the reading grade a parent set and climbs with four right in a row.",
