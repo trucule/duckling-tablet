@@ -101,6 +101,16 @@ function validate(m, id) {
   for (const s of m.subjects ?? []) if (!['reading', 'math', 'science', 'art', 'music', 'logic'].includes(s)) problems.push(`unknown subject ${s}`);
   if (m.about && !(typeof m.about.concept === 'string' && typeof m.about.progression === 'string' && Array.isArray(m.about.lifeSkills) && m.about.lifeSkills.length)) problems.push('about needs concept, progression and lifeSkills');
   for (const p of m.permissions ?? []) if (!['microphone', 'camera'].includes(p)) problems.push(`unknown permission ${p}`);
+  // The Spanish name, description and About text (docs/languages-brief.md, "The manifest"), with the English limits.
+  if (m.i18n != null) {
+    if (typeof m.i18n !== 'object' || Object.keys(m.i18n).some((k) => k !== 'es')) problems.push('i18n may only carry es');
+    const es = m.i18n.es;
+    if (es) {
+      if (!es.name || es.name.length > 60) problems.push('i18n.es.name missing or over 60 characters');
+      if ((es.description ?? '').length > 500) problems.push('i18n.es.description over 500 characters');
+      if (es.about && !(typeof es.about.concept === 'string' && typeof es.about.progression === 'string' && Array.isArray(es.about.lifeSkills) && es.about.lifeSkills.length)) problems.push('i18n.es.about needs concept, progression and lifeSkills');
+    }
+  }
   if (problems.length) die(`apps/${id}/manifest.json: ${problems.join('; ')}`);
 }
 
@@ -152,7 +162,7 @@ async function publish(id, requestId) {
     if (all) { console.error(msg); skipped++; return; }
     die(msg);
   }
-  const meta = { name: m.name, description: m.description ?? '', subjects: m.subjects ?? [], ageMin: m.ageMin ?? null, ageMax: m.ageMax ?? null, starter: !!m.starter, about: m.about ?? null };
+  const meta = { name: m.name, description: m.description ?? '', subjects: m.subjects ?? [], ageMin: m.ageMin ?? null, ageMax: m.ageMax ?? null, starter: !!m.starter, about: m.about ?? null, i18n: m.i18n ?? null };
   const put = await api('PUT', `/admin/apps/${id}`, JSON.stringify(meta), { 'content-type': 'application/json' });
   if (put.status !== 200) die(`PUT /admin/apps/${id}: ${put.status} ${JSON.stringify(put.json)}`);
   const tile = await api('PUT', `/admin/apps/${id}/tile`, readFileSync(join(APPS, id, 'tile.png')), { 'content-type': 'image/png' });

@@ -1,4 +1,5 @@
-import { tr, trn } from './i18n';
+import { tr, trn, lang } from './i18n';
+import { appName, appDescription, appAbout } from './apps';
 import { useMemo, useState } from 'preact/hooks';
 import type { CatalogApp } from './api';
 
@@ -9,8 +10,8 @@ const AGES: [string, string, (a: CatalogApp) => boolean][] = [
   ['8+', 'Ages 8 and up', (a) => (a.ageMax ?? 99) >= 8],
 ];
 
-// Search and filters over the catalog: words match the name, description, About text and life skills; chips narrow
-// by subject and age. Shared by the family page (browse) and the device page (install or hide).
+// Search and filters over the catalog: words match the name, description, About text and life skills, in the portal's
+// language and in English; chips narrow by subject and age. Shared by the family page (browse) and the device page (install or hide).
 export function useAppFilter(catalog: CatalogApp[]) {
   const [q, setQ] = useState('');
   const [subject, setSubject] = useState('');
@@ -22,10 +23,11 @@ export function useAppFilter(catalog: CatalogApp[]) {
       if (subject && !a.subjects.includes(subject)) return false;
       if (ageTest && !ageTest(a)) return false;
       if (!words.length) return true;
-      const hay = [a.name, a.description, a.about?.concept, a.about?.progression, ...(a.about?.lifeSkills ?? []), ...a.subjects].join(' ').toLowerCase();
+      const about = appAbout(a);
+      const hay = [appName(a), appDescription(a), about?.concept, about?.progression, ...(about?.lifeSkills ?? []), a.name, a.description, a.about?.concept, a.about?.progression, ...(a.about?.lifeSkills ?? []), ...a.subjects].join(' ').toLowerCase();
       return words.every((w) => hay.includes(w));
-    });
-  }, [catalog, q, subject, age]);
+    }).sort((a, b) => appName(a).localeCompare(appName(b)));
+  }, [catalog, q, subject, age, lang.value]);
   const bar = (
     <div class="filter">
       <input type="search" placeholder={tr('Search apps: fractions, handwriting, patience, music')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />

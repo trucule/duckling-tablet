@@ -1,4 +1,5 @@
-import { tr, trn } from '../i18n';
+import { tr, trn, setLang } from '../i18n';
+import { appName, appDescription, appAbout } from '../apps';
 import { useEffect, useState } from 'preact/hooks';
 import { api, type CatalogApp, type Family as FamilyT } from '../api';
 
@@ -12,7 +13,7 @@ export function AppAbout({ id, onBack }: { id: string; onBack: () => void }) {
   const [installed, setInstalled] = useState<Record<string, boolean>>({});
   const [msg, setMsg] = useState('');
   const load = () => Promise.all([api.catalog(), api.family()]).then(async ([c, f]) => {
-    setApp(c.apps.find((a) => a.id === id) ?? null); setFam(f);
+    setApp(c.apps.find((a) => a.id === id) ?? null); setFam(f); setLang(f.language);
     const states: Record<string, boolean> = {};
     for (const d of f.devices.filter((x) => x.state === 'active')) { try { states[d.id] = (await api.device(d.id)).apps.some((a) => a.id === id); } catch { /* a device that cannot be read is left out */ } }
     setInstalled(states);
@@ -21,25 +22,26 @@ export function AppAbout({ id, onBack }: { id: string; onBack: () => void }) {
 
   if (app === undefined) return <div class="card">{tr('Loading')}</div>;
   if (app === null) return <div class="card"><p><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>{tr('Back')}</a></p><p>{tr('That app is not in the catalog.')}</p></div>;
+  const about = appAbout(app);
   const ages = app.ageMin && app.ageMax ? tr('Ages {min} to {max}', { min: app.ageMin, max: app.ageMax }) : app.ageMin ? tr('Ages {min} and up', { min: app.ageMin }) : '';
   return (
     <>
       <p><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>{tr('Back')}</a></p>
       <div class="card about">
-        {app.demoUrl ? <img class="demo" src={app.demoUrl} alt={tr('{app} in use', { app: app.name })}  /> : app.tileUrl ? <img class="demo tile" src={app.tileUrl} alt="" /> : null}
+        {app.demoUrl ? <img class="demo" src={app.demoUrl} alt={tr('{app} in use', { app: appName(app) })}  /> : app.tileUrl ? <img class="demo tile" src={app.tileUrl} alt="" /> : null}
         <div class="row" style={{ alignItems: 'center', marginTop: 14 }}>
           {app.tileUrl && <img src={app.tileUrl} alt="" style={{ width: 56, height: 56, borderRadius: 14 }} />}
-          <span class="grow"><h1 style={{ margin: 0 }}>{app.name}</h1><span class="muted">{[ages, ...app.subjects.map((s) => tr(SUBJECT[s] ?? s))].filter(Boolean).join(' · ')}</span></span>
+          <span class="grow"><h1 style={{ margin: 0 }}>{appName(app)}</h1><span class="muted">{[ages, ...app.subjects.map((s) => tr(SUBJECT[s] ?? s))].filter(Boolean).join(' · ')}</span></span>
         </div>
-        <p>{app.description}</p>
-        {app.about && (
+        <p>{appDescription(app)}</p>
+        {about && (
           <>
             <h2>{tr('What it trains')}</h2>
-            <p>{app.about.concept}</p>
+            <p>{about.concept}</p>
             <h2>{tr('How it grows with your child')}</h2>
-            <p>{app.about.progression}</p>
+            <p>{about.progression}</p>
             <h2>{tr('Life skills')}</h2>
-            <ul class="skills">{app.about.lifeSkills.map((s) => <li key={s}>{s}</li>)}</ul>
+            <ul class="skills">{about.lifeSkills.map((s) => <li key={s}>{s}</li>)}</ul>
           </>
         )}
       </div>

@@ -23,20 +23,24 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
 
   app.put<{ Params: { id: string } }>('/admin/apps/:id', async (req) => {
     const id = appId.parse(req.params.id);
+    // The About page: the cognitive concept, how the app grows with the child, the life skills it serves.
+    const about = z.object({ concept: z.string().min(1).max(1200), progression: z.string().min(1).max(1200), lifeSkills: z.array(z.string().min(1).max(80)).min(1).max(8) });
     const b = z.object({
       name: z.string().min(1).max(60), description: z.string().max(500).default(''),
       subjects: z.array(z.string().max(20)).max(6).default([]), ageMin: z.number().int().min(2).max(14).nullable().default(null),
       ageMax: z.number().int().min(2).max(14).nullable().default(null), starter: z.boolean().default(false),
-      // The About page: the cognitive concept, how the app grows with the child, the life skills it serves.
-      about: z.object({ concept: z.string().min(1).max(1200), progression: z.string().min(1).max(1200), lifeSkills: z.array(z.string().min(1).max(80)).min(1).max(8) }).nullable().default(null),
+      about: about.nullable().default(null),
+      // The same fields in another language (the manifest's i18n block), with the English limits. Shown by tablets
+      // and the portal in that language; an app without them shows its English text everywhere.
+      i18n: z.object({ es: z.object({ name: z.string().min(1).max(60), description: z.string().max(500).default(''), about: about.nullable().optional() }).optional() }).strict().nullable().default(null),
     }).parse(req.body);
     // A starter is installed on a tablet when it is paired, and only then. Publishing never installs an app on a tablet
     // that is already paired: a new app, or an app newly marked as a starter, shows in those tablets' Library until the
     // child or a parent installs it. (A requested app that ships goes onto the requesting family's tablets; requests.ts.)
-    await ctx.db.system((q) => q.run(`INSERT INTO app (id, name, description, subjects, age_min, age_max, starter, about) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8::jsonb)
+    await ctx.db.system((q) => q.run(`INSERT INTO app (id, name, description, subjects, age_min, age_max, starter, about, i18n) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8::jsonb, $9::jsonb)
       ON CONFLICT (id) DO UPDATE SET name = excluded.name, description = excluded.description, subjects = excluded.subjects,
-      age_min = excluded.age_min, age_max = excluded.age_max, starter = excluded.starter, about = excluded.about`,
-      [id, b.name, b.description, JSON.stringify(b.subjects), b.ageMin, b.ageMax, b.starter, b.about ? JSON.stringify(b.about) : null]));
+      age_min = excluded.age_min, age_max = excluded.age_max, starter = excluded.starter, about = excluded.about, i18n = excluded.i18n`,
+      [id, b.name, b.description, JSON.stringify(b.subjects), b.ageMin, b.ageMax, b.starter, b.about ? JSON.stringify(b.about) : null, b.i18n && Object.keys(b.i18n).length ? JSON.stringify(b.i18n) : null]));
     return { id };
   });
 

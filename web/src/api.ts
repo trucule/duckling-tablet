@@ -6,7 +6,9 @@ import { lang, tr } from './i18n';
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
 
 export interface Child { id: string; firstName: string; language?: 'en' | 'es' | null; grade: string | null; age?: number | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; portraitUrl?: string | null; backgroundUrl?: string | null; stars?: { earned: number; spent: number; balance: number } }
-export interface InstalledApp { id: string; name: string; version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[]; tileUrl: string | null }
+// The name and description in another language, by language code, from the app's manifest (apps.ts reads them).
+export type AppI18n = Partial<Record<'en' | 'es', { name: string; description?: string }>>;
+export interface InstalledApp { id: string; name: string; i18n?: AppI18n | null; version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[]; tileUrl: string | null }
 export interface AllowEntry { host: string; tile?: { name: string; url: string; color?: string } }
 export interface Entitlement { status: 'trial' | 'active' | 'grace' | 'ended' | 'none'; source: string | null; periodEnd: string | null; daysLeft: number | null }
 
@@ -25,7 +27,7 @@ export interface DeviceConfig {
   cardPayments?: boolean;
 }
 export interface CatalogApp {
-  id: string; name: string; description: string; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; tileUrl: string | null;
+  id: string; name: string; description: string; i18n?: AppI18n | null; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; tileUrl: string | null;
   latest: { version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[] };
 }
 

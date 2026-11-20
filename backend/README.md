@@ -46,7 +46,7 @@ the web server already there (nginx or Caddy). Memory is capped at 300 MB becaus
 | `GET /tts?text=&voice=&rate=&private=` | device | Shared voice cache: 302 to the CDN clip; `private=1` returns audio without storing it |
 | `GET/POST /requests` | parent | App requests; one open per family; each becomes an ET Ducky ticket |
 | `POST /hooks/etducky` | ET Ducky | Ticket status back to the request (HMAC signed) |
-| `PUT /admin/apps/:id` | admin | App metadata (name, description, subjects, ages, starter) |
+| `PUT /admin/apps/:id` | admin | App metadata (name, description, subjects, ages, starter, about, and `i18n.es` with the same fields in Spanish) |
 | `POST /admin/apps/:id/versions?version=&signature=&request=` | admin | Upload a signed package zip; `request` marks it shipped and installs it for that family |
 | `POST /admin/voice/pregenerate` `{lines}` | admin | Fill the voice cache with an app's fixed lines |
 | `GET /admin/requests`, `GET /admin/stats` | admin | Your view |

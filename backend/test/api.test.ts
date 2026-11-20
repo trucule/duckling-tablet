@@ -239,6 +239,30 @@ describe('app about and demo', () => {
     expect(a.demoUrl).toMatch(/^https:\/\/api\.test\/files\/demos\/robot-path-[0-9a-f]{12}\.gif$/);
     expect((await app.inject({ method: 'GET', url: a.demoUrl.replace('https://api.test', '') })).statusCode).toBe(200);
   });
+
+  it('keeps the Spanish name, description and About text, and leaves them null for a manifest without them', async () => {
+    const h = { authorization: `Bearer ${ADMIN}` };
+    const i18n = { es: { name: 'Camino del robot', description: 'Guía al robot con flechas.', about: { concept: 'Secuencias.', progression: 'Giros, luego repeticiones.', lifeSkills: ['Planear', 'Corregir errores'] } } };
+    await publish('robot-path', '1.0.0');
+    expect((await app.inject({ method: 'PUT', url: '/admin/apps/robot-path', headers: h, payload: { name: 'Robot Path', i18n } })).statusCode).toBe(200);
+    // A language the catalog does not know, or a Spanish entry without a name, is refused.
+    expect((await app.inject({ method: 'PUT', url: '/admin/apps/robot-path', headers: h, payload: { name: 'Robot Path', i18n: { fr: { name: 'x' } } } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'PUT', url: '/admin/apps/robot-path', headers: h, payload: { name: 'Robot Path', i18n: { es: { description: 'x' } } } })).statusCode).toBe(400);
+    const read = async (id: string) => (await (await app.inject({ method: 'GET', url: '/catalog' })).json()).apps.find((x: any) => x.id === id);
+    expect((await read('robot-path')).i18n).toEqual(i18n);
+    // The device config carries it on each installed app, so the tablet's tiles can read it.
+    const a = await signIn('es@example.com');
+    const d = await pair(a.auth);
+    await app.inject({ method: 'PUT', url: '/device/apps/robot-path', headers: d.dev });
+    const cfg = (await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json();
+    expect(cfg.apps.find((x: any) => x.id === 'robot-path').i18n).toEqual(i18n);
+    // A manifest without the block: the English text stands alone.
+    await publish('music-box', '1.0.0');
+    expect((await read('music-box')).i18n).toBeNull();
+    // Publishing again without the block clears it.
+    expect((await app.inject({ method: 'PUT', url: '/admin/apps/robot-path', headers: h, payload: { name: 'Robot Path' } })).statusCode).toBe(200);
+    expect((await read('robot-path')).i18n).toBeNull();
+  });
 });
 
 describe('voice cache', () => {

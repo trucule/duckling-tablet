@@ -1,4 +1,5 @@
 import { tr, trn } from '../i18n';
+import { appName } from '../apps';
 import { useState } from 'preact/hooks';
 import { useHomeBackground, usePicture } from '../pictures';
 import { config, catalog, installed, installing, childName, themeColors, go, setupNeeded, retryInstall, installFromStore, openOtherApp, otherAppState, locked, unlinked, entitlement, restartNeeded, openApp } from '../state';
@@ -35,7 +36,7 @@ function subscriptionNote(e: Entitlement | undefined) {
 
 export function Home() {
   const c = config.value;
-  const apps = [...(c?.apps ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+  const apps = [...(c?.apps ?? [])].sort((a, b) => appName(a).localeCompare(appName(b)));
   // While the family is locked out the tiles stay (the apps are still here) but a tap only explains why.
   const [lockNote, setLockNote] = useState(false);
   const open = (a: InstalledApp) => {
@@ -95,12 +96,12 @@ export function Home() {
           const ready = !!installed.value[a.id];
           const busy = installing.value[a.id];
           return (
-            <button class={`tile ${locked.value ? 'off' : ''}`} key={a.id} onClick={() => open(a)} aria-label={a.name}>
+            <button class={`tile ${locked.value ? 'off' : ''}`} key={a.id} onClick={() => open(a)} aria-label={appName(a)}>
               <span class="art">
-                {a.tileUrl ? <img src={a.tileUrl} alt="" /> : <span>{a.name.slice(0, 1)}</span>}
+                {a.tileUrl ? <img src={a.tileUrl} alt="" /> : <span>{appName(a).slice(0, 1)}</span>}
                 {!ready && <span class="busy">{tr(busy ?? 'Waiting')}</span>}
               </span>
-              <span class="name">{a.name}</span>
+              <span class="name">{appName(a)}</span>
             </button>
           );
         })}

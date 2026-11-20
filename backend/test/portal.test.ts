@@ -47,6 +47,11 @@ beforeAll(async () => {
   const { stdout: keygen } = await execFile('node', [join(TOOLS, 'publish.mjs'), 'keygen']);
   const key = keygen.match(/^PACKAGE_SIGNING_KEY=(\S+)/m)![1];
   await execFile('node', [join(TOOLS, 'publish.mjs'), 'all', '--starter'], { env: { ...process.env, API_URL: api, ADMIN_TOKEN: ADMIN, PACKAGE_SIGNING_KEY: key, DOTENV_CONFIG_PATH: join(dir, 'none') }, maxBuffer: 1 << 24 });
+  // One app with a Spanish name, as a manifest with an i18n block would publish it (the manifests in apps/ are left as they are).
+  const robot = JSON.parse(readFileSync(join(APPS, 'robot-path', 'manifest.json'), 'utf8'));
+  const meta = { name: robot.name, description: robot.description ?? '', subjects: robot.subjects ?? [], ageMin: robot.ageMin ?? null, ageMax: robot.ageMax ?? null, starter: !!robot.starter, about: robot.about ?? null, i18n: { es: { name: 'Camino del robot', description: 'Guía al robot con flechas.' } } };
+  const put = await fetch(`${api}/admin/apps/robot-path`, { method: 'PUT', headers: { 'content-type': 'application/json', authorization: `Bearer ${ADMIN}` }, body: JSON.stringify(meta) });
+  if (put.status !== 200) throw new Error(`PUT /admin/apps/robot-path: ${put.status}`);
 }, 180_000);
 afterAll(async () => {
   server?.close(); await app?.close(); await db?.close(); await cluster?.stop();
@@ -370,6 +375,11 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByPlaceholder('Edad', { exact: true }).fill('7');
     await p.getByRole('button', { name: 'Agregar niño' }).click();
     await p.getByText('7 años · nivel Kínder', { exact: false }).waitFor();
+    // The Apps section names an app in Spanish when the catalog has it, and search finds it by either name.
+    await p.locator('.list.apps li', { hasText: 'Camino del robot' }).waitFor();
+    await p.getByPlaceholder('Buscar apps', { exact: false }).first().fill('robot path');
+    await expect.poll(() => p.locator('.list.apps li').count()).toBe(1);
+    await p.getByPlaceholder('Buscar apps', { exact: false }).first().fill('');
     await p.screenshot({ path: join(process.env.SHOT_DIR ?? dir, 'portal-es.png'), fullPage: true });
     const token = await p.evaluate(() => localStorage.getItem('duckling.session'));
     const fam = await (await fetch(`${api}/family`, { headers: { authorization: `Bearer ${token}` } })).json();
@@ -389,6 +399,7 @@ describe.skipIf(!ready)('parent portal', () => {
     // The family switches to English: the page follows at once, and so does the tablet.
     await p.locator('#account').getByRole('button', { name: 'English' }).click();
     await p.getByRole('heading', { name: 'Children' }).waitFor();
+    await p.locator('.list.apps li', { hasText: 'Robot Path' }).waitFor();
     const dev = { authorization: `Device ${paired.deviceToken}` };
     expect((await (await fetch(`${api}/device/config`, { headers: dev })).json()).language).toBe('en');
     // Lucía keeps Spanish on her tablet while the family is in English.

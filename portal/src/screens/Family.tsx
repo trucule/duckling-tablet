@@ -4,6 +4,7 @@ import { api, type Family as FamilyT, type Child, type Device, type CatalogApp, 
 import { Requests, NoMatch } from './Requests';
 import { InstallCard } from '../install';
 import { useAppFilter, ageText, SUBJECTS } from '../appfilter';
+import { appName, appDescription } from '../apps';
 import { siteFromInput, sitesFromList } from '../site';
 
 const COLORS = ['#ffb3c6', '#ffd36b', '#b3e5ff', '#c8f7c5', '#e0c3fc', '#ffcf99'];
@@ -262,7 +263,7 @@ function AppsCard({ catalog, devices, details, onAct, onAsk }: { catalog: Catalo
             <li key={a.id}>
               <a href={`#/app/${a.id}`} class="row" style={{ alignItems: 'center', textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 240 }}>
                 {a.tileUrl && <img src={a.tileUrl} alt="" style={{ width: 48, height: 48, borderRadius: 12 }} />}
-                <span class="grow"><strong>{a.name}</strong> <span class="muted">{[ageText(a), ...a.subjects.map((id) => tr(SUBJECTS.find((x) => x[0] === id)?.[1] ?? id))].filter(Boolean).join(' · ')}</span><br /><span class="muted">{a.description}</span>{status && <><br /><span class={`muted ${where.length ? 'ok' : ''}`}>{status}</span></>}</span>
+                <span class="grow"><strong>{appName(a)}</strong> <span class="muted">{[ageText(a), ...a.subjects.map((id) => tr(SUBJECTS.find((x) => x[0] === id)?.[1] ?? id))].filter(Boolean).join(' · ')}</span><br /><span class="muted">{appDescription(a)}</span>{status && <><br /><span class={`muted ${where.length ? 'ok' : ''}`}>{status}</span></>}</span>
               </a>
               {picker?.app === a.id
                 ? <TargetPicker devices={picker.action === 'install' ? devices.filter((d) => !where.some((x) => x.id === d.id)) : where} label={picker.action === 'install' ? tr('Install on') : tr('Remove from')} onPick={(ids) => run(a.id, picker.action, ids)} onClose={() => setPicker(null)} />

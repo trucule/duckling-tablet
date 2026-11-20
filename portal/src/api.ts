@@ -11,7 +11,10 @@ export interface Entitlement { status: 'trial' | 'active' | 'grace' | 'ended' | 
 export interface Family { familyId: string; you: string; language?: Lang; pinSet: boolean; subscription: Entitlement; cardPayments?: boolean; cardCustomer?: boolean; stats?: boolean; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
 export interface OtherApp { package: string; label: string; icon: string | null; allowed: boolean; dailyMinutes: number | null; window: { start: string; end: string } | null; hosts: string[]; usedSecondsToday: number }
 export interface DeviceDetail { deviceId: string; state: string; child: Child | null; apps: { id: string; name: string; version: string; tileUrl: string | null }[]; hidden: string[]; allowlist: { host: string; tile?: { name: string; url: string } }[]; travel: { active: boolean; until: string | null }; otherApps: OtherApp[] }
-export interface CatalogApp { id: string; name: string; tileUrl: string | null; description: string; demoUrl: string | null; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; about: { concept: string; progression: string; lifeSkills: string[] } | null }
+export interface AppAbout { concept: string; progression: string; lifeSkills: string[] }
+// The name, description and About text in another language, by language code, from the app's manifest (apps.ts reads them).
+export type AppI18n = Partial<Record<'en' | 'es', { name: string; description?: string; about?: AppAbout | null }>>;
+export interface CatalogApp { id: string; name: string; tileUrl: string | null; description: string; demoUrl: string | null; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; about: AppAbout | null; i18n?: AppI18n | null }
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 

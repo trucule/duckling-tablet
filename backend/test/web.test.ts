@@ -58,6 +58,11 @@ beforeAll(async () => {
   const { stdout: keygen } = await execFile('node', [join(TOOLS, 'publish.mjs'), 'keygen']);
   const key = keygen.match(/^PACKAGE_SIGNING_KEY=(\S+)/m)![1];
   await execFile('node', [join(TOOLS, 'publish.mjs'), 'all', '--starter'], { env: { ...process.env, API_URL: api, ADMIN_TOKEN: ADMIN, PACKAGE_SIGNING_KEY: key, DOTENV_CONFIG_PATH: join(dir, 'none') }, maxBuffer: 1 << 24 });
+  // One app with a Spanish name, as a manifest with an i18n block would publish it (the manifests in apps/ are left as they are).
+  const robot = JSON.parse(readFileSync(join(ROOT, 'apps', 'robot-path', 'manifest.json'), 'utf8'));
+  const meta = { name: robot.name, description: robot.description ?? '', subjects: robot.subjects ?? [], ageMin: robot.ageMin ?? null, ageMax: robot.ageMax ?? null, starter: !!robot.starter, about: robot.about ?? null, i18n: { es: { name: 'Camino del robot', description: 'Guía al robot con flechas.' } } };
+  const put = await fetch(`${api}/admin/apps/robot-path`, { method: 'PUT', headers: { 'content-type': 'application/json', authorization: `Bearer ${ADMIN}` }, body: JSON.stringify(meta) });
+  if (put.status !== 200) throw new Error(`PUT /admin/apps/robot-path: ${put.status}`);
 }, 180_000);
 afterAll(async () => {
   webServer?.close(); await app?.close(); await db?.close(); await cluster?.stop();
@@ -481,6 +486,9 @@ describe.skipIf(!ready)('child web app', () => {
     await t.getByText('Prueba gratis: quedan 7 días.').waitFor();
     await t.getByRole('button', { name: 'Biblioteca' }).waitFor();
     expect(await t.evaluate(() => document.documentElement.lang)).toBe('es');
+    // A tile carries the app's Spanish name when the catalog has one; the others keep their English name.
+    await t.getByRole('button', { name: 'Camino del robot' }).waitFor();
+    await t.getByRole('button', { name: 'Music Box' }).waitFor();
     await t.screenshot({ path: join(dir, 'es-home.png') });
     // The PIN and the parent area.
     await t.getByRole('button', { name: 'Padres' }).click();
@@ -499,6 +507,9 @@ describe.skipIf(!ready)('child web app', () => {
     await t.getByRole('button', { name: 'English' }).click();
     await t.getByRole('heading', { name: 'Parent area' }).waitFor();
     await t.getByRole('button', { name: 'Español' }).waitFor();
+    // Back on the home screen the tile reads its English name again.
+    await t.getByRole('button', { name: 'Done' }).click();
+    await t.getByRole('button', { name: 'Robot Path' }).waitFor();
     expect(await t.evaluate(() => document.documentElement.lang)).toBe('en');
     expect(errors).toEqual([]);
     await b.close();

@@ -73,7 +73,7 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
     appAccountToken: fam?.app_account_token ?? null,
     // Card payments through Stripe (the Windows parent area subscribes this way).
     cardPayments: !!ctx.stripe,
-    apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, tileUrl: a.tileUrl, permissions: a.latest!.permissions, ...a.latest })),
+    apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, i18n: a.i18n, tileUrl: a.tileUrl, permissions: a.latest!.permissions, ...a.latest })),
     hidden: [...hidden],
     allowlist,
     // Hosts the allowed websites need for their videos (sitehosts.ts); the tablet allows them with no tile.
