@@ -1,7 +1,7 @@
 {
   "id": "voice-band",
   "name": "Voice Band",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Sing a melody and see its notes, play with ten voice effects, and layer a four-track looper band.",
   "subjects": [
     "music"
@@ -23,5 +23,21 @@
       "Building something in layers",
       "Performing without fear"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Banda vocal",
+      "description": "Canta una melodía y mira sus notas, juega con diez efectos de voz y arma una banda de bucles con cuatro pistas.",
+      "about": {
+        "concept": "La altura y la estructura se hacen visibles. Al cantar una melodía, sus notas aparecen en la pantalla, y así el niño conecta lo que oye y hace con la forma en que se escribe la música; la banda de bucles muestra cómo las capas se combinan en una pieza.",
+        "progression": "El juego libre abre con tres salas: cantar una melodía y ver sus notas, cambiar la voz con diez efectos y poner partes por capas en una banda de bucles de cuatro pistas. La escalera de Retos va desde fuerte y suave, agudo y grave y un pulso parejo en preescolar, pasando por ecos, ritmos, familias de instrumentos, escalas, intervalos, compases, acordes mayores y menores, armaduras y lectura del pentagrama, hasta progresiones de acordes y componer una melodía con una regla en octavo grado.",
+        "lifeSkills": [
+          "Usar la voz con control",
+          "Escuchar la altura de las notas",
+          "Construir algo por capas",
+          "Presentarse sin miedo"
+        ]
+      }
+    }
   }
 }

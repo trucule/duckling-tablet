@@ -339,6 +339,14 @@
   #chFxGrid .fx { padding: 6px 4px; font-size: 18px; box-shadow: 0 4px 0 var(--ink); }
   #chFxGrid .fx .e { font-size: 40px; }
   #wsFx .big, #wsDyn .big { font-size: 24px; padding: 12px 24px; }
+  /* Spanish labels run longer: the headers, instrument buttons, looper track buttons and drum pads shrink a step so nothing wraps or clips at 1024 wide. */
+  html[lang="es"] header h1 { font-size: 26px; }
+  html[lang="es"] .back, html[lang="es"] .pill { font-size: 19px; padding: 8px 14px; }
+  html[lang="es"] .inst { font-size: 19px; padding: 9px 12px; min-width: 0; }
+  html[lang="es"] .track { grid-template-columns: 90px 1fr 150px 150px 120px 90px; }
+  html[lang="es"] .track button { font-size: 18px; padding: 10px 6px; }
+  html[lang="es"] .pad { font-size: 21px; }
+  html[lang="es"] .pad.small { width: 200px; }
   @media (max-height: 700px) { #kb { height: 124px; } .pad { height: 112px; } .pad .e { font-size: 42px; } #chFxGrid .fx .e { font-size: 34px; } }
   @media (max-width: 900px) { #rooms { grid-template-columns: 1fr; } #fxGrid { grid-template-columns: repeat(3, 1fr); } .track { grid-template-columns: 60px 1fr 120px 100px 90px 80px; } }
 </style>
@@ -466,8 +474,215 @@
 // ---------------------------------------------------------------------------
 let ACTX = null;
 function audio() { if (!ACTX) { try { ACTX = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }); } catch (e) { ACTX = null; } } if (ACTX && ACTX.state === 'suspended') ACTX.resume(); return ACTX; }
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = .95; u.pitch = 1.05; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = .95; u.pitch = 1.05; speechSynthesis.speak(u); } catch (e) {} }
 const $ = id => document.getElementById(id);
+// ---------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every line the child sees or hears goes through
+// T() and the ES dictionary, keyed by the English text. Note names follow the Latin American school names (do re mi
+// fa sol la si) through nn(); the English app keeps its letters. The audio, the ladder and the ids do not change.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  // Home and rooms
+  'Voice Band': 'Banda vocal', '🎤 Voice Band': '🎤 Banda vocal', '⭐ Challenges': '⭐ Retos', '◀ Rooms': '◀ Salas',
+  'Sing a Melody': 'Canta una melodía', '🎶 Sing a Melody': '🎶 Canta una melodía',
+  'Sing or hum a tune. See your notes, then hear them on piano, flute, robot or bells. Play "Copy me" to match tunes.': 'Canta o tararea una melodía. Mira tus notas y luego óyelas en piano, flauta, robot o campanas. Juega "Imítame" para imitar melodías.',
+  'Voice Effects': 'Efectos de voz', '🤖 Voice Effects': '🤖 Efectos de voz',
+  'Turn your voice into a robot, a monster, a chipmunk, a whole choir, and more.': 'Convierte tu voz en un robot, un monstruo, una ardilla, un coro entero y más.',
+  'Looper Band': 'Banda de bucles', '🥁 Looper Band': '🥁 Banda de bucles',
+  'Beatbox, hum and sing in layers. Each part loops and plays together like a band.': 'Haz ritmos con la boca, tararea y canta por capas. Cada parte se repite en bucle y suena junto con las demás, como una banda.',
+  // Sing a Melody
+  '🎤 Sing': '🎤 Cantar', '🎯 Copy me': '🎯 Imítame', 'Tap the button and sing or hum a little tune.': 'Toca el botón y canta o tararea una melodía corta.',
+  '🎤 Sing!': '🎤 ¡Canta!', '▶ Hear the tune': '▶ Oír la melodía', '⏹ Stop': '⏹ Parar', '⏹ Done': '⏹ Listo', '🎤 My turn!': '🎤 ¡Mi turno!',
+  '🎹 Piano': '🎹 Piano', '🪈 Flute': '🪈 Flauta', '🤖 Robot': '🤖 Robot', '🔔 Bells': '🔔 Campanas', '🎸 Guitar': '🎸 Guitarra',
+  '▶ Play my notes': '▶ Oír mis notas', '✨ With harmony': '✨ Con armonía', '🗣️ My voice': '🗣️ Mi voz', '🎯 My voice, in tune': '🎯 Mi voz afinada',
+  '🎤 Sing! I am listening…': '🎤 ¡Canta! Te escucho…', "I couldn't hear you. Try singing a little louder.": 'No te escuché. Intenta cantar un poco más fuerte.',
+  "I heard you, but not a tune. Try humming 'la la la'.": "Te escuché, pero no una melodía. Intenta tararear 'la la la'.",
+  'You sang {n}: {notes}': 'Cantaste {n}: {notes}', 'No microphone found.': 'No se encontró micrófono.', 'Level {n} · {len} notes': 'Nivel {n} · {len} notas',
+  '🎤 Your turn! Sing it back.': '🎤 ¡Tu turno! Cántala.', '⭐ {ok} of {total} notes! Next tune is longer.': '⭐ ¡{ok} de {total} notas! La siguiente melodía es más larga.',
+  'Wonderful! You matched it.': '¡Maravilloso! La imitaste.', '{ok} of {total} notes matched. Listen again and try once more.': '{ok} de {total} notas coinciden. Escucha otra vez e inténtalo de nuevo.',
+  "I couldn't hear a tune. Try 'la la la'.": "No escuché una melodía. Intenta con 'la la la'.", 'Close! Listen again and try once more.': '¡Casi! Escucha otra vez e inténtalo de nuevo.',
+  'Try singing la la la.': 'Intenta cantar la la la.', 'Listen to the tune, then sing it back.': 'Escucha la melodía y luego cántala.',
+  'Tuning your voice…': 'Afinando tu voz…', 'Your voice, snapped to the notes.': 'Tu voz, ajustada a las notas.', 'Your notes will show up here': 'Tus notas aparecerán aquí',
+  // Voice Effects
+  'Robot': 'Robot', 'Monster': 'Monstruo', 'Chipmunk': 'Ardilla', 'Echo': 'Eco', 'Choir': 'Coro', 'Alien': 'Alien', 'Auto-tune': 'Afinador', 'Backwards': 'Al revés', 'Underwater': 'Bajo el agua', 'Radio': 'Radio',
+  '⏺ Record & play': '⏺ Grabar y oír', '🎧 Live': '🎧 En vivo', 'Pick an effect, then tap Record and say something.': 'Elige un efecto, luego toca Grabar y di algo.',
+  '⏺ Record': '⏺ Grabar', '▶ Play again': '▶ Reproducir otra vez', '{e} {name}!': '{e} ¡{name}!', '🔴 Talk, sing or make a silly sound!': '🔴 ¡Habla, canta o haz un sonido chistoso!',
+  "I couldn't hear you. Try again a little louder.": 'No te escuché. Intenta otra vez un poco más fuerte.', 'Tap another effect to hear the same recording.': 'Toca otro efecto para oír la misma grabación.',
+  '⏹ Stop live': '⏹ Parar en vivo', '🎧 Live! Change effects while you talk.': '🎧 ¡En vivo! Cambia los efectos mientras hablas.', '🎧 Start live': '🎧 Empezar en vivo',
+  'Put on headphones, then tap Start live.': 'Ponte los audífonos y luego toca Empezar en vivo.',
+  '🎧 Live mode needs headphones. Without them, the speakers and microphone squeal.': '🎧 El modo en vivo necesita audífonos. Sin ellos, los altavoces y el micrófono chillan.',
+  // Looper Band
+  '🐢 Slow': '🐢 Lento', '🚶 Medium': '🚶 Medio', '🐇 Fast': '🐇 Rápido', '▶ Play': '▶ Reproducir', '🕺 Beat on': '🕺 Con pulso', '🕺 Beat off': '🕺 Sin pulso',
+  'Tap ⏺ on a track to record a part. It counts you in first.': 'Toca ⏺ en una pista para grabar una parte. Primero te cuenta la entrada.',
+  '🙂 Plain': '🙂 Normal', '🐿️ Chipmunk': '🐿️ Ardilla', '👹 Monster': '👹 Monstruo', '🏔️ Echo': '🏔️ Eco', '👯 Choir': '👯 Coro', '🔇 Off': '🔇 Muda', '🔊 On': '🔊 Suena', 'empty': 'vacía',
+  'Get ready… record {icon} when the count ends.': 'Prepárate… graba {icon} cuando termine la cuenta.', '🔴 Recording {icon}! Go!': '🔴 ¡Grabando {icon}! ¡Ya!',
+  'That part was very quiet. Try again closer to the tablet.': 'Esa parte sonó muy bajito. Intenta otra vez más cerca de la tableta.',
+  '{icon} is in the band! Record another part, or change its effect.': '¡{icon} ya está en la banda! Graba otra parte o cambia su efecto.',
+  // Challenges: screen
+  '◀ Free play': '◀ Juego libre', 'Say it again': 'Dilo otra vez', '💡 Hint': '💡 Pista', '⏭ Skip': '⏭ Saltar', 'Level {n} of {total} · {name}': 'Nivel {n} de {total} · {name}',
+  '🎤 Sing it': '🎤 Cantarla', '▶ Hear it': '▶ Oírla', '▶ Play mine': '▶ Oír las mías', '↩ Undo': '↩ Deshacer', '🗑️ Clear': '🗑️ Borrar', '✅ Check': '✅ Revisar',
+  '▶ Beat': '▶ Pulso', '⏹ Beat': '⏹ Pulso', 'Big drum': 'Tambor grande', 'Small drum': 'Tambor chico', '🎤 Use my voice': '🎤 Usar mi voz',
+  '🐭 Soft': '🐭 Suave', '🐻 Middle': '🐻 Medio', '🦁 Loud': '🦁 Fuerte', 'Drum': 'Tambor', '⏺ Record my voice': '⏺ Grabar mi voz', '🦆 Duck voice': '🦆 Voz de pato',
+  'Not yet. {why}': 'Todavía no. {why}', 'Not yet. {why} Next time, an easier one.': 'Todavía no. {why} La próxima será más fácil.', ' Level up: {name}!': ' ¡Subiste de nivel: {name}!',
+  '🎤 Sing! I am listening.': '🎤 ¡Canta! Te escucho.', "I couldn't hear a tune. Try 'la la la', or use the keys.": "No escuché una melodía. Intenta con 'la la la' o usa las teclas.",
+  'No microphone here. Tap the keys instead.': 'Aquí no hay micrófono. Toca las teclas.', 'Tap the keys or sing. Your notes show up here.': 'Toca las teclas o canta. Tus notas aparecen aquí.',
+  'Your notes show up here.': 'Tus notas aparecen aquí.', '{got} of {n} taps': '{got} de {n} toques', 'no sharps or flats': 'sin sostenidos ni bemoles',
+  'Your sounds show up here.': 'Tus sonidos aparecen aquí.', '🎤 Go! I am listening.': '🎤 ¡Ya! Te escucho.', "I couldn't hear you. Try again, or use the drum.": 'No te escuché. Intenta otra vez o usa el tambor.',
+  'That was {l}.': 'Eso fue {l}.', 'in the middle': 'medio', 'No microphone here. Use the drum and the 🐭 🐻 🦁 buttons.': 'Aquí no hay micrófono. Usa el tambor y los botones 🐭 🐻 🦁.',
+  'Record your voice, or use the duck voice.': 'Graba tu voz o usa la voz de pato.', 'Record your voice or tap 🦆 Duck voice first.': 'Primero graba tu voz o toca 🦆 Voz de pato.',
+  '🦆 Quack! Now pick an effect.': '🦆 ¡Cuac! Ahora elige un efecto.', "I couldn't hear you. Try again, or use the duck voice.": 'No te escuché. Intenta otra vez o usa la voz de pato.',
+  'Got it! Now pick an effect and tap ▶ Play.': '¡Listo! Ahora elige un efecto y toca ▶ Reproducir.', 'No microphone here. Tap 🦆 Duck voice instead.': 'Aquí no hay micrófono. Toca 🦆 Voz de pato.',
+  // Challenges: level names
+  'Loud and soft': 'Fuerte y suave', 'High and low': 'Agudo y grave', 'Steady beat': 'Pulso parejo', 'Echo 2 to 3 notes': 'Eco de 2 a 3 notas', 'Rhythm echo': 'Eco de ritmo',
+  'Echo 4 notes': 'Eco de 4 notas', 'Instrument families': 'Familias de instrumentos', 'Echo 5 notes': 'Eco de 5 notas', 'Read rhythms': 'Leer ritmos', 'Major scale': 'Escala mayor',
+  'Echo 6 to 8 notes': 'Eco de 6 a 8 notas', 'Scales with sharps and flats': 'Escalas con sostenidos y bemoles', 'Intervals': 'Intervalos', 'Time signatures': 'Compases',
+  'Major and minor': 'Mayor y menor', 'Chords': 'Acordes', 'Key signatures': 'Armaduras', 'Reading the staff': 'Leer el pentagrama', 'Chord progressions': 'Progresiones de acordes', 'Compose to a rule': 'Componer con una regla',
+  // Challenges: words the checks count and join
+  'note': 'nota', 'notes': 'notas', 'tap': 'toque', 'taps': 'toques', 'sound': 'sonido', 'sounds': 'sonidos', 'beat': 'tiempo', 'beats': 'tiempos', 'half step': 'semitono', 'half steps': 'semitonos',
+  'sharp': 'sostenido', 'sharps': 'sostenidos', 'flat': 'bemol', 'flats': 'bemoles', 'leap': 'salto', 'leaps': 'saltos', 'and': 'y', '{a} {b}': '{a} por {b}',
+  'up': 'arriba', 'down': 'abajo', 'higher': 'más aguda', 'lower': 'más grave', 'the lower': 'más grave', 'the higher': 'más agudo', 'major': 'mayor', 'minor': 'menor', 'Major': 'Mayor', 'Minor': 'Menor',
+  'soft': 'suave', 'middle': 'medio', 'loud': 'fuerte', 'early': 'antes', 'late': 'tarde', 'big': 'grande', 'small': 'chico', 'one bar': 'un compás', 'two bars': 'dos compases',
+  'one': 'uno', 'two': 'dos', 'three': 'tres', 'four': 'cuatro', 'five': 'cinco', 'six': 'seis', '4 then 3': '4 y luego 3', '3 then 4': '3 y luego 4',
+  'ta': 'ta', 'ti-ti': 'ti-ti', 'shh': 'sh', 'ta-a': 'ta-a', 'tika-tika': 'tiri-tiri',
+  'a major 2nd': 'una segunda mayor', 'a minor 3rd': 'una tercera menor', 'a major 3rd': 'una tercera mayor', 'a perfect 4th': 'una cuarta justa', 'a perfect 5th': 'una quinta justa', 'a major 6th': 'una sexta mayor', 'an octave': 'una octava',
+  // Challenges: checks
+  'The first note is different. Listen to the start again.': 'La primera nota es diferente. Escucha el inicio otra vez.',
+  'The first {k} match. Note {n} of {total} is different.': 'Bien hasta la nota {kk}. La nota {n} de {total} es diferente.',
+  'Close! Listen again, then sing it once more.': '¡Casi! Escucha otra vez y luego cántala de nuevo.', 'I count {n}. This one has {total}.': 'Cuento {n}. Esta tiene {total}.',
+  'Close! Sing it once more, one step at a time.': '¡Casi! Cántala de nuevo, paso a paso.', 'I count {n}. Play {total}, one for each chord.': 'Cuento {n}. Toca {total}, una por cada acorde.',
+  'Close! Sing each root once more.': '¡Casi! Canta cada fundamental de nuevo.', 'Note {n} should be {note}.': 'La nota {n} debe ser {note}.',
+  'A chord here needs three notes. Play all three.': 'Un acorde aquí necesita tres notas. Toca las tres.', 'Sing the root first, then the third and the fifth.': 'Canta primero la fundamental, luego la tercera y la quinta.',
+  'Your last three notes are {got}. {more}': 'Tus últimas tres notas son {got}. {more}', 'This chord also needs {miss}.': 'Este acorde también necesita {miss}.', 'Play each note once.': 'Toca cada nota una vez.',
+  'I count {n}. Play three notes for each chord, {total} in all.': 'Cuento {n}. Toca tres notas por cada acorde, {total} en total.', 'Chord {n} should be {notes}.': 'El acorde {n} debe ser {notes}.',
+  'Play two notes, one after the other.': 'Toca dos notas, una después de la otra.', 'Start on {note}.': 'Empieza en {note}.',
+  'Those two notes are {d} {dir}. This one is {s} {sdir}.': 'Esas dos notas están a {d} hacia {dir}. Esta es de {s} hacia {sdir}.',
+  // Rung 0: loud and soft
+  'Make a loud sound, big like a lion.': 'Haz un sonido fuerte, grande como un león.', 'Make a big, loud sound.': 'Haz un sonido grande y fuerte.', 'Be loud like a lion. Make one loud sound.': 'Sé fuerte como un león. Haz un sonido fuerte.',
+  'Make a soft sound, quiet like a mouse.': 'Haz un sonido suave, bajito como un ratón.', 'Make a tiny, soft sound.': 'Haz un sonido pequeñito y suave.', 'Be a little mouse. Make one soft sound.': 'Sé un ratoncito. Haz un sonido suave.',
+  'Make a soft sound. Then make a loud sound.': 'Haz un sonido suave. Luego haz un sonido fuerte.', 'First soft like a mouse, then loud like a lion.': 'Primero suave como un ratón, luego fuerte como un león.',
+  'Make a loud sound. Then make a soft one.': 'Haz un sonido fuerte. Luego haz uno suave.', 'First loud like a lion, then soft like a mouse.': 'Primero fuerte como un león, luego suave como un ratón.',
+  'Two soft sounds, then one loud sound.': 'Dos sonidos suaves, luego un sonido fuerte.', 'Two loud sounds, then one soft sound.': 'Dos sonidos fuertes, luego un sonido suave.',
+  'Soft, then middle, then loud. Get bigger each time.': 'Suave, luego medio, luego fuerte. Más grande cada vez.', 'Loud, then middle, then soft. Get smaller each time.': 'Fuerte, luego medio, luego suave. Más pequeño cada vez.',
+  'Sing or shout into the tablet, or tap 🐭 Soft, 🐻 Middle or 🦁 Loud and then tap the drum.': 'Canta o grita hacia la tableta, o toca 🐭 Suave, 🐻 Medio o 🦁 Fuerte y luego toca el tambor.',
+  'You heard the difference!': '¡Oíste la diferencia!', 'Loud and soft. You did it!': 'Fuerte y suave. ¡Lo lograste!', 'Make {n}.': 'Haz {n}.', 'Sound {k} was {got}. It needs to be {want}.': 'El sonido {k} fue {got}. Debe ser {want}.',
+  // Rung 1: high and low
+  'Make your voice go high, like a tiny squirrel.': 'Haz que tu voz suene aguda, como una ardillita.', 'Make a high, squeaky voice.': 'Haz una voz aguda y chillona.', 'Turn your voice into a high little chipmunk.': 'Convierte tu voz en una ardillita aguda.',
+  'Make a deep, low monster voice.': 'Haz una voz grave de monstruo.', 'Make your voice go low, like a big bear.': 'Haz que tu voz suene grave, como un oso grande.', 'Turn your voice into a low, rumbly monster.': 'Convierte tu voz en un monstruo grave y retumbante.',
+  'The squirrel 🐿️ makes voices high.': 'La ardilla 🐿️ hace las voces agudas.', 'The monster 👹 makes voices low.': 'El monstruo 👹 hace las voces graves.',
+  '{who} Record your voice or tap 🦆 Duck voice, then tap it and ▶ Play.': '{who} Graba tu voz o toca 🦆 Voz de pato, luego tócalo y ▶ Reproducir.', 'Squeaky and high!': '¡Chillona y aguda!', 'Deep and low!': '¡Profunda y grave!',
+  'Play a low note. Then play a high note.': 'Toca una nota grave. Luego toca una nota aguda.', 'Go up! A low note, then a high note.': '¡Sube! Una nota grave, luego una aguda.', 'Low first, then high.': 'Primero grave, luego aguda.',
+  'Play a high note. Then play a low note.': 'Toca una nota aguda. Luego toca una nota grave.', 'Go down! A high note, then a low note.': '¡Baja! Una nota aguda, luego una grave.', 'High first, then low.': 'Primero aguda, luego grave.',
+  'Climb up the stairs. Play three notes, each one higher.': 'Sube la escalera. Toca tres notas, cada una más aguda.', 'Three notes going up, up, up.': 'Tres notas que suben, suben, suben.',
+  'Walk down the stairs. Play three notes, each one lower.': 'Baja la escalera. Toca tres notas, cada una más grave.', 'Three notes going down, down, down.': 'Tres notas que bajan, bajan, bajan.',
+  'Low notes are on the left of the keys. High notes are on the right. You can sing it too.': 'Las notas graves están a la izquierda de las teclas. Las agudas, a la derecha. También puedes cantarlo.',
+  'Up you went!': '¡Subiste!', 'Down you came!': '¡Bajaste!', 'Play {n}.': 'Toca {n}.', 'Each note needs to be higher. Go to the right.': 'Cada nota debe ser más aguda. Ve hacia la derecha.',
+  'Each note needs to be lower. Go to the left.': 'Cada nota debe ser más grave. Ve hacia la izquierda.', 'Make a sound first, then tap ▶ Play.': 'Primero haz un sonido, luego toca ▶ Reproducir.',
+  'That was {fx}. Try another effect.': 'Eso fue {fx}. Prueba otro efecto.',
+  // Rung 2: steady beat
+  'No clicks this time. Tap the drum eight times, steady like a clock.': 'Esta vez sin clics. Toca el tambor ocho veces, parejo como un reloj.', 'Be the clock. Tap the drum eight times, nice and even.': 'Sé el reloj. Toca el tambor ocho veces, bien parejo.',
+  'Keep your own beat. Eight even taps on the drum.': 'Lleva tu propio pulso. Ocho toques parejos en el tambor.', 'Tap, tap, tap, the same gap each time. Count out loud: 1, 2, 3, 4.': 'Toca, toca, toca, con la misma pausa cada vez. Cuenta en voz alta: 1, 2, 3, 4.',
+  'Steady as a clock!': '¡Parejo como un reloj!', 'Pick {speed}. Tap ▶ Beat, then tap the drum eight times with the beat.': 'Elige {speed}. Toca ▶ Pulso, luego toca el tambor ocho veces con el pulso.',
+  'First tap {speed} at the top. Then ▶ Beat. Tap the drum each time you hear a click.': 'Primero toca {speed} arriba. Luego ▶ Pulso. Toca el tambor cada vez que oigas un clic.', 'You kept the beat!': '¡Seguiste el pulso!',
+  'Tap ▶ Beat. Then tap the drum with the beat, eight times.': 'Toca ▶ Pulso. Luego toca el tambor con el pulso, ocho veces.', 'Listen to the beat. Tap the drum with it, eight times.': 'Escucha el pulso. Toca el tambor con él, ocho veces.',
+  'Play along! Tap the drum on every click, eight times.': '¡Acompaña! Toca el tambor en cada clic, ocho veces.', 'Tap ▶ Beat to hear the clicks. Tap the drum each time you hear a click.': 'Toca ▶ Pulso para oír los clics. Toca el tambor cada vez que oigas un clic.',
+  'Pick {speed} first.': 'Primero elige {speed}.', 'I count {n}. Tap {total} times.': 'Cuento {n}. Toca {total} veces.', 'A little faster. Tap right on each click.': 'Un poco más rápido. Toca justo en cada clic.',
+  'A little slower. Wait for each click.': 'Un poco más lento. Espera cada clic.', 'A little slower, like a clock.': 'Un poco más lento, como un reloj.', 'A little faster, like a clock.': 'Un poco más rápido, como un reloj.',
+  'Keep the gaps the same. Steady like a clock.': 'Mantén las pausas iguales. Parejo como un reloj.',
+  // Echo rungs
+  'Listen to the {n} notes. Play them back.': 'Escucha las {n} notas. Tócalas de vuelta.', 'Hear the tune. Copy its {n} notes.': 'Oye la melodía. Copia sus {n} notas.', 'Echo me! {n} notes, then your turn.': '¡Hazme eco! {n} notas, luego tu turno.',
+  'Here are {n} notes. Play them back on the keys or sing them.': 'Aquí hay {n} notas. Tócalas en las teclas o cántalas.', 'Tap ▶ Hear it again. The colors match the keys.': 'Toca ▶ Oírla otra vez. Los colores coinciden con las teclas.',
+  'Tap ▶ Hear it again. The gray blocks show when the tune goes up or down.': 'Toca ▶ Oírla otra vez. Los bloques grises muestran cuándo la melodía sube o baja.',
+  'A perfect echo!': '¡Un eco perfecto!', 'You matched it!': '¡La imitaste!', 'Great listening!': '¡Qué buen oído!',
+  // Rhythm rungs
+  'I count {n}. This rhythm has {total}.': 'Cuento {n}. Este ritmo tiene {total}.', 'Tap it at an easy, steady speed.': 'Tócalo a una velocidad cómoda y pareja.',
+  'Tap {n} came a little {when}. Listen again and try once more.': 'El toque {n} llegó un poco {when}. Escucha otra vez e inténtalo de nuevo.',
+  'Read the rhythm. Tap it on the drum.': 'Lee el ritmo. Tócalo en el tambor.', 'Play this rhythm on the drum.': 'Toca este ritmo en el tambor.', 'Clap it in your head first. Then tap this rhythm.': 'Primero aplaúdelo en tu cabeza. Luego toca este ritmo.',
+  'Listen to the rhythm. Tap it back on the drum.': 'Escucha el ritmo. Tócalo de vuelta en el tambor.', 'Hear it, then tap it: {words}.': 'Óyelo y luego tócalo: {words}.', 'Echo the rhythm on the drum.': 'Haz eco del ritmo en el tambor.',
+  'A quarter note is one beat. Two beamed eighths share a beat. Four sixteenths share a beat. A half note lasts two beats. Here it is.': 'Una negra dura un tiempo. Dos corcheas unidas comparten un tiempo. Cuatro semicorcheas comparten un tiempo. Una blanca dura dos tiempos. Aquí está.',
+  'Say the words as you tap: {words}. On shh, wait.': 'Di las palabras mientras tocas: {words}. En sh, espera.', 'Right in the rhythm!': '¡Justo en el ritmo!', 'You read that rhythm!': '¡Leíste ese ritmo!', 'Tap perfect!': '¡Toques perfectos!',
+  // Rung 6: instrument families
+  'Pick an instrument from the string family. Play three notes on it.': 'Elige un instrumento de la familia de cuerdas. Toca tres notas con él.', 'Pick the instrument you play by plucking strings. Play three notes.': 'Elige el instrumento que se toca al pulsar cuerdas. Toca tres notas.',
+  'The guitar is in the string family.': 'La guitarra es de la familia de cuerdas.', 'Pick a woodwind. You blow air into it. Play three notes on it.': 'Elige un instrumento de viento madera. Le soplas aire. Toca tres notas con él.',
+  'Pick the instrument from the woodwind family. Play three notes.': 'Elige el instrumento de la familia de viento madera. Toca tres notas.', 'The flute is a woodwind.': 'La flauta es de viento madera.',
+  'Pick an instrument you strike to make it ring. Play three notes.': 'Elige un instrumento que golpeas para que suene. Toca tres notas.', 'Pick the percussion instrument that rings. Play three notes on it.': 'Elige el instrumento de percusión que repica. Toca tres notas con él.',
+  'Bells are percussion. You strike them.': 'Las campanas son de percusión. Se golpean.', 'Pick the keyboard instrument with hammers inside. Play three notes.': 'Elige el instrumento de teclado con martillos adentro. Toca tres notas.',
+  'Pick the instrument from the keyboard family. Play three notes on it.': 'Elige el instrumento de la familia de teclados. Toca tres notas con él.', 'The piano is a keyboard instrument.': 'El piano es un instrumento de teclado.',
+  'Pick the electronic instrument. Play three notes on it.': 'Elige el instrumento electrónico. Toca tres notas con él.', 'Pick the instrument made by a computer. Play three notes.': 'Elige el instrumento hecho por una computadora. Toca tres notas.',
+  'The robot sound is electronic.': 'El sonido de robot es electrónico.', 'A choir is many voices singing together. Turn your voice into a choir.': 'Un coro es muchas voces cantando juntas. Convierte tu voz en un coro.',
+  'Voices are a family too. Make a whole choir of voices.': 'Las voces también son una familia. Haz un coro entero de voces.', 'A choir is the voice family.': 'Un coro es la familia de las voces.',
+  'Look for the two singers 👯. Record your voice or tap 🦆 Duck voice, then ▶ Play.': 'Busca a las dos cantantes 👯. Graba tu voz o toca 🦆 Voz de pato, luego ▶ Reproducir.',
+  'The instruments are the buttons above the keys. Tap one, then play three notes.': 'Los instrumentos son los botones arriba de las teclas. Toca uno y luego toca tres notas.',
+  'Play three notes.': 'Toca tres notas.', 'Those notes were on the {inst}. Pick another instrument.': 'Esas notas sonaron en {inst}. Elige otro instrumento.',
+  // Scales
+  'Play do re mi fa so in {k} major, going up.': 'Toca do re mi fa sol en {k} mayor, subiendo.', 'Play so fa mi re do in {k} major, going down.': 'Toca sol fa mi re do en {k} mayor, bajando.',
+  'Play the {k} major scale going {dir}.': 'Toca la escala de {k} mayor hacia {dir}.', 'Play {k} major, all eight notes, going {dir}.': 'Toca {k} mayor, las ocho notas, hacia {dir}.',
+  'Play the {k} major scale, {dir} from {which} {k}.': 'Toca la escala de {k} mayor, hacia {dir}, desde el {k} {which}.', ' It has {sig}.': ' Tiene {sig}.',
+  'The notes are {notes}. Sing it as {solfa}.': 'Las notas son {notes}. Cántala nota por nota.', 'A whole scale!': '¡Una escala completa!', 'Step by step. Lovely!': 'Paso a paso. ¡Precioso!', 'That is the major scale!': '¡Esa es la escala mayor!',
+  // Rung 12: intervals
+  'Play any two notes {iname} apart, the {which} one first.': 'Toca dos notas cualesquiera a {iname} de distancia, primero la {which}.', 'Play {note}. Then play the note {iname} {dir}.': 'Toca {note}. Luego toca la nota {iname} {dir}.',
+  'Start on {note}. Go {dir} {iname}.': 'Empieza en {note}. Ve {iname} hacia {dir}.', '{Iname} is {n}. Each key, black or white, is one half step from the next.': '{Iname} son {n}. Cada tecla, negra o blanca, está a un semitono de la siguiente.',
+  'That is {iname}!': '¡Eso es {iname}!',
+  // Rung 13: time signatures
+  'Play one bar of 6/8. Big drum on beats 1 and 4, small drum on the others.': 'Toca un compás de 6/8. Tambor grande en los tiempos 1 y 4, tambor chico en los demás.',
+  'Play {bars} of {sig}. Big drum on beat 1, small drum on the other beats.': 'Toca {bars} de {sig}. Tambor grande en el tiempo 1, tambor chico en los otros tiempos.',
+  'Play {bars} of {sig}. Put the strong beat on the big drum.': 'Toca {bars} de {sig}. Pon el tiempo fuerte en el tambor grande.', 'Tap {bars} in {sig} time. Strong beats on the big drum.': 'Toca {bars} de {sig}. Los tiempos fuertes van en el tambor grande.',
+  '{sig} has {what}. Count {count} as you tap.': '{sig} tiene {what}. Cuenta {count} mientras tocas.', 'six eighth note beats, strong on 1 and 4': 'seis tiempos de corchea, fuertes en 1 y 4', '{n} in a bar, strong on 1': '{n} por compás, fuerte en 1',
+  'That is {sig}!': '¡Eso es {sig}!', 'I count {n}. Tap {total} beats.': 'Cuento {n}. Toca {total} tiempos.', 'Beat {n} needs the {drum} drum.': 'El tiempo {n} necesita el tambor {drum}.',
+  'Keep the beats evenly spaced, like a clock.': 'Mantén los tiempos parejos, como un reloj.',
+  // Rungs 14 and 15: major and minor, chords
+  'Play {a} {cn} chord. Start on {root}.': 'Toca un acorde de {cn}. Empieza en {root}.', 'Build the {cn} chord, three notes.': 'Construye el acorde de {cn}, tres notas.', 'Play the three notes of {cn}.': 'Toca las tres notas de {cn}.',
+  '{Q}: from {root}, go up {steps} half steps. The notes are {notes}.': '{Q}: desde {root}, sube {steps} semitonos. Las notas son {notes}.', '{cn}! {mood}': '¡{cn}! {mood}', 'Bright and happy.': 'Brillante y alegre.', 'Darker and sadder.': 'Más oscuro y triste.',
+  '{root} major is {notes}. Make it minor: play {root} minor.': '{root} mayor es {notes}. Hazlo menor: toca {root} menor.', 'Lower the middle note, {mid}, by one half step.': 'Baja la nota del medio, {mid}, un semitono.',
+  'One half step changed it to {root} minor!': '¡Un semitono lo cambió a {root} menor!', 'Play the {k} natural minor scale going {dir}.': 'Toca la escala de {k} menor natural hacia {dir}.',
+  'The notes are {notes}. Minor has a half step between notes 2 and 3.': 'Las notas son {notes}. La escala menor tiene un semitono entre las notas 2 y 3.', 'That is the minor scale. Hear how dark it sounds?': 'Esa es la escala menor. ¿Oyes qué oscura suena?',
+  '{Q} chord: root, up {a} half steps, then up {b} more.': 'Acorde {q}: fundamental, sube {a} semitonos, luego sube {b} más.',
+  // Rung 16: key signatures
+  'This key signature has {many}. Play its major scale going up.': 'Esta armadura tiene {many}. Toca su escala mayor hacia arriba.', 'With {many}, the key is {k} major. The notes are {notes}.': 'Con {many}, la tonalidad es {k} mayor. Las notas son {notes}.',
+  '{k} major!': '¡{k} mayor!', 'This key signature has {many}. Play the tonic, the home note of its major key.': 'Esta armadura tiene {many}. Toca la tónica, la nota de casa de su tonalidad mayor.',
+  'The last sharp is {s}. The tonic is one half step above it.': 'El último sostenido es {s}. La tónica está un semitono arriba.', 'The second to last flat is the tonic: {f}.': 'El penúltimo bemol es la tónica: {f}.',
+  'One flat is the key of F.': 'Un bemol es la tonalidad de fa.', '{k} is home in this key!': '¡{k} es la casa en esta tonalidad!', 'Play one note.': 'Toca una nota.',
+  'That is {note}. Look at the {acc} again.': 'Eso es {note}. Mira los {acc} otra vez.', 'Play the {acc} in this key signature, in order from left to right.': 'Toca los {acc} de esta armadura, en orden de izquierda a derecha.',
+  'They are {notes}.': 'Son {notes}.', 'That is the {acc1} of {k} major.': 'Ese es el {acc1} de {k} mayor.', 'Those are the {many} of {k} major.': 'Esos son los {many} de {k} mayor.',
+  // Rung 17: the staff
+  'Read the notes on the staff. Play them from left to right.': 'Lee las notas en el pentagrama. Tócalas de izquierda a derecha.', 'Play the notes you see on the staff.': 'Toca las notas que ves en el pentagrama.',
+  'Read this melody and play it on the keys.': 'Lee esta melodía y tócala en las teclas.', 'Lines from the bottom: E G B D F. Spaces: F A C E. The first note is {n}.': 'Líneas desde abajo: mi sol si re fa. Espacios: fa la do mi. La primera nota es {n}.',
+  'You read the staff!': '¡Leíste el pentagrama!', 'Fluent reading!': '¡Lectura fluida!',
+  // Rung 18: progressions
+  'In {k} major, play the root of each chord: {rn}.': 'En {k} mayor, toca la fundamental de cada acorde: {rn}.', 'The roots are scale notes {degs}: {notes}.': 'Las fundamentales son las notas {degs} de la escala: {notes}.',
+  'That is the bass line of {rn}!': '¡Esa es la línea de bajo de {rn}!', 'Play the {r} chord in {k} major.': 'Toca el acorde {r} en {k} mayor.',
+  '{r} is built on note {d} of the scale, {root}: {notes}.': '{r} se construye sobre la nota {d} de la escala, {root}: {notes}.', '{r} in {k} is {root} {q}!': '¡{r} en {k} es {root} {q}!',
+  'Play the chords {r3} in {k} major, three notes each.': 'Toca los acordes {r3} en {k} mayor, tres notas cada uno.', '{r3}. A real progression!': '{r3}. ¡Una progresión de verdad!',
+  // Rung 19: compose
+  'use {a} to {b} notes': 'usa de {a} a {b} notas', 'start and end on {k}': 'empieza y termina en {k}', 'move by step except for exactly one leap': 'muévete por grados, excepto por un solo salto',
+  'move mostly by step': 'muévete casi siempre por grados', 'reach your highest note only once': 'llega a tu nota más alta solo una vez', 'Compose a tune in {kn}. {rules}.': 'Compón una melodía en {kn}. {rules}.', ' Remember {sig}.': ' Recuerda {sig}.',
+  'Your tune has {n}. Use {a} to {b}. Tap 🗑️ Clear to start fresh.': 'Tu melodía tiene {n}. Usa de {a} a {b}. Toca 🗑️ Borrar para empezar de nuevo.', '{note} is not in {kn}.': '{note} no está en {kn}.',
+  'Start on {k}.': 'Empieza en {k}.', 'End on {k}, the home note.': 'Termina en {k}, la nota de casa.', 'Move to a new note each time. No repeats in a row.': 'Cambia de nota cada vez. Sin repetir seguidas.',
+  'I found {n}. Use exactly one leap, a jump bigger than a step.': 'Encontré {n}. Usa exactamente un salto, un brinco más grande que un grado.', 'Too many leaps. Move mostly by step.': 'Demasiados saltos. Muévete casi siempre por grados.',
+  'Your highest note shows up twice. Reach it only once.': 'Tu nota más alta aparece dos veces. Llega a ella solo una vez.',
+  'Rules: {rules}. A step is the next note of the scale. Notes in {kn}: {notes}.': 'Reglas: {rules}. Un grado es la siguiente nota de la escala. Notas en {kn}: {notes}.',
+  'Your own tune, and it follows every rule! Listen.': '¡Tu propia melodía, y sigue todas las reglas! Escucha.',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+window.DucklingLang = { keys: () => Object.keys(ES), missing: () => [...USED].filter(k => ES[k] == null), allow: [] };
+// Note names for the child: letters in English, do re mi in Spanish ('F♯' becomes 'fa♯'). The code keeps the letters.
+const LETTER_ES = { C: 'do', D: 're', E: 'mi', F: 'fa', G: 'sol', A: 'la', B: 'si' };
+const nn = s => LANG === 'es' ? String(s).replace(/^[A-G]/, l => LETTER_ES[l]) : s;
+// Markup written in HTML, translated once: every text node with letters inside the screens.
+document.documentElement.lang = LANG;
+document.title = T('Voice Band');
+if (LANG === 'es') {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const n of nodes) { const p = n.parentNode; if (!p || p.closest('script, style')) continue; const s = n.nodeValue.trim(); if (/\p{L}/u.test(s)) n.nodeValue = T(s); }
+  $('chSay').setAttribute('aria-label', T('Say it again'));
+}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let micStream = null;
 async function openMic(clean) {
@@ -542,7 +757,7 @@ const midiOf = f => 69 + 12 * Math.log2(f / 440);
 const freqOf = m => 440 * Math.pow(2, (m - 69) / 12);
 const NOTE = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'];
 const COLORS = ['#FF4F8B', '#FF7A59', '#FF9F1C', '#FFC93C', '#B8D93C', '#5CD38B', '#2EC4B6', '#58C7F0', '#4D8DF7', '#7B6CF6', '#9B6BFF', '#E05BD9'];
-const noteName = m => NOTE[((Math.round(m) % 12) + 12) % 12];
+const noteName = m => nn(NOTE[((Math.round(m) % 12) + 12) % 12]);
 
 // Pitch track of a recording: one value (MIDI number or null) per hop.
 function pitchTrack(data, rate, hop = 1024, size = 2048) {
@@ -676,7 +891,7 @@ function drawRoll(notes, target) {
   const c = $('roll'), dpr = devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight; c.width = W * dpr; c.height = H * dpr;
   const g = c.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, W, H);
   const all = [...(notes || []), ...(target || [])];
-  if (!all.length) { g.fillStyle = '#b9adcc'; g.font = '800 26px Segoe UI'; g.textAlign = 'center'; g.fillText('Your notes will show up here', W / 2, H / 2); return; }
+  if (!all.length) { g.fillStyle = '#b9adcc'; g.font = '800 26px Segoe UI'; g.textAlign = 'center'; g.fillText(T('Your notes will show up here'), W / 2, H / 2); return; }
   const lo = Math.min(...all.map(n => n.midi)) - 2, hi = Math.max(...all.map(n => n.midi)) + 2, rowH = (H - 20) / (hi - lo + 1);
   const end = Math.max(...all.map(n => n.end)), x = t => 14 + t / end * (W - 28);
   for (let m = lo; m <= hi; m++) { g.fillStyle = m % 12 === 0 ? '#f1ebf8' : (m % 2 ? '#fff' : '#fbf8fe'); g.fillRect(0, 10 + (hi - m) * rowH, W, rowH); }
@@ -699,24 +914,24 @@ function playNotes(notes, instrument, harmony) {
 }
 async function singFree() {
   if (singBusy) { if (recordVoice.stop) recordVoice.stop(); return; }
-  singBusy = true; $('singRec').classList.add('rec'); $('singRec').textContent = '⏹ Stop'; $('singMsg').textContent = '🎤 Sing! I am listening…';
+  singBusy = true; $('singRec').classList.add('rec'); $('singRec').textContent = T('⏹ Stop'); $('singMsg').textContent = T('🎤 Sing! I am listening…');
   try {
     const rec = await recordVoice({ clean: true, maxSec: 15, silenceSec: 1.4, onLevel: (r, d, rate) => setBall(r > .02 ? (f => f ? midiOf(f) : null)(yin(d, rate)) : null) });
     setBall(null); const data = trim(rec.data, rec.rate);
-    if (!data) { $('singMsg').textContent = "I couldn't hear you. Try singing a little louder."; return; }
+    if (!data) { $('singMsg').textContent = T("I couldn't hear you. Try singing a little louder."); return; }
     sung = { data, rate: rec.rate }; const { track, hopSec } = pitchTrack(data, rec.rate); sungNotes = segmentNotes(track, hopSec);
-    if (!sungNotes.length) { $('singMsg').textContent = "I heard you, but not a tune. Try humming 'la la la'."; drawRoll([]); return; }
-    $('singMsg').textContent = `You sang ${sungNotes.length} note${sungNotes.length > 1 ? 's' : ''}: ${sungNotes.map(n => noteName(n.midi)).join(' ')}`;
+    if (!sungNotes.length) { $('singMsg').textContent = T("I heard you, but not a tune. Try humming 'la la la'."); drawRoll([]); return; }
+    $('singMsg').textContent = T('You sang {n}: {notes}', { n: plural(sungNotes.length, 'note'), notes: sungNotes.map(n => noteName(n.midi)).join(' ') });
     drawRoll(sungNotes); playNotes(sungNotes, inst);
-  } catch (e) { $('singMsg').textContent = 'No microphone found.'; }
-  finally { singBusy = false; $('singRec').classList.remove('rec'); $('singRec').textContent = copyMode ? '🎤 My turn!' : '🎤 Sing!'; setBall(null); }
+  } catch (e) { $('singMsg').textContent = T('No microphone found.'); }
+  finally { singBusy = false; $('singRec').classList.remove('rec'); $('singRec').textContent = copyMode ? T('🎤 My turn!') : T('🎤 Sing!'); setBall(null); }
 }
 // Copy me: a short tune from the pentatonic scale, one note longer each level.
 function newCopyTune() {
   const pent = [60, 62, 64, 67, 69, 72], len = Math.min(8, copyLevel + 2), span = copyLevel < 3 ? 4 : 6; const tune = []; let i = Math.floor(Math.random() * 3);
   for (let k = 0; k < len; k++) { tune.push(pent[i]); i = Math.max(0, Math.min(span - 1, i + [-1, 1, -2, 2, 0][Math.floor(Math.random() * (copyLevel < 3 ? 2 : 5))])); }
   copyTune = tune.map((m, k) => ({ midi: m, start: k * .5, end: k * .5 + .45 }));
-  drawRoll([], copyTune); $('copyStars').textContent = `Level ${copyLevel} · ${len} notes`;
+  drawRoll([], copyTune); $('copyStars').textContent = T('Level {n} · {len} notes', { n: copyLevel, len });
 }
 // Compares by the shape of the tune (each step up or down), so it works in her own key.
 function scoreCopy(target, sungN) {
@@ -728,7 +943,7 @@ function scoreCopy(target, sungN) {
 async function copyTurn() {
   if (!copyTune) newCopyTune();
   if (singBusy) { if (recordVoice.stop) recordVoice.stop(); return; }
-  singBusy = true; $('singRec').classList.add('rec'); $('singRec').textContent = '⏹ Done'; $('singMsg').textContent = '🎤 Your turn! Sing it back.';
+  singBusy = true; $('singRec').classList.add('rec'); $('singRec').textContent = T('⏹ Done'); $('singMsg').textContent = T('🎤 Your turn! Sing it back.');
   try {
     const rec = await recordVoice({ clean: true, maxSec: 12, silenceSec: 1.2, onLevel: (r, d, rate) => setBall(r > .02 ? (f => f ? midiOf(f) : null)(yin(d, rate)) : null) });
     setBall(null); const data = trim(rec.data, rec.rate);
@@ -736,20 +951,20 @@ async function copyTurn() {
     const ok = scoreCopy(copyTune, notes), need = copyTune.length <= 3 ? copyTune.length : copyTune.length - 1;
     const shift = notes.length ? Math.round(notes[0].midi - copyTune[0].midi) : 0;
     drawRoll(notes.map(n => ({ ...n, midi: n.midi - shift, start: n.start * (copyTune[copyTune.length - 1].end / Math.max(.5, notes[notes.length - 1].end)), end: n.end * (copyTune[copyTune.length - 1].end / Math.max(.5, notes[notes.length - 1].end)) })), copyTune);
-    if (ok >= need) { copyLevel++; try { localStorage.setItem('voiceband-copy', copyLevel); } catch (e) {} $('singMsg').textContent = `⭐ ${ok} of ${copyTune.length} notes! Next tune is longer.`; say('Wonderful! You matched it.'); copyTune = null; setTimeout(() => { newCopyTune(); }, 2200); }
-    else { $('singMsg').textContent = notes.length ? `${ok} of ${copyTune.length} notes matched. Listen again and try once more.` : "I couldn't hear a tune. Try 'la la la'."; say(notes.length ? 'Close! Listen again and try once more.' : 'Try singing la la la.'); }
-  } catch (e) { $('singMsg').textContent = 'No microphone found.'; }
-  finally { singBusy = false; $('singRec').classList.remove('rec'); $('singRec').textContent = '🎤 My turn!'; }
+    if (ok >= need) { copyLevel++; try { localStorage.setItem('voiceband-copy', copyLevel); } catch (e) {} $('singMsg').textContent = T('⭐ {ok} of {total} notes! Next tune is longer.', { ok, total: copyTune.length }); say(T('Wonderful! You matched it.')); copyTune = null; setTimeout(() => { newCopyTune(); }, 2200); }
+    else { $('singMsg').textContent = notes.length ? T('{ok} of {total} notes matched. Listen again and try once more.', { ok, total: copyTune.length }) : T("I couldn't hear a tune. Try 'la la la'."); say(notes.length ? T('Close! Listen again and try once more.') : T('Try singing la la la.')); }
+  } catch (e) { $('singMsg').textContent = T('No microphone found.'); }
+  finally { singBusy = false; $('singRec').classList.remove('rec'); $('singRec').textContent = T('🎤 My turn!'); }
 }
 $('singRec').onclick = () => (copyMode ? copyTurn() : singFree());
 $('copyPlay').onclick = () => { if (!copyTune) newCopyTune(); playNotes(copyTune, 'flute'); };
-$('tabFree').onclick = () => { copyMode = false; $('tabFree').classList.add('on'); $('tabCopy').classList.remove('on'); $('copyPlay').style.display = 'none'; $('copyStars').style.display = 'none'; $('singRow3').style.display = ''; $('singRec').textContent = '🎤 Sing!'; $('singMsg').textContent = 'Tap the button and sing or hum a little tune.'; drawRoll(sungNotes); };
-$('tabCopy').onclick = () => { copyMode = true; $('tabCopy').classList.add('on'); $('tabFree').classList.remove('on'); $('copyPlay').style.display = ''; $('copyStars').style.display = ''; $('singRow3').style.display = 'none'; $('singRec').textContent = '🎤 My turn!'; newCopyTune(); $('singMsg').textContent = 'Listen to the tune, then sing it back.'; setTimeout(() => playNotes(copyTune, 'flute'), 300); };
+$('tabFree').onclick = () => { copyMode = false; $('tabFree').classList.add('on'); $('tabCopy').classList.remove('on'); $('copyPlay').style.display = 'none'; $('copyStars').style.display = 'none'; $('singRow3').style.display = ''; $('singRec').textContent = T('🎤 Sing!'); $('singMsg').textContent = T('Tap the button and sing or hum a little tune.'); drawRoll(sungNotes); };
+$('tabCopy').onclick = () => { copyMode = true; $('tabCopy').classList.add('on'); $('tabFree').classList.remove('on'); $('copyPlay').style.display = ''; $('copyStars').style.display = ''; $('singRow3').style.display = 'none'; $('singRec').textContent = T('🎤 My turn!'); newCopyTune(); $('singMsg').textContent = T('Listen to the tune, then sing it back.'); setTimeout(() => playNotes(copyTune, 'flute'), 300); };
 document.querySelectorAll('.inst[data-inst]').forEach(b => b.onclick = () => { inst = b.dataset.inst; document.querySelectorAll('.inst[data-inst]').forEach(x => x.classList.toggle('on', x === b)); if (copyMode && copyTune) playNotes(copyTune, inst); else if (sungNotes.length) playNotes(sungNotes, inst); else tone(inst, 523.25, audio().currentTime + .02, .5); });
 $('playNotes').onclick = () => sungNotes.length && playNotes(sungNotes, inst);
 $('playHarm').onclick = () => sungNotes.length && playNotes(sungNotes, inst, true);
 $('playMe').onclick = () => sung && playBuffer(sung.data, sung.rate);
-$('playTuned').onclick = async () => { if (!sung) return; $('singMsg').textContent = 'Tuning your voice…'; await sleep(30); if (!sung.tuned) sung.tuned = normalize(autotune(sung.data, sung.rate)); playBuffer(sung.tuned, sung.rate); $('singMsg').textContent = 'Your voice, snapped to the notes.'; };
+$('playTuned').onclick = async () => { if (!sung) return; $('singMsg').textContent = T('Tuning your voice…'); await sleep(30); if (!sung.tuned) sung.tuned = normalize(autotune(sung.data, sung.rate)); playBuffer(sung.tuned, sung.rate); $('singMsg').textContent = T('Your voice, snapped to the notes.'); };
 addEventListener('resize', () => { if ($('sing').classList.contains('on')) { drawLadder(); drawRoll(copyMode ? [] : sungNotes, copyMode ? copyTune : null); } });
 
 // ---------------------------------------------------------------------------
@@ -758,33 +973,33 @@ addEventListener('resize', () => { if ($('sing').classList.contains('on')) { dra
 let fxName = 'robot', fxMode = 'rec', lastRec = null, fxBusy = false, liveNode = null, liveSrc = null, liveOut = null;
 function buildFxGrid() {
   const g = $('fxGrid'); g.innerHTML = '';
-  for (const [k, f] of Object.entries(FX)) { const b = document.createElement('button'); b.className = 'fx' + (k === fxName ? ' on' : '') + (fxMode === 'live' && !f.live ? ' dim' : ''); b.innerHTML = `<span class="e">${f.e}</span>${f.name}`;
+  for (const [k, f] of Object.entries(FX)) { const b = document.createElement('button'); b.className = 'fx' + (k === fxName ? ' on' : '') + (fxMode === 'live' && !f.live ? ' dim' : ''); b.innerHTML = `<span class="e">${f.e}</span>${T(f.name)}`;
     b.onclick = () => { if (fxMode === 'live' && !f.live) return; fxName = k; buildFxGrid(); if (fxMode === 'rec' && lastRec && !fxBusy) playFx(); }; g.appendChild(b); }
 }
-async function playFx() { if (!lastRec) return; $('fxMsg').textContent = `${FX[fxName].e} ${FX[fxName].name}!`; await sleep(20); const out = applyFx(fxName, lastRec.data, lastRec.rate); playBuffer(out, lastRec.rate); }
+async function playFx() { if (!lastRec) return; $('fxMsg').textContent = T('{e} {name}!', { e: FX[fxName].e, name: T(FX[fxName].name) }); await sleep(20); const out = applyFx(fxName, lastRec.data, lastRec.rate); playBuffer(out, lastRec.rate); }
 $('fxRec').onclick = async () => {
   if (fxMode === 'live') return liveNode ? stopLive() : startLive();
   if (fxBusy) { if (recordVoice.stop) recordVoice.stop(); return; }
-  fxBusy = true; $('fxRec').classList.add('rec'); $('fxRec').textContent = '⏹ Stop'; $('fxMsg').textContent = '🔴 Talk, sing or make a silly sound!';
+  fxBusy = true; $('fxRec').classList.add('rec'); $('fxRec').textContent = T('⏹ Stop'); $('fxMsg').textContent = T('🔴 Talk, sing or make a silly sound!');
   try {
     const rec = await recordVoice({ clean: false, maxSec: 8, silenceSec: 1, onLevel: r => $('meter').firstChild.style.width = Math.min(100, r * 400) + '%' });
     const data = trim(rec.data, rec.rate); $('meter').firstChild.style.width = 0;
-    if (!data) { $('fxMsg').textContent = "I couldn't hear you. Try again a little louder."; return; }
-    lastRec = { data, rate: rec.rate }; await playFx(); $('fxMsg').textContent += ' Tap another effect to hear the same recording.';
-  } catch (e) { $('fxMsg').textContent = 'No microphone found.'; }
-  finally { fxBusy = false; $('fxRec').classList.remove('rec'); $('fxRec').textContent = '⏺ Record'; }
+    if (!data) { $('fxMsg').textContent = T("I couldn't hear you. Try again a little louder."); return; }
+    lastRec = { data, rate: rec.rate }; await playFx(); $('fxMsg').textContent += ' ' + T('Tap another effect to hear the same recording.');
+  } catch (e) { $('fxMsg').textContent = T('No microphone found.'); }
+  finally { fxBusy = false; $('fxRec').classList.remove('rec'); $('fxRec').textContent = T('⏺ Record'); }
 };
 $('fxPlay').onclick = () => { if (fxMode === 'rec') playFx(); };
 async function startLive() {
-  const a = audio(); try { await openMic(false); } catch (e) { $('fxMsg').textContent = 'No microphone found.'; return; }
+  const a = audio(); try { await openMic(false); } catch (e) { $('fxMsg').textContent = T('No microphone found.'); return; }
   liveSrc = a.createMediaStreamSource(micStream); liveNode = liveProcessor(a, () => fxName);
   const comp = a.createDynamicsCompressor(); liveOut = a.createGain(); liveOut.gain.value = .8;
   liveSrc.connect(liveNode); liveNode.connect(comp).connect(liveOut).connect(a.destination);
-  $('fxRec').classList.add('rec'); $('fxRec').textContent = '⏹ Stop live'; $('fxMsg').textContent = '🎧 Live! Change effects while you talk.';
+  $('fxRec').classList.add('rec'); $('fxRec').textContent = T('⏹ Stop live'); $('fxMsg').textContent = T('🎧 Live! Change effects while you talk.');
 }
-function stopLive() { try { if (liveSrc) liveSrc.disconnect(); if (liveNode) liveNode.disconnect(); if (liveOut) liveOut.disconnect(); } catch (e) {} liveNode = liveSrc = liveOut = null; if (fxMode === 'live') { closeMic(); $('fxRec').classList.remove('rec'); $('fxRec').textContent = '🎧 Start live'; } }
-$('modeRec').onclick = () => { stopLive(); fxMode = 'rec'; $('modeRec').classList.add('on'); $('modeLive').classList.remove('on'); $('liveWarn').style.display = 'none'; $('fxPlay').style.display = ''; $('fxRec').textContent = '⏺ Record'; $('fxMsg').textContent = 'Pick an effect, then tap Record and say something.'; buildFxGrid(); };
-$('modeLive').onclick = () => { fxMode = 'live'; $('modeLive').classList.add('on'); $('modeRec').classList.remove('on'); $('liveWarn').style.display = ''; $('fxPlay').style.display = 'none'; $('fxRec').textContent = '🎧 Start live'; if (!FX[fxName].live) fxName = 'robot'; $('fxMsg').textContent = 'Put on headphones, then tap Start live.'; buildFxGrid(); };
+function stopLive() { try { if (liveSrc) liveSrc.disconnect(); if (liveNode) liveNode.disconnect(); if (liveOut) liveOut.disconnect(); } catch (e) {} liveNode = liveSrc = liveOut = null; if (fxMode === 'live') { closeMic(); $('fxRec').classList.remove('rec'); $('fxRec').textContent = T('🎧 Start live'); } }
+$('modeRec').onclick = () => { stopLive(); fxMode = 'rec'; $('modeRec').classList.add('on'); $('modeLive').classList.remove('on'); $('liveWarn').style.display = 'none'; $('fxPlay').style.display = ''; $('fxRec').textContent = T('⏺ Record'); $('fxMsg').textContent = T('Pick an effect, then tap Record and say something.'); buildFxGrid(); };
+$('modeLive').onclick = () => { fxMode = 'live'; $('modeLive').classList.add('on'); $('modeRec').classList.remove('on'); $('liveWarn').style.display = ''; $('fxPlay').style.display = 'none'; $('fxRec').textContent = T('🎧 Start live'); if (!FX[fxName].live) fxName = 'robot'; $('fxMsg').textContent = T('Put on headphones, then tap Start live.'); buildFxGrid(); };
 buildFxGrid();
 
 // ---------------------------------------------------------------------------
@@ -811,7 +1026,7 @@ function buildTracks() {
   const box = $('tracks'); box.innerHTML = '';
   tracks.forEach((t, i) => {
     const row = document.createElement('div'); row.className = 'track' + (armed === i ? ' wait' : ''); row.id = 'trk' + i;
-    row.innerHTML = `<div class="ti">${TRACK_ICONS[i]}</div><canvas></canvas><button class="recb">⏺ Record</button><button class="fxb">${FX_LABEL[t.fx]}</button><button class="mute${t.muted ? ' on' : ''}">${t.muted ? '🔇 Off' : '🔊 On'}</button><button class="clr">🗑️</button>`;
+    row.innerHTML = `<div class="ti">${TRACK_ICONS[i]}</div><canvas></canvas><button class="recb">${T('⏺ Record')}</button><button class="fxb">${T(FX_LABEL[t.fx])}</button><button class="mute${t.muted ? ' on' : ''}">${T(t.muted ? '🔇 Off' : '🔊 On')}</button><button class="clr">🗑️</button>`;
     row.querySelector('.recb').onclick = () => recordTrack(i);
     row.querySelector('.fxb').onclick = () => { t.fx = TRACK_FX[(TRACK_FX.indexOf(t.fx) + 1) % TRACK_FX.length]; if (t.raw) { renderTrackBuffer(i); if (playing) startTrack(i); } saveTrack(i); buildTracks(); };
     row.querySelector('.mute').onclick = () => { t.muted = !t.muted; if (t.gain) t.gain.gain.value = t.muted ? 0 : 1; saveTrack(i); buildTracks(); };
@@ -822,7 +1037,7 @@ function buildTracks() {
 function drawWave(c, d, col) {
   const dpr = devicePixelRatio || 1, W = c.clientWidth || 300, H = c.clientHeight || 64; c.width = W * dpr; c.height = H * dpr; const g = c.getContext('2d'); g.scale(dpr, dpr);
   g.fillStyle = '#f6f1fb'; g.fillRect(0, 0, W, H);
-  if (!d) { g.fillStyle = '#b9adcc'; g.font = '800 18px Segoe UI'; g.fillText('empty', 10, H / 2 + 6); return; }
+  if (!d) { g.fillStyle = '#b9adcc'; g.font = '800 18px Segoe UI'; g.fillText(T('empty'), 10, H / 2 + 6); return; }
   g.fillStyle = col; const step = Math.max(1, Math.floor(d.length / W));
   for (let x = 0; x < W; x++) { let p = 0; for (let k = x * step; k < (x + 1) * step && k < d.length; k++) p = Math.max(p, Math.abs(d[k])); const h = Math.max(1, p * H * .9); g.fillRect(x, (H - h) / 2, 1, h); }
 }
@@ -850,21 +1065,21 @@ function startLoop(countIn) {
   const a = audio(); if (playing) return; playing = true;
   t0 = a.currentTime + .15 + (countIn ? 4 * 60 / bpm : 0); nextBeat = t0 - (countIn ? 4 * 60 / bpm : 0);
   tracks.forEach((t, i) => t.buf && startTrack(i, t0));
-  schedTimer = setInterval(scheduler, 40); scheduler(); $('loopPlay').textContent = '⏹ Stop';
+  schedTimer = setInterval(scheduler, 40); scheduler(); $('loopPlay').textContent = T('⏹ Stop');
   const tick = () => { if (!playing) return; const p = ((a.currentTime - t0) % loopLen + loopLen) % loopLen / loopLen; $('playhead').firstChild.style.width = (a.currentTime < t0 ? 0 : p * 100) + '%'; raf = requestAnimationFrame(tick); }; tick();
 }
-function stopLoop() { playing = false; clearInterval(schedTimer); cancelAnimationFrame(raf); tracks.forEach((t, i) => stopTrack(i)); $('loopPlay').textContent = '▶ Play'; $('playhead').firstChild.style.width = 0; armed = -1; if ($('loop').classList.contains('on')) buildTracks(); }
+function stopLoop() { playing = false; clearInterval(schedTimer); cancelAnimationFrame(raf); tracks.forEach((t, i) => stopTrack(i)); $('loopPlay').textContent = T('▶ Play'); $('playhead').firstChild.style.width = 0; armed = -1; if ($('loop').classList.contains('on')) buildTracks(); }
 function setBpm(v, quiet) {
   bpm = v; loopLen = 8 * 60 / bpm; document.querySelectorAll('[data-bpm]').forEach(b => b.classList.toggle('on', +b.dataset.bpm === bpm));
   if (!quiet) { const was = playing; stopLoop(); tracks.forEach((t, i) => t.raw && renderTrackBuffer(i)); DB.put('meta', { bpm }); if (was) startLoop(false); }
 }
 document.querySelectorAll('[data-bpm]').forEach(b => b.onclick = () => { if (armed >= 0) return; setBpm(+b.dataset.bpm); });
 $('loopPlay').onclick = () => { audio(); if (playing) stopLoop(); else startLoop(false); };
-$('clickOn').onclick = () => { clickOn = !clickOn; $('clickOn').classList.toggle('on', clickOn); $('clickOn').textContent = clickOn ? '🕺 Beat on' : '🕺 Beat off'; };
+$('clickOn').onclick = () => { clickOn = !clickOn; $('clickOn').classList.toggle('on', clickOn); $('clickOn').textContent = T(clickOn ? '🕺 Beat on' : '🕺 Beat off'); };
 // Records exactly one loop, starting on the next loop start (after a count-in when the band is stopped).
 async function recordTrack(i) {
   if (armed >= 0) return; const a = audio();
-  try { await openMic(false); } catch (e) { $('loopMsg').textContent = 'No microphone found.'; return; }
+  try { await openMic(false); } catch (e) { $('loopMsg').textContent = T('No microphone found.'); return; }
   armed = i; buildTracks();
   let recStart;
   if (!playing) { startLoop(true); recStart = t0; }
@@ -876,19 +1091,19 @@ async function recordTrack(i) {
   src.connect(proc); proc.connect(sink).connect(a.destination);
   const beat = 60 / bpm;
   const countDown = async () => { for (let b = 4; b >= 1; b--) { const at = recStart - b * beat; while (a.currentTime < at) await sleep(10); if (armed !== i) return; $('countIn').classList.add('on'); $('countNum').textContent = b; } while (a.currentTime < recStart) await sleep(10); $('countIn').classList.remove('on'); };
-  $('loopMsg').textContent = `Get ready… record ${TRACK_ICONS[i]} when the count ends.`;
+  $('loopMsg').textContent = T('Get ready… record {icon} when the count ends.', { icon: TRACK_ICONS[i] });
   await countDown(); if (armed !== i) { try { proc.disconnect(); src.disconnect(); } catch (e) {} closeMic(); return; }
   const row = $('trk' + i); if (row) { row.classList.remove('wait'); row.classList.add('rec'); }
-  $('loopMsg').textContent = `🔴 Recording ${TRACK_ICONS[i]}! Go!`;
+  $('loopMsg').textContent = T('🔴 Recording {icon}! Go!', { icon: TRACK_ICONS[i] });
   while (a.currentTime < recStart + loopLen + lat + .25) { await sleep(25); if (armed !== i) break; }
   try { proc.disconnect(); src.disconnect(); } catch (e) {} closeMic();
   if (armed !== i) return;
   const all = concat(chunks), rate = a.sampleRate, from = Math.max(0, Math.round((recStart + lat - firstTime) * rate)), n = Math.round(loopLen * rate);
   const raw = all.slice(from, from + n);
-  if (rms(raw) < .004) { $('loopMsg').textContent = "That part was very quiet. Try again closer to the tablet."; armed = -1; buildTracks(); return; }
+  if (rms(raw) < .004) { $('loopMsg').textContent = T('That part was very quiet. Try again closer to the tablet.'); armed = -1; buildTracks(); return; }
   const t = tracks[i]; t.raw = normalize(raw, .8); t.rate = rate; renderTrackBuffer(i); saveTrack(i);
   armed = -1; startTrack(i); buildTracks();
-  $('loopMsg').textContent = `${TRACK_ICONS[i]} is in the band! Record another part, or change its effect.`;
+  $('loopMsg').textContent = T('{icon} is in the band! Record another part, or change its effect.', { icon: TRACK_ICONS[i] });
 }
 
 // ===========================================================================
@@ -907,7 +1122,7 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const mod12 = n => ((n % 12) + 12) % 12;
 const OK = { ok: true }, no = why => ({ ok: false, why });
-const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+const plural = (n, w) => n + ' ' + T(w + (n === 1 ? '' : 's'));
 const KB_LO = 60, KB_HI = 84;
 const INSTS = { piano: '🎹 Piano', flute: '🪈 Flute', robot: '🤖 Robot', bells: '🔔 Bells', pluck: '🎸 Guitar' };
 const SPEED_NAME = { 80: '🐢 Slow', 100: '🚶 Medium', 120: '🐇 Fast' };
@@ -932,25 +1147,28 @@ const MINOR_KEYS = [['A', 5, 0], ['E', 2, 0], ['D', 1, 0], ['B', 6, 0], ['G', 4,
 const keyNamed = n => MAJOR_KEYS.find(k => k.n === n);
 const minorNamed = n => MINOR_KEYS.find(k => k.n === n);
 function triad(root, quality) { return [root, spAbove(root, 2, quality === 'major' ? 4 : 3), spAbove(root, 4, 7)]; }
-const names = list => list.map(s => s.name);
-const sayList = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+const names = list => list.map(s => nn(s.name));
+const sayList = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' ' + T('and') + ' ' + a[a.length - 1];
+// An instrument in lower case for a sentence (the Spanish one carries its article).
+const INST_ES = { piano: 'el piano', flute: 'la flauta', robot: 'el robot', bells: 'las campanas', pluck: 'la guitarra' };
+const instLow = k => LANG === 'es' ? INST_ES[k] : INSTS[k].split(' ')[1].toLowerCase();
 // Text for the narrator: sharps and flats said as words, emoji left out, time signatures said as numbers.
-function speakable(t) { return String(t).replace(/♯/g, ' sharp').replace(/♭/g, ' flat').replace(/(\d)\/(\d)/g, '$1 $2').replace(/\p{Extended_Pictographic}|️/gu, '').replace(/\s+/g, ' ').trim(); }
+function speakable(t) { return String(t).replace(/♯/g, ' ' + T('sharp')).replace(/♭/g, ' ' + T('flat')).replace(/(\d)\/(\d)/g, (m, a, b) => T('{a} {b}', { a, b })).replace(/\p{Extended_Pictographic}|️/gu, '').replace(/\s+/g, ' ').trim(); }
 
 // ---- Checks on the real state -------------------------------------------------------------------------------------
 const lastN = (S, n) => S.notes.slice(-n);
 const sangLast = S => S.notes.length > 0 && S.notes[S.notes.length - 1].src === 'voice';
-const keyName = m => NOTE[mod12(m)];
+const keyName = m => nn(NOTE[mod12(m)]);
 // Sung notes are never at an exact pitch, so a sung tune is compared by its shape in her own key (the app's Copy me
 // scoring); notes from the keys are compared note for note.
 function sungMatches(S, mids) { const ns = S.notes.filter(n => n.src === 'voice'); if (!ns.length) return false; const need = mids.length <= 3 ? mids.length : mids.length - 1; return scoreCopy(mids.map(m => ({ midi: m })), ns) >= need; }
 function firstDiff(ns, mids, eq) { for (let k = 0; k < mids.length; k++) if (!eq(ns[k], mids[k], k)) return k; return -1; }
-function wrongNoteWhy(k, total) { return k === 0 ? 'The first note is different. Listen to the start again.' : `The first ${plural(k, 'note')} match. Note ${k + 1} of ${total} is different.`; }
+function wrongNoteWhy(k, total) { return k === 0 ? T('The first note is different. Listen to the start again.') : T('The first {k} match. Note {n} of {total} is different.', { k: plural(k, 'note'), kk: k, n: k + 1, total }); }
 // A tune: exactly these notes (or, with shape, the same ups and downs from any starting key).
 function tuneCheck(mids, shape) {
   return S => {
-    if (sangLast(S)) return sungMatches(S, mids) ? OK : no('Close! Listen again, then sing it once more.');
-    if (S.notes.length < mids.length) return no(`I count ${plural(S.notes.length, 'note')}. This one has ${mids.length}.`);
+    if (sangLast(S)) return sungMatches(S, mids) ? OK : no(T('Close! Listen again, then sing it once more.'));
+    if (S.notes.length < mids.length) return no(T('I count {n}. This one has {total}.', { n: plural(S.notes.length, 'note'), total: mids.length }));
     const ns = lastN(S, mids.length);
     if (ns.every((n, k) => n.midi === mids[k])) return OK;
     if (shape && ns.every((n, k) => n.midi - ns[0].midi === mids[k] - mids[0])) return OK;
@@ -960,8 +1178,8 @@ function tuneCheck(mids, shape) {
 // A scale or melody named by its notes: the right note names in order, the steps the right size, any octave.
 function pcTuneCheck(mids) {
   return S => {
-    if (sangLast(S)) return sungMatches(S, mids) ? OK : no('Close! Sing it once more, one step at a time.');
-    if (S.notes.length < mids.length) return no(`I count ${plural(S.notes.length, 'note')}. This one has ${mids.length}.`);
+    if (sangLast(S)) return sungMatches(S, mids) ? OK : no(T('Close! Sing it once more, one step at a time.'));
+    if (S.notes.length < mids.length) return no(T('I count {n}. This one has {total}.', { n: plural(S.notes.length, 'note'), total: mids.length }));
     const ns = lastN(S, mids.length);
     const k = firstDiff(ns, mids, (n, m, i) => mod12(n.midi) === mod12(m) && (i === 0 || n.midi - ns[i - 1].midi === m - mids[i - 1]));
     return k < 0 ? OK : no(wrongNoteWhy(k, mids.length));
@@ -971,32 +1189,32 @@ function pcTuneCheck(mids) {
 function pcSeqCheck(mids) {
   return S => {
     const ns = lastN(S, mids.length);
-    if (ns.length < mids.length) return no(`I count ${plural(S.notes.length, 'note')}. Play ${mids.length}, one for each chord.`);
-    if (sangLast(S)) return ns.every((n, k) => k === 0 || mod12(n.midi - ns[k - 1].midi) === mod12(mids[k] - mids[k - 1])) ? OK : no('Close! Sing each root once more.');
+    if (ns.length < mids.length) return no(T('I count {n}. Play {total}, one for each chord.', { n: plural(S.notes.length, 'note'), total: mids.length }));
+    if (sangLast(S)) return ns.every((n, k) => k === 0 || mod12(n.midi - ns[k - 1].midi) === mod12(mids[k] - mids[k - 1])) ? OK : no(T('Close! Sing each root once more.'));
     const k = firstDiff(ns, mids, (n, m) => mod12(n.midi) === mod12(m));
-    return k < 0 ? OK : no(`Note ${k + 1} should be ${keyName(mids[k])}.`);
+    return k < 0 ? OK : no(T('Note {n} should be {note}.', { n: k + 1, note: keyName(mids[k]) }));
   };
 }
 // A chord: the last three notes are its three note names, in any order or octave (sung, from the root up).
 function chordCheck(chord) {
   const want = new Set(chord.map(s => mod12(s.midi))), rel = new Set(chord.map(s => mod12(s.midi - chord[0].midi)));
   return S => {
-    const ns = lastN(S, 3); if (ns.length < 3) return no('A chord here needs three notes. Play all three.');
-    if (sangLast(S)) { const got = new Set(ns.map(n => mod12(n.midi - ns[0].midi))); return got.size === 3 && [...got].every(x => rel.has(x)) ? OK : no('Sing the root first, then the third and the fifth.'); }
+    const ns = lastN(S, 3); if (ns.length < 3) return no(T('A chord here needs three notes. Play all three.'));
+    if (sangLast(S)) { const got = new Set(ns.map(n => mod12(n.midi - ns[0].midi))); return got.size === 3 && [...got].every(x => rel.has(x)) ? OK : no(T('Sing the root first, then the third and the fifth.')); }
     const got = new Set(ns.map(n => mod12(n.midi)));
     if (got.size === 3 && [...got].every(x => want.has(x))) return OK;
     const miss = chord.filter(s => !got.has(mod12(s.midi)));
-    return no(`Your last three notes are ${sayList(ns.map(n => keyName(n.midi)))}. ${miss.length ? 'This chord also needs ' + sayList(names(miss)) + '.' : 'Play each note once.'}`);
+    return no(T('Your last three notes are {got}. {more}', { got: sayList(ns.map(n => keyName(n.midi))), more: miss.length ? T('This chord also needs {miss}.', { miss: sayList(names(miss)) }) : T('Play each note once.') }));
   };
 }
 // Several chords in a row, three notes each.
 function chordsCheck(chords) {
   return S => {
-    const n = chords.length * 3; if (S.notes.length < n) return no(`I count ${plural(S.notes.length, 'note')}. Play three notes for each chord, ${n} in all.`);
+    const n = chords.length * 3; if (S.notes.length < n) return no(T('I count {n}. Play three notes for each chord, {total} in all.', { n: plural(S.notes.length, 'note'), total: n }));
     const ns = lastN(S, n);
     for (let c = 0; c < chords.length; c++) {
       const want = new Set(chords[c].map(s => mod12(s.midi))), got = new Set(ns.slice(c * 3, c * 3 + 3).map(x => mod12(x.midi)));
-      if (!(got.size === 3 && [...got].every(x => want.has(x)))) return no(`Chord ${c + 1} should be ${sayList(names(chords[c]))}.`);
+      if (!(got.size === 3 && [...got].every(x => want.has(x)))) return no(T('Chord {n} should be {notes}.', { n: c + 1, notes: sayList(names(chords[c])) }));
     }
     return OK;
   };
@@ -1004,11 +1222,11 @@ function chordsCheck(chords) {
 // Two notes an interval apart, from a given note when one is named.
 function intervalCheck(startPc, semis) {
   return S => {
-    const ns = lastN(S, 2); if (ns.length < 2) return no('Play two notes, one after the other.');
+    const ns = lastN(S, 2); if (ns.length < 2) return no(T('Play two notes, one after the other.'));
     const d = ns[1].midi - ns[0].midi;
-    if (!sangLast(S) && startPc !== null && mod12(ns[0].midi) !== startPc) return no(`Start on ${NOTE[startPc]}.`);
+    if (!sangLast(S) && startPc !== null && mod12(ns[0].midi) !== startPc) return no(T('Start on {note}.', { note: nn(NOTE[startPc]) }));
     if (d === semis) return OK;
-    return no(`Those two notes are ${plural(Math.abs(d), 'half step')} ${d >= 0 ? 'up' : 'down'}. This one is ${plural(Math.abs(semis), 'half step')} ${semis >= 0 ? 'up' : 'down'}.`);
+    return no(T('Those two notes are {d} {dir}. This one is {s} {sdir}.', { d: plural(Math.abs(d), 'half step'), dir: T(d >= 0 ? 'up' : 'down'), s: plural(Math.abs(semis), 'half step'), sdir: T(semis >= 0 ? 'up' : 'down') }));
   };
 }
 
@@ -1019,7 +1237,7 @@ function emptyState() { return { notes: [], taps: [], sounds: [], fx: null, inst
 // ---- Generators, one per rung ---------------------------------------------------------------------------------------
 // Rung 0, pre-K: loud and soft, with her voice or the drum.
 function genLoudSoft() {
-  const T = pick([
+  const V = pick([
     [['loud'], ['Make a loud sound, big like a lion.', 'Make a big, loud sound.', 'Be loud like a lion. Make one loud sound.']],
     [['soft'], ['Make a soft sound, quiet like a mouse.', 'Make a tiny, soft sound.', 'Be a little mouse. Make one soft sound.']],
     [['soft', 'loud'], ['Make a soft sound. Then make a loud sound.', 'First soft like a mouse, then loud like a lion.']],
@@ -1029,54 +1247,54 @@ function genLoudSoft() {
     [['soft', 'mid', 'loud'], ['Soft, then middle, then loud. Get bigger each time.']],
     [['loud', 'mid', 'soft'], ['Loud, then middle, then soft. Get smaller each time.']],
   ]);
-  const want = T[0], wname = { soft: 'soft', mid: 'middle', loud: 'loud' };
-  return { kind: 'dyn', text: pick(T[1]), hint: 'Sing or shout into the tablet, or tap 🐭 Soft, 🐻 Middle or 🦁 Loud and then tap the drum.', win: pick(['You heard the difference!', 'Loud and soft. You did it!']), n: want.length,
-    check: S => { const got = S.sounds.slice(-want.length).map(s => s.level); if (got.length < want.length) return no(`Make ${plural(want.length, 'sound')}.`); const k = want.findIndex((w, i) => got[i] !== w); return k < 0 ? OK : no(`Sound ${k + 1} was ${wname[got[k]]}. It needs to be ${wname[want[k]]}.`); },
+  const want = V[0], wname = { soft: 'soft', mid: 'middle', loud: 'loud' };
+  return { kind: 'dyn', text: T(pick(V[1])), hint: T('Sing or shout into the tablet, or tap 🐭 Soft, 🐻 Middle or 🦁 Loud and then tap the drum.'), win: T(pick(['You heard the difference!', 'Loud and soft. You did it!'])), n: want.length,
+    check: S => { const got = S.sounds.slice(-want.length).map(s => s.level); if (got.length < want.length) return no(T('Make {n}.', { n: plural(want.length, 'sound') })); const k = want.findIndex((w, i) => got[i] !== w); return k < 0 ? OK : no(T('Sound {k} was {got}. It needs to be {want}.', { k: k + 1, got: T(wname[got[k]]), want: T(wname[want[k]]) })); },
     solve: () => ({ sounds: want.map(l => ({ level: l, src: 'drum' })) }) };
 }
 // Rung 1, pre-K: high and low, on the keys, by singing, or with a voice effect.
 function genHighLow() {
   if (Math.random() < .3) {
     const hi = Math.random() < .5;
-    return { kind: 'fx', target: [hi ? 'chipmunk' : 'monster'], text: hi ? pick(['Make your voice go high, like a tiny squirrel.', 'Make a high, squeaky voice.', 'Turn your voice into a high little chipmunk.']) : pick(['Make a deep, low monster voice.', 'Make your voice go low, like a big bear.', 'Turn your voice into a low, rumbly monster.']),
-      hint: (hi ? 'The squirrel 🐿️ makes voices high.' : 'The monster 👹 makes voices low.') + ' Record your voice or tap 🦆 Duck voice, then tap it and ▶ Play.', win: hi ? 'Squeaky and high!' : 'Deep and low!',
+    return { kind: 'fx', target: [hi ? 'chipmunk' : 'monster'], text: T(hi ? pick(['Make your voice go high, like a tiny squirrel.', 'Make a high, squeaky voice.', 'Turn your voice into a high little chipmunk.']) : pick(['Make a deep, low monster voice.', 'Make your voice go low, like a big bear.', 'Turn your voice into a low, rumbly monster.'])),
+      hint: T('{who} Record your voice or tap 🦆 Duck voice, then tap it and ▶ Play.', { who: T(hi ? 'The squirrel 🐿️ makes voices high.' : 'The monster 👹 makes voices low.') }), win: T(hi ? 'Squeaky and high!' : 'Deep and low!'),
       check: fxCheck([hi ? 'chipmunk' : 'monster']), solve: () => ({ fx: { name: hi ? 'chipmunk' : 'monster', src: 'duck' } }) };
   }
-  const T = pick([
+  const V = pick([
     { d: 1, n: 2, t: ['Play a low note. Then play a high note.', 'Go up! A low note, then a high note.', 'Low first, then high.'] },
     { d: -1, n: 2, t: ['Play a high note. Then play a low note.', 'Go down! A high note, then a low note.', 'High first, then low.'] },
     { d: 1, n: 3, t: ['Climb up the stairs. Play three notes, each one higher.', 'Three notes going up, up, up.'] },
     { d: -1, n: 3, t: ['Walk down the stairs. Play three notes, each one lower.', 'Three notes going down, down, down.'] },
   ]);
-  const gap = T.n === 2 ? 5 : 1, sgap = T.n === 2 ? 3 : 1;
-  const base = T.d > 0 ? rnd(60, 66) : rnd(78, 84), sol = Array.from({ length: T.n }, (_, k) => base + T.d * k * (T.n === 2 ? 12 : 2));
-  return { kind: 'notes', text: pick(T.t), hint: 'Low notes are on the left of the keys. High notes are on the right. You can sing it too.', auto: T.n, voice: true,
-    win: T.d > 0 ? 'Up you went!' : 'Down you came!',
-    check: S => { const ns = lastN(S, T.n); if (ns.length < T.n) return no(`Play ${plural(T.n, 'note')}.`); const g = sangLast(S) ? sgap : gap;
-      for (let k = 1; k < T.n; k++) if (T.d * (ns[k].midi - ns[k - 1].midi) < g) return no(T.d > 0 ? 'Each note needs to be higher. Go to the right.' : 'Each note needs to be lower. Go to the left.'); return OK; },
+  const gap = V.n === 2 ? 5 : 1, sgap = V.n === 2 ? 3 : 1;
+  const base = V.d > 0 ? rnd(60, 66) : rnd(78, 84), sol = Array.from({ length: V.n }, (_, k) => base + V.d * k * (V.n === 2 ? 12 : 2));
+  return { kind: 'notes', text: T(pick(V.t)), hint: T('Low notes are on the left of the keys. High notes are on the right. You can sing it too.'), auto: V.n, voice: true,
+    win: T(V.d > 0 ? 'Up you went!' : 'Down you came!'),
+    check: S => { const ns = lastN(S, V.n); if (ns.length < V.n) return no(T('Play {n}.', { n: plural(V.n, 'note') })); const g = sangLast(S) ? sgap : gap;
+      for (let k = 1; k < V.n; k++) if (V.d * (ns[k].midi - ns[k - 1].midi) < g) return no(T(V.d > 0 ? 'Each note needs to be higher. Go to the right.' : 'Each note needs to be lower. Go to the left.')); return OK; },
     solve: () => ({ notes: sol.map(m => ({ midi: m, src: 'key', inst: 'piano' })) }) };
 }
-function fxCheck(targets) { return S => !S.fx ? no('Make a sound first, then tap ▶ Play.') : targets.includes(S.fx.name) ? OK : no(`That was ${FX[S.fx.name].name}. Try another effect.`); }
+function fxCheck(targets) { return S => !S.fx ? no(T('Make a sound first, then tap ▶ Play.')) : targets.includes(S.fx.name) ? OK : no(T('That was {fx}. Try another effect.', { fx: T(FX[S.fx.name].name) })); }
 // Rung 2, K: a steady beat on the drum, with the click or on her own.
 function genBeat() {
   const v = rnd(0, 2), bpm = pick([80, 100, 120]), n = 8;
-  if (v === 2) return { kind: 'beat', bpm: 100, click: false, text: pick(['No clicks this time. Tap the drum eight times, steady like a clock.', 'Be the clock. Tap the drum eight times, nice and even.', 'Keep your own beat. Eight even taps on the drum.']),
-    hint: 'Tap, tap, tap, the same gap each time. Count out loud: 1, 2, 3, 4.', win: 'Steady as a clock!', n, check: beatCheck(n, null, false), solve: () => ({ taps: evenTaps(n, .6) }) };
-  if (v === 1) return { kind: 'beat', bpm: pick([80, 100, 120].filter(b => b !== bpm)), pickBpm: bpm, click: true, text: `Pick ${SPEED_NAME[bpm]}. Tap ▶ Beat, then tap the drum eight times with the beat.`,
-    hint: `First tap ${SPEED_NAME[bpm]} at the top. Then ▶ Beat. Tap the drum each time you hear a click.`, win: 'You kept the beat!', n, check: beatCheck(n, bpm, true), solve: () => ({ bpm, taps: evenTaps(n, 60 / bpm) }) };
-  return { kind: 'beat', bpm, click: true, text: pick(['Tap ▶ Beat. Then tap the drum with the beat, eight times.', 'Listen to the beat. Tap the drum with it, eight times.', 'Play along! Tap the drum on every click, eight times.']),
-    hint: 'Tap ▶ Beat to hear the clicks. Tap the drum each time you hear a click.', win: 'You kept the beat!', n, check: beatCheck(n, bpm, false), solve: () => ({ bpm, taps: evenTaps(n, 60 / bpm) }) };
+  if (v === 2) return { kind: 'beat', bpm: 100, click: false, text: T(pick(['No clicks this time. Tap the drum eight times, steady like a clock.', 'Be the clock. Tap the drum eight times, nice and even.', 'Keep your own beat. Eight even taps on the drum.'])),
+    hint: T('Tap, tap, tap, the same gap each time. Count out loud: 1, 2, 3, 4.'), win: T('Steady as a clock!'), n, check: beatCheck(n, null, false), solve: () => ({ taps: evenTaps(n, .6) }) };
+  if (v === 1) return { kind: 'beat', bpm: pick([80, 100, 120].filter(b => b !== bpm)), pickBpm: bpm, click: true, text: T('Pick {speed}. Tap ▶ Beat, then tap the drum eight times with the beat.', { speed: T(SPEED_NAME[bpm]) }),
+    hint: T('First tap {speed} at the top. Then ▶ Beat. Tap the drum each time you hear a click.', { speed: T(SPEED_NAME[bpm]) }), win: T('You kept the beat!'), n, check: beatCheck(n, bpm, true), solve: () => ({ bpm, taps: evenTaps(n, 60 / bpm) }) };
+  return { kind: 'beat', bpm, click: true, text: T(pick(['Tap ▶ Beat. Then tap the drum with the beat, eight times.', 'Listen to the beat. Tap the drum with it, eight times.', 'Play along! Tap the drum on every click, eight times.'])),
+    hint: T('Tap ▶ Beat to hear the clicks. Tap the drum each time you hear a click.'), win: T('You kept the beat!'), n, check: beatCheck(n, bpm, false), solve: () => ({ bpm, taps: evenTaps(n, 60 / bpm) }) };
 }
 function evenTaps(n, gap, drums) { return Array.from({ length: n }, (_, k) => ({ t: 5 + k * gap, drum: drums ? drums[k] : 'big' })); }
 function beatCheck(n, bpm, needPick) {
   return S => {
-    if (needPick && S.bpm !== bpm) return no(`Pick ${SPEED_NAME[bpm]} first.`);
-    const tp = S.taps.slice(-n); if (tp.length < n) return no(`I count ${plural(tp.length, 'tap')}. Tap ${n} times.`);
+    if (needPick && S.bpm !== bpm) return no(T('Pick {speed} first.', { speed: T(SPEED_NAME[bpm]) }));
+    const tp = S.taps.slice(-n); if (tp.length < n) return no(T('I count {n}. Tap {total} times.', { n: plural(tp.length, 'tap'), total: n }));
     const iv = tp.slice(1).map((x, k) => x.t - tp[k].t), mean = iv.reduce((a, b) => a + b, 0) / iv.length;
     const want = bpm || (needPick ? bpm : S.bpm);
-    if (bpm !== null || needPick) { const b = 60 / want; if (Math.abs(mean - b) > .2 * b) return no(mean > b ? 'A little faster. Tap right on each click.' : 'A little slower. Wait for each click.'); }
-    else if (mean < .25 || mean > 1.4) return no(mean < .25 ? 'A little slower, like a clock.' : 'A little faster, like a clock.');
-    if (iv.some(x => Math.abs(x - mean) > .3 * mean)) return no('Keep the gaps the same. Steady like a clock.');
+    if (bpm !== null || needPick) { const b = 60 / want; if (Math.abs(mean - b) > .2 * b) return no(T(mean > b ? 'A little faster. Tap right on each click.' : 'A little slower. Wait for each click.')); }
+    else if (mean < .25 || mean > 1.4) return no(T(mean < .25 ? 'A little slower, like a clock.' : 'A little faster, like a clock.'));
+    if (iv.some(x => Math.abs(x - mean) > .3 * mean)) return no(T('Keep the gaps the same. Steady like a clock.'));
     return OK;
   };
 }
@@ -1092,9 +1310,9 @@ function walkTune(pool, len, maxStep) {
 function echoTask(len, pool, maxStep, ghost) {
   const mids = walkTune(pool, len, maxStep);
   return { kind: 'notes', tune: mids, ghost, hear: true, voice: true, auto: len <= 4 ? len : 0,
-    text: pick([`Listen to the ${len} notes. Play them back.`, `Hear the tune. Copy its ${len} notes.`, `Echo me! ${len} notes, then your turn.`, `Here are ${len} notes. Play them back on the keys or sing them.`]),
-    hint: ghost === 'color' ? 'Tap ▶ Hear it again. The colors match the keys.' : 'Tap ▶ Hear it again. The gray blocks show when the tune goes up or down.',
-    win: pick(['A perfect echo!', 'You matched it!', 'Great listening!']), check: tuneCheck(mids, true),
+    text: T(pick(['Listen to the {n} notes. Play them back.', 'Hear the tune. Copy its {n} notes.', 'Echo me! {n} notes, then your turn.', 'Here are {n} notes. Play them back on the keys or sing them.']), { n: len }),
+    hint: T(ghost === 'color' ? 'Tap ▶ Hear it again. The colors match the keys.' : 'Tap ▶ Hear it again. The gray blocks show when the tune goes up or down.'),
+    win: T(pick(['A perfect echo!', 'You matched it!', 'Great listening!'])), check: tuneCheck(mids, true),
     solve: () => ({ notes: mids.map(m => ({ midi: m, src: 'key', inst: 'piano' })) }), solveVoice: () => ({ notes: mids.map(m => ({ midi: m + 3, src: 'voice' })) }) };
 }
 const PENT = [60, 62, 64, 67, 69], CMAJ = [60, 62, 64, 65, 67, 69, 71, 72], CMAJ2 = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76];
@@ -1115,20 +1333,20 @@ function makeRhythm(beats, kinds) {
 }
 function rhythmCheck(on) {
   return S => {
-    const tp = S.taps.slice(-on.length); if (tp.length < on.length) return no(`I count ${plural(tp.length, 'tap')}. This rhythm has ${on.length}.`);
+    const tp = S.taps.slice(-on.length); if (tp.length < on.length) return no(T('I count {n}. This rhythm has {total}.', { n: plural(tp.length, 'tap'), total: on.length }));
     const t = tp.map(x => x.t - tp[0].t); let num = 0, den = 0; for (let i = 1; i < on.length; i++) { num += t[i] * on[i]; den += on[i] * on[i]; }
-    const s = num / den; if (!(s > .06 && s < .45)) return no('Tap it at an easy, steady speed.');
+    const s = num / den; if (!(s > .06 && s < .45)) return no(T('Tap it at an easy, steady speed.'));
     const gaps = on.slice(1).map((u, i) => u - on[i]), tol = .45 * s * Math.min(...gaps);
-    for (let i = 1; i < on.length; i++) { const e = t[i] - s * on[i]; if (Math.abs(e) > tol) return no(`Tap ${i + 1} came a little ${e < 0 ? 'early' : 'late'}. Listen again and try once more.`); }
+    for (let i = 1; i < on.length; i++) { const e = t[i] - s * on[i]; if (Math.abs(e) > tol) return no(T('Tap {n} came a little {when}. Listen again and try once more.', { n: i + 1, when: T(e < 0 ? 'early' : 'late') })); }
     return OK;
   };
 }
 function rhythmTask(read) {
   const R = read ? makeRhythm(4, ['ta', 'titi', 'rest', 'half', 'tika', 'ta', 'titi']) : makeRhythm(4, ['ta', 'titi', 'rest', 'ta', 'titi']);
   return { kind: 'rhythm', rhythm: R, bpm: 80, read, n: R.on.length,
-    text: read ? pick(['Read the rhythm. Tap it on the drum.', 'Play this rhythm on the drum.', 'Clap it in your head first. Then tap this rhythm.']) : pick(['Listen to the rhythm. Tap it back on the drum.', 'Hear it, then tap it: ' + R.els.map(e => RH[e].w).join(' ') + '.', 'Echo the rhythm on the drum.']),
-    hint: read ? 'A quarter note is one beat. Two beamed eighths share a beat. Four sixteenths share a beat. A half note lasts two beats. Here it is.' : 'Say the words as you tap: ' + R.els.map(e => RH[e].w).join(' ') + '. On shh, wait.',
-    labels: R.els.map(e => RH[e].w), win: pick(read ? ['Right in the rhythm!', 'You read that rhythm!', 'Tap perfect!'] : ['Right in the rhythm!', 'A perfect echo!', 'Tap perfect!']), check: rhythmCheck(R.on),
+    text: read ? T(pick(['Read the rhythm. Tap it on the drum.', 'Play this rhythm on the drum.', 'Clap it in your head first. Then tap this rhythm.'])) : T(pick(['Listen to the rhythm. Tap it back on the drum.', 'Hear it, then tap it: {words}.', 'Echo the rhythm on the drum.']), { words: R.els.map(e => T(RH[e].w)).join(' ') }),
+    hint: read ? T('A quarter note is one beat. Two beamed eighths share a beat. Four sixteenths share a beat. A half note lasts two beats. Here it is.') : T('Say the words as you tap: {words}. On shh, wait.', { words: R.els.map(e => T(RH[e].w)).join(' ') }),
+    labels: R.els.map(e => T(RH[e].w)), win: T(pick(read ? ['Right in the rhythm!', 'You read that rhythm!', 'Tap perfect!'] : ['Right in the rhythm!', 'A perfect echo!', 'Tap perfect!'])), check: rhythmCheck(R.on),
     solve: () => ({ taps: R.on.map(u => ({ t: 10 + u * .19, drum: 'big' })) }) };
 }
 // Rung 6, 2nd: instrument families, on the instruments of Sing a Melody (or a choir of voices).
@@ -1141,22 +1359,22 @@ function genFamily() {
     { set: ['robot'], t: ['Pick the electronic instrument. Play three notes on it.', 'Pick the instrument made by a computer. Play three notes.'], w: 'The robot sound is electronic.' },
     { fx: 'choir', t: ['A choir is many voices singing together. Turn your voice into a choir.', 'Voices are a family too. Make a whole choir of voices.'], w: 'A choir is the voice family.' },
   ]);
-  if (F.fx) return { kind: 'fx', target: [F.fx], text: pick(F.t), hint: 'Look for the two singers 👯. Record your voice or tap 🦆 Duck voice, then ▶ Play.', win: F.w, check: fxCheck([F.fx]), solve: () => ({ fx: { name: F.fx, src: 'duck' } }) };
+  if (F.fx) return { kind: 'fx', target: [F.fx], text: T(pick(F.t)), hint: T('Look for the two singers 👯. Record your voice or tap 🦆 Duck voice, then ▶ Play.'), win: T(F.w), check: fxCheck([F.fx]), solve: () => ({ fx: { name: F.fx, src: 'duck' } }) };
   const inst0 = pick(Object.keys(INSTS).filter(k => !F.set.includes(k))), sol = [60, 64, 67];
-  return { kind: 'notes', instPick: true, inst0, text: pick(F.t), voice: true, auto: 3, hint: 'The instruments are the buttons above the keys. Tap one, then play three notes.', win: F.w,
-    check: S => { const ns = lastN(S, 3); if (ns.length < 3) return no('Play three notes.'); const bad = ns.find(n => !F.set.includes(n.inst)); return bad ? no(`Those notes were on the ${INSTS[bad.inst].split(' ')[1].toLowerCase()}. Pick another instrument.`) : OK; },
+  return { kind: 'notes', instPick: true, inst0, text: T(pick(F.t)), voice: true, auto: 3, hint: T('The instruments are the buttons above the keys. Tap one, then play three notes.'), win: T(F.w),
+    check: S => { const ns = lastN(S, 3); if (ns.length < 3) return no(T('Play three notes.')); const bad = ns.find(n => !F.set.includes(n.inst)); return bad ? no(T('Those notes were on the {inst}. Pick another instrument.', { inst: instLow(bad.inst) })) : OK; },
     solve: () => ({ inst: F.set[0], notes: sol.map(m => ({ midi: m, src: 'key', inst: F.set[0] })) }), solveVoice: () => ({ inst: F.set[0], notes: sol.map(m => ({ midi: m + 2, src: 'voice', inst: F.set[0] })) }) };
 }
 // Rungs 9 and 11, 3rd and 4th: scales.
 function scaleTask(keys, opts) {
   const K = pick(keys), dir = pick(['up', 'down']), five = opts.five && Math.random() < .4;
   let sc = K.sc.slice(); if (five) sc = sc.slice(0, 5); if (dir === 'down') sc.reverse();
-  const mids = sc.map(s => s.midi), nm = names(sc), sig = K.sig.length ? (K.sharps.length ? plural(K.sharps.length, 'sharp') : plural(K.flats.length, 'flat')) : 'no sharps or flats';
-  const solfa = ['do', 're', 'mi', 'fa', 'so', 'la', 'ti', 'do'];
-  const text = five ? (dir === 'up' ? `Play do re mi fa so in ${K.n} major, going up.` : `Play so fa mi re do in ${K.n} major, going down.`)
-    : pick([`Play the ${K.n} major scale going ${dir}.`, `Play ${K.n} major, all eight notes, going ${dir}.`, `Play the ${K.n} major scale, ${dir} from ${dir === 'up' ? 'the lower' : 'the higher'} ${K.n}.`]) + (opts.sig ? ` It has ${sig}.` : '');
+  const mids = sc.map(s => s.midi), nm = names(sc), sig = K.sig.length ? (K.sharps.length ? plural(K.sharps.length, 'sharp') : plural(K.flats.length, 'flat')) : T('no sharps or flats');
+  const solfa = ['do', 're', 'mi', 'fa', 'so', 'la', 'ti', 'do'], kv = { k: nn(K.n), dir: T(dir), which: T(dir === 'up' ? 'the lower' : 'the higher') };
+  const text = (five ? T(dir === 'up' ? 'Play do re mi fa so in {k} major, going up.' : 'Play so fa mi re do in {k} major, going down.', kv)
+    : T(pick(['Play the {k} major scale going {dir}.', 'Play {k} major, all eight notes, going {dir}.', 'Play the {k} major scale, {dir} from {which} {k}.']), kv)) + (opts.sig ? T(' It has {sig}.', { sig }) : '');
   const sf = (dir === 'up' ? solfa.slice(0, sc.length) : solfa.slice(0, sc.length).reverse()).join(' ');
-  return { kind: 'notes', text, voice: true, hint: `The notes are ${nm.join(' ')}. Sing it as ${sf}.`, win: pick(['A whole scale!', 'Step by step. Lovely!', 'That is the major scale!']),
+  return { kind: 'notes', text, voice: true, hint: T('The notes are {notes}. Sing it as {solfa}.', { notes: nm.join(' '), solfa: sf }), win: T(pick(['A whole scale!', 'Step by step. Lovely!', 'That is the major scale!'])),
     check: pcTuneCheck(mids), solve: () => ({ notes: mids.map(m => ({ midi: m, src: 'key', inst: 'piano' })) }), solveVoice: () => ({ notes: mids.map(m => ({ midi: m - 2, src: 'voice' })) }) };
 }
 // Rung 12, 5th: intervals.
@@ -1165,63 +1383,64 @@ function genInterval() {
   const [semis, iname] = pick(INTERVALS), down = Math.random() < .3, anyStart = Math.random() < .25;
   const starts = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84].filter(m => down ? m - semis >= KB_LO : m + semis <= KB_HI);
   const s = pick(starts), d = down ? -semis : semis, startPc = anyStart ? null : mod12(s);
-  const text = anyStart ? `Play any two notes ${iname} apart, the ${down ? 'higher' : 'lower'} one first.` : pick([`Play ${keyName(s)}. Then play the note ${iname} ${down ? 'lower' : 'higher'}.`, `Start on ${keyName(s)}. Go ${down ? 'down' : 'up'} ${iname}.`]);
-  return { kind: 'notes', text, voice: true, hint: `${iname[0].toUpperCase() + iname.slice(1)} is ${plural(semis, 'half step')}. Each key, black or white, is one half step from the next.`,
-    win: `That is ${iname}!`, check: intervalCheck(startPc, d), solve: () => ({ notes: [s, s + d].map(m => ({ midi: m, src: 'key', inst: 'piano' })) }), solveVoice: () => ({ notes: [s - 5, s - 5 + d].map(m => ({ midi: m, src: 'voice' })) }) };
+  const In = T(iname), kv = { iname: In, note: keyName(s), which: T(down ? 'higher' : 'lower'), dir: T(down ? 'lower' : 'higher') };
+  const text = anyStart ? T('Play any two notes {iname} apart, the {which} one first.', kv) : pick([T('Play {note}. Then play the note {iname} {dir}.', kv), T('Start on {note}. Go {dir} {iname}.', { iname: In, note: keyName(s), dir: T(down ? 'down' : 'up') })]);
+  return { kind: 'notes', text, voice: true, hint: T('{Iname} is {n}. Each key, black or white, is one half step from the next.', { Iname: In[0].toUpperCase() + In.slice(1), n: plural(semis, 'half step') }),
+    win: T('That is {iname}!', { iname: In }), check: intervalCheck(startPc, d), solve: () => ({ notes: [s, s + d].map(m => ({ midi: m, src: 'key', inst: 'piano' })) }), solveVoice: () => ({ notes: [s - 5, s - 5 + d].map(m => ({ midi: m, src: 'voice' })) }) };
 }
 // Rung 13, 5th: time signatures, strong beat on the big drum.
 function genMeter() {
   const M = pick([{ sig: '2/4', n: 2, bars: 2 }, { sig: '3/4', n: 3, bars: 2 }, { sig: '4/4', n: 4, bars: 2 }, { sig: '3/4', n: 3, bars: 2 }, { sig: '6/8', n: 6, bars: 1 }]);
   const seq = []; for (let b = 0; b < M.bars; b++) for (let k = 0; k < M.n; k++) seq.push(k === 0 || (M.n === 6 && k === 3) ? 'big' : 'small');
-  const full = Math.random() < .5, bars = M.bars === 1 ? 'one bar' : 'two bars';
-  const text = M.n === 6 ? `Play one bar of 6/8. Big drum on beats 1 and 4, small drum on the others.` : full ? `Play ${bars} of ${M.sig}. Big drum on beat 1, small drum on the other beats.` : pick([`Play ${bars} of ${M.sig}. Put the strong beat on the big drum.`, `Tap ${bars} in ${M.sig} time. Strong beats on the big drum.`]);
+  const full = Math.random() < .5, kv = { bars: T(M.bars === 1 ? 'one bar' : 'two bars'), sig: M.sig };
+  const text = M.n === 6 ? T('Play one bar of 6/8. Big drum on beats 1 and 4, small drum on the others.') : full ? T('Play {bars} of {sig}. Big drum on beat 1, small drum on the other beats.', kv) : T(pick(['Play {bars} of {sig}. Put the strong beat on the big drum.', 'Tap {bars} in {sig} time. Strong beats on the big drum.']), kv);
   return { kind: 'meter', meter: M, seq, show: full || M.n === 6, bpm: 100, n: seq.length, text, say: speakable(text).replace(/(\d) (\d)/g, '$1 $2 time').replace(/time time/g, 'time'),
-    hint: `${M.sig} has ${M.n === 6 ? 'six eighth note beats, strong on 1 and 4' : plural(M.n, 'beat') + ' in a bar, strong on 1'}. Count ${Array.from({ length: M.n }, (_, k) => k + 1).join(' ')} as you tap.`,
-    win: `That is ${M.sig}!`, check: meterCheck(seq), solve: () => ({ taps: evenTaps(seq.length, .5, seq) }) };
+    hint: T('{sig} has {what}. Count {count} as you tap.', { sig: M.sig, what: M.n === 6 ? T('six eighth note beats, strong on 1 and 4') : T('{n} in a bar, strong on 1', { n: plural(M.n, 'beat') }), count: Array.from({ length: M.n }, (_, k) => k + 1).join(' ') }),
+    win: T('That is {sig}!', { sig: M.sig }), check: meterCheck(seq), solve: () => ({ taps: evenTaps(seq.length, .5, seq) }) };
 }
 function meterCheck(seq) {
   return S => {
-    const tp = S.taps.slice(-seq.length); if (tp.length < seq.length) return no(`I count ${plural(tp.length, 'tap')}. Tap ${seq.length} beats.`);
-    const k = seq.findIndex((d, i) => tp[i].drum !== d); if (k >= 0) return no(`Beat ${k + 1} needs the ${seq[k]} drum.`);
+    const tp = S.taps.slice(-seq.length); if (tp.length < seq.length) return no(T('I count {n}. Tap {total} beats.', { n: plural(tp.length, 'tap'), total: seq.length }));
+    const k = seq.findIndex((d, i) => tp[i].drum !== d); if (k >= 0) return no(T('Beat {n} needs the {drum} drum.', { n: k + 1, drum: T(seq[k]) }));
     const iv = tp.slice(1).map((x, i) => x.t - tp[i].t), mean = iv.reduce((a, b) => a + b, 0) / iv.length;
-    if (mean < .2 || mean > 1.5 || iv.some(x => Math.abs(x - mean) > .35 * mean)) return no('Keep the beats evenly spaced, like a clock.');
+    if (mean < .2 || mean > 1.5 || iv.some(x => Math.abs(x - mean) > .35 * mean)) return no(T('Keep the beats evenly spaced, like a clock.'));
     return OK;
   };
 }
 // Rungs 14 and 15, 6th: major and minor, chords.
 function chordTask(root, quality, opts = {}) {
-  const ch = triad(root, quality), cn = `${root.name} ${quality}`;
-  const text = opts.text || pick([`Play ${/^[AEF]/.test(root.name) ? 'an' : 'a'} ${cn} chord. Start on ${root.name}.`, `Build the ${cn} chord, three notes.`, `Play the three notes of ${cn}.`]);
-  return { kind: 'notes', text, voice: true, hint: opts.hint || `${quality === 'major' ? 'Major' : 'Minor'}: from ${root.name}, go up ${quality === 'major' ? '4 then 3' : '3 then 4'} half steps. The notes are ${sayList(names(ch))}.`,
-    win: opts.win || `${cn}! ${quality === 'major' ? 'Bright and happy.' : 'Darker and sadder.'}`, check: chordCheck(ch), playChord: ch.map(s => s.midi),
+  const ch = triad(root, quality), cn = `${nn(root.name)} ${T(quality)}`, kv = { a: /^[AEF]/.test(root.name) ? 'an' : 'a', cn, root: nn(root.name) };
+  const text = opts.text || T(pick(['Play {a} {cn} chord. Start on {root}.', 'Build the {cn} chord, three notes.', 'Play the three notes of {cn}.']), kv);
+  return { kind: 'notes', text, voice: true, hint: opts.hint || T('{Q}: from {root}, go up {steps} half steps. The notes are {notes}.', { Q: T(quality === 'major' ? 'Major' : 'Minor'), root: nn(root.name), steps: T(quality === 'major' ? '4 then 3' : '3 then 4'), notes: sayList(names(ch)) }),
+    win: opts.win || T('{cn}! {mood}', { cn, mood: T(quality === 'major' ? 'Bright and happy.' : 'Darker and sadder.') }), check: chordCheck(ch), playChord: ch.map(s => s.midi),
     solve: () => ({ notes: ch.map(s => ({ midi: s.midi, src: 'key', inst: 'piano' })) }), solveVoice: () => ({ notes: ch.map(s => ({ midi: s.midi - 4, src: 'voice' })) }) };
 }
 function genMajorMinor() {
   const v = rnd(0, 3);
   if (v === 0) { const q = pick(['major', 'minor']); const r = pick(q === 'major' ? [spn(0, 0, 4), spn(3, 0, 4), spn(4, 0, 4)] : [spn(5, 0, 4), spn(1, 0, 4), spn(2, 0, 4)]); return chordTask(r, q); }
   if (v === 1) { const r = pick([spn(0, 0, 4), spn(3, 0, 4), spn(4, 0, 4), spn(1, 0, 4), spn(2, 0, 4)]), maj = triad(r, 'major');
-    return chordTask(r, 'minor', { text: `${r.name} major is ${sayList(names(maj))}. Make it minor: play ${r.name} minor.`, hint: `Lower the middle note, ${maj[1].name}, by one half step.`, win: `One half step changed it to ${r.name} minor!` }); }
+    return chordTask(r, 'minor', { text: T('{root} major is {notes}. Make it minor: play {root} minor.', { root: nn(r.name), notes: sayList(names(maj)) }), hint: T('Lower the middle note, {mid}, by one half step.', { mid: nn(maj[1].name) }), win: T('One half step changed it to {root} minor!', { root: nn(r.name) }) }); }
   const K = pick(MINOR_KEYS.slice(0, 3)), dir = v === 2 ? 'up' : 'down', sc = dir === 'up' ? K.sc : K.sc.slice().reverse(), mids = sc.map(s => s.midi);
-  return { kind: 'notes', text: `Play the ${K.n} natural minor scale going ${dir}.`, voice: true, hint: `The notes are ${names(sc).join(' ')}. Minor has a half step between notes 2 and 3.`, win: 'That is the minor scale. Hear how dark it sounds?',
+  return { kind: 'notes', text: T('Play the {k} natural minor scale going {dir}.', { k: nn(K.n), dir: T(dir) }), voice: true, hint: T('The notes are {notes}. Minor has a half step between notes 2 and 3.', { notes: names(sc).join(' ') }), win: T('That is the minor scale. Hear how dark it sounds?'),
     check: pcTuneCheck(mids), solve: () => ({ notes: mids.map(m => ({ midi: m, src: 'key', inst: 'piano' })) }), solveVoice: () => ({ notes: mids.map(m => ({ midi: m - 3, src: 'voice' })) }) };
 }
 function genChord() {
   const [li, acc, q] = pick([[1, 0, 'major'], [2, 0, 'major'], [5, 0, 'major'], [6, -1, 'major'], [2, -1, 'major'], [5, -1, 'major'], [6, 0, 'major'], [3, 0, 'major'],
     [3, 1, 'minor'], [0, 0, 'minor'], [4, 0, 'minor'], [6, 0, 'minor'], [0, 1, 'minor'], [3, 0, 'minor'], [2, 0, 'minor']]);
-  return chordTask(spn(li, acc, 4), q, { hint: `${q === 'major' ? 'Major' : 'Minor'} chord: root, up ${q === 'major' ? '4' : '3'} half steps, then up ${q === 'major' ? '3' : '4'} more.` });
+  return chordTask(spn(li, acc, 4), q, { hint: T('{Q} chord: root, up {a} half steps, then up {b} more.', { Q: T(q === 'major' ? 'Major' : 'Minor'), q: T(q), a: q === 'major' ? '4' : '3', b: q === 'major' ? '3' : '4' }) });
 }
 // Rung 16, 7th: key signatures, drawn on the staff.
 function genKeySig() {
   const K = pick(MAJOR_KEYS.slice(1)), many = K.sharps.length ? plural(K.sharps.length, 'sharp') : plural(K.flats.length, 'flat'), v = rnd(0, 2);
   if (v === 0) { const mids = K.sc.map(s => s.midi);
-    return { kind: 'notes', staff: { keysig: K }, text: `This key signature has ${many}. Play its major scale going up.`, voice: true, hint: `With ${many}, the key is ${K.n} major. The notes are ${names(K.sc).join(' ')}.`, win: `${K.n} major!`,
+    return { kind: 'notes', staff: { keysig: K }, text: T('This key signature has {many}. Play its major scale going up.', { many }), voice: true, hint: T('With {many}, the key is {k} major. The notes are {notes}.', { many, k: nn(K.n), notes: names(K.sc).join(' ') }), win: T('{k} major!', { k: nn(K.n) }),
       check: pcTuneCheck(mids), solve: () => ({ notes: mids.map(m => ({ midi: m, src: 'key', inst: 'piano' })) }), solveVoice: () => ({ notes: mids.map(m => ({ midi: m - 1, src: 'voice' })) }) }; }
   if (v === 1) { const t = K.tonic.midi;
-    return { kind: 'notes', staff: { keysig: K }, text: `This key signature has ${many}. Play the tonic, the home note of its major key.`, hint: K.sharps.length ? `The last sharp is ${K.sharps[K.sharps.length - 1].name}. The tonic is one half step above it.` : (K.flats.length > 1 ? `The second to last flat is the tonic: ${K.flats[K.flats.length - 2].name}.` : 'One flat is the key of F.'), win: `${K.n} is home in this key!`,
-      check: S => { const ns = lastN(S, 1); if (!ns.length) return no('Play one note.'); return mod12(ns[0].midi) === mod12(t) ? OK : no(`That is ${keyName(ns[0].midi)}. Look at the ${K.sharps.length ? 'sharps' : 'flats'} again.`); },
+    return { kind: 'notes', staff: { keysig: K }, text: T('This key signature has {many}. Play the tonic, the home note of its major key.', { many }), hint: K.sharps.length ? T('The last sharp is {s}. The tonic is one half step above it.', { s: nn(K.sharps[K.sharps.length - 1].name) }) : (K.flats.length > 1 ? T('The second to last flat is the tonic: {f}.', { f: nn(K.flats[K.flats.length - 2].name) }) : T('One flat is the key of F.')), win: T('{k} is home in this key!', { k: nn(K.n) }),
+      check: S => { const ns = lastN(S, 1); if (!ns.length) return no(T('Play one note.')); return mod12(ns[0].midi) === mod12(t) ? OK : no(T('That is {note}. Look at the {acc} again.', { note: keyName(ns[0].midi), acc: T(K.sharps.length ? 'sharps' : 'flats') })); },
       solve: () => ({ notes: [{ midi: t, src: 'key', inst: 'piano' }] }) }; }
   const mids = K.sig.map(s => s.midi < KB_LO ? s.midi + 12 : s.midi);
-  return { kind: 'notes', staff: { keysig: K }, text: `Play the ${K.sharps.length ? 'sharps' : 'flats'} in this key signature, in order from left to right.`, hint: `They are ${sayList(names(K.sig))}.`, win: K.sig.length === 1 ? `That is the ${K.sharps.length ? 'sharp' : 'flat'} of ${K.n} major.` : `Those are the ${many} of ${K.n} major.`,
+  return { kind: 'notes', staff: { keysig: K }, text: T('Play the {acc} in this key signature, in order from left to right.', { acc: T(K.sharps.length ? 'sharps' : 'flats') }), hint: T('They are {notes}.', { notes: sayList(names(K.sig)) }), win: K.sig.length === 1 ? T('That is the {acc1} of {k} major.', { acc1: T(K.sharps.length ? 'sharp' : 'flat'), k: nn(K.n) }) : T('Those are the {many} of {k} major.', { many, k: nn(K.n) }),
     check: pcSeqCheck(mids), solve: () => ({ notes: mids.map(m => ({ midi: m, src: 'key', inst: 'piano' })) }) };
 }
 // Rung 17, 7th: reading notes on the treble staff.
@@ -1234,8 +1453,8 @@ function genStaff() {
     notes.push(spn(li, acc, oct));
   }
   const mids = notes.map(s => s.midi);
-  return { kind: 'notes', staff: { notes }, text: pick(['Read the notes on the staff. Play them from left to right.', 'Play the notes you see on the staff.', 'Read this melody and play it on the keys.']), voice: true,
-    hint: `Lines from the bottom: E G B D F. Spaces: F A C E. The first note is ${notes[0].name}.`, win: pick(['You read the staff!', 'Fluent reading!']), check: tuneCheck(mids, false),
+  return { kind: 'notes', staff: { notes }, text: T(pick(['Read the notes on the staff. Play them from left to right.', 'Play the notes you see on the staff.', 'Read this melody and play it on the keys.'])), voice: true,
+    hint: T('Lines from the bottom: E G B D F. Spaces: F A C E. The first note is {n}.', { n: nn(notes[0].name) }), win: T(pick(['You read the staff!', 'Fluent reading!'])), check: tuneCheck(mids, false),
     solve: () => ({ notes: mids.map(m => ({ midi: m, src: 'key', inst: 'piano' })) }), solveVoice: () => ({ notes: mids.map(m => ({ midi: m - 5, src: 'voice' })) }) };
 }
 // Rung 18, 8th: chord progressions in a major key.
@@ -1243,14 +1462,14 @@ const ROMAN = ['I', 'ii', 'iii', 'IV', 'V', 'vi'], ROMAN_SAY = ['one', 'two', 't
 const PROGS = [[0, 3, 4, 0], [0, 4, 5, 3], [0, 5, 3, 4], [1, 4, 0], [0, 3, 0, 4], [5, 3, 0, 4], [0, 4, 0]];
 function degreeChord(K, d) { const c = [0, 2, 4].map(o => spAbove(K.tonic, d + o, MAJ2[d + o])); return c.some(s => s.midi > KB_HI) ? c.map(s => spn(s.li, s.acc, s.oct - 1)) : c; }
 function genProgression() {
-  const K = pick(MAJOR_KEYS.slice(0, 4).concat(keyNamed('F'))), v = rnd(0, 2), P2 = pick(PROGS), rn = P2.map(d => ROMAN[d]).join(' '), rs = P2.map(d => ROMAN_SAY[d]).join(', ');
+  const K = pick(MAJOR_KEYS.slice(0, 4).concat(keyNamed('F'))), v = rnd(0, 2), P2 = pick(PROGS), rn = P2.map(d => ROMAN[d]).join(' '), rs = P2.map(d => T(ROMAN_SAY[d])).join(', '), kn = nn(K.n);
   if (v === 0) { const mids = P2.map(d => K.sc[d].midi);
-    return { kind: 'notes', text: `In ${K.n} major, play the root of each chord: ${rn}.`, say: `In ${speakable(K.n)} major, play the root of each chord: ${rs}.`, voice: true, hint: `The roots are scale notes ${P2.map(d => d + 1).join(', ')}: ${sayList(P2.map(d => K.sc[d].name))}.`, win: `That is the bass line of ${rn}!`,
+    return { kind: 'notes', text: T('In {k} major, play the root of each chord: {rn}.', { k: kn, rn }), say: T('In {k} major, play the root of each chord: {rn}.', { k: speakable(kn), rn: rs }), voice: true, hint: T('The roots are scale notes {degs}: {notes}.', { degs: P2.map(d => d + 1).join(', '), notes: sayList(P2.map(d => nn(K.sc[d].name))) }), win: T('That is the bass line of {rn}!', { rn }),
       check: pcSeqCheck(mids), solve: () => ({ notes: mids.map(m => ({ midi: m, src: 'key', inst: 'piano' })) }), solveVoice: () => ({ notes: mids.map(m => ({ midi: m - 2, src: 'voice' })) }) }; }
   if (v === 1) { const d = pick([1, 3, 4, 5]), ch = degreeChord(K, d), q = [1, 2, 5].includes(d) ? 'minor' : 'major';
-    return Object.assign(chordTask(ch[0], q, { text: `Play the ${ROMAN[d]} chord in ${K.n} major.`, hint: `${ROMAN[d]} is built on note ${d + 1} of the scale, ${ch[0].name}: ${sayList(names(ch))}.`, win: `${ROMAN[d]} in ${K.n} is ${ch[0].name} ${q}!` }), { say: `Play the ${ROMAN_SAY[d]} chord in ${speakable(K.n)} major.` }); }
+    return Object.assign(chordTask(ch[0], q, { text: T('Play the {r} chord in {k} major.', { r: ROMAN[d], k: kn }), hint: T('{r} is built on note {d} of the scale, {root}: {notes}.', { r: ROMAN[d], d: d + 1, root: nn(ch[0].name), notes: sayList(names(ch)) }), win: T('{r} in {k} is {root} {q}!', { r: ROMAN[d], k: kn, root: nn(ch[0].name), q: T(q) }) }), { say: T('Play the {r} chord in {k} major.', { r: T(ROMAN_SAY[d]), k: speakable(kn) }) }); }
   const P3 = pick(PROGS.filter(p => p.length === 3).concat([[0, 3, 4], [0, 4, 5], [3, 4, 0]])), chords = P3.map(d => degreeChord(K, d)), r3 = P3.map(d => ROMAN[d]).join(' ');
-  return { kind: 'notes', text: `Play the chords ${r3} in ${K.n} major, three notes each.`, say: `Play the chords ${P3.map(d => ROMAN_SAY[d]).join(', ')} in ${speakable(K.n)} major, three notes each.`, hint: chords.map((c, i) => `${ROMAN[P3[i]]}: ${names(c).join(' ')}`).join('. ') + '.', win: `${r3}. A real progression!`,
+  return { kind: 'notes', text: T('Play the chords {r3} in {k} major, three notes each.', { r3, k: kn }), say: T('Play the chords {r3} in {k} major, three notes each.', { r3: P3.map(d => T(ROMAN_SAY[d])).join(', '), k: speakable(kn) }), hint: chords.map((c, i) => `${ROMAN[P3[i]]}: ${names(c).join(' ')}`).join('. ') + '.', win: T('{r3}. A real progression!', { r3 }),
     playChords: chords.map(c => c.map(s => s.midi)), check: chordsCheck(chords), solve: () => ({ notes: chords.flat().map(s => ({ midi: s.midi, src: 'key', inst: 'piano' })) }) };
 }
 // Rung 19, 8th: compose to a rule. The whole tune she made is checked against each rule.
@@ -1263,26 +1482,26 @@ function genCompose() {
     { key: minorNamed('A'), len: [6, 8], leaps: 1, climax: false, minor: true },
     { key: minorNamed('E'), len: [6, 8], leaps: null, climax: true, minor: true },
   ]);
-  const K = R.key, kn = `${K.n} ${R.minor ? 'minor' : 'major'}`, tpc = mod12(K.tonic.midi), rel = new Set(K.sc.map(s => mod12(s.midi - K.tonic.midi)));
-  const rules = [`use ${R.len[0]} to ${R.len[1]} notes`, `start and end on ${K.n}`, R.leaps === 1 ? 'move by step except for exactly one leap' : 'move mostly by step', R.climax ? 'reach your highest note only once' : null].filter(Boolean);
-  const text = `Compose a tune in ${kn}. ${rules.map(r => r[0].toUpperCase() + r.slice(1)).join('. ')}.` + (K.sig.length ? ` Remember ${sayList(names(K.sig))}.` : '');
+  const K = R.key, kn = `${nn(K.n)} ${T(R.minor ? 'minor' : 'major')}`, tpc = mod12(K.tonic.midi), rel = new Set(K.sc.map(s => mod12(s.midi - K.tonic.midi)));
+  const rules = [T('use {a} to {b} notes', { a: R.len[0], b: R.len[1] }), T('start and end on {k}', { k: nn(K.n) }), T(R.leaps === 1 ? 'move by step except for exactly one leap' : 'move mostly by step'), R.climax ? T('reach your highest note only once') : null].filter(Boolean);
+  const text = T('Compose a tune in {kn}. {rules}.', { kn, rules: rules.map(r => r[0].toUpperCase() + r.slice(1)).join('. ') }) + (K.sig.length ? T(' Remember {sig}.', { sig: sayList(names(K.sig)) }) : '');
   const check = S => {
-    const ns = S.notes; if (ns.length < R.len[0] || ns.length > R.len[1]) return no(`Your tune has ${plural(ns.length, 'note')}. Use ${R.len[0]} to ${R.len[1]}. Tap 🗑️ Clear to start fresh.`);
+    const ns = S.notes; if (ns.length < R.len[0] || ns.length > R.len[1]) return no(T('Your tune has {n}. Use {a} to {b}. Tap 🗑️ Clear to start fresh.', { n: plural(ns.length, 'note'), a: R.len[0], b: R.len[1] }));
     const shift = sangLast(S) ? tpc - mod12(ns[0].midi) : 0, m = ns.map(n => n.midi + shift);
-    const out = m.find(x => !rel.has(mod12(x - tpc))); if (out !== undefined) return no(`${keyName(out)} is not in ${kn}.`);
-    if (mod12(m[0]) !== tpc) return no(`Start on ${K.n}.`); if (mod12(m[m.length - 1]) !== tpc) return no(`End on ${K.n}, the home note.`);
+    const out = m.find(x => !rel.has(mod12(x - tpc))); if (out !== undefined) return no(T('{note} is not in {kn}.', { note: keyName(out), kn }));
+    if (mod12(m[0]) !== tpc) return no(T('Start on {k}.', { k: nn(K.n) })); if (mod12(m[m.length - 1]) !== tpc) return no(T('End on {k}, the home note.', { k: nn(K.n) }));
     const iv = m.slice(1).map((x, i) => Math.abs(x - m[i])), leaps = iv.filter(x => x > 2).length;
-    if (iv.some(x => x === 0)) return no('Move to a new note each time. No repeats in a row.');
-    if (R.leaps === 1 && leaps !== 1) return no(`I found ${plural(leaps, 'leap')}. Use exactly one leap, a jump bigger than a step.`);
-    if (R.leaps === null && leaps > Math.floor((m.length - 1) / 2)) return no('Too many leaps. Move mostly by step.');
-    if (R.climax) { const hi = Math.max(...m); if (m.filter(x => x === hi).length > 1) return no('Your highest note shows up twice. Reach it only once.'); }
+    if (iv.some(x => x === 0)) return no(T('Move to a new note each time. No repeats in a row.'));
+    if (R.leaps === 1 && leaps !== 1) return no(T('I found {n}. Use exactly one leap, a jump bigger than a step.', { n: plural(leaps, 'leap') }));
+    if (R.leaps === null && leaps > Math.floor((m.length - 1) / 2)) return no(T('Too many leaps. Move mostly by step.'));
+    if (R.climax) { const hi = Math.max(...m); if (m.filter(x => x === hi).length > 1) return no(T('Your highest note shows up twice. Reach it only once.')); }
     return OK;
   };
   const solve = () => { // a tune that keeps every rule: steps up from the tonic, one leap down to note 2, then home
     const sc = K.sc.map(s => s.midi), len = R.len[0], m = sc.slice(0, len - 2).concat([sc[1], sc[0]]);
     return { notes: m.map(x => ({ midi: x, src: 'key', inst: 'piano' })) };
   };
-  return { kind: 'notes', text, say: speakable(text), voice: true, compose: true, hint: `Rules: ${rules.join('; ')}. A step is the next note of the scale. Notes in ${kn}: ${names(K.sc.slice(0, 7)).join(' ')}.`, win: 'Your own tune, and it follows every rule! Listen.', check, solve,
+  return { kind: 'notes', text, say: speakable(text), voice: true, compose: true, hint: T('Rules: {rules}. A step is the next note of the scale. Notes in {kn}: {notes}.', { rules: rules.join('; '), kn, notes: names(K.sc.slice(0, 7)).join(' ') }), win: T('Your own tune, and it follows every rule! Listen.'), check, solve,
     solveVoice: () => ({ notes: solve().notes.map(n => ({ midi: n.midi + 2, src: 'voice' })) }) };
 }
 
@@ -1378,7 +1597,7 @@ function buildKb() {
   const W = 100 / whites.length;
   whites.forEach((m, i) => { const b = document.createElement('button'); b.className = 'k w'; b.dataset.midi = m; b.style.left = (i * W) + '%'; b.style.width = W + '%'; b.innerHTML = `${noteName(m)}${m % 12 === 0 ? '<small>' + (Math.floor(m / 12) - 1) + '</small>' : ''}<i style="background:${COLORS[m % 12]}"></i>`; kb.appendChild(b); });
   for (let m = KB_LO; m <= KB_HI; m++) if (!C_MAJOR.includes(m % 12)) { const i = whites.indexOf(m - 1), b = document.createElement('button'); b.className = 'k b'; b.dataset.midi = m; b.style.left = ((i + 1) * W - W * .3) + '%'; b.style.width = (W * .6) + '%';
-    const sh = NOTE[(m - 1) % 12] + '♯', fl = NOTE[(m + 1) % 12] + '♭'; b.innerHTML = `${sh}<br>${fl}`; kb.appendChild(b); }
+    const sh = nn(NOTE[(m - 1) % 12]) + '♯', fl = nn(NOTE[(m + 1) % 12]) + '♭'; b.innerHTML = `${sh}<br>${fl}`; kb.appendChild(b); }
   kb.querySelectorAll('.k').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); keyNote(+b.dataset.midi, b); }));
 }
 function keyNote(m, b) {
@@ -1398,39 +1617,39 @@ function newTask() {
 }
 function render() {
   const t = task;
-  $('chLv').textContent = `Level ${P.lv + 1} of ${LEVELS.length} · ${LEVELS[P.lv].name}`;
+  $('chLv').textContent = T('Level {n} of {total} · {name}', { n: P.lv + 1, total: LEVELS.length, name: T(LEVELS[P.lv].name) });
   $('chText').textContent = t.text; $('chStars').textContent = '⭐ ' + P.stars;
   document.querySelectorAll('#chBody .ws').forEach(w => w.classList.toggle('on', w.id === wsFor(t.kind)));
   if (t.kind === 'notes') {
     $('chStaff').style.display = t.staff ? 'block' : 'none';
     $('chHear').style.display = t.hear ? '' : 'none';
     const ir = $('chInst'); ir.innerHTML = ''; ir.style.display = t.instPick ? '' : 'none';
-    if (t.instPick) for (const [k, v] of Object.entries(INSTS)) { const b = document.createElement('button'); b.className = 'inst' + (k === CH.inst ? ' on' : ''); b.dataset.chinst = k; b.textContent = v; b.onclick = () => { CH.inst = k; ir.querySelectorAll('.inst').forEach(x => x.classList.toggle('on', x === b)); tone(k, 523.25, audio().currentTime + .02, .4); }; ir.appendChild(b); }
+    if (t.instPick) for (const [k, v] of Object.entries(INSTS)) { const b = document.createElement('button'); b.className = 'inst' + (k === CH.inst ? ' on' : ''); b.dataset.chinst = k; b.textContent = T(v); b.onclick = () => { CH.inst = k; ir.querySelectorAll('.inst').forEach(x => x.classList.toggle('on', x === b)); tone(k, 523.25, audio().currentTime + .02, .4); }; ir.appendChild(b); }
     $('chCheck').style.display = t.auto ? 'none' : '';
     requestAnimationFrame(() => { drawChRoll(); if (t.staff) drawStaff(); });
   } else if (t.kind === 'beat' || t.kind === 'rhythm' || t.kind === 'meter') {
     $('chTempo').querySelectorAll('[data-chbpm]').forEach(b => { b.style.display = t.kind === 'beat' ? '' : 'none'; b.classList.toggle('on', +b.dataset.chbpm === CH.bpm); });
-    $('chBeat').style.display = t.kind === 'beat' && t.click ? '' : 'none'; $('chBeat').textContent = '▶ Beat';
+    $('chBeat').style.display = t.kind === 'beat' && t.click ? '' : 'none'; $('chBeat').textContent = T('▶ Beat');
     $('chHearR').style.display = t.kind === 'rhythm' && !t.read || t.kind === 'meter' && t.show ? '' : 'none';
     $('padSmall').style.display = t.kind === 'meter' ? '' : 'none';
     requestAnimationFrame(drawRhy);
   } else if (t.kind === 'dyn') {
     document.querySelectorAll('[data-vol]').forEach(b => b.classList.toggle('on', b.dataset.vol === CH.vol)); drawSounds(); $('chMeter').firstChild.style.width = 0;
-  } else if (t.kind === 'fx') { buildChFx(); $('chFxNow').textContent = CH.snd ? '' : 'Record your voice, or use the duck voice.'; }
+  } else if (t.kind === 'fx') { buildChFx(); $('chFxNow').textContent = CH.snd ? '' : T('Record your voice, or use the duck voice.'); }
 }
 function checkNow() {
   if (!task || won) return;
   const r = task.check(CH); fresh = 0;
   if (r.ok) return winTask();
-  chMsg('Not yet. ' + r.why, 'bad'); say('Not yet. ' + speakable(r.why));
-  if (!missed) { missed = true; const ch = record(false); if (ch < 0) chMsg('Not yet. ' + r.why + ' Next time, an easier one.', 'bad'); }
+  chMsg(T('Not yet. {why}', { why: r.why }), 'bad'); say(T('Not yet. {why}', { why: speakable(r.why) }));
+  if (!missed) { missed = true; const ch = record(false); if (ch < 0) chMsg(T('Not yet. {why} Next time, an easier one.', { why: r.why }), 'bad'); }
   if (task.kind !== 'notes') { CH.taps = []; CH.sounds = []; drawSounds(); drawRhy(); }
   else if (task.auto) { CH.notes = []; drawChRoll(); }
 }
 function winTask() {
   won = true; const ch = missed ? 0 : record(true);
   P.stars++; persist(); $('chStars').textContent = '⭐ ' + P.stars; stopBeat();
-  const up = ch > 0 ? ` Level up: ${LEVELS[P.lv].name}!` : '';
+  const up = ch > 0 ? T(' Level up: {name}!', { name: T(LEVELS[P.lv].name) }) : '';
   chMsg('⭐ ' + task.win + up, 'good'); say(speakable(task.win + up));
   const a = audio(); if (a) [72, 76, 79, 84].forEach((m, k) => tone('bells', freqOf(m), a.currentTime + .05 + k * .1, .3, null, .25));
   if (task.compose) setTimeout(() => playNotes(CH.notes.map((n, k) => ({ midi: n.midi, start: k * .4, end: k * .4 + .38 })), 'piano', true), 900);
@@ -1454,16 +1673,16 @@ $('chClear').onclick = () => { CH.notes = []; fresh = 0; drawChRoll(); };
 $('chCheck').onclick = () => { if (task && task.kind === 'notes') checkNow(); };
 $('chSing').onclick = async () => {
   if (!task || won) return; if (singBusy) { if (recordVoice.stop) recordVoice.stop(); return; }
-  singBusy = true; $('chSing').textContent = '⏹ Done'; chMsg('🎤 Sing! I am listening.');
+  singBusy = true; $('chSing').textContent = T('⏹ Done'); chMsg(T('🎤 Sing! I am listening.'));
   try {
     const rec = await recordVoice({ clean: true, maxSec: 15, silenceSec: 1.3 }), data = trim(rec.data, rec.rate);
     const ns = data ? (p => segmentNotes(p.track, p.hopSec))(pitchTrack(data, rec.rate)) : [];
-    if (!ns.length) { chMsg("I couldn't hear a tune. Try 'la la la', or use the keys."); return; }
+    if (!ns.length) { chMsg(T("I couldn't hear a tune. Try 'la la la', or use the keys.")); return; }
     CH.notes = ns.map(n => ({ midi: n.midi, src: 'voice', inst: CH.inst })); fresh = CH.notes.length;
-    chMsg(`You sang ${plural(ns.length, 'note')}: ${ns.map(n => noteName(n.midi)).join(' ')}`); drawChRoll(); playNotes(ns, CH.inst);
+    chMsg(T('You sang {n}: {notes}', { n: plural(ns.length, 'note'), notes: ns.map(n => noteName(n.midi)).join(' ') })); drawChRoll(); playNotes(ns, CH.inst);
     if (task.auto) setTimeout(checkNow, 600);
-  } catch (e) { chMsg('No microphone here. Tap the keys instead.'); }
-  finally { singBusy = false; $('chSing').textContent = '🎤 Sing it'; }
+  } catch (e) { chMsg(T('No microphone here. Tap the keys instead.')); }
+  finally { singBusy = false; $('chSing').textContent = T('🎤 Sing it'); }
 };
 // The roll: her notes in color with their names; the tune to echo as blocks behind them (in color for the
 // youngest, gray for shape only).
@@ -1472,7 +1691,7 @@ function drawChRoll() {
   const dpr = devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight; c.width = W * dpr; c.height = H * dpr;
   const g = c.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, W, H);
   const mine = CH.notes, tgt = task && task.ghost ? task.tune : [], all = mine.map(n => n.midi).concat(tgt);
-  if (!all.length) { g.fillStyle = '#b9adcc'; g.font = '800 22px Segoe UI, sans-serif'; g.textAlign = 'center'; const msg = W > 560 ? 'Tap the keys or sing. Your notes show up here.' : 'Your notes show up here.'; g.fillText(msg, W / 2, H / 2 + 8); return; }
+  if (!all.length) { g.fillStyle = '#b9adcc'; g.font = '800 22px Segoe UI, sans-serif'; g.textAlign = 'center'; const msg = T(W > 560 ? 'Tap the keys or sing. Your notes show up here.' : 'Your notes show up here.'); g.fillText(msg, W / 2, H / 2 + 8); return; }
   const lo = Math.min(...all) - 1, hi = Math.max(...all) + 1, rowH = (H - 16) / (hi - lo + 1), slots = Math.max(mine.length, tgt.length, 4), sw = (W - 20) / slots;
   for (let m = lo; m <= hi; m++) { g.fillStyle = C_MAJOR.includes(mod12(m)) ? '#fff' : '#f6f1fb'; g.fillRect(0, 8 + (hi - m) * rowH, W, rowH); }
   const block = (k, m, ghost) => { const y = 8 + (hi - m) * rowH, x = 10 + k * sw; g.beginPath(); g.roundRect ? g.roundRect(x + 3, y + 2, sw - 6, Math.max(6, rowH - 4), 8) : g.rect(x + 3, y + 2, sw - 6, Math.max(6, rowH - 4));
@@ -1503,7 +1722,7 @@ function drawStaff() {
   const ks = task.staff.keysig;
   if (ks) { const SP = { 3: 8, 0: 5, 4: 9, 1: 6, 5: 3, 2: 7, 6: 4 }, FP = { 6: 4, 2: 7, 5: 3, 1: 6, 4: 2, 0: 5, 3: 1 };
     ks.sig.forEach((s, k) => glyph(s.acc > 0 ? '♯' : '♭', xs + k * gap * 1.1, s.acc > 0 ? SP[s.li] : FP[s.li]));
-    if (!ks.sig.length) { g.font = `800 ${gap * 1.2}px Segoe UI, sans-serif`; g.textAlign = 'left'; g.fillText('no sharps or flats', xs, y(-3)); }
+    if (!ks.sig.length) { g.font = `800 ${gap * 1.2}px Segoe UI, sans-serif`; g.textAlign = 'left'; g.fillText(T('no sharps or flats'), xs, y(-3)); }
     return; }
   const ns = task.staff.notes, step = (x1 - xs - gap) / ns.length;
   ns.forEach((s, k) => { const p = s.oct * 7 + s.li - 30, nx = xs + gap * 1.4 + step * (k + .5);
@@ -1514,8 +1733,8 @@ function drawStaff() {
 }
 
 // Beat, rhythm and time signatures on the drums.
-function stopBeat() { clearInterval(beatTimer); beatTimer = null; if ($('chBeat')) $('chBeat').textContent = '▶ Beat'; }
-function startBeat() { const a = audio(); if (!a) return; stopBeat(); beatNext = a.currentTime + .1; beatCount = 0; $('chBeat').textContent = '⏹ Beat';
+function stopBeat() { clearInterval(beatTimer); beatTimer = null; if ($('chBeat')) $('chBeat').textContent = T('▶ Beat'); }
+function startBeat() { const a = audio(); if (!a) return; stopBeat(); beatNext = a.currentTime + .1; beatCount = 0; $('chBeat').textContent = T('⏹ Beat');
   beatTimer = setInterval(() => { const b = 60 / CH.bpm; while (beatNext < a.currentTime + .15) { click(beatNext, beatCount % 4 === 0); const n = beatCount; setTimeout(() => drawRhy(n), Math.max(0, (beatNext - a.currentTime) * 1000)); beatNext += b; beatCount++; } }, 30); }
 $('chBeat').onclick = () => beatTimer ? stopBeat() : startBeat();
 document.querySelectorAll('[data-chbpm]').forEach(b => b.onclick = () => { CH.bpm = +b.dataset.chbpm; document.querySelectorAll('[data-chbpm]').forEach(x => x.classList.toggle('on', x === b)); if (beatTimer) startBeat(); });
@@ -1540,7 +1759,7 @@ function drawRhy(pulse) {
   if (task.kind === 'beat') {
     const n = task.n, r = Math.min(26, W / n / 3), got = Math.min(n, CH.taps.length);
     for (let k = 0; k < n; k++) { const x = W / 2 + (k - (n - 1) / 2) * (W - 60) / n; g.beginPath(); g.arc(x, H * .45, r, 0, Math.PI * 2); g.fillStyle = k < got ? COLORS[k * 3 % 12] : '#f1ebf8'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#2B2140'; g.stroke(); }
-    g.fillStyle = '#2B2140'; font(20, 800); g.fillText(`${got} of ${n} taps` + (beatTimer && typeof pulse === 'number' ? (pulse % 2 ? '  ·' : '  •') : ''), W / 2, H * .45 + r + 22);
+    g.fillStyle = '#2B2140'; font(20, 800); g.fillText(T('{got} of {n} taps', { got, n }) + (beatTimer && typeof pulse === 'number' ? (pulse % 2 ? '  ·' : '  •') : ''), W / 2, H * .45 + r + 22);
     return;
   }
   if (task.kind === 'meter') {
@@ -1566,14 +1785,14 @@ function drawRhy(pulse) {
     else if (e === 'titi') { xs = [xc - L * .25, xc + L * .25]; xs.forEach(x => head(x, false)); beam(xs[0], xs[1], 0); }
     else if (e === 'tika') { xs = [0, 1, 2, 3].map(i => xc - L * .36 + i * L * .24); xs.forEach(x => head(x, false)); beam(xs[0], xs[3], 0); beam(xs[0], xs[3], 1); }
     else { g.lineWidth = 4; g.beginPath(); const q = stem / 4; g.moveTo(xc - q * .3, lineY - q * 1.8); g.lineTo(xc + q * .5, lineY - q * .8); g.lineTo(xc - q * .4, lineY); g.lineTo(xc + q * .5, lineY + q * .9); g.quadraticCurveTo(xc - q * .6, lineY + q * .6, xc - q * .1, lineY + q * 1.6); g.stroke(); }
-    if (!task.read) { font(Math.min(22, H * .16), 800); g.fillText(RH[e].w, xc, lineY + H * .3); }
+    if (!task.read) { font(Math.min(22, H * .16), 800); g.fillText(T(RH[e].w), xc, lineY + H * .3); }
     // A colored dot over each note she has tapped so far.
     xs.forEach(x => { if (onIdx < taps) { g.fillStyle = COLORS[(onIdx * 3) % 12]; g.beginPath(); g.arc(x + hr * .2, lineY - stem - 16, 7, 0, Math.PI * 2); g.fill(); g.fillStyle = '#2B2140'; } onIdx++; });
     pos += RH[e].len; });
 }
 
 // Loud and soft: her voice or the drum with a loudness switch.
-function drawSounds() { $('chSounds').innerHTML = CH.sounds.slice(-6).map(s => `<span>${VOL[s.level].e}</span>`).join(' ') || '<span style="font-size:20px;font-weight:800;color:#8a7fa0">Your sounds show up here.</span>'; }
+function drawSounds() { $('chSounds').innerHTML = CH.sounds.slice(-6).map(s => `<span>${VOL[s.level].e}</span>`).join(' ') || `<span style="font-size:20px;font-weight:800;color:#8a7fa0">${T('Your sounds show up here.')}</span>`; }
 function addSound(level, src) {
   $('chMeter').firstChild.style.width = VOL[level].w + '%'; setTimeout(() => { $('chMeter').firstChild.style.width = 0; }, 700);
   if (!task || won || task.kind !== 'dyn') return; CH.sounds.push({ level, src }); drawSounds();
@@ -1583,35 +1802,35 @@ document.querySelectorAll('[data-vol]').forEach(b => b.onclick = () => { CH.vol 
 $('padDyn').addEventListener('pointerdown', e => { e.preventDefault(); audio(); drum(true, VOL[CH.vol].g); $('padDyn').classList.add('hit'); setTimeout(() => $('padDyn').classList.remove('hit'), 120); addSound(CH.vol, 'drum'); });
 $('chVoice').onclick = async () => {
   if (chMicBusy) { if (voiceLevel.stop) voiceLevel.stop(); return; }
-  chMicBusy = true; $('chVoice').textContent = '⏹ Done'; chMsg('🎤 Go! I am listening.');
+  chMicBusy = true; $('chVoice').textContent = T('⏹ Done'); chMsg(T('🎤 Go! I am listening.'));
   try { const peak = await voiceLevel(r => { $('chMeter').firstChild.style.width = Math.min(100, r / .14 * 100) + '%'; });
-    if (peak < .015) chMsg("I couldn't hear you. Try again, or use the drum."); else { const l = levelOf(peak); chMsg(`That was ${l === 'mid' ? 'in the middle' : l}.`); addSound(l, 'voice'); } }
-  catch (e) { chMsg('No microphone here. Use the drum and the 🐭 🐻 🦁 buttons.'); }
-  finally { chMicBusy = false; $('chVoice').textContent = '🎤 Use my voice'; }
+    if (peak < .015) chMsg(T("I couldn't hear you. Try again, or use the drum.")); else { const l = levelOf(peak); chMsg(T('That was {l}.', { l: T(l === 'mid' ? 'in the middle' : l) })); addSound(l, 'voice'); } }
+  catch (e) { chMsg(T('No microphone here. Use the drum and the 🐭 🐻 🦁 buttons.')); }
+  finally { chMicBusy = false; $('chVoice').textContent = T('🎤 Use my voice'); }
 };
 
 // Voice effects: the same ten effects, on her recording or the duck voice.
 function buildChFx() {
   const gEl = $('chFxGrid'); gEl.innerHTML = '';
-  for (const [k, f] of Object.entries(FX)) { const b = document.createElement('button'); b.className = 'fx' + (k === CH.fxSel ? ' on' : ''); b.dataset.chfx = k; b.innerHTML = `<span class="e">${f.e}</span>${f.name}`;
+  for (const [k, f] of Object.entries(FX)) { const b = document.createElement('button'); b.className = 'fx' + (k === CH.fxSel ? ' on' : ''); b.dataset.chfx = k; b.innerHTML = `<span class="e">${f.e}</span>${T(f.name)}`;
     b.onclick = () => { CH.fxSel = k; gEl.querySelectorAll('.fx').forEach(x => x.classList.toggle('on', x === b)); if (CH.snd) chPlayFx(); }; gEl.appendChild(b); }
 }
 async function chPlayFx() {
-  if (!CH.snd) { $('chFxNow').textContent = 'Record your voice or tap 🦆 Duck voice first.'; return; }
-  const f = FX[CH.fxSel]; $('chFxNow').textContent = `${f.e} ${f.name}!`; await sleep(20);
+  if (!CH.snd) { $('chFxNow').textContent = T('Record your voice or tap 🦆 Duck voice first.'); return; }
+  const f = FX[CH.fxSel]; $('chFxNow').textContent = T('{e} {name}!', { e: f.e, name: T(f.name) }); await sleep(20);
   playBuffer(applyFx(CH.fxSel, CH.snd.data, CH.snd.rate), CH.snd.rate);
   if (!task || won || task.kind !== 'fx') return; CH.fx = { name: CH.fxSel, src: CH.snd.src }; setTimeout(checkNow, 600);
 }
 $('chFxPlay').onclick = chPlayFx;
-$('chDuck').onclick = () => { CH.snd = Object.assign(duckSample(), { src: 'duck' }); $('chFxNow').textContent = '🦆 Quack! Now pick an effect.'; playBuffer(CH.snd.data, CH.snd.rate); };
+$('chDuck').onclick = () => { CH.snd = Object.assign(duckSample(), { src: 'duck' }); $('chFxNow').textContent = T('🦆 Quack! Now pick an effect.'); playBuffer(CH.snd.data, CH.snd.rate); };
 $('chFxRec').onclick = async () => {
   if (fxBusy) { if (recordVoice.stop) recordVoice.stop(); return; }
-  fxBusy = true; $('chFxRec').textContent = '⏹ Stop'; $('chFxNow').textContent = '🔴 Talk, sing or make a silly sound!';
+  fxBusy = true; $('chFxRec').textContent = T('⏹ Stop'); $('chFxNow').textContent = T('🔴 Talk, sing or make a silly sound!');
   try { const rec = await recordVoice({ clean: false, maxSec: 8, silenceSec: 1 }), data = trim(rec.data, rec.rate);
-    if (!data) { $('chFxNow').textContent = "I couldn't hear you. Try again, or use the duck voice."; return; }
-    CH.snd = { data, rate: rec.rate, src: 'voice' }; $('chFxNow').textContent = 'Got it! Now pick an effect and tap ▶ Play.'; }
-  catch (e) { $('chFxNow').textContent = 'No microphone here. Tap 🦆 Duck voice instead.'; }
-  finally { fxBusy = false; $('chFxRec').textContent = '⏺ Record my voice'; }
+    if (!data) { $('chFxNow').textContent = T("I couldn't hear you. Try again, or use the duck voice."); return; }
+    CH.snd = { data, rate: rec.rate, src: 'voice' }; $('chFxNow').textContent = T('Got it! Now pick an effect and tap ▶ Play.'); }
+  catch (e) { $('chFxNow').textContent = T('No microphone here. Tap 🦆 Duck voice instead.'); }
+  finally { fxBusy = false; $('chFxRec').textContent = T('⏺ Record my voice'); }
 };
 addEventListener('resize', () => { if ($('chal').classList.contains('on') && task) { drawChRoll(); drawStaff(); drawRhy(); } });
 
@@ -1621,7 +1840,7 @@ addEventListener('resize', () => { if ($('chal').classList.contains('on') && tas
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START,
-  label: () => LEVELS[P.lv].name,
+  label: () => T(LEVELS[P.lv].name),
   exercise(i, n) {
     const out = [], bad = /NaN|undefined|null|\[object/, kinds = ['notes', 'beat', 'rhythm', 'meter', 'dyn', 'fx'];
     for (let k = 0; k < n; k++) {
