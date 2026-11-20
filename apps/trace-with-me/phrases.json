@@ -1,60 +1,94 @@
 {
- "source": "d0e6dff0e8622b65d4cd6173658e07c063c1bdf630773ee69adc2e6308c8908d",
+ "source": "eee0a1a6d79b28fb9523d5f65370dc41a60b1c8bc28311e7e34c31a6f01fb2a1",
  "lines": [
   {
-   "text": "Let us practise some easier ones.",
+   "text": "Deletrea hacha. Traza cada letra de hacha.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Deletrea mar. Traza cada letra de mar.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Deletrea silla. Traza cada letra de silla.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Deletrea verde. Mírala y recuérdala.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Escribe esta oración con las comillas. El letrero decía: \"No pasar\".",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Escribe esta oración. Aunque hace frío, caminamos.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Escribe la palabra que significa: Una figura con seis lados.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Escribe montaña. Subimos la montaña. montaña.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Escribe tuvo. Tuvo una sorpresa. tuvo.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Spell cone. Trace each letter of cone.",
    "rate": -10
   },
   {
-   "text": "Read the cursive word. Tap the printed word that matches.",
+   "text": "Spell corn. Look at it and remember it.",
    "rate": -10
   },
   {
-   "text": "Spell duck. Trace each letter of duck.",
+   "text": "Spell cup. Trace each letter of cup.",
    "rate": -10
   },
   {
-   "text": "Spell horse. Look at it and remember it.",
+   "text": "Spell wish. Trace each letter of wish.",
    "rate": -10
   },
   {
-   "text": "Spell snake. Trace each letter of snake.",
+   "text": "Trace the letter R. R is for rainbow.",
    "rate": -10
   },
   {
-   "text": "Spell sun. Trace each letter of sun.",
+   "text": "Traza la letra Ñ. Ñ de ñu.",
+   "rate": -10,
+   "lang": "es"
+  },
+  {
+   "text": "Write sincerely. Yours sincerely. sincerely.",
    "rate": -10
   },
   {
-   "text": "Trace the letter X. X is for xylophone.",
+   "text": "Write the word that means: A long time with no rain.",
    "rate": -10
   },
   {
-   "text": "Try to stay on the dots. Tap the drop to start over.",
+   "text": "Write this sentence, with the quotation marks. He asked, \"Why not?\"",
    "rate": -10
   },
   {
-   "text": "Try to stay on the line. Tap the drop to start over.",
+   "text": "Write this sentence. After the game, Ana's dad drove.",
    "rate": -10
   },
   {
-   "text": "Write neighbor. My neighbor waved. neighbor.",
-   "rate": -10
-  },
-  {
-   "text": "Write telephone. The telephone rang. telephone.",
-   "rate": -10
-  },
-  {
-   "text": "Write the short form of Mister.",
-   "rate": -10
-  },
-  {
-   "text": "Write the word that means: The usual weather of a place over many years.",
-   "rate": -10
-  },
-  {
-   "text": "Write this sentence. If you can't come, that's fine.",
+   "text": "Write together. We built it together. together.",
    "rate": -10
   }
  ]

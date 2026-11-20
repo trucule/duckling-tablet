@@ -1,7 +1,7 @@
 {
   "id": "trace-with-me",
   "name": "Trace With Me",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Handwriting: letters, numbers and shapes to color in, words and sentences to trace, spell and write from hearing, and cursive from first letters to reading a cursive word.",
   "subjects": [
     "reading"
@@ -21,5 +21,21 @@
       "Pencil control",
       "Finishing a task with care"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Traza conmigo",
+      "description": "Escritura a mano: letras, números y figuras para colorear, palabras y oraciones para trazar, deletrear y escribir al oído, y cursiva desde las primeras letras hasta leer una palabra en cursiva.",
+      "about": {
+        "concept": "La escritura como memoria de movimiento. Las letras, los números y las palabras se trazan trazo por trazo con el orden y la dirección correctos, y luego se escriben de memoria, así el patrón motor y la ortografía se aprenden juntos.",
+        "progression": "La letra de imprenta empieza con letras sueltas y números, sigue con palabras cortas, oraciones breves y patrones de ortografía para trazar y escribir de memoria, y luego palabras largas, oraciones dictadas, palabras de ortografía difícil, vocabulario a partir de una definición y oraciones de octavo grado con comas, tildes y comillas, todo escrito al oído con el modelo mostrado después. La cursiva va de las minúsculas y las mayúsculas a palabras unidas, el nombre del niño, una oración dictada y un renglón de dos filas, hasta leer una palabra en cursiva y tocar su pareja impresa.",
+        "lifeSkills": [
+          "Letra legible",
+          "Ortografía",
+          "Control del lápiz",
+          "Terminar una tarea con cuidado"
+        ]
+      }
+    }
   }
 }
