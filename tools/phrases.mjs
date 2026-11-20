@@ -5,9 +5,10 @@
 //   node tools/phrases.mjs <id> [<id>...]     check named apps
 //   node tools/phrases.mjs --all              check every app
 //
-// For each app this runs tools/ladder-check.mjs --drive (every grade from pre-K to 8th, every rung exercised) and stops
-// on any failure. Then it gathers the lines:
-//   - every line the app asked the narrator for while it was loaded at each grade, with its rate and voice;
+// For each app this runs tools/ladder-check.mjs --drive (every grade from pre-K to 8th, every rung exercised) in English
+// and again in Spanish (--lang es), and stops on any failure. Then it gathers the lines:
+//   - every line the app asked the narrator for while it was loaded at each grade, with its rate and voice; a line
+//     heard from the Spanish run in the Spanish narrator carries lang "es", so the cache makes it in that voice;
 //   - every fixed string the app passes straight to its speech helper (say, speak, talk, tell, narrate and the like),
 //     at the rate that helper sets.
 // Lines built at run time ("You found 7 shells") are not known here; the cache makes them the first time a tablet
@@ -26,6 +27,7 @@ import { listFiles, sourceHash } from './app-source.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const APPS = join(ROOT, 'apps');
 const HARNESS_VOICE = 'en-US-AnaNeural'; // what ladder-check's fake bridge reports; lines in it use the narrator
+const HARNESS_VOICE_ES = 'es-MX-MarinaNeural'; // the same for --lang es; lines in it use the Spanish narrator
 const args = process.argv.slice(2);
 const ids = args.includes('--all') ? readdirSync(APPS).filter((d) => existsSync(join(APPS, d, 'manifest.json'))) : args.filter((a) => !a.startsWith('--'));
 if (!ids.length) { console.error('usage: node tools/phrases.mjs <id>...|--all'); process.exit(2); }
@@ -58,17 +60,28 @@ let failed = 0;
 for (const id of ids) {
   const dir = join(APPS, id);
   if (!existsSync(join(dir, 'manifest.json'))) { console.error(`${id}: no apps/${id}/manifest.json`); failed++; continue; }
-  const heardFile = join(tmp, `${id}.json`);
-  const r = spawnSync(process.execPath, [join(ROOT, 'tools', 'ladder-check.mjs'), id, '--drive', '--phrases', heardFile], { encoding: 'utf8' });
-  const lines = (r.stdout || '').trim().split('\n');
-  if (r.status !== 0) { console.error(`${id}: check failed, phrases.json not written\n${lines.filter((l) => !l.startsWith('ok')).join('\n')}${r.stderr ? '\n' + r.stderr.slice(-800) : ''}`); failed++; continue; }
-  const heard = existsSync(heardFile) ? (JSON.parse(readFileSync(heardFile, 'utf8'))[id] ?? []) : [];
+  const heard = [];
+  let bad = false;
+  for (const lang of ['en', 'es']) {
+    const heardFile = join(tmp, `${id}-${lang}.json`);
+    const r = spawnSync(process.execPath, [join(ROOT, 'tools', 'ladder-check.mjs'), id, '--drive', '--lang', lang, '--phrases', heardFile], { encoding: 'utf8' });
+    const lines = (r.stdout || '').trim().split('\n');
+    if (r.status !== 0) { console.error(`${id}: ${lang === 'es' ? 'Spanish ' : ''}check failed, phrases.json not written\n${lines.filter((l) => !l.startsWith('ok')).join('\n')}${r.stderr ? '\n' + r.stderr.slice(-800) : ''}`); failed++; bad = true; break; }
+    const got = existsSync(heardFile) ? (JSON.parse(readFileSync(heardFile, 'utf8'))[id] ?? []) : [];
+    heard.push(...got.map((l) => (lang === 'es' && l.voice === HARNESS_VOICE_ES ? { ...l, lang: 'es' } : l)));
+  }
+  if (bad) continue;
   const seen = new Map();
-  const add = (l) => { const text = clean(l.text); if (!text) return; const voice = l.voice && l.voice !== HARNESS_VOICE ? l.voice : undefined; const k = `${voice ?? ''}|${l.rate}|${text}`; if (!seen.has(k)) seen.set(k, voice ? { text, rate: l.rate, voice } : { text, rate: l.rate }); };
+  const add = (l) => {
+    const text = clean(l.text); if (!text) return;
+    const voice = l.voice && l.voice !== HARNESS_VOICE && l.voice !== HARNESS_VOICE_ES ? l.voice : undefined;
+    const k = `${l.lang ?? ''}|${voice ?? ''}|${l.rate}|${text}`;
+    if (!seen.has(k)) seen.set(k, { text, rate: l.rate, ...(voice ? { voice } : {}), ...(l.lang === 'es' ? { lang: 'es' } : {}) });
+  };
   heard.forEach(add);
   staticLines(dir).forEach(add);
   const list = [...seen.values()].sort((a, b) => a.text.localeCompare(b.text) || a.rate - b.rate);
   writeFileSync(join(dir, 'phrases.json'), JSON.stringify({ source: sourceHash(dir), lines: list }, null, 1) + '\n');
-  console.log(`${id}: checked at 10 grades, ${list.length} lines (${heard.length} heard on load)`);
+  console.log(`${id}: checked at 10 grades in English and Spanish, ${list.length} lines (${list.filter((l) => l.lang === 'es').length} Spanish, ${heard.length} heard on load)`);
 }
 process.exit(failed ? 1 : 0);

@@ -13,6 +13,7 @@ let cluster: Cluster, app: FastifyInstance, db: Db, dir: string;
 const mails: { to: string; subject?: string; text: string }[] = [];
 const tickets: any[] = []; const attached: any[] = [];
 let synthCalls = 0, azureUp = true, etduckyUp = true;
+const synthVoices: string[] = [];
 const aiCalls: any[] = []; const pushes: { tokens: string[]; data: Record<string, string> }[] = []; let deadTokens: string[] = []; let aiUp: 'ok' | 'down' | 'refuse' = 'ok';
 const ADMIN = 'admin-test-token-123456';
 const HOOK = 'hook-secret-123';
@@ -34,7 +35,7 @@ afterAll(async () => { await cluster?.stop(); });
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'duck-'));
   ({ db } = await cluster.newDb());
-  mails.length = 0; tickets.length = 0; attached.length = 0; synthCalls = 0; azureUp = true; etduckyUp = true; aiCalls.length = 0; siteFetches.length = 0; aiUp = 'ok'; pushes.length = 0; deadTokens = [];
+  mails.length = 0; tickets.length = 0; attached.length = 0; synthCalls = 0; synthVoices.length = 0; azureUp = true; etduckyUp = true; aiCalls.length = 0; siteFetches.length = 0; aiUp = 'ok'; pushes.length = 0; deadTokens = [];
   const cfg = loadConfig({
     NODE_ENV: 'test', LOCAL_STORAGE_DIR: join(dir, 'files'), STORAGE: 'local',
     ADMIN_TOKEN: ADMIN, ETDUCKY_WEBHOOK_SECRET: HOOK, TTS_DAILY_CHARS_PER_DEVICE: 200, PUBLIC_URL: 'https://api.test', AI_DAILY_CALLS: 'draw-with-me:3,*:1', AI_MAX_PROMPT_CHARS: 500, STATS_EMAILS: ' Owner@Example.com ,other@example.com',
@@ -42,7 +43,7 @@ beforeEach(async () => {
   ({ app } = await buildServer(cfg, {
     db, logger: false,
     mailer: { async send(to, subject, text) { mails.push({ to, subject, text }); } },
-    synth: async (text) => { synthCalls++; await new Promise((r) => setTimeout(r, 20)); return azureUp ? Buffer.from(`mp3:${text}`) : null; },
+    synth: async (text, voice) => { synthCalls++; synthVoices.push(voice); await new Promise((r) => setTimeout(r, 20)); return azureUp ? Buffer.from(`mp3:${text}`) : null; },
     createTicket: async (t) => { if (!etduckyUp) return null; tickets.push(t); return `T-${tickets.length}`; },
     attachToTicket: async (ticketId, url, contentType) => { attached.push({ ticketId, url, contentType }); return true; },
     fetchUrl: async (url) => { siteFetches.push(url); return fakeSite(url); },
@@ -269,6 +270,11 @@ describe('voice cache', () => {
     const r = await app.inject({ method: 'POST', url: '/admin/voice/pregenerate', headers: { authorization: `Bearer ${ADMIN}` },
       payload: { lines: [{ text: 'Hello' }, { text: 'Hello ' }, { text: 'Bye' }] } });
     expect(r.json()).toEqual({ created: 2, cached: 1, failed: 0 });
+    // A line marked Spanish is made in the Spanish narrator; the same words in English stay a separate clip.
+    const es = await app.inject({ method: 'POST', url: '/admin/voice/pregenerate', headers: { authorization: `Bearer ${ADMIN}` },
+      payload: { lines: [{ text: 'Hola', lang: 'es' }, { text: 'Hola' }] } });
+    expect(es.json()).toEqual({ created: 2, cached: 0, failed: 0 });
+    expect(synthVoices.slice(-2)).toEqual(['es-MX-MarinaNeural', 'en-US-AnaNeural']);
   });
 });
 

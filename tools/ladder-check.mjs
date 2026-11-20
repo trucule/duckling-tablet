@@ -11,6 +11,12 @@
 //   node tools/ladder-check.mjs word-wizard --drive    also exercise every level's generator 40 times
 //   node tools/ladder-check.mjs word-wizard --phrases out.json   also record every narrator line the app asked for
 //                                                                 (text, rate, voice), keyed by app id
+//   node tools/ladder-check.mjs word-wizard --lang es      load the app the way a Spanish tablet does (KidTablet.language
+//                                                          es, a Spanish narrator). The visible text is scanned for
+//                                                          English words, and an app's window.DucklingLang hook
+//                                                          ({ missing: () => string[] of untranslated keys, allow:
+//                                                          string[] of English words that are right as they are }) is
+//                                                          read; either fails the grade. docs/languages-brief.md.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,6 +37,11 @@ const args = process.argv.slice(2);
 const flag = (f) => { const i = args.indexOf(f); if (i < 0) return undefined; const v = args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true; args.splice(i, v === true ? 1 : 2); return v; };
 const all = flag('--all'); const shots = flag('--shots'); const drive = flag('--drive'); const times = Number(flag('--times') || 40);
 const phrasesOut = flag('--phrases'); const heard = {};
+const lang = flag('--lang') === 'es' ? 'es' : 'en';
+const VOICE = lang === 'es' ? 'es-MX-MarinaNeural' : 'en-US-AnaNeural';
+// English words that have no place on a Spanish screen. Short words that Spanish also has (a, no, me, sin, con, son)
+// are left out. An app that must show one (a brand, a letter name) lists it in DucklingLang.allow.
+const ENGLISH = new Set(('the you your and with tap click press next play start level score correct again great good job choose pick done back ready try new game points star stars word words number numbers count color colors draw listen read say sing build make help hint win time hard easy medium mode menu settings sound music play pause stop continue finish finished skip yes answer question wrong right left down up high low fast slow big small more less add remove save delete open close show hide turn drag drop match find search begin learn practice lesson round rounds player players welcome hello goodbye thanks thank please sorry oops nice awesome wow cool okay ok let go wait loading step steps page pages').split(' '));
 const ids = all ? fs.readdirSync(APPS).filter((d) => fs.existsSync(path.join(APPS, d, 'manifest.json'))) : args;
 if (!ids.length) { console.error('usage: node tools/ladder-check.mjs <app-id>|--all [--shots dir] [--drive] [--times n]'); process.exit(2); }
 if (shots) fs.mkdirSync(shots, { recursive: true });
@@ -45,7 +56,7 @@ for (const id of ids) {
     if (u === '/' || u === '/index.html') {
       let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
       html = html.replace(/<script src="voice-config\.js"><\/script>/, '').replace(/<!-- KID-VOICE START -->[\s\S]*?<!-- KID-VOICE END -->/, '');
-      const bridge = `window.DucklingApp={appId:()=>${JSON.stringify(id)},deviceToken:()=>'t',apiUrl:()=>location.origin+'/api',childName:()=>'Ada',voice:()=>'en-US-AnaNeural',levels:()=>${JSON.stringify(levels)}};`;
+      const bridge = `window.DucklingApp={appId:()=>${JSON.stringify(id)},deviceToken:()=>'t',apiUrl:()=>location.origin+'/api',childName:()=>'Ada',voice:()=>${JSON.stringify(VOICE)},language:()=>${JSON.stringify(lang)},levels:()=>${JSON.stringify(levels)}};`;
       html = html.replace(/<head>/i, `<head><script>${bridge}</script><script>${COMPAT.replace(/<\/script/g, '<\\/script')}</script>`);
       res.writeHead(200, { 'content-type': 'text/html' }); return res.end(html);
     }
@@ -91,7 +102,21 @@ for (const id of ids) {
         if (r === null) driven = '  (no DucklingLadder.exercise hook)';
         else { driven = `  exercised ${r.ok}/${r.ok + r.bad.length} levels x${times}`; if (r.bad.length) errors.push(...r.bad); }
       }
-      if (shots) await page.screenshot({ path: path.join(shots, `${id}-${String(g).replace('-', 'm')}.png`) });
+      if (lang === 'es') {
+        const r = await page.evaluate((english) => {
+          const L = window.DucklingLang || {};
+          const allow = new Set((L.allow || []).map((w) => String(w).toLowerCase()));
+          const missing = L.missing ? L.missing() : null;
+          const text = (document.body && document.body.innerText) || '';
+          const found = new Set();
+          for (const w of text.toLowerCase().split(/[^a-záéíóúüñ']+/)) if (english.includes(w) && !allow.has(w)) found.add(w);
+          return { missing, found: [...found], hook: !!L.missing, keys: L.keys ? L.keys().length : null };
+        }, [...ENGLISH]);
+        if (!r.hook) errors.push('no window.DucklingLang.missing hook (docs/languages-brief.md)');
+        if (r.missing && r.missing.length) errors.push(`untranslated: ${r.missing.slice(0, 8).join(' | ')}${r.missing.length > 8 ? ` (+${r.missing.length - 8})` : ''}`);
+        if (r.found.length) errors.push(`English on screen: ${r.found.slice(0, 12).join(' ')}`);
+      }
+      if (shots) await page.screenshot({ path: path.join(shots, `${id}-${lang}-${String(g).replace('-', 'm')}.png`) });
       const bad = errors.length > 0;
       if (bad) failed++;
       console.log(`${bad ? 'FAIL' : 'ok  '} ${id} ${NAME[g].padEnd(5)} start=${JSON.stringify(info.start)}${info.levels != null ? ` of ${info.levels}` : ''}${info.label ? ` "${info.label}"` : ''}${driven}${bad ? '\n       ' + [...new Set(errors)].slice(0, 6).join('\n       ') : ''}`);

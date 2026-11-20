@@ -13,6 +13,7 @@ import type { makeVoiceCache } from './tts.js';
 import { badRequest, notFound, sha256 } from '../util.js';
 import { normalizeLine } from './tts.js';
 import { entitlementOf } from '../entitlement.js';
+import { narratorFor } from '../language.js';
 
 const appId = z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}$/);
 const version = z.string().regex(/^\d+\.\d+\.\d+$/);
@@ -132,11 +133,11 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
 
   app.post('/admin/voice/pregenerate', async (req) => {
     const b = z.object({
-      lines: z.array(z.object({ text: z.string().min(1).max(1000), voice: z.string().optional(), rate: z.number().int().min(-50).max(100).default(0) })).max(5000),
+      lines: z.array(z.object({ text: z.string().min(1).max(1000), voice: z.string().optional(), lang: z.enum(['en', 'es']).optional(), rate: z.number().int().min(-50).max(100).default(0) })).max(5000),
     }).parse(req.body);
     let created = 0, cached = 0, failed = 0;
     for (const l of b.lines) {
-      const r = await voice.ensure(normalizeLine(l.text), l.voice ?? ctx.cfg.NARRATOR_VOICE, l.rate);
+      const r = await voice.ensure(normalizeLine(l.text), l.voice ?? narratorFor(ctx.cfg, l.lang ?? 'en'), l.rate);
       if (!r) failed++; else if (r.created) created++; else cached++;
     }
     return { created, cached, failed };
