@@ -109,3 +109,36 @@ publish. It:
 Chris reads the pull request, edits or rejects it there, merges it, and deploys. A merged post is live at the
 next deploy. A rejected pull request's reason goes into `docs/blog-topics.md` under the topic, so the next run
 does not repeat it.
+
+## Forum replies
+
+Chris answers parents' questions in forums under his own name. A scheduled task ("Duckling Tablet thread finder")
+finds the threads and drafts each reply into the Duckling Tablet Promo Queue (a Claude artifact, collection
+`drafts`); Chris reads the draft, opens the thread, posts it himself, and marks the card posted. Nothing is ever
+posted by a task, and no account other than Chris's own is ever used.
+
+What a reply is:
+
+- An answer to the question the parent asked, first and in full, that stands on its own without Duckling. The
+  reader should get the same help if the product sentence were deleted.
+- One sentence, after the answer, that says what Duckling does for that question, and the disclosure in plain
+  words: "I make Duckling Tablet". Never a reply whose only content is the product.
+- At most one link, to ducklingtablet.com or a page on it, and only when the page answers something the thread
+  asked. Duckling named at most twice. Under 250 words.
+- The same prose rules as a post. `node tools/blog.mjs reply <file>` checks a draft (prose rules, the disclosure,
+  the link, the length) and the task runs it on every draft before writing the card.
+- Facts about Duckling come from the same sources as a post (manifests, `docs/ladders.md`, `site/`, the parent
+  screens, the portal). A fact none of them backs is left out. Facts about Android, iPadOS, Windows, or another
+  product come from a page fetched in the run, linked only when the one link is not needed for Duckling.
+- No reply to a thread that asks for something Duckling does not do, is about a child under 3, is a vent rather
+  than a question, is older than 14 days, is locked or removed, or is in a community whose rules forbid a maker
+  answering with a disclosure. The community's rules are read in the run and the card says what they allow.
+- Never a second reply in the same thread, never a reply to a reply, and never two threads in one community on
+  one day. The queue is checked for the thread's URL before a card is written.
+
+The card: `channel` (reddit, forum), `community` (r/Parenting), `target_title`, `target_url`, `thread_excerpt`
+(the question in the poster's words, under 300 characters), `why` (one sentence on the fit, and the community's
+rule on self-promotion as read in the run), `draft`, `disclosure: true`, `voice: "Chris (maker, disclosed)"`,
+`status: "draft"`, `created_at`, `run`. Chris sets `posted` (with `posted_url`), `blocked` (locked, removed, or
+needs an account he lacks), or `rejected` with `reject_reason`, which the task reads on later runs to learn what
+not to draft.

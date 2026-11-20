@@ -7,6 +7,8 @@
 //   node tools/blog.mjs new <slug> "<title>"   makes site/blog/posts/<slug>.md from the template
 //   node tools/blog.mjs build                  renders every post, the index, the feed and the sitemap
 //   node tools/blog.mjs check                  the build's checks without writing (exit 1 on a problem)
+//   node tools/blog.mjs reply <file>           checks a forum reply in a plain text file against the same prose rules,
+//                                              plus a disclosure line, one link at most, and 250 words at most
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -128,22 +130,15 @@ const WORDS = [
   [/\b(simply|just|easily|basically|obviously)\b/i, 'a filler adverb'],
   [/\b(already (own|owns|owned|have|has|had|use|uses|using)|you already|as you know|needless to say|it goes without saying|as expected|naturally|of course|no need to|without (having|needing) to|(don't|doesn't|do not|does not) (have|need) to)\b/i, 'a statement of the obvious'],
 ];
-function lint(post) {
-  const problems = [];
-  const text = post.meta.title + '\n' + post.meta.description + '\n' + post.body;
-  const prose = post.body.replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, '').replace(/\]\([^)]*\)/g, ']');
+// The prose checks shared by posts and forum replies: text is everything a reader sees, prose is the body with code
+// and link targets removed.
+function lintProse(text, prose, problems) {
   if (/\[[^\]]+\](?!\()/.test(text.replace(/!\[[^\]]*\]/g, ''))) problems.push('a [placeholder]');
   if (/\u2014/.test(text)) problems.push('an em dash');
   if (/\u2013/.test(text)) problems.push('an en dash');
   if (/ - /.test(prose)) problems.push('a spaced hyphen used as an aside');
   if (/;/.test(prose)) problems.push('a semicolon');
   if (/[\u2600-\u27bf\u{1f300}-\u{1faff}\u2190-\u21ff\u2022]/u.test(text)) problems.push('an emoji or decorative symbol');
-  if (post.meta.description.length < 150 || post.meta.description.length > 200) problems.push(`a description of ${post.meta.description.length} characters (150 to 200)`);
-  const words = prose.split(/\s+/).filter(Boolean).length;
-  if (words < 400) problems.push(`${words} words (at least 400)`);
-  if (words > 1400) problems.push(`${words} words (at most 1400)`);
-  if (/^# /m.test(post.body)) problems.push('a level-one heading in the body (the title is the h1)');
-  if (!/^## /m.test(post.body)) problems.push('no section headings');
   for (const [re, what] of WORDS) { const m = prose.match(re); if (m) problems.push(`${what} ("${m[0]}")`); }
   // A colon inside a sentence that goes on introduces a list or an explanation (brief rule 2). A colon that ends
   // the line, before steps or a code block, is allowed.
@@ -152,6 +147,37 @@ function lint(post) {
   const ox = prose.match(/\b\w+, \w+(?: \w+)? (?:and|or) \w+/);
   if (ox && !/, (?:and|or) /.test(ox[0])) problems.push(`a list without the Oxford comma ("${ox[0]}")`);
   for (const m of prose.matchAll(/[^.!?\n]{220,}[.!?]/g)) { problems.push(`a sentence over 220 characters ("${m[0].slice(0, 50)}...")`); break; }
+}
+
+// A forum reply Chris posts under his own name (docs/blog.md, "Forum replies"): the prose rules, a disclosure line
+// that says he makes Duckling, at most one link, at most 250 words, and the product named no more than twice.
+function lintReply(text) {
+  const problems = [];
+  const prose = text.replace(/https?:\/\/\S+/g, '').replace(/\]\([^)]*\)/g, ']');
+  lintProse(text, prose, problems);
+  if (!/\b(I (make|made|build|built|run|wrote)|disclosure)\b/i.test(text)) problems.push('no disclosure line (say that you make Duckling Tablet)');
+  const links = (text.match(/https?:\/\/\S+/g) || []);
+  if (links.length > 1) problems.push(`${links.length} links (at most one)`);
+  if (links.some((l) => !/^https:\/\/(www\.)?(ducklingtablet\.com|parents\.ducklingtablet\.com)/.test(l))) problems.push('a link to a site other than ducklingtablet.com');
+  const words = prose.split(/\s+/).filter(Boolean).length;
+  if (words > 250) problems.push(`${words} words (at most 250)`);
+  if (words < 40) problems.push(`${words} words (at least 40)`);
+  const names = (text.match(/\bDuckling\b/g) || []).length;
+  if (names > 2) problems.push(`Duckling named ${names} times (at most twice)`);
+  return problems;
+}
+
+function lint(post) {
+  const problems = [];
+  const text = post.meta.title + '\n' + post.meta.description + '\n' + post.body;
+  const prose = post.body.replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, '').replace(/\]\([^)]*\)/g, ']');
+  lintProse(text, prose, problems);
+  if (post.meta.description.length < 150 || post.meta.description.length > 200) problems.push(`a description of ${post.meta.description.length} characters (150 to 200)`);
+  const words = prose.split(/\s+/).filter(Boolean).length;
+  if (words < 400) problems.push(`${words} words (at least 400)`);
+  if (words > 1400) problems.push(`${words} words (at most 1400)`);
+  if (/^# /m.test(post.body)) problems.push('a level-one heading in the body (the title is the h1)');
+  if (!/^## /m.test(post.body)) problems.push('no section headings');
   for (const m of post.body.matchAll(/\]\((\/[^)\s#]*)/g)) {
     const p = m[1].replace(/\/$/, '');
     const candidates = [path.join(SITE, p), path.join(SITE, p + '.html'), path.join(SITE, p, 'index.html')];
@@ -238,6 +264,12 @@ Body text. Plain declarative sentences, no em dashes, no promotional wording, an
   process.exit(build(true) ? 0 : 1);
 } else if (cmd === 'check') {
   process.exit(build(false) ? 0 : 1);
+} else if (cmd === 'reply') {
+  const [file] = args;
+  if (!file) { console.error('usage: node tools/blog.mjs reply <file>'); process.exit(2); }
+  const problems = lintReply(fs.readFileSync(file, 'utf8'));
+  if (problems.length) { console.log(problems.join('; ')); process.exit(1); }
+  console.log('ok');
 } else {
-  console.error('usage: node tools/blog.mjs new <slug> "<title>" | build | check'); process.exit(2);
+  console.error('usage: node tools/blog.mjs new <slug> "<title>" | build | check | reply <file>'); process.exit(2);
 }
