@@ -1,25 +1,4 @@
 {
- "source": "719fc623e1cc0ad1688d4261fa9dc34e719eb007a72990baba14a259a218a3ca",
- "lines": [
-  {
-   "text": "Got it! Come back in.",
-   "rate": -5
-  },
-  {
-   "text": "Now it is your home screen picture!",
-   "rate": -5
-  },
-  {
-   "text": "Say cheese!",
-   "rate": -5
-  },
-  {
-   "text": "Step out of the picture!",
-   "rate": -5
-  },
-  {
-   "text": "That did not work. Try again in a moment.",
-   "rate": -5
-  }
- ]
+ "source": "7ace3d0326d1c4a541b4459090588dee058bf9296878129713b87ffdba9d329a",
+ "lines": []
 }

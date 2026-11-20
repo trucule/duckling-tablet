@@ -281,6 +281,10 @@
   .opt .i { font-size: 38px; line-height: 1.1; display: block; }
   .opt .n { font-size: 13px; font-weight: 800; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .opt.on { background: var(--sun); box-shadow: 0 0 0 3px var(--pink) inset; }
+  /* Spanish names are longer: wider tiles in a row that scrolls anyway, so the tray keeps its height. */
+  html[lang="es"] .opt { width: 112px; }
+  html[lang="es"] #msg { max-width: calc(100% - 620px); }   /* clear of the longer title on the left */
+  html[lang="es"] .opt .n { font-size: 12px; }
   #bgbar { position: fixed; left: 50%; bottom: 160px; transform: translateX(-50%); display: none; }
   #bgbar.on { display: block; }
   #bgbar button { border: 4px solid var(--ink); background: var(--leaf); border-radius: 999px; padding: 12px 24px; font-size: 22px; font-weight: 900; }
@@ -370,6 +374,65 @@
 <script>
 const $ = id => document.getElementById(id);
 const C = window.CAMERA_FUN;
+// ---------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every label, message, hint and spoken line is
+// Spanish, and the filter, sticker and tab names from effects.js are looked up here by their English name. The camera,
+// the effects and the background hand-off do not change. docs/languages-brief.md.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  'Camera Fun': 'Cámara divertida', '📸 Camera Fun': '📸 Cámara divertida',
+  'My pictures': 'Mis fotos', 'Timer': 'Temporizador', 'Take a picture': 'Tomar una foto', 'Photo strip': 'Tira de fotos',
+  'Say cheese': 'Grita para la foto', 'Turn the camera around': 'Voltear la cámara', 'Take off stickers and stamps': 'Quitar calcomanías y sellos',
+  'off': 'no', '{n}s': '{n}s', '🚶 Take the background': '🚶 Tomar el fondo',
+  '✨ Filters': '✨ Filtros', '😺 Face stickers': '😺 Calcomanías de cara', '⭐ Stamps': '⭐ Sellos',
+  '📸 Back to camera': '📸 Volver a la cámara', '🏠 Home screen': '🏠 Pantalla de inicio', '🗑️ Delete': '🗑️ Borrar', '✖ Close': '✖ Cerrar',
+  '🏠 Saving…': '🏠 Guardando...', '🏠 Your home screen': '🏠 Tu pantalla de inicio', '🗑️ Tap again to delete': '🗑️ Toca otra vez para borrar',
+  'The camera is not working right now.': 'La cámara no funciona ahora.',
+  'The microphone is not working right now.': 'El micrófono no funciona ahora.',
+  'Getting ready to find faces...': 'Preparando todo para encontrar caras...',
+  'Face stickers are not working on this tablet.': 'Las calcomanías de cara no funcionan en esta tableta.',
+  'All clean!': '¡Todo limpio!',
+  'Tap "Take the background", then step out of the picture.': 'Toca "Tomar el fondo" y luego sal de la foto.',
+  'Step out!': '¡Sal de la foto!', 'Step out of the picture!': '¡Sal de la foto!', 'Got it! Come back in.': '¡Listo! Ya puedes volver.',
+  'Saved to My pictures!': '¡Guardada en Mis fotos!', '{n} of 4': '{n} de 4', 'Photo strip saved!': '¡Tira de fotos guardada!',
+  'Say cheese!': '¡Grita "foto"!', 'Say "cheese!" to take a picture.': 'Grita "¡foto!" para tomar la foto.',
+  'No pictures yet. Tap 📸 to take one!': 'Todavía no hay fotos. ¡Toca 📸 para tomar una!',
+  'Your home screen picture!': '¡Tu foto de la pantalla de inicio!', 'Now it is your home screen picture!': '¡Ahora es la foto de tu pantalla de inicio!',
+  'That did not work. Try again in a moment.': 'Eso no funcionó. Intenta otra vez en un momento.',
+  'Getting ready...': 'Preparando...', 'Show me your face!': '¡Muéstrame tu cara!', 'Tap the picture to stamp. Drag to move.': 'Toca la foto para poner un sello. Arrastra para moverlo.',
+  'Open your mouth!': '¡Abre la boca!',
+  // Filters
+  'Plain': 'Normal', 'Comic': 'Cómic', 'Pencil': 'Lápiz', 'Pop art': 'Arte pop', 'Neon': 'Neón', 'Old time': 'Antiguo', 'Heat vision': 'Visión de calor',
+  'Pixels': 'Píxeles', 'X-ray': 'Rayos X', 'Rainbow': 'Arcoíris', 'Kaleido': 'Caleidoscopio', 'Twins': 'Gemelos', 'Big head': 'Cabezón', 'Tiny face': 'Carita',
+  'Alien eyes': 'Ojos de alien', 'Big mouth': 'Bocón', 'Swirl': 'Remolino', 'Stretchy': 'Estirado', 'Under water': 'Bajo el agua', 'Ghost trails': 'Fantasma',
+  'Melt': 'Derretido', 'Echo me': 'Eco', 'Space': 'Espacio', 'Under the sea': 'Bajo el mar', 'Invisible': 'Invisible',
+  // Face stickers
+  'Top hat': 'Sombrero', 'Crown': 'Corona', 'Heart eyes': 'Ojos de corazón', 'Star eyes': 'Ojos de estrella', 'Flower crown': 'Corona de flores',
+  'Butterflies': 'Mariposas', 'Kitty': 'Gatito', 'Bunny': 'Conejito', 'Puppy': 'Perrito', 'Cool shades': 'Lentes de sol', 'Googly eyes': 'Ojos saltones',
+  'Clown nose': 'Nariz de payaso', 'Mustache': 'Bigote', 'Unicorn horn': 'Unicornio', 'Halo': 'Aureola', 'Pirate': 'Pirata', 'Rosy cheeks': 'Mejillas rosadas',
+  'Rainbow mouth': 'Boca arcoíris', 'Dragon fire': 'Fuego de dragón', 'Bubbles': 'Burbujas',
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+window.DucklingLang = {
+  keys: () => Object.keys(ES),
+  missing: () => [...USED].filter(k => ES[k] == null),
+  allow: [],
+};
+// Markup written in HTML is translated once: titles, and the text of elements that hold words.
+if (LANG === 'es') {
+  document.documentElement.lang = 'es'; document.title = T('Camera Fun');
+  for (const el of document.querySelectorAll('[title]')) el.title = T(el.title);
+  for (const el of document.querySelectorAll('#title, #takeBg, #tabs button, #galHead h2, #galClose, #viewBar button')) {
+    for (const n of el.childNodes) if (n.nodeType === 3 && /[a-z]/i.test(n.nodeValue)) n.nodeValue = T(n.nodeValue.trim());
+  }
+}
 // Emoji are drawn from a picture made once per character. Drawing an emoji as text costs the browser a font lookup and
 // a fresh colour glyph at every new size, which is slow on a tablet; a fire spray draws dozens a frame. The picture is
 // made at 128 pixels (in a 160 pixel square, so tall glyphs are not cut) and scaled when drawn.
@@ -391,7 +454,7 @@ try { Object.assign(state, JSON.parse(localStorage.getItem('camerafun-v1') || '{
 if (!C.filters.find(f => f.id === state.filter)) state.filter = 'none';
 state.stickers = (state.stickers || []).filter(id => C.stickers.find(s => s.id === id));
 function persist() { try { localStorage.setItem('camerafun-v1', JSON.stringify({ tab: state.tab, filter: state.filter, stickers: state.stickers, stamp: state.stamp, timer: state.timer })); } catch (e) {} }
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = .95; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = .95; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {} }
 let msgTimer = null;
 function msg(t, ms) { $('msg').textContent = t; $('msg').classList.toggle('on', !!t); clearTimeout(msgTimer); if (t && ms) msgTimer = setTimeout(() => $('msg').classList.remove('on'), ms); }
 const errors = [];
@@ -504,7 +567,7 @@ async function startCamera(deviceId) {
     video.srcObject = stream; await video.play(); camReady = true; state.mirror = facing === 'user'; hasBg = false; msg('');
     if (!deviceId) await listCameras();
     return true;
-  } catch (e) { camReady = false; msg('The camera is not working right now.'); errors.push('camera: ' + e.message); return false; }
+  } catch (e) { camReady = false; msg(T('The camera is not working right now.')); errors.push('camera: ' + e.message); return false; }
 }
 $('flip').onclick = async () => {
   if (camIds.length < 2) return;
@@ -537,7 +600,7 @@ function loadScript(src) { return new Promise((ok, no) => { const s = document.c
 function needFace() { const f = C.filters.find(x => x.id === state.filter); return (f && f.needs.face) || state.stickers.length > 0; }
 async function startFaces() {
   if (faceState !== 'off') return;
-  faceState = 'loading'; msg('Getting ready to find faces...');
+  faceState = 'loading'; msg(T('Getting ready to find faces...'));
   try {
     for (const f of FACE_FILES) await loadScript(f);
     faceMesh = new FaceMesh({ locateFile: f => 'facemesh/' + f });
@@ -545,7 +608,7 @@ async function startFaces() {
     faceMesh.onResults(onFaces);
     await faceMesh.initialize();
     faceState = 'ready'; msg('');
-  } catch (e) { faceState = 'failed'; msg('Face stickers are not working on this tablet.', 4000); errors.push('faces: ' + e.message); }
+  } catch (e) { faceState = 'failed'; msg(T('Face stickers are not working on this tablet.'), 4000); errors.push('faces: ' + e.message); }
 }
 async function faceTick() {
   if (faceState !== 'ready' || faceBusy || !camReady || !needFace() || video.readyState < 2) return;
@@ -605,7 +668,7 @@ $('stage').addEventListener('pointerdown', e => {
 });
 $('stage').addEventListener('pointermove', e => { if (dragStamp) { dragStamp.x = e.clientX / W; dragStamp.y = e.clientY / H; } });
 $('stage').addEventListener('pointerup', () => { dragStamp = null; });
-$('clear').onclick = () => { stamps = []; state.stickers = []; for (const s of C.stickers) { delete s.parts; } persist(); buildRow(); msg('All clean!', 1500); };
+$('clear').onclick = () => { stamps = []; state.stickers = []; for (const s of C.stickers) { delete s.parts; } persist(); buildRow(); msg(T('All clean!'), 1500); };
 
 // ---------------------------------------------------------------------------
 // Drawing
@@ -647,10 +710,10 @@ function render() {
 function updateHint(fresh) {
   let h = '';
   if (state.stickers.length || (C.filters.find(x => x.id === state.filter) || {}).needs.face) {
-    if (faceState === 'loading') h = 'Getting ready...'; else if (faceState === 'ready' && !fresh) h = 'Show me your face!';
-    else { const s = state.stickers.map(id => C.stickers.find(x => x.id === id)).find(s => s && s.hint); if (s) h = s.hint; }
+    if (faceState === 'loading') h = T('Getting ready...'); else if (faceState === 'ready' && !fresh) h = T('Show me your face!');
+    else { const s = state.stickers.map(id => C.stickers.find(x => x.id === id)).find(s => s && s.hint); if (s) h = T(s.hint); }
   }
-  if (state.tab === 'stamps') h = 'Tap the picture to stamp. Drag to move.';
+  if (state.tab === 'stamps') h = T('Tap the picture to stamp. Drag to move.');
   $('hint').textContent = h;
 }
 
@@ -660,15 +723,15 @@ function updateHint(fresh) {
 function buildRow() {
   const row = $('row'); row.innerHTML = '';
   const add = (icon, name, on, fn) => { const b = document.createElement('button'); b.className = 'opt' + (on ? ' on' : ''); b.innerHTML = `<span class="i"></span><span class="n"></span>`; b.querySelector('.i').textContent = icon; b.querySelector('.n').textContent = name; b.onclick = () => { fn(); pop(); }; row.appendChild(b); return b; };
-  if (state.tab === 'filters') for (const f of C.filters) add(f.icon, f.name, f.id === state.filter, () => pickFilter(f.id));
-  if (state.tab === 'stickers') for (const s of C.stickers) add(s.icon, s.name, state.stickers.includes(s.id), () => toggleSticker(s.id));
+  if (state.tab === 'filters') for (const f of C.filters) add(f.icon, T(f.name), f.id === state.filter, () => pickFilter(f.id));
+  if (state.tab === 'stickers') for (const s of C.stickers) add(s.icon, T(s.name), state.stickers.includes(s.id), () => toggleSticker(s.id));
   if (state.tab === 'stamps') for (const ch of C.stamps) add(ch, '', ch === state.stamp, () => { state.stamp = ch; persist(); buildRow(); });
 }
 function pickFilter(id) {
   state.filter = id; filterStart = performance.now(); persist(); buildRow();
   const f = C.filters.find(x => x.id === id);
   $('bgbar').classList.toggle('on', !!f.needs.bg);
-  if (f.needs.bg && !hasBg) msg('Tap "Take the background", then step out of the picture.', 5000);
+  if (f.needs.bg && !hasBg) msg(T('Tap "Take the background", then step out of the picture.'), 5000);
   if (f.needs.prev && gl) for (const fb of fbos) { gl.bindFramebuffer(gl.FRAMEBUFFER, fb.fb); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
   if (gl) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   if (needFace()) startFaces();
@@ -682,10 +745,10 @@ document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { state
 // Magic backgrounds: she steps out, the camera remembers what is behind her.
 $('takeBg').onclick = async () => {
   if (!camReady) return;
-  say('Step out of the picture!');
-  await countdown(5, 'Step out!');
+  say(T('Step out of the picture!'));
+  await countdown(5, T('Step out!'));
   gl.bindTexture(gl.TEXTURE_2D, bgTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video); hasBg = true;
-  click(); say('Got it! Come back in.'); msg('Got it! Come back in.', 2500);
+  click(); say(T('Got it! Come back in.')); msg(T('Got it! Come back in.'), 2500);
 };
 
 // ---------------------------------------------------------------------------
@@ -712,27 +775,27 @@ async function snap() {
   try {
     if (state.timer) await countdown(state.timer);
     flash(); await savePhoto(frameCanvas());
-    msg('Saved to My pictures!', 1500);
+    msg(T('Saved to My pictures!'), 1500);
   } finally { busy = false; }
 }
 async function snapStrip() {
   if (busy || !camReady) return; busy = true;
   try {
     const shots = [];
-    for (let i = 0; i < 4; i++) { await countdown(i === 0 ? 3 : 2); flash(); shots.push(frameCanvas()); msg(`${i + 1} of 4`, 900); }
+    for (let i = 0; i < 4; i++) { await countdown(i === 0 ? 3 : 2); flash(); shots.push(frameCanvas()); msg(T('{n} of 4', { n: i + 1 }), 900); }
     const w = 520, h = Math.round(w * shots[0].height / shots[0].width), pad = 24, strip = document.createElement('canvas');
     strip.width = w + pad * 2; strip.height = (h + pad) * 4 + pad + 70;
     const x = strip.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, strip.width, strip.height);
     shots.forEach((s, i) => x.drawImage(s, pad, pad + i * (h + pad), w, h));
     x.fillStyle = '#2B2140'; x.font = 'bold 34px "Segoe UI", sans-serif'; x.textAlign = 'center';
-    x.fillText('📸 ' + new Date().toLocaleDateString(), strip.width / 2, strip.height - 28);
-    await savePhoto(strip); msg('Photo strip saved!', 1800);
+    x.fillText('📸 ' + new Date().toLocaleDateString(LANG === 'es' ? 'es-MX' : undefined), strip.width / 2, strip.height - 28);
+    await savePhoto(strip); msg(T('Photo strip saved!'), 1800);
   } finally { busy = false; }
 }
 $('snap').onclick = snap;
 $('strip').onclick = snapStrip;
 const TIMERS = [0, 3, 10];
-function showTimer() { $('timer').querySelector('small').textContent = state.timer ? state.timer + 's' : 'off'; $('timer').classList.toggle('on', !!state.timer); }
+function showTimer() { $('timer').querySelector('small').textContent = state.timer ? T('{n}s', { n: state.timer }) : T('off'); $('timer').classList.toggle('on', !!state.timer); }
 $('timer').onclick = () => { state.timer = TIMERS[(TIMERS.indexOf(state.timer) + 1) % TIMERS.length]; persist(); showTimer(); pop(); };
 
 // Say cheese: a loud sound (a shout, a clap, "cheese!") takes the picture.
@@ -742,7 +805,7 @@ $('cheese').onclick = async () => {
   try {
     cheeseStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const a = ac(), src = a.createMediaStreamSource(cheeseStream), an = a.createAnalyser(); an.fftSize = 1024; src.connect(an);
-    const buf = new Float32Array(an.fftSize); cheeseOn = true; $('cheese').classList.add('on'); say('Say cheese!'); msg('Say "cheese!" to take a picture.', 3000);
+    const buf = new Float32Array(an.fftSize); cheeseOn = true; $('cheese').classList.add('on'); say(T('Say cheese!')); msg(T('Say "cheese!" to take a picture.'), 3000);
     const listen = () => {
       if (!cheeseOn) return;
       an.getFloatTimeDomainData(buf); let s = 0; for (const v of buf) s += v * v; const rms = Math.sqrt(s / buf.length);
@@ -751,7 +814,7 @@ $('cheese').onclick = async () => {
       requestAnimationFrame(listen);
     };
     listen();
-  } catch (e) { msg('The microphone is not working right now.', 3000); }
+  } catch (e) { msg(T('The microphone is not working right now.'), 3000); }
 };
 
 // ---------------------------------------------------------------------------
@@ -775,25 +838,25 @@ let photos = [], viewing = -1;
 async function openGallery() {
   $('gal').classList.add('on'); const grid = $('grid'); grid.innerHTML = '';
   photos = await allPhotos();
-  if (!photos.length) { grid.innerHTML = '<div id="empty">No pictures yet. Tap 📸 to take one!</div>'; return; }
+  if (!photos.length) { const e = document.createElement('div'); e.id = 'empty'; e.textContent = T('No pictures yet. Tap 📸 to take one!'); grid.appendChild(e); return; }
   photos.forEach((p, i) => { const c = document.createElement('canvas'); c.onclick = () => openView(i); grid.appendChild(c); drawBlob(p.blob, c, 360).catch(e => errors.push('thumb: ' + e.message)); });
 }
 async function openView(i) {
-  viewing = i; $('del').classList.remove('armed'); $('del').textContent = '🗑️ Delete'; $('view').classList.add('on');
+  viewing = i; $('del').classList.remove('armed'); $('del').textContent = T('🗑️ Delete'); $('view').classList.add('on');
   const kt = window.KidTablet; $('homeBg').hidden = !(kt && kt.platform === 'duckling' && typeof kt.setTabletBackground === 'function');
-  $('homeBg').textContent = '🏠 Home screen'; $('homeBg').disabled = false;
+  $('homeBg').textContent = T('🏠 Home screen'); $('homeBg').disabled = false;
   await drawBlob(photos[i].blob, $('big'), 1600);
 }
 // On a Duckling tablet a photo can become the home screen background of this tablet only. The photo never leaves the
 // tablet: the shell hands it to the home screen, which keeps it with its own pictures. A shell too old to do that
 // leaves the button hidden.
 $('homeBg').onclick = async () => {
-  const b = $('homeBg'), kt = window.KidTablet; b.disabled = true; b.textContent = '🏠 Saving…';
+  const b = $('homeBg'), kt = window.KidTablet; b.disabled = true; b.textContent = T('🏠 Saving…');
   try {
     const c = document.createElement('canvas'); await drawBlob(photos[viewing].blob, c, 1920);
     await kt.setTabletBackground(c);
-    b.textContent = '🏠 Your home screen'; say('Now it is your home screen picture!'); msg('Your home screen picture!', 1800);
-  } catch (e) { b.textContent = '🏠 Home screen'; b.disabled = false; say('That did not work. Try again in a moment.'); }
+    b.textContent = T('🏠 Your home screen'); say(T('Now it is your home screen picture!')); msg(T('Your home screen picture!'), 1800);
+  } catch (e) { b.textContent = T('🏠 Home screen'); b.disabled = false; say(T('That did not work. Try again in a moment.')); }
 };
 $('gallery').onclick = openGallery;
 $('galClose').onclick = () => $('gal').classList.remove('on');
@@ -802,7 +865,7 @@ $('prevPic').onclick = () => { if (viewing > 0) openView(viewing - 1); };
 $('nextPic').onclick = () => { if (viewing < photos.length - 1) openView(viewing + 1); };
 $('del').onclick = async () => {
   const b = $('del');
-  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = '🗑️ Tap again to delete'; return; }
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = T('🗑️ Tap again to delete'); return; }
   await tx('readwrite', s => s.delete(photos[viewing].id));
   $('view').classList.remove('on'); openGallery();
 };

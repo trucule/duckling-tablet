@@ -1,7 +1,7 @@
 {
   "id": "camera-fun",
   "name": "Camera Fun",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "A camera with filters, face stickers that follow the face, stamps, a timer and a gallery. Pictures stay on the tablet; one the child picks can become the home screen background of that tablet.",
   "subjects": [
     "art"
@@ -24,5 +24,21 @@
       "Looking at one's own work and trying again",
       "Care with other people's pictures"
     ]
+  },
+  "i18n": {
+    "es": {
+      "name": "Cámara divertida",
+      "description": "Una cámara con filtros, calcomanías que siguen la cara, sellos, un temporizador y una galería. Las fotos se quedan en la tableta; la que el niño elige puede ser el fondo de la pantalla de inicio de esa tableta.",
+      "about": {
+        "concept": "Composición y juego con la propia imagen. Encuadrar una toma, elegir un filtro, poner una calcomanía y esperar el temporizador son pequeñas decisiones de diseño; ver el resultado al instante cierra el ciclo. El seguimiento de la cara corre en la tableta y las fotos se quedan ahí, incluida la que el niño elige como fondo de la pantalla de inicio.",
+        "progression": "Primero apuntar y tocar. Después el temporizador (ponerlo, colocarse y quedarse quieto), las calcomanías que necesitan la cara en el encuadre y la galería, donde el niño mira lo que salió bien y toma otra foto.",
+        "lifeSkills": [
+          "Encuadre y composición",
+          "Paciencia con el temporizador",
+          "Mirar el propio trabajo e intentarlo otra vez",
+          "Cuidado con las fotos de otras personas"
+        ]
+      }
+    }
   }
 }
