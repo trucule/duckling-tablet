@@ -251,6 +251,9 @@
     header h1 { font-size: 20px; }
     .mode { padding: 7px 13px; font-size: 18px; }
     #badge { font-size: 15px; max-width: 280px; padding: 5px 10px; }
+    /* Spanish labels are longer: tighter mode buttons and a narrower badge keep the header on one line. */
+    html[lang="es"] .mode, html[lang="es"] .deck[data-deck] { padding: 7px 10px; font-size: 17px; }
+    html[lang="es"] #badge { max-width: 250px; }
   }
   .hide { display: none !important; }
   main { position: relative; min-height: 0; }
@@ -351,18 +354,90 @@ const VOICE = (() => {
 function say(text) {
   try { speechSynthesis.cancel(); } catch (e) {}
   VOICE.stop(); if (VOICE.play(text)) return;
-  try { const u = new SpeechSynthesisUtterance(text); u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {}
+  try { const u = new SpeechSynthesisUtterance(text); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {}
 }
 const $ = id => document.getElementById(id);
 const pick = a => a[Math.floor(Math.random() * a.length)];
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+// ---------------------------------------------------------------------------
+// Language. On a Duckling tablet set to Spanish (KidTablet.language) every line the child sees or hears comes from ES,
+// keyed by the English text, and the content that is about language (the alphabet with ñ, the words for each letter,
+// the spelling and cursive banks) is Spanish content with the same rung count. Ids, flags, storage keys and the
+// English text do not change. docs/languages-brief.md.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  'Trace With Me': 'Traza conmigo', 'Little': 'Letras', 'Spell': 'Palabras', 'Cursive': 'Cursiva',
+  'Back': 'Atrás', 'Hear it': 'Escúchalo', 'Start over': 'Empezar de nuevo', 'My stickers': 'Mis calcomanías', 'Next': 'Siguiente', 'Back to tracing': 'Volver a trazar',
+  // Little
+  'Trace the letter {l}.': 'Traza la letra {l}.', '{l} is for {w}!': '¡{l} de {w}!', 'Trace the small letter {l}.': 'Traza la letra {l} minúscula.', 'Small {l}, for {w}!': '¡{l} minúscula, de {w}!',
+  'Trace the number {w}.': 'Traza el número {w}.', 'Zero! Nothing at all.': '¡Cero! Nada de nada.', '{w}! Count them: {list}.': '¡{w}! Cuéntalas: {list}.',
+  'circle': 'círculo', 'square': 'cuadrado', 'triangle': 'triángulo', 'heart': 'corazón', 'star': 'estrella', 'diamond': 'rombo',
+  'Trace the circle.': 'Traza el círculo.', 'Trace the square.': 'Traza el cuadrado.', 'Trace the triangle.': 'Traza el triángulo.', 'Trace the heart.': 'Traza el corazón.', 'Trace the star.': 'Traza la estrella.', 'Trace the diamond.': 'Traza el rombo.',
+  'A circle!': '¡Un círculo!', 'A square!': '¡Un cuadrado!', 'A triangle!': '¡Un triángulo!', 'A heart!': '¡Un corazón!', 'A star!': '¡Una estrella!', 'A diamond!': '¡Un rombo!',
+  '{s} Start at the green dot. Follow the numbers.': '{s} Empieza en el punto verde. Sigue los números.', '{s} Start at the green dot.': '{s} Empieza en el punto verde.',
+  'Try to stay on the dots. Tap the drop to start over.': 'Trata de seguir los puntos. Toca la gota para empezar de nuevo.', 'You did it! {d}': '¡Lo lograste! {d}', 'Trace With Me! {s}': '¡Traza conmigo! {s}',
+  'zero': 'cero', 'one': 'uno', 'two': 'dos', 'three': 'tres', 'four': 'cuatro', 'five': 'cinco', 'six': 'seis', 'seven': 'siete', 'eight': 'ocho', 'nine': 'nueve',
+  // Characters
+  '{l} is for {w}.': '{l} de {w}.', 'Zero is nothing at all.': 'Cero es nada de nada.', '{w} strawberry.': 'Una fresa.', '{w} strawberries.': '{w} fresas.',
+  'capital {c}': '{c} mayúscula', 'the letter {c}': 'la letra {c}', 'the small letter {c}': 'la letra {c} minúscula', 'the number {n}': 'el número {n}', 'the {p}': 'el signo de puntuación {p}',
+  'period': 'punto', 'comma': 'coma', 'apostrophe': 'apóstrofo', 'quotation mark': 'comillas', 'question mark': 'signo de interrogación', 'exclamation mark': 'signo de exclamación', 'slash': 'barra',
+  'colon': 'dos puntos', 'opening question mark': 'signo de interrogación de apertura', 'opening exclamation mark': 'signo de exclamación de apertura',
+  // Spell rungs
+  'Letters and numbers': 'Letras y números', 'Short vowels': 'Palabras cortas', 'Blends': 'Dos consonantes', 'sh ch th ck': 'ch ll rr qu', 'Short sentences': 'Oraciones cortas',
+  'Silent e': 'La h muda', 'Vowel teams': 'Diptongos', 'ar or er ir ur': 'b y v', 'Endings ing and ed': 'Formas del verbo', 'Tricky words': 'Palabras difíciles', 'Long words': 'Palabras largas',
+  'Dictated sentences': 'Oraciones dictadas', 'Often misspelled': 'Ortografía difícil', 'Word from a clue': 'Palabra por su pista', 'Complex sentences': 'Oraciones complejas', 'Notes and quotes': 'Notas y citas',
+  // Cursive rungs
+  'Cursive i t u w e l': 'Cursiva i t u w e l', 'Cursive loops and ovals': 'Bucles y óvalos', 'Cursive n m v x y z': 'Cursiva n m ñ v x y z', 'Cursive capitals': 'Mayúsculas', 'Join two letters': 'Une dos letras',
+  'Cursive words': 'Palabras en cursiva', 'Light guide': 'Guía tenue', 'My name': 'Mi nombre', 'Cursive sentence': 'Oración en cursiva', 'Cursive line': 'Renglón en cursiva', 'Read cursive': 'Lee la cursiva',
+  // Prompts
+  'Trace {c}. {s}': 'Traza {c}. {s}', 'Write the word that means: {s}': 'Escribe la palabra que significa: {s}', 'Write this sentence. {w}': 'Escribe esta oración. {w}', 'Write {w}. {s} {w}.': 'Escribe {w}. {s} {w}.',
+  'Read it with me. {w} Trace each letter.': 'Léelo conmigo. {w} Traza cada letra.', 'Spell {w}. {s} Trace each letter of {w}.': 'Deletrea {w}. {s} Traza cada letra de {w}.',
+  'Spell {w}. {s} Look at it and remember it.': 'Deletrea {w}. {s} Mírala y recuérdala.', '{c}. {s}': '{c}. {s}', '{w}. {s} {w}.': '{w}. {s} {w}.',
+  'Listen and write the sentence.': 'Escucha y escribe la oración.', '{e}  Listen and write it.': '{e}  Escucha y escríbela.', '{e}  {w}': '{e}  {w}',
+  'Write this sentence, with the quotation marks. {w}': 'Escribe esta oración con las comillas. {w}', 'Write the short form of {s}.': 'Escribe la abreviatura de {s}.',
+  'Listen and write the quotation.': 'Escucha y escribe la cita.', 'Short for: {s}': 'Abreviatura de: {s}',
+  'Level {n}: {name}': 'Nivel {n}: {name}', 'Which word is this?': '¿Qué palabra es esta?', 'Read the cursive word. Tap the printed word that matches.': 'Lee la palabra en cursiva. Toca la palabra impresa que es igual.',
+  'Listen and write it in cursive.': 'Escucha y escríbela en cursiva.', 'Write this sentence in cursive. {t} Join your letters.': 'Escribe esta oración en cursiva. {t} Une tus letras.',
+  'Cursive {t}': 'Cursiva {t}', 'Cursive capital {t}': 'Cursiva {t} mayúscula', 'My name: {t}': 'Mi nombre: {t}',
+  'Cursive {t}. Watch me, then trace it. Start at the green dot.': 'Cursiva {t}. Mírame y luego trázala. Empieza en el punto verde.',
+  'Cursive capital {t}. Watch me, then trace it. Start at the green dot.': 'Cursiva {t} mayúscula. Mírame y luego trázala. Empieza en el punto verde.',
+  'Write {t} in cursive. Keep your finger down to join the letters.': 'Escribe {t} en cursiva. No levantes el dedo para unir las letras.',
+  '{e}  ?': '{e}  ?', 'Now write {c} from memory.': 'Ahora escribe {c} de memoria.', 'Now write it from memory. {w}': 'Ahora escríbela de memoria. {w}',
+  'Now write {w} from memory. One letter in each box.': 'Ahora escribe {w} de memoria. Una letra en cada casilla.',
+  'Try to stay on the line. Tap the drop to start over.': 'Trata de seguir la línea. Toca la gota para empezar de nuevo.', 'Here it is. {t} Trace it to check your letters.': 'Aquí está. {t} Trázala para revisar tus letras.',
+  'That says {w}. Look again.': 'Ahí dice {w}. Mira otra vez.', 'This one is {c}. Trace it.': 'Esta es: {c}. Trázala.', 'Hmm, try that one again.': 'Mmm, intenta esa otra vez.', 'Hmm, try that letter again. {w}.': 'Mmm, intenta esa letra otra vez. {w}.',
+  'Write this sentence in cursive. {t}': 'Escribe esta oración en cursiva. {t}',
+  // Wins
+  '{letters}. {w}!': '{letters}. ¡{w}!', 'You spelled it! {s}': '¡Lo deletreaste! {s}', 'You wrote {c}!': '¡Escribiste {c}!', 'You wrote it! {w}': '¡Lo escribiste! {w}', 'You read it! {t}': '¡Lo leíste! {t}',
+  'Beautiful cursive!': '¡Qué linda cursiva!', 'Level up!': '¡Subiste de nivel!', 'Level up! {name}!': '¡Subiste de nivel! ¡{name}!', 'Let us practise some easier ones.': 'Practiquemos unas más fáciles.',
+  '⭐ {n}: {w} words spelled, {c} cursive.': '⭐ {n}: {w} palabras deletreadas, {c} en cursiva.', 'You have {n} stickers!': '¡Tienes {n} calcomanías!'
+};
+const USED = new Set();
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+window.DucklingLang = { keys: () => Object.keys(ES), missing: () => [...USED].filter(k => ES[k] == null), allow: [] };
+// What the narrator calls a Spanish letter on its own.
+const CHAR_NAMES_ES = { 'á': 'a con tilde', 'é': 'e con tilde', 'í': 'i con tilde', 'ó': 'o con tilde', 'ú': 'u con tilde', 'ü': 'u con diéresis' };
 
 // ===========================================================================
 // LITTLE: the original decks (colour in a big letter, number or shape).
 // ===========================================================================
-const WORDS = { A: ['apple', '🍎'], B: ['bear', '🐻'], C: ['cat', '🐱'], D: ['dog', '🐶'], E: ['egg', '🥚'], F: ['fish', '🐟'], G: ['grapes', '🍇'],
+const WORDS_EN = { A: ['apple', '🍎'], B: ['bear', '🐻'], C: ['cat', '🐱'], D: ['dog', '🐶'], E: ['egg', '🥚'], F: ['fish', '🐟'], G: ['grapes', '🍇'],
   H: ['hat', '🎩'], I: ['ice cream', '🍦'], J: ['jellyfish', '🪼'], K: ['kite', '🪁'], L: ['lion', '🦁'], M: ['moon', '🌙'], N: ['nest', '🪺'],
   O: ['octopus', '🐙'], P: ['pig', '🐷'], Q: ['queen', '👸'], R: ['rainbow', '🌈'], S: ['sun', '☀️'], T: ['turtle', '🐢'], U: ['umbrella', '☂️'],
   V: ['violin', '🎻'], W: ['whale', '🐳'], X: ['xylophone', '🎹'], Y: ['yarn', '🧶'], Z: ['zebra', '🦓'] };
+// The Spanish alphabet, ñ included, with a word a young child knows and a picture that fits it.
+const WORDS_ES = { A: ['árbol', '🌳'], B: ['bebé', '👶'], C: ['casa', '🏠'], D: ['dedo', '☝️'], E: ['elefante', '🐘'], F: ['flor', '🌸'], G: ['gato', '🐱'],
+  H: ['helado', '🍦'], I: ['isla', '🏝️'], J: ['jirafa', '🦒'], K: ['koala', '🐨'], L: ['luna', '🌙'], M: ['mano', '✋'], N: ['nube', '☁️'], 'Ñ': ['ñu', '🐃'],
+  O: ['oso', '🐻'], P: ['pato', '🦆'], Q: ['queso', '🧀'], R: ['ratón', '🐭'], S: ['sol', '☀️'], T: ['tren', '🚆'], U: ['uva', '🍇'],
+  V: ['vaca', '🐄'], W: ['wafle', '🧇'], X: ['xilófono', '🎹'], Y: ['yoyo', '🪀'], Z: ['zapato', '👟'] };
+const WORDS = LANG === 'es' ? WORDS_ES : WORDS_EN;
 const NUMBERS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 const SHAPES = [
   { id: 'circle', name: 'circle', emoji: '⚽', path: g => { g.arc(500, 500, 330, 0, Math.PI * 2); } },
@@ -373,10 +448,10 @@ const SHAPES = [
   { id: 'diamond', name: 'diamond', emoji: '💎', path: g => { g.moveTo(500, 140); g.lineTo(840, 500); g.lineTo(500, 860); g.lineTo(160, 500); g.closePath(); } }
 ];
 const DECKS = {
-  upper: Object.keys(WORDS).map(l => ({ id: 'U' + l, glyph: l, say: `Trace the letter ${l}.`, done: `${l} is for ${WORDS[l][0]}!`, emoji: WORDS[l][1], label: l })),
-  lower: Object.keys(WORDS).map(l => ({ id: 'L' + l, glyph: l.toLowerCase(), say: `Trace the small letter ${l}.`, done: `Small ${l}, for ${WORDS[l][0]}!`, emoji: WORDS[l][1], label: l.toLowerCase() })),
-  numbers: NUMBERS.map((w, n) => ({ id: 'N' + n, glyph: String(n), say: `Trace the number ${w}.`, done: n === 0 ? 'Zero! Nothing at all.' : `${w.charAt(0).toUpperCase() + w.slice(1)}! ` + 'Count them: ' + Array.from({ length: n }, (_, i) => NUMBERS[i + 1]).join(', ') + '.', emoji: n === 0 ? '🫧' : '🍓'.repeat(n), label: String(n) })),
-  shapes: SHAPES.map(s => ({ id: 'S' + s.id, shape: s, say: `Trace the ${s.name}.`, done: `A ${s.name}!`, emoji: s.emoji, label: '' }))
+  upper: Object.keys(WORDS).map(l => ({ id: 'U' + l, glyph: l, say: T('Trace the letter {l}.', { l }), done: T('{l} is for {w}!', { l, w: WORDS[l][0] }), emoji: WORDS[l][1], label: l })),
+  lower: Object.keys(WORDS).map(l => ({ id: 'L' + l, glyph: l.toLowerCase(), say: T('Trace the small letter {l}.', { l }), done: T('Small {l}, for {w}!', { l, w: WORDS[l][0] }), emoji: WORDS[l][1], label: l.toLowerCase() })),
+  numbers: NUMBERS.map((w, n) => ({ id: 'N' + n, glyph: String(n), say: T('Trace the number {w}.', { w: T(w) }), done: n === 0 ? T('Zero! Nothing at all.') : T('{w}! Count them: {list}.', { w: cap(T(w)), list: Array.from({ length: n }, (_, i) => T(NUMBERS[i + 1])).join(', ') }), emoji: n === 0 ? '🫧' : '🍓'.repeat(n), label: String(n) })),
+  shapes: SHAPES.map(s => ({ id: 'S' + s.id, shape: s, say: T(`Trace the ${s.name}.`), done: T(`A ${s.name}!`), emoji: s.emoji, label: '' }))
 };
 // Little letters are written the way she writes with a pencil: thin school print (ball and stick) on handwriting
 // lines, with a numbered start dot and an arrow for each stroke in order. Units match PRINT below: top line y=0,
@@ -440,7 +515,7 @@ const STROKE_DONE = 0.86;       // share of a stroke's guide points she must pas
 let deck = 'upper', idx = 0, won = false, nudged = false, last = null;
 const cv = $('c'), g = cv.getContext('2d');
 const ink = document.createElement('canvas'); ink.width = ink.height = 1000; const ig = ink.getContext('2d');
-let guides = [], hits = [], drawn = 0, stray = 0, isLetter = false;
+let guides = [], hits = [], drawn = 0, stray = 0, isLetter = false, ltop = LTOP;   // ltop: the top line, lower for a glyph with a mark above it (Ñ)
 const meter = document.querySelector('#meter i'), wordEl = $('word');
 const SKEY = 'tracer-stickers';
 function loadStickers() { try { return JSON.parse(localStorage.getItem(SKEY) || '[]'); } catch (e) { return []; } }
@@ -455,7 +530,9 @@ function buildGuides() {
   else {
     isLetter = true;
     const def = glyphDef(it.glyph), ox = 500 - def.w * LS / 2;
-    guides = def.d.map(d => samplePath(d, 2).map(([x, y]) => [ox + x * LS, LTOP + y * LS]));
+    const raw = def.d.map(d => samplePath(d, 2)); let minY = 0; for (const st of raw) for (const p of st) minY = Math.min(minY, p[1]);
+    ltop = minY < 0 ? LTOP - minY * LS + 30 : LTOP;   // room under the word label for the mark
+    guides = raw.map(st => st.map(([x, y]) => [ox + x * LS, ltop + y * LS]));
   }
   hits = guides.map(st => new Uint8Array(st.length)); drawn = 0; stray = 0;
 }
@@ -475,7 +552,7 @@ function arrowAt(st) {
 function renderLittle() {
   g.clearRect(0, 0, 1000, 1000);
   if (isLetter) {   // handwriting lines: top, dashed midline, baseline, and a faint descender line
-    const y = u => LTOP + u * LS;
+    const y = u => ltop + u * LS;
     g.save(); g.lineWidth = 5;
     g.strokeStyle = '#7FB2F0'; g.beginPath(); g.moveTo(40, y(0)); g.lineTo(960, y(0)); g.stroke();
     g.setLineDash([26, 20]); g.beginPath(); g.moveTo(40, y(100)); g.lineTo(960, y(100)); g.stroke(); g.setLineDash([]);
@@ -520,8 +597,8 @@ function loadLittle(i, speak = true) {
   $('win').classList.remove('on');
   buildGuides(); renderLittle();
   const it = item();
-  wordEl.textContent = it.shape ? it.shape.name : (it.label + '  ' + (it.emoji.length > 4 ? '' : it.emoji));
-  if (speak) say(it.say + (guides.length > 1 ? ' Start at the green dot. Follow the numbers.' : ' Start at the green dot.'));
+  wordEl.textContent = it.shape ? T(it.shape.name) : (it.label + '  ' + (it.emoji.length > 4 ? '' : it.emoji));
+  if (speak) say(T(guides.length > 1 ? '{s} Start at the green dot. Follow the numbers.' : '{s} Start at the green dot.', { s: it.say }));
 }
 let activeId = null;
 function pos(e) { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 1000, (e.clientY - r.top) / r.height * 1000]; }
@@ -536,7 +613,7 @@ function endStroke(e) {
   const pr = progress(); meter.style.width = Math.round(Math.min(1, pr) * 100) + '%';
   const messy = drawn > 8 && stray / drawn > 0.25;
   if (nextStroke() < 0 && !messy) winLittle();
-  else if (messy && !nudged) { nudged = true; say('Try to stay on the dots. Tap the drop to start over.'); }
+  else if (messy && !nudged) { nudged = true; say(T('Try to stay on the dots. Tap the drop to start over.')); }
   renderLittle();
 }
 cv.addEventListener('pointerup', endStroke); cv.addEventListener('pointercancel', endStroke);
@@ -553,7 +630,7 @@ function sparkle() {
 function winLittle() {
   won = true; const it = item(); saveSticker(it.id);
   $('winText').textContent = it.done; $('winEmoji').textContent = it.emoji; $('win').classList.add('on');
-  say('You did it! ' + it.done); sparkle();
+  say(T('You did it! {d}', { d: it.done })); sparkle();
   setTimeout(() => { if (won && mode === 'little') loadLittle(idx + 1); }, 3200);
 }
 
@@ -619,10 +696,26 @@ const PUNCT = {
   '/': { w: 84, d: ['M76 0 L8 208'] },
 };
 const PUNCT_NAMES = { '.': 'period', ',': 'comma', "'": 'apostrophe', '"': 'quotation mark', '?': 'question mark', '!': 'exclamation mark', '/': 'slash' };
+// Spanish print: the base letter's strokes and then its mark (acute accent, tilde or two dots), plus the colon and
+// the opening question and exclamation marks. Only on a Spanish tablet, so the English matcher's templates do not change.
+if (LANG === 'es') {
+  const mark = (def, d) => ({ w: def.w, d: [...def.d, ...d] });
+  const acute = cx => `M${cx - 10} 78 L${cx + 10} 50`;
+  PRINT['á'] = mark(PRINT.a, [acute(52)]); PRINT['é'] = mark(PRINT.e, [acute(52)]); PRINT['í'] = { w: 60, d: ['M30 100 V200', acute(30)] };
+  PRINT['ó'] = mark(PRINT.o, [acute(52)]); PRINT['ú'] = mark(PRINT.u, [acute(50)]); PRINT['ü'] = mark(PRINT.u, ['M34 52 L34 56', 'M66 52 L66 56']);
+  PRINT['ñ'] = mark(PRINT.n, ['M28 74 C38 56 48 58 53 66 C58 74 68 76 80 60']);
+  PRINT_UPPER['Ñ'] = mark(PRINT_UPPER.N, ['M30 -6 C42 -24 52 -22 57 -14 C62 -6 72 -4 84 -20']);
+  Object.assign(PUNCT, {
+    ':': { w: 46, d: ['M23 118 L23 123', 'M23 192 L23 197'] },
+    '¿': { w: 92, d: ['M46 150 V172 C46 214 12 216 12 254 C12 310 82 310 82 258', 'M46 104 L46 110'] },
+    '¡': { w: 46, d: ['M23 160 V300', 'M23 104 L23 110'] },
+  });
+  Object.assign(PUNCT_NAMES, { ':': 'colon', '¿': 'opening question mark', '¡': 'opening exclamation mark' });
+}
 function charClass(ch) { return PRINT[ch] ? 'lower' : PRINT_UPPER[ch] ? 'upper' : PRINT_DIGITS[ch] ? 'digit' : 'punct'; }
 // What the narrator calls one character.
-function charName(ch) { if (PRINT_UPPER[ch]) return 'capital ' + ch; if (PRINT_DIGITS[ch]) return NUMBERS[+ch]; return PUNCT_NAMES[ch] || ch; }
-function spokenChar(ch) { if (PRINT_UPPER[ch]) return 'the letter ' + ch; if (PRINT[ch]) return 'the small letter ' + ch; if (PRINT_DIGITS[ch]) return 'the number ' + NUMBERS[+ch]; return 'the ' + charName(ch); }
+function charName(ch) { if (PRINT_UPPER[ch]) return T('capital {c}', { c: ch }); if (PRINT_DIGITS[ch]) return T(NUMBERS[+ch]); if (PUNCT_NAMES[ch]) return T(PUNCT_NAMES[ch]); return (LANG === 'es' && CHAR_NAMES_ES[ch]) || ch; }
+function spokenChar(ch) { if (PRINT_UPPER[ch]) return T('the letter {c}', { c: ch }); if (PRINT[ch]) return T('the small letter {c}', { c: ch }); if (PRINT_DIGITS[ch]) return T('the number {n}', { n: T(NUMBERS[+ch]) }); return T('the {p}', { p: charName(ch) }); }
 const CURSIVE = {
   a: ['M68 112 C55 92 20 98 12 135 C5 175 30 205 55 190 C68 182 72 150 74 102 C72 140 70 175 74 190 C77 202 92 200 100 194'],
   b: ['M5 165 C30 130 55 60 50 25 C47 0 22 5 20 40 C18 90 14 160 16 188 C18 205 50 205 56 160 C58 130 50 112 46 108 C55 118 70 112 85 106'],
@@ -709,11 +802,27 @@ function connect(P, Q) {
   const dx = Q[0] - P[0], dy = Q[1] - P[1];
   return cubic(P, [P[0] + dx * 0.45, P[1]], [Q[0] - dx * 0.25, Q[1] - dy * 0.45], Q);
 }
+// Spanish letters in cursive are the base letter's stroke with a mark added above it (cursiveMark); the letter shapes
+// themselves do not change.
+const CURSIVE_BASE = { 'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u', 'ñ': 'n', 'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U', 'Ñ': 'N' };
+// The mark over a Spanish letter, in units before the slant: an acute accent, a tilde or two dots, centred over the
+// part of the body that sits between the lines. A capital carries it above the top line.
+function cursiveMark(ch, body, off) {
+  const base = CURSIVE_BASE[ch], upper = base !== base.toLowerCase(), lo = upper ? 0 : 100;
+  const xs = body.filter(p => p[1] >= lo && p[1] <= 200).map(p => p[0]);
+  // The slant moves a high point further right than the body, so the mark starts a little left of the body's centre.
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2 + off - SLANT * (upper ? 70 : 45), dy = upper ? -100 : 0;
+  const d = base === 'n' || base === 'N' ? [`M${cx - 26} ${68 + dy} C${cx - 14} ${50 + dy} ${cx - 4} ${54 + dy} ${cx} ${62 + dy} C${cx + 6} ${72 + dy} ${cx + 16} ${70 + dy} ${cx + 26} ${54 + dy}`]
+    : ch === 'ü' ? [`M${cx - 12} ${56 + dy} L${cx - 11} ${59 + dy}`, `M${cx + 10} ${56 + dy} L${cx + 11} ${59 + dy}`]
+    : [`M${cx - 8} ${80 + dy} L${cx + 10} ${52 + dy}`];
+  return d.map(s => samplePath(s, 2));
+}
 // A cursive word as strokes in units (before the slant): one joined stroke plus dots and crosses.
 function cursiveWord(word) {
   const main = [], extras = [], pre = []; let prevE = null, prevMax = 0;
   const sx = p => p[0] + SLANT * (200 - p[1]);     // x after the slant, which is what spacing on the page depends on
-  for (const ch of word) {
+  for (const ch0 of word) {
+    const ch = CURSIVE_BASE[ch0] || ch0;
     const high = prevE && prevE[1] < 150;
     const raw = (high && CURSIVE[ch + '+']) || CURSIVE[ch] || CURSIVE_UPPER[ch];
     if (!raw) throw new Error('no cursive shape for ' + JSON.stringify(ch));
@@ -739,7 +848,8 @@ function cursiveWord(word) {
       main.push(...connect(prevE, [off + S[0], S[1]]).slice(1));
     }
     for (const [a, b] of body) main.push([a + off, b]);
-    for (let k = 0; k < def.length; k++) if (k !== mainAt) (k < mainAt ? pre : extras).push(samplePath(def[k], 2).map(([a, b]) => [a + off, b]));
+    for (let k = 0; k < def.length; k++) if (k !== mainAt && ch0 !== 'í') (k < mainAt ? pre : extras).push(samplePath(def[k], 2).map(([a, b]) => [a + off, b]));   // í has its accent instead of a dot
+    if (ch0 !== ch) extras.push(...cursiveMark(ch0, body, off));
     prevE = [E[0] + off, E[1]]; prevMax = Math.max(...body.map(p => sx(p) + off));
   }
   main.push(...cubic(prevE, [prevE[0] + 10, prevE[1]], [prevE[0] + 18, prevE[1] - 6], [prevE[0] + 24, prevE[1] - 18], 6).slice(1));
@@ -751,7 +861,7 @@ const printLetter = ch => PRINT[ch].d.map(d => samplePath(d, d.length < 16 ? 2 :
 function glyphStrokes(ch) { const def = glyphDef(ch); if (!def) throw new Error('no print shape for ' + JSON.stringify(ch)); return def.d.map(d => samplePath(d, d.length < 16 ? 2 : 4)); }
 // One cursive word (with an optional end mark) as slanted strokes in units: the joined body, then dots and crosses.
 function cursiveToken(token) {
-  const m = /^([A-Za-z]+)([.,!?]?)$/.exec(token); if (!m) throw new Error('bad cursive word ' + JSON.stringify(token));
+  const m = /^([A-Za-záéíóúüñÁÉÍÓÚÑ]+)([.,!?]?)$/.exec(token); if (!m) throw new Error('bad cursive word ' + JSON.stringify(token));
   const st = cursiveWord(m[1]);
   if (m[2]) {
     let x1 = -1e9; for (const s1 of st) for (const p of s1) x1 = Math.max(x1, p[0]); const px = Math.round(x1) + 4;
@@ -820,7 +930,7 @@ function punctCheck(strokes, ch) {
   let y0 = 1e9, y1 = -1e9, len = 0;
   for (const s of strokes) for (let i = 0; i < s.length; i++) { const [x, y] = s[i]; y0 = Math.min(y0, y); y1 = Math.max(y1, y); if (i) len += Math.hypot(x - s[i - 1][0], y - s[i - 1][1]); }
   const tall = y1 - y0 > 90, low = y1 > 150, high = y0 < 110;
-  const ok = { '.': len < 110 && low, ',': len < 170 && low, "'": len < 150 && high && y1 < 170, '"': len < 260 && high && y1 < 170, '?': tall && high, '!': tall && high, '/': tall }[ch];
+  const ok = { '.': len < 110 && low, ',': len < 170 && low, "'": len < 150 && high && y1 < 170, '"': len < 260 && high && y1 < 170, '?': tall && high, '!': tall && high, '/': tall, ':': len < 220 && low, '¿': tall && low, '¡': tall && low }[ch];
   return { ok: !!ok, rank: ok ? 0 : -1, ranking: [ch + ':' + (ok ? 'mark' : 'no')] };
 }
 function similarity(a, b) {
@@ -847,17 +957,75 @@ function recognize(strokes, expected) {
 const W = (s, sep = ',') => s.split(sep).map(x => { const [w, e, sen] = x.trim().split('|'); return { word: w, emoji: e || '', sentence: sen || '' }; });
 // Single letters and numerals for the first rung: every capital, every small letter and the digits, with the Little clue.
 const FIRST = [
-  ...Object.keys(WORDS).map(l => ({ word: l, emoji: WORDS[l][1], sentence: `${l} is for ${WORDS[l][0]}.` })),
-  ...Object.keys(WORDS).map(l => ({ word: l.toLowerCase(), emoji: WORDS[l][1], sentence: `${l.toLowerCase()} is for ${WORDS[l][0]}.` })),
-  ...NUMBERS.map((w, n) => ({ word: String(n), emoji: n === 0 ? '🫧' : '🍓'.repeat(n), sentence: n === 0 ? 'Zero is nothing at all.' : `${w.charAt(0).toUpperCase() + w.slice(1)} ${NUMBERS[n] === 'one' ? 'strawberry' : 'strawberries'}.` })),
+  ...Object.keys(WORDS).map(l => ({ word: l, emoji: WORDS[l][1], sentence: T('{l} is for {w}.', { l, w: WORDS[l][0] }) })),
+  ...Object.keys(WORDS).map(l => ({ word: l.toLowerCase(), emoji: WORDS[l][1], sentence: T('{l} is for {w}.', { l: l.toLowerCase(), w: WORDS[l][0] }) })),
+  ...NUMBERS.map((w, n) => ({ word: String(n), emoji: n === 0 ? '🫧' : '🍓'.repeat(n), sentence: n === 0 ? T('Zero is nothing at all.') : T(n === 1 ? '{w} strawberry.' : '{w} strawberries.', { w: cap(T(w)) }) })),
 ];
-// Vocabulary written from its definition: word|emoji|definition.
-const CLUES = W('triangle|🔺|A shape with three sides.;predator|🦁|An animal that hunts other animals.;fraction|🍕|A part of a whole, like one half.;habitat|🌳|The place where an animal lives.;evaporate|💨|To turn from a liquid into a gas.;ancient|🏛️|Very, very old.;orbit|🪐|The path a planet takes around the sun.;century|📅|One hundred years.;nocturnal|🦉|Awake and active at night.;drought|🌵|A long time with no rain.;opinion|💭|What a person thinks, not a fact.;synonym|🔁|A word that means the same as another word.;antonym|↔️|A word that means the opposite.;summary|📝|A short retelling of the main points.;perimeter|📐|The distance around the edge of a shape.;equator|🌍|The line around the middle of the Earth.;molecule|🧪|A tiny group of atoms joined together.;democracy|🗳️|A government chosen by the people who vote.;volcano|🌋|A mountain that can erupt.;oxygen|🫧|The gas we breathe to stay alive.;skeleton|🦴|All the bones in a body.;hexagon|⬡|A shape with six sides.;decade|🔟|Ten years.;island|🏝️|Land with water all around it.;glacier|🧊|A huge, slow river of ice.;author|✍️|A person who writes a book.;narrator|🎙️|The one who tells the story.;gravity|🍎|The force that pulls things down to Earth.;climate|🌦️|The usual weather of a place over many years.;vertical|↕️|Standing straight up and down.', ';');
-// Note-taking abbreviations (word|emoji|long form) and quotations.
-const NOTES = [
-  ...W('etc.|📝|et cetera,approx.|📝|approximately,e.g.|📝|for example,vs.|📝|versus,w/|📝|with,w/o|📝|without,b/c|📝|because,Dr.|📝|Doctor,Mr.|📝|Mister,Jan.|📝|January,Dept.|📝|Department,govt.|📝|government,ch.|📝|chapter,p.|📝|page,min.|📝|minutes,max.|📝|maximum,info|📝|information,yr.|📝|year,Ave.|📝|Avenue,Oct.|📝|October'),
-  ...W(`Mom said, "Hurry up."|💬;He asked, "Why not?"|💬;She said, "I know."|💬;Dad yelled, "Go, team!"|💬;Ben said, "It's mine."|💬;The sign read, "Keep out."|💬;I said, "Thank you."|💬;Ana asked, "Are we late?"|💬;Max whispered, "Look up."|💬;The coach said, "Nice try."|💬;Grandma said, "Eat up."|💬;Lee asked, "Who's next?"|💬`, ';'),
-];
+// The word banks per language. Each rung has the same count in both; the Spanish rungs are about Spanish spelling
+// (short words, consonant pairs, ch ll rr qu, the silent h, diphthongs, b and v, verb endings, accents) and the
+// upper rungs are original Spanish sentences, definitions, abbreviations and quotations for the same grade band.
+const BANK_EN = {
+  // Vocabulary written from its definition: word|emoji|definition.
+  clues: W('triangle|🔺|A shape with three sides.;predator|🦁|An animal that hunts other animals.;fraction|🍕|A part of a whole, like one half.;habitat|🌳|The place where an animal lives.;evaporate|💨|To turn from a liquid into a gas.;ancient|🏛️|Very, very old.;orbit|🪐|The path a planet takes around the sun.;century|📅|One hundred years.;nocturnal|🦉|Awake and active at night.;drought|🌵|A long time with no rain.;opinion|💭|What a person thinks, not a fact.;synonym|🔁|A word that means the same as another word.;antonym|↔️|A word that means the opposite.;summary|📝|A short retelling of the main points.;perimeter|📐|The distance around the edge of a shape.;equator|🌍|The line around the middle of the Earth.;molecule|🧪|A tiny group of atoms joined together.;democracy|🗳️|A government chosen by the people who vote.;volcano|🌋|A mountain that can erupt.;oxygen|🫧|The gas we breathe to stay alive.;skeleton|🦴|All the bones in a body.;hexagon|⬡|A shape with six sides.;decade|🔟|Ten years.;island|🏝️|Land with water all around it.;glacier|🧊|A huge, slow river of ice.;author|✍️|A person who writes a book.;narrator|🎙️|The one who tells the story.;gravity|🍎|The force that pulls things down to Earth.;climate|🌦️|The usual weather of a place over many years.;vertical|↕️|Standing straight up and down.', ';'),
+  // Note-taking abbreviations (word|emoji|long form) and quotations.
+  notes: [
+    ...W('etc.|📝|et cetera,approx.|📝|approximately,e.g.|📝|for example,vs.|📝|versus,w/|📝|with,w/o|📝|without,b/c|📝|because,Dr.|📝|Doctor,Mr.|📝|Mister,Jan.|📝|January,Dept.|📝|Department,govt.|📝|government,ch.|📝|chapter,p.|📝|page,min.|📝|minutes,max.|📝|maximum,info|📝|information,yr.|📝|year,Ave.|📝|Avenue,Oct.|📝|October'),
+    ...W(`Mom said, "Hurry up."|💬;He asked, "Why not?"|💬;She said, "I know."|💬;Dad yelled, "Go, team!"|💬;Ben said, "It's mine."|💬;The sign read, "Keep out."|💬;I said, "Thank you."|💬;Ana asked, "Are we late?"|💬;Max whispered, "Look up."|💬;The coach said, "Nice try."|💬;Grandma said, "Eat up."|💬;Lee asked, "Who's next?"|💬`, ';'),
+  ],
+  s1: W('cat|🐱,dog|🐶,sun|☀️,map|🗺️,pig|🐷,hen|🐔,bus|🚌,cup|☕,bed|🛏️,fox|🦊,bat|🦇,web|🕸️,box|📦,bug|🐛,hat|🎩,pen|🖊️'),
+  s2: W('frog|🐸,crab|🦀,drum|🥁,flag|🚩,nest|🪺,hand|✋,milk|🥛,swim|🏊,stop|🛑,plant|🌱,sled|🛷,tent|⛺,gift|🎁,clap|👏,snack|🍿,spin|🌀'),
+  s3: W('ship|🚢,fish|🐟,shell|🐚,chick|🐥,lunch|🍱,bath|🛁,duck|🦆,sock|🧦,rock|🪨,truck|🚚,chip|🍟,brush|🪥,math|🔢,wish|🌠,black|⬛,whip|🍦'),
+  s4: W('I can run.|🏃,We go up.|⬆️,It is big.|🐘,See the dog.|🐶,I like it.|👍,The cat sat.|🐱,Go to bed.|🛏️,We can play.|🎲,I am here.|🙋,Look at me.|👀,Come with me.|🤝,The sun is up.|☀️,He has a hat.|🎩,She is my mom.|👩,We ran fast.|💨,It can hop.|🐸,I see a bug.|🐛,Is it red?|🔴,Can we go?|🚗,You are kind.|💛'),
+  s5: W('cake|🎂,bike|🚲,kite|🪁,rose|🌹,bone|🦴,cube|🧊,cone|🍦,game|🎲,home|🏠,flute|🪈,smile|😊,plane|✈️,snake|🐍,grape|🍇,nose|👃,slide|🛝'),
+  s6: W('rain|🌧️,boat|⛵,tree|🌳,seed|🌱,snow|❄️,coat|🧥,train|🚆,sheep|🐑,bee|🐝,queen|👸,road|🛣️,mail|📬,leaf|🍃,paint|🎨,goat|🐐,beach|🏖️,moon|🌙,spoon|🥄,book|📖'),
+  s7: W('car|🚗,star|⭐,farm|🚜,shark|🦈,corn|🌽,fork|🍴,horse|🐴,bird|🐦,girl|👧,shirt|👕,turtle|🐢,purple|🟣,church|⛪,storm|⛈️,tiger|🐯,winter|⛄'),
+  s8: W('jumping|🦘|The kangaroo is jumping.,running|🏃|I am running fast.,swimming|🏊|We went swimming.,hopped|🐇|The bunny hopped away.,baked|🧁|We baked muffins.,played|🎮|They played a game.,wanted|🙋|She wanted a turn.,sitting|🪑|He is sitting down.,making|🛠️|We are making a fort.,smiled|😊|The baby smiled.,singing|🎤|She is singing a song.,kicked|⚽|He kicked the ball.,dancing|💃|They are dancing.,cried|😢|The puppy cried.'),
+  s9: W('because|🤔|I smiled because I was happy.,friend|🤝|My friend came to play.,laugh|😂|Jokes make me laugh.,people|👥|Many people came.,said|💬|Mom said yes.,again|🔁|Read it again.,would|🙂|Would you like some?,could|🙂|I could see the moon.,thought|💭|I thought about it.,enough|✋|That is enough.,through|🚪|We walked through the door.,answer|✅|I know the answer.,believe|🌟|I believe in you.,often|📅|We often go to the park.,school|🏫|I like my school.,favorite|❤️|Blue is my favorite color.,beautiful|🌸|What a beautiful day.,different|🔀|Each leaf is different.'),
+  s10: W('important|⭐|It is important to listen.,community|🏘️|Our community has a park.,yesterday|📅|Yesterday it rained.,adventure|🗺️|We went on an adventure.,remember|🧠|I remember your name.,hospital|🏥|The doctor works at the hospital.,dinosaur|🦕|A dinosaur lived long ago.,butterfly|🦋|A butterfly landed on me.,wonderful|🌟|What a wonderful day.,vegetable|🥕|A carrot is a vegetable.,library|📚|We read at the library.,tomorrow|🌅|Tomorrow is Saturday.,together|🤝|We built it together.,exercise|🏃|Exercise keeps you strong.,mountain|⛰️|We climbed the mountain.,elephant|🐘|The elephant sprayed water.,calendar|🗓️|Mark it on the calendar.,chocolate|🍫|I like dark chocolate.,umbrella|☂️|Bring an umbrella today.,holiday|🎉|The holiday is next week.,kangaroo|🦘|A kangaroo hops.,telephone|📞|The telephone rang.,computer|💻|Dad fixed the computer.,president|🏛️|The class voted for a president.'),
+  s11: W('Where is my hat?|🎩,The dog ran home.|🐶,Can you help me?|🙋,We won the game!|🏆,My bike is red.|🚲,Please shut the door.|🚪,It is time for lunch.|🍱,Who ate the cake?|🎂,Birds fly south.|🐦,Dad made soup.|🍲,Wash your hands.|🧼,The moon is bright.|🌙,I lost my shoe.|👟,Turn off the light.|💡,Do you like pizza?|🍕,Our team is fast.|💨,Be kind to all.|💛,The ice is thin.|🧊,Mom planted a tree.|🌳,What time is it?|⏰'),
+  s12: W('separate|📂|Keep the two piles separate.,necessary|✅|Sleep is necessary.,definitely|💯|I will definitely come.,receive|📬|Did you receive my letter?,weird|👽|That noise was weird.,beginning|🏁|Start at the beginning.,business|💼|Mom runs a business.,embarrass|😳|Do not embarrass me.,environment|🌍|Protect the environment.,government|🏛️|The government makes laws.,grateful|🙏|I am grateful for you.,immediately|⚡|Come here immediately.,independent|🦅|She is very independent.,knowledge|🧠|Books give us knowledge.,occasion|🎉|A birthday is a special occasion.,privilege|🎖️|It is a privilege to be here.,recommend|👍|I recommend this book.,rhythm|🥁|Clap to the rhythm.,schedule|🗓️|Check the schedule.,surprise|🎁|What a nice surprise.,weather|🌦️|The weather is warm.,whether|🤔|I wonder whether it will rain.,height|📏|Measure your height.,foreign|✈️|She speaks a foreign language.,neighbor|🏡|My neighbor waved.,restaurant|🍽️|We ate at a restaurant.,sincerely|✉️|Yours sincerely.,twelfth|🔢|It is the twelfth of May.,argument|🗣️|They had an argument.,column|🏛️|Add up the column.'),
+  s14: W(`When it rained, we didn't go.|🌧️;If you're late, call me.|📞;After lunch, Sam's team won.|🏆;Although it's cold, we hiked.|🥾;Before dinner, I'll read.|📖;Since you asked, here's my plan.|🗺️;When the bell rang, we weren't done.|🔔;If it's sunny, let's swim.|🏊;Because I'm tired, I rested.|😴;Unless it snows, we're going.|❄️;After the game, Ana's dad drove.|🚗;Once it's dark, we'll stop.|🌙;As we left, Jo's dog barked.|🐶;If they win, it's a record.|🥇;When I'm ready, I'll call.|📱;While it baked, Mom's phone rang.|📞;Though it's late, we aren't tired.|🌃;If you can't come, that's fine.|🙂`, ';'),
+  // Names for the signature rung: the child's name first, then family and friends so forty draws are not all one word.
+  names: ['Ada', 'Mom', 'Max', 'Dad', 'Mia', 'Leo', 'Zoe', 'Sam', 'Eli', 'Ivy', 'Kai', 'Ava', 'Ben', 'Lily', 'Noah', 'Ruby'],
+  // Words the reading rung shows in cursive; the choices come from the same bank.
+  read: 'cat,cup,cap,cot,sun,sit,set,sat,dog,dig,dug,day,fish,fast,first,dish,wish,wash,cake,bike,bake,lake,like,line,frog,from,fog,ship,shop,sheep,shape,tree,three,free,boat,beat,bat,moon,mean,noon,star,stay,start,home,hope,hose,horse,rain,ran,run,ruin,nest,next,net,milk,mild,mile,duck,deck,dock,kite,kit,kind,snow,slow,show,bird,bind,bring,plane,plan,plant,smile,smell,small,light,night,right,house,mouse,horse,water,winter,writer,people,purple,pebble,friend,fried,fiend,school,scoop,spool,garden,golden,gander,little,litter,letter,mother,bother,other,father,farther,feather'.split(','),
+  c2: 'nmvxyz', c3: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  c4: 'it,up,us,we,be,so,go,me,no,at,an,in,is,on,to,of,am,he,my,by',
+  c5: 'cat,sun,dog,fish,cake,bike,frog,ship,tree,boat,moon,star,home,rain,nest,milk,duck,kite,snow,bird',
+  c6: 'jumping,friend,school,turtle,purple,tiger,beach,smile,plane,laugh,people,again,winter,horse',
+  c8: 'We like to swim.,The cat sat up.,I can see it.,It is hot out.,My dog can run.,We went home.,Sit by me.,The sun is up.,He is my pal.,Go to bed now.,I am so glad.,Mom made tea.,Dad can bake.,Look at the moon.,We won the game.,A frog can hop.,Birds can fly.,The bus is late.',
+  c9: 'The quick brown fox jumps over the lazy dog.,Practice makes progress every single day.,Reading opens doors to new worlds.,We planted seeds and watched them grow.,The river winds slowly through the valley.,Every long trip begins with one small step.,Stars come out when the sky turns dark.,Rain fell softly on the quiet town.,Birds sing early in the spring morning.,My team worked hard and won the final game.,Keep your pen moving and join each letter.,A warm fire glowed in the old stone hut.,Autumn leaves drift down to the cold ground.,Good friends listen first and then share.',
+};
+const BANK_ES = {
+  clues: W('triángulo|🔺|Una figura con tres lados.;depredador|🦁|Un animal que caza a otros animales.;fracción|🍕|Una parte de un todo, como la mitad.;hábitat|🌳|El lugar donde vive un animal.;evaporar|💨|Pasar de líquido a gas.;antiguo|🏛️|Muy, muy viejo.;órbita|🪐|El camino de un planeta alrededor del sol.;siglo|📅|Cien años.;nocturno|🦉|Despierto y activo de noche.;sequía|🌵|Mucho tiempo sin lluvia.;opinión|💭|Lo que piensa una persona, no un hecho.;sinónimo|🔁|Una palabra que significa lo mismo que otra.;antónimo|↔️|Una palabra que significa lo contrario.;resumen|📝|Un relato corto de las ideas principales.;perímetro|📐|La distancia alrededor del borde de una figura.;ecuador|🌍|La línea que rodea la mitad de la Tierra.;molécula|🧪|Un grupo diminuto de átomos unidos.;democracia|🗳️|Un gobierno elegido por el voto del pueblo.;volcán|🌋|Una montaña que puede hacer erupción.;oxígeno|🫧|El gas que respiramos para vivir.;esqueleto|🦴|Todos los huesos de un cuerpo.;hexágono|⬡|Una figura con seis lados.;década|🔟|Diez años.;isla|🏝️|Tierra con agua por todos lados.;glaciar|🧊|Un río de hielo enorme y lento.;autor|✍️|Una persona que escribe un libro.;narrador|🎙️|Quien cuenta la historia.;gravedad|🍎|La fuerza que atrae las cosas hacia la Tierra.;clima|🌦️|El tiempo usual de un lugar durante muchos años.;vertical|↕️|De pie, derecho de arriba abajo.', ';'),
+  notes: [
+    ...W('etc.|📝|etcétera,aprox.|📝|aproximadamente,ej.|📝|ejemplo,Sr.|📝|Señor,Sra.|📝|Señora,Dr.|📝|Doctor,Dra.|📝|Doctora,ene.|📝|enero,oct.|📝|octubre,depto.|📝|departamento,gob.|📝|gobierno,cap.|📝|capítulo,pág.|📝|página,mín.|📝|mínimo,máx.|📝|máximo,núm.|📝|número,tel.|📝|teléfono,Av.|📝|Avenida,Ud.|📝|usted,Lic.|📝|Licenciado'),
+    ...W(`Mamá dijo: "Apúrate".|💬;Luis preguntó: "¿Por qué no?".|💬;Ella dijo: "Ya lo sé".|💬;Papá gritó: "¡Vamos, equipo!".|💬;Ben dijo: "Es mío".|💬;El letrero decía: "No pasar".|💬;Yo dije: "Gracias".|💬;Ana preguntó: "¿Llegamos tarde?".|💬;Max susurró: "Mira arriba".|💬;El entrenador dijo: "Buen intento".|💬;La abuela dijo: "Come todo".|💬;Lía preguntó: "¿Quién sigue?".|💬`, ';'),
+  ],
+  s1: W('sol|☀️,pan|🍞,mar|🌊,sal|🧂,pez|🐟,luz|💡,red|🥅,gol|⚽,mes|📅,ojo|👁️,uva|🍇,oso|🐻,ala|🪽,pie|🦶,oro|🥇,rey|👑'),
+  s2: W('flor|🌸,tren|🚆,plato|🍽️,globo|🎈,fresa|🍓,crema|🍦,blusa|👚,grillo|🦗,bruja|🧙,clavo|🔩,trigo|🌾,plaza|⛲,brisa|🌬️,flan|🍮,frase|💬,prado|🌿'),
+  s3: W('leche|🥛,coche|🚗,calle|🛣️,pollo|🐔,perro|🐶,carro|🚙,queso|🧀,parque|🌳,chico|👦,lluvia|🌧️,torre|🗼,silla|🪑,noche|🌙,burro|🫏,gallo|🐓,chivo|🐐'),
+  s4: W('Yo veo el sol.|☀️,Vamos arriba.|⬆️,Es muy grande.|🐘,Mira el perro.|🐶,Me gusta.|👍,El gato se sentó.|🐱,Ve a la cama.|🛏️,Podemos jugar.|🎲,Aquí estoy.|🙋,Mírame.|👀,Ven conmigo.|🤝,El sol salió.|☀️,Tiene un sombrero.|🎩,Ella es mi mamá.|👩,Corrimos rápido.|💨,Puede saltar.|🐸,Veo un bicho.|🐛,¿Es rojo?|🔴,¿Podemos ir?|🚗,Eres amable.|💛'),
+  s5: W('hoja|🍃,hilo|🧵,humo|💨,hada|🧚,hora|⏰,hueso|🦴,huevo|🥚,hielo|🧊,helado|🍦,hormiga|🐜,hacha|🪓,hermano|👦,hierba|🌿,hotel|🏨,hongo|🍄,hombro|💪'),
+  s6: W('cielo|☁️,fuego|🔥,agua|💧,tierra|🌍,nieve|❄️,puente|🌉,cuento|📖,viento|🌬️,rueda|🛞,peine|🪮,piano|🎹,miel|🍯,suelo|🟫,huerto|🥕,baile|💃,reina|👸,ciudad|🏙️,abuela|👵,buey|🐂'),
+  s7: W('vaca|🐄,boca|👄,vela|🕯️,bota|👢,vaso|🥛,beso|💋,nube|☁️,uva|🍇,lobo|🐺,barco|⛵,verde|🟢,bosque|🌲,viaje|✈️,abeja|🐝,ventana|🪟,burbuja|🫧'),
+  s8: W('saltando|🦘|El canguro está saltando.,corriendo|🏃|Voy corriendo rápido.,nadando|🏊|Estamos nadando.,brincó|🐇|El conejo brincó lejos.,horneamos|🧁|Horneamos panecillos.,jugaron|🎮|Jugaron un juego.,quería|🙋|Ella quería un turno.,sentado|🪑|Papá está sentado.,haciendo|🛠️|Estamos haciendo un fuerte.,sonrió|😊|El bebé sonrió.,cantando|🎤|Ella está cantando.,pateó|⚽|Pateó la pelota.,bailando|💃|Están bailando.,lloró|😢|El cachorro lloró.'),
+  s9: W('porque|🤔|Sonreí porque estaba feliz.,amigo|🤝|Mi amigo vino a jugar.,reír|😂|Los chistes me hacen reír.,gente|👥|Vino mucha gente.,dijo|💬|Mamá dijo que sí.,ayer|📅|Ayer llovió.,zapato|👟|Mi zapato es azul.,cebra|🦓|La cebra tiene rayas.,jirafa|🦒|La jirafa es alta.,lápiz|✏️|Tengo un lápiz nuevo.,llave|🔑|Perdí la llave.,hielo|🧊|El hielo está frío.,pájaro|🐦|El pájaro canta.,escuela|🏫|Me gusta mi escuela.,favorito|❤️|El azul es mi favorito.,hermoso|🌸|Qué día tan hermoso.,diferente|🔀|Cada hoja es diferente.,girasol|🌻|El girasol mira al sol.'),
+  s10: W('importante|⭐|Es importante escuchar.,comunidad|🏘️|Nuestra comunidad tiene un parque.,mañana|🌅|Mañana es sábado.,aventura|🗺️|Fuimos de aventura.,recordar|🧠|Puedo recordar tu nombre.,hospital|🏥|El doctor trabaja en el hospital.,dinosaurio|🦕|Un dinosaurio vivió hace mucho.,mariposa|🦋|Una mariposa se posó en mí.,maravilloso|🌟|Qué día tan maravilloso.,verdura|🥕|La zanahoria es una verdura.,biblioteca|📚|Leemos en la biblioteca.,ejercicio|🏃|El ejercicio te hace fuerte.,montaña|⛰️|Subimos la montaña.,elefante|🐘|El elefante lanzó agua.,calendario|🗓️|Márcalo en el calendario.,chocolate|🍫|Me gusta el chocolate.,paraguas|☂️|Trae un paraguas hoy.,vacaciones|🎉|Las vacaciones empiezan pronto.,canguro|🦘|El canguro salta.,teléfono|📞|Sonó el teléfono.,computadora|💻|Papá arregló la computadora.,presidente|🏛️|La clase votó por un presidente.,bicicleta|🚲|Mi bicicleta es roja.,pingüino|🐧|El pingüino nada.'),
+  s11: W('¿Dónde está mi gorra?|🧢,El perro corrió a casa.|🐶,¿Me puedes ayudar?|🙋,¡Ganamos el juego!|🏆,Mi bici es roja.|🚲,Cierra la puerta.|🚪,Es hora de comer.|🍱,¿Quién se comió el pastel?|🎂,Las aves vuelan al sur.|🐦,Papá hizo sopa.|🍲,Lávate las manos.|🧼,La luna brilla.|🌙,Perdí mi zapato.|👟,Apaga la luz.|💡,¿Te gusta la pizza?|🍕,Mi equipo es veloz.|💨,Sé amable con todos.|💛,El hielo es delgado.|🧊,Mamá plantó un árbol.|🌳,¿Qué hora es?|⏰'),
+  s12: W('también|➕|Yo también quiero ir.,había|📜|Había una vez un rey.,hacer|🛠️|Vamos a hacer un pastel.,ahí|👉|Ponlo ahí.,vez|🔁|Dilo otra vez.,veces|🔢|Lo leí dos veces.,hizo|✅|Ella hizo su tarea.,iba|🚶|Yo iba a la escuela.,examen|📝|El examen es mañana.,dirección|🏠|Escribe tu dirección.,extraño|👽|Ese ruido fue extraño.,ciencia|🔬|Me gusta la ciencia.,decisión|🤔|Tomé una decisión.,bastante|👍|Ya es bastante.,tuvo|🎁|Tuvo una sorpresa.,cayó|🍂|La hoja cayó.,ahora|⏰|Ven ahora mismo.,sabía|🧠|Yo sabía la respuesta.,zanahoria|🥕|La zanahoria es naranja.,almohada|🛏️|Mi almohada es suave.,hubo|🎉|Hubo una fiesta.,aeropuerto|✈️|Fuimos al aeropuerto.,quizás|🤷|Quizás llueva hoy.,otoño|🍁|En otoño caen las hojas.,hierro|⚙️|El hierro es un metal.,llevar|🎒|Debo llevar mi mochila.,ayuda|🤝|Gracias por tu ayuda.,búho|🦉|El búho canta de noche.,cebolla|🧅|La cebolla me hace llorar.,gobierno|🏛️|El gobierno hace leyes.'),
+  s14: W('Cuando llovió, no salimos.|🌧️;Si llegas tarde, llámame.|📞;Después del almuerzo, ganó Sam.|🏆;Aunque hace frío, caminamos.|🥾;Antes de cenar, voy a leer.|📖;Ya que preguntas, este es mi plan.|🗺️;Cuando sonó el timbre, no acabamos.|🔔;Si hay sol, vamos a nadar.|🏊;Como estoy cansado, descansé.|😴;Si no nieva, iremos.|❄️;Tras el juego, manejó el papá de Ana.|🚗;Cuando oscurezca, paramos.|🌙;Al salir, ladró el perro de Jo.|🐶;Si ganan, es un récord.|🥇;Cuando esté lista, te llamo.|📱;Mientras horneaba, sonó el teléfono.|📞;Aunque es tarde, no estamos cansados.|🌃;Si no puedes venir, está bien.|🙂', ';'),
+  names: ['Ada', 'Mamá', 'Max', 'Papá', 'Mía', 'Leo', 'Zoe', 'Sam', 'Eli', 'Iván', 'Kai', 'Ava', 'Ben', 'Lola', 'Noé', 'Rubí'],
+  read: 'sol,sal,sed,gato,gota,pato,plato,luna,lupa,lana,casa,cosa,cama,mesa,misa,masa,pan,pez,paz,piel,oso,ojo,oro,uva,una,uña,nube,nabo,niño,nido,flor,faro,foco,tren,tres,trece,rosa,risa,ropa,dedo,dado,duda,mano,malo,mono,pie,pies,pico,playa,plaza,plano,amigo,abrigo,amiga,perro,pero,puerro,carro,caro,cerro,leche,noche,coche,calle,valle,cable,tierra,sierra,tigre,lluvia,llave,llama,cielo,ciego,cierto,fuego,juego,luego,puente,fuente,frente,ventana,venta,tienda,abuela,abuelo,escuela,mañana,manzana,montaña,ratón,razón,rincón,árbol,arroz,ardilla,bosque,buque,barco,cuento,cuerda,cuatro,siete,silla,sirena'.split(','),
+  c2: 'nmñvxyz', c3: 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ',
+  c4: 'el,la,de,un,mi,tu,su,yo,me,te,se,no,si,es,en,al,ya,va,da,ve',
+  c5: 'sol,pan,mar,luna,casa,gato,pato,flor,tren,nube,oso,uva,niño,pez,luz,mesa,rosa,dedo,mano,pie',
+  c6: 'saltando,amigo,escuela,tortuga,morado,tigre,playa,sonrisa,avión,jirafa,gente,invierno,caballo,mañana',
+  c8: 'Me gusta nadar.,El gato se sentó.,Yo lo veo.,Hace calor afuera.,Mi perro corre.,Fuimos a casa.,Siéntate conmigo.,El sol salió.,Es mi amigo.,Ve a dormir ya.,Estoy muy feliz.,Mamá hizo té.,Papá hornea pan.,Mira la luna.,Ganamos el juego.,La rana salta.,Las aves vuelan.,El bus llega tarde.',
+  c9: 'Practicar cada día te ayuda a mejorar.,Leer abre puertas a mundos nuevos.,Sembramos semillas y las vimos crecer.,El río baja despacio por el valle.,Todo viaje largo empieza con un paso.,Las estrellas salen cuando el cielo oscurece.,La lluvia cayó suave sobre el pueblo.,Las aves cantan temprano en primavera.,Mi equipo trabajó duro y ganó la final.,Mueve tu lápiz y une cada letra.,Un fuego cálido brillaba en la cabaña.,Las hojas de otoño caen al suelo frío.,Los buenos amigos escuchan y comparten.,El zorro veloz saltó sobre el perro.',
+};
+const BANK = LANG === 'es' ? BANK_ES : BANK_EN;
+const CLUES = BANK.clues, NOTES = BANK.notes;
 // SPELL ladder, bottom to top (grade band in brackets):
 //   0  Letters and numbers     [pre-K]     trace one capital, small letter or digit, then write it from memory
 //   1  Short vowels            [K]         trace a CVC word, then write it in boxes
@@ -875,35 +1043,36 @@ const NOTES = [
 //  13  Word from a clue        [6th, 7th]  read a definition, write the word it defines
 //  14  Complex sentences       [7th, 8th]  hear a sentence with a comma and an apostrophe, write it
 //  15  Notes and quotes        [8th]       write a note-taking abbreviation, or a quotation with its marks
+// The names are the English keys; the badge shows them through T().
 const SPELL = [
   { name: 'Letters and numbers', trace: true, words: FIRST },
-  { name: 'Short vowels', trace: true, words: W('cat|🐱,dog|🐶,sun|☀️,map|🗺️,pig|🐷,hen|🐔,bus|🚌,cup|☕,bed|🛏️,fox|🦊,bat|🦇,web|🕸️,box|📦,bug|🐛,hat|🎩,pen|🖊️') },
-  { name: 'Blends', trace: true, words: W('frog|🐸,crab|🦀,drum|🥁,flag|🚩,nest|🪺,hand|✋,milk|🥛,swim|🏊,stop|🛑,plant|🌱,sled|🛷,tent|⛺,gift|🎁,clap|👏,snack|🍿,spin|🌀') },
-  { name: 'sh ch th ck', trace: true, words: W('ship|🚢,fish|🐟,shell|🐚,chick|🐥,lunch|🍱,bath|🛁,duck|🦆,sock|🧦,rock|🪨,truck|🚚,chip|🍟,brush|🪥,math|🔢,wish|🌠,black|⬛,whip|🍦') },
-  { name: 'Short sentences', trace: true, words: W('I can run.|🏃,We go up.|⬆️,It is big.|🐘,See the dog.|🐶,I like it.|👍,The cat sat.|🐱,Go to bed.|🛏️,We can play.|🎲,I am here.|🙋,Look at me.|👀,Come with me.|🤝,The sun is up.|☀️,He has a hat.|🎩,She is my mom.|👩,We ran fast.|💨,It can hop.|🐸,I see a bug.|🐛,Is it red?|🔴,Can we go?|🚗,You are kind.|💛') },
-  { name: 'Silent e', trace: true, words: W('cake|🎂,bike|🚲,kite|🪁,rose|🌹,bone|🦴,cube|🧊,cone|🍦,game|🎲,home|🏠,flute|🪈,smile|😊,plane|✈️,snake|🐍,grape|🍇,nose|👃,slide|🛝') },
-  { name: 'Vowel teams', trace: false, words: W('rain|🌧️,boat|⛵,tree|🌳,seed|🌱,snow|❄️,coat|🧥,train|🚆,sheep|🐑,bee|🐝,queen|👸,road|🛣️,mail|📬,leaf|🍃,paint|🎨,goat|🐐,beach|🏖️,moon|🌙,spoon|🥄,book|📖') },
-  { name: 'ar or er ir ur', trace: false, words: W('car|🚗,star|⭐,farm|🚜,shark|🦈,corn|🌽,fork|🍴,horse|🐴,bird|🐦,girl|👧,shirt|👕,turtle|🐢,purple|🟣,church|⛪,storm|⛈️,tiger|🐯,winter|⛄') },
-  { name: 'Endings ing and ed', trace: false, words: W('jumping|🦘|The kangaroo is jumping.,running|🏃|I am running fast.,swimming|🏊|We went swimming.,hopped|🐇|The bunny hopped away.,baked|🧁|We baked muffins.,played|🎮|They played a game.,wanted|🙋|She wanted a turn.,sitting|🪑|He is sitting down.,making|🛠️|We are making a fort.,smiled|😊|The baby smiled.,singing|🎤|She is singing a song.,kicked|⚽|He kicked the ball.,dancing|💃|They are dancing.,cried|😢|The puppy cried.') },
-  { name: 'Tricky words', trace: false, words: W('because|🤔|I smiled because I was happy.,friend|🤝|My friend came to play.,laugh|😂|Jokes make me laugh.,people|👥|Many people came.,said|💬|Mom said yes.,again|🔁|Read it again.,would|🙂|Would you like some?,could|🙂|I could see the moon.,thought|💭|I thought about it.,enough|✋|That is enough.,through|🚪|We walked through the door.,answer|✅|I know the answer.,believe|🌟|I believe in you.,often|📅|We often go to the park.,school|🏫|I like my school.,favorite|❤️|Blue is my favorite color.,beautiful|🌸|What a beautiful day.,different|🔀|Each leaf is different.') },
-  { name: 'Long words', dictate: true, words: W('important|⭐|It is important to listen.,community|🏘️|Our community has a park.,yesterday|📅|Yesterday it rained.,adventure|🗺️|We went on an adventure.,remember|🧠|I remember your name.,hospital|🏥|The doctor works at the hospital.,dinosaur|🦕|A dinosaur lived long ago.,butterfly|🦋|A butterfly landed on me.,wonderful|🌟|What a wonderful day.,vegetable|🥕|A carrot is a vegetable.,library|📚|We read at the library.,tomorrow|🌅|Tomorrow is Saturday.,together|🤝|We built it together.,exercise|🏃|Exercise keeps you strong.,mountain|⛰️|We climbed the mountain.,elephant|🐘|The elephant sprayed water.,calendar|🗓️|Mark it on the calendar.,chocolate|🍫|I like dark chocolate.,umbrella|☂️|Bring an umbrella today.,holiday|🎉|The holiday is next week.,kangaroo|🦘|A kangaroo hops.,telephone|📞|The telephone rang.,computer|💻|Dad fixed the computer.,president|🏛️|The class voted for a president.') },
-  { name: 'Dictated sentences', dictate: true, words: W('Where is my hat?|🎩,The dog ran home.|🐶,Can you help me?|🙋,We won the game!|🏆,My bike is red.|🚲,Please shut the door.|🚪,It is time for lunch.|🍱,Who ate the cake?|🎂,Birds fly south.|🐦,Dad made soup.|🍲,Wash your hands.|🧼,The moon is bright.|🌙,I lost my shoe.|👟,Turn off the light.|💡,Do you like pizza?|🍕,Our team is fast.|💨,Be kind to all.|💛,The ice is thin.|🧊,Mom planted a tree.|🌳,What time is it?|⏰') },
-  { name: 'Often misspelled', dictate: true, words: W('separate|📂|Keep the two piles separate.,necessary|✅|Sleep is necessary.,definitely|💯|I will definitely come.,receive|📬|Did you receive my letter?,weird|👽|That noise was weird.,beginning|🏁|Start at the beginning.,business|💼|Mom runs a business.,embarrass|😳|Do not embarrass me.,environment|🌍|Protect the environment.,government|🏛️|The government makes laws.,grateful|🙏|I am grateful for you.,immediately|⚡|Come here immediately.,independent|🦅|She is very independent.,knowledge|🧠|Books give us knowledge.,occasion|🎉|A birthday is a special occasion.,privilege|🎖️|It is a privilege to be here.,recommend|👍|I recommend this book.,rhythm|🥁|Clap to the rhythm.,schedule|🗓️|Check the schedule.,surprise|🎁|What a nice surprise.,weather|🌦️|The weather is warm.,whether|🤔|I wonder whether it will rain.,height|📏|Measure your height.,foreign|✈️|She speaks a foreign language.,neighbor|🏡|My neighbor waved.,restaurant|🍽️|We ate at a restaurant.,sincerely|✉️|Yours sincerely.,twelfth|🔢|It is the twelfth of May.,argument|🗣️|They had an argument.,column|🏛️|Add up the column.') },
+  { name: 'Short vowels', trace: true, words: BANK.s1 },
+  { name: 'Blends', trace: true, words: BANK.s2 },
+  { name: 'sh ch th ck', trace: true, words: BANK.s3 },
+  { name: 'Short sentences', trace: true, words: BANK.s4 },
+  { name: 'Silent e', trace: true, words: BANK.s5 },
+  { name: 'Vowel teams', trace: false, words: BANK.s6 },
+  { name: 'ar or er ir ur', trace: false, words: BANK.s7 },
+  { name: 'Endings ing and ed', trace: false, words: BANK.s8 },
+  { name: 'Tricky words', trace: false, words: BANK.s9 },
+  { name: 'Long words', dictate: true, words: BANK.s10 },
+  { name: 'Dictated sentences', dictate: true, words: BANK.s11 },
+  { name: 'Often misspelled', dictate: true, words: BANK.s12 },
   { name: 'Word from a clue', dictate: true, clue: true, words: CLUES },
-  { name: 'Complex sentences', dictate: true, words: W(`When it rained, we didn't go.|🌧️;If you're late, call me.|📞;After lunch, Sam's team won.|🏆;Although it's cold, we hiked.|🥾;Before dinner, I'll read.|📖;Since you asked, here's my plan.|🗺️;When the bell rang, we weren't done.|🔔;If it's sunny, let's swim.|🏊;Because I'm tired, I rested.|😴;Unless it snows, we're going.|❄️;After the game, Ana's dad drove.|🚗;Once it's dark, we'll stop.|🌙;As we left, Jo's dog barked.|🐶;If they win, it's a record.|🥇;When I'm ready, I'll call.|📱;While it baked, Mom's phone rang.|📞;Though it's late, we aren't tired.|🌃;If you can't come, that's fine.|🙂`, ';') },
-  { name: 'Notes and quotes', dictate: true, words: NOTES, ask: it => /\s/.test(it.word) ? `Write this sentence, with the quotation marks. ${it.word}` : `Write the short form of ${it.sentence}.`, label: it => /\s/.test(it.word) ? 'Listen and write the quotation.' : `Short for: ${it.sentence}` },
+  { name: 'Complex sentences', dictate: true, words: BANK.s14 },
+  { name: 'Notes and quotes', dictate: true, words: NOTES, ask: it => /\s/.test(it.word) ? T('Write this sentence, with the quotation marks. {w}', { w: it.word }) : T('Write the short form of {s}.', { s: it.sentence }), label: it => /\s/.test(it.word) ? T('Listen and write the quotation.') : T('Short for: {s}', { s: it.sentence }) },
 ];
 // The grade each spell rung is for (-1 pre-K, 0 K, 1 to 8), in ladder order. A child opens on the first rung at her grade.
 const SPELL_GRADES = [-1, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 6, 7, 8];
 // Names for the signature rung: the child's name first, then family and friends so forty draws are not all one word.
 const childName = (() => { const n = String((window.KidTablet && KidTablet.childName) || '').replace(/[^A-Za-z]/g, ''); return n ? n.charAt(0).toUpperCase() + n.slice(1).toLowerCase() : ''; })();
-const NAMES = [childName || 'Ada', 'Mom', childName || 'Max', 'Dad', childName || 'Mia', 'Leo', childName || 'Zoe', 'Sam', 'Eli', 'Ivy', 'Kai', 'Ava', 'Ben', 'Lily', 'Noah', 'Ruby'];
+const NAMES = BANK.names.map((n, i) => (i % 2 === 0 && i < 8 && childName) ? childName : n);
 // Words the reading rung shows in cursive; the choices come from the same bank.
-const READ_WORDS = 'cat,cup,cap,cot,sun,sit,set,sat,dog,dig,dug,day,fish,fast,first,dish,wish,wash,cake,bike,bake,lake,like,line,frog,from,fog,ship,shop,sheep,shape,tree,three,free,boat,beat,bat,moon,mean,noon,star,stay,start,home,hope,hose,horse,rain,ran,run,ruin,nest,next,net,milk,mild,mile,duck,deck,dock,kite,kit,kind,snow,slow,show,bird,bind,bring,plane,plan,plant,smile,smell,small,light,night,right,house,mouse,horse,water,winter,writer,people,purple,pebble,friend,fried,fiend,school,scoop,spool,garden,golden,gander,little,litter,letter,mother,bother,other,father,farther,feather'.split(',');
+const READ_WORDS = BANK.read;
 // CURSIVE ladder, bottom to top (grade band in brackets; cursive starts at rung 0 for pre-K through 2nd):
 //   0  Cursive i t u w e l       [K to 2nd]  one small letter at a time, with a "watch me" pen
 //   1  Cursive loops and ovals   [2nd]       b h k f a c d g o q
-//   2  Cursive n m v x y z       [2nd, 3rd]  the last small letters
+//   2  Cursive n m v x y z       [2nd, 3rd]  the last small letters (and ñ in Spanish)
 //   3  Cursive capitals          [3rd]       one capital letter, with the pen
 //   4  Join two letters          [3rd, 4th]  two-letter words joined in one stroke
 //   5  Cursive words             [4th]       short words
@@ -915,14 +1084,14 @@ const READ_WORDS = 'cat,cup,cap,cot,sun,sit,set,sat,dog,dig,dug,day,fish,fast,fi
 const CURSIVE_LEVELS = [
   { name: 'Cursive i t u w e l', letters: 'ituwelsrjp' },
   { name: 'Cursive loops and ovals', letters: 'bhkfacdgoq' },
-  { name: 'Cursive n m v x y z', letters: 'nmvxyz' },
-  { name: 'Cursive capitals', letters: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' },
-  { name: 'Join two letters', words: 'it,up,us,we,be,so,go,me,no,at,an,in,is,on,to,of,am,he,my,by' },
-  { name: 'Cursive words', words: 'cat,sun,dog,fish,cake,bike,frog,ship,tree,boat,moon,star,home,rain,nest,milk,duck,kite,snow,bird' },
-  { name: 'Light guide', words: 'jumping,friend,school,turtle,purple,tiger,beach,smile,plane,laugh,people,again,winter,horse', light: true },
+  { name: 'Cursive n m v x y z', letters: BANK.c2 },
+  { name: 'Cursive capitals', letters: BANK.c3 },
+  { name: 'Join two letters', words: BANK.c4 },
+  { name: 'Cursive words', words: BANK.c5 },
+  { name: 'Light guide', words: BANK.c6, light: true },
   { name: 'My name', words: NAMES.join(','), demo: true },
-  { name: 'Cursive sentence', words: 'We like to swim.,The cat sat up.,I can see it.,It is hot out.,My dog can run.,We went home.,Sit by me.,The sun is up.,He is my pal.,Go to bed now.,I am so glad.,Mom made tea.,Dad can bake.,Look at the moon.,We won the game.,A frog can hop.,Birds can fly.,The bus is late.', dictate: true },
-  { name: 'Cursive line', words: 'The quick brown fox jumps over the lazy dog.,Practice makes progress every single day.,Reading opens doors to new worlds.,We planted seeds and watched them grow.,The river winds slowly through the valley.,Every long trip begins with one small step.,Stars come out when the sky turns dark.,Rain fell softly on the quiet town.,Birds sing early in the spring morning.,My team worked hard and won the final game.,Keep your pen moving and join each letter.,A warm fire glowed in the old stone hut.,Autumn leaves drift down to the cold ground.,Good friends listen first and then share.', light: true },
+  { name: 'Cursive sentence', words: BANK.c8, dictate: true },
+  { name: 'Cursive line', words: BANK.c9, light: true },
   { name: 'Read cursive', words: READ_WORDS.join(','), read: true },
 ];
 // The grade each cursive rung is for. The first three rungs are for 2nd grade and below, so pre-K to 2nd all open at 0.
@@ -971,19 +1140,20 @@ function itemFor(m, i, w) {
   if (m === 'spell') {
     const it = Object.assign({ kind: 'spell', trace: !!lv.trace, dictate: !!lv.dictate, clue: !!lv.clue }, w);
     it.single = it.word.length === 1; it.sentenceLike = /\s/.test(it.word);
+    const v = { w: it.word, s: it.sentence, c: it.single ? spokenChar(it.word) : '', e: it.emoji };
     it.ask = lv.ask ? lv.ask(it)
-      : it.single ? `Trace ${spokenChar(it.word)}. ${it.sentence}`
-      : it.clue ? `Write the word that means: ${it.sentence}`
-      : it.dictate ? (it.sentenceLike ? `Write this sentence. ${it.word}` : `Write ${it.word}. ${it.sentence} ${it.word}.`)
-      : it.sentenceLike ? `Read it with me. ${it.word} Trace each letter.`
-      : it.trace ? `Spell ${it.word}. ${it.sentence} Trace each letter of ${it.word}.`
-      : `Spell ${it.word}. ${it.sentence} Look at it and remember it.`;
-    it.hear = (lv.ask || it.clue) ? it.ask : it.single ? `${spokenChar(it.word)}. ${it.sentence}` : `${it.word}. ${it.sentence} ${it.word}.`;
+      : it.single ? T('Trace {c}. {s}', v)
+      : it.clue ? T('Write the word that means: {s}', v)
+      : it.dictate ? (it.sentenceLike ? T('Write this sentence. {w}', v) : T('Write {w}. {s} {w}.', v))
+      : it.sentenceLike ? T('Read it with me. {w} Trace each letter.', v)
+      : it.trace ? T('Spell {w}. {s} Trace each letter of {w}.', v)
+      : T('Spell {w}. {s} Look at it and remember it.', v);
+    it.hear = (lv.ask || it.clue) ? it.ask : it.single ? T('{c}. {s}', v) : T('{w}. {s} {w}.', v);
     // What the label above the board shows while she writes: the word while tracing or looking, the clue, or a hint.
-    it.label = lv.label ? lv.label(it) : it.clue ? it.sentence : it.dictate ? (it.sentenceLike ? 'Listen and write the sentence.' : it.emoji + '  Listen and write it.') : it.emoji + '  ' + it.word;
+    it.label = lv.label ? lv.label(it) : it.clue ? it.sentence : it.dictate ? (it.sentenceLike ? T('Listen and write the sentence.') : T('{e}  Listen and write it.', v)) : T('{e}  {w}', v);
     return it;
   }
-  if (lv.letters) return { kind: 'cursive', text: w, single: true, upper: !!CURSIVE_UPPER[w] };
+  if (lv.letters) return { kind: 'cursive', text: w, single: true, upper: !!CURSIVE_UPPER[CURSIVE_BASE[w] || w] };
   const it = { kind: 'cursive', text: w, single: false, light: !!lv.light, dictate: !!lv.dictate, read: !!lv.read, demo: !!lv.demo };
   if (it.read) it.choices = readChoices(w);
   return it;
@@ -1141,7 +1311,7 @@ function loadWide(speak = true) {
   clearTimeout(gradeTimer); stopDemo(); busy = false; missed = false; strokes = []; drawing = null;
   $('win').classList.remove('on'); meter.style.width = '0'; $('choices').classList.add('hide');
   cur = makeItem(mode); sizeWide(); layout = buildLayout(); redrawInk();
-  $('badge').textContent = 'Level ' + (P.lv[mode] + 1) + ': ' + LEVELS[mode][P.lv[mode]].name;
+  $('badge').textContent = T('Level {n}: {name}', { n: P.lv[mode] + 1, name: T(LEVELS[mode][P.lv[mode]].name) });
   $('meter').classList.toggle('hide', cur.kind === 'spell' || !!cur.read);
   if (cur.kind === 'spell') {
     setLabel(cur.label);
@@ -1149,15 +1319,15 @@ function loadWide(speak = true) {
     else if (cur.trace) { phase = 'trace'; if (speak) say(cur.ask); }
     else { phase = 'look'; if (speak) say(cur.ask); busy = true; lookTimer = setTimeout(() => { busy = false; startWrite(speak); }, TRACE_HOOK.lookMs); }
   } else if (cur.read) {
-    setLabel('Which word is this?'); phase = 'read'; showChoices(cur.choices);
-    if (speak) say('Read the cursive word. Tap the printed word that matches.');
+    setLabel(T('Which word is this?')); phase = 'read'; showChoices(cur.choices);
+    if (speak) say(T('Read the cursive word. Tap the printed word that matches.'));
   } else if (cur.dictate) {
-    setLabel('Listen and write it in cursive.'); phase = 'write';
-    if (speak) say(`Write this sentence in cursive. ${cur.text} Join your letters.`);
+    setLabel(T('Listen and write it in cursive.')); phase = 'write';
+    if (speak) say(T('Write this sentence in cursive. {t} Join your letters.', { t: cur.text }));
   } else {
-    setLabel(cur.single ? 'Cursive ' + cur.text : cur.demo && cur.text === childName ? 'My name: ' + cur.text : cur.text);
+    setLabel(cur.single ? T('Cursive {t}', { t: cur.text }) : cur.demo && cur.text === childName ? T('My name: {t}', { t: cur.text }) : cur.text);
     phase = 'trace';
-    if (speak) say(cur.single ? `Cursive ${cur.upper ? 'capital ' : ''}${cur.text}. Watch me, then trace it. Start at the green dot.` : `Write ${cur.text} in cursive. Keep your finger down to join the letters.`);
+    if (speak) say(cur.single ? T(cur.upper ? 'Cursive capital {t}. Watch me, then trace it. Start at the green dot.' : 'Cursive {t}. Watch me, then trace it. Start at the green dot.', { t: cur.text }) : T('Write {t} in cursive. Keep your finger down to join the letters.', { t: cur.text }));
     if (P.lv.cursive <= 4 || cur.light || cur.demo) startDemo();
   }
   renderWide();
@@ -1166,8 +1336,8 @@ let lookTimer = null;
 function startWrite(speak = true) {
   phase = 'write'; strokes = []; redrawInk();
   for (const b of layout.boxes) { b.state = 'empty'; b.tries = 0; b.shown = false; }
-  setLabel(cur.emoji + '  ?');
-  if (speak) say(cur.single ? `Now write ${spokenChar(cur.word)} from memory.` : cur.sentenceLike ? `Now write it from memory. ${cur.word}` : `Now write ${cur.word} from memory. One letter in each box.`);
+  setLabel(T('{e}  ?', { e: cur.emoji }));
+  if (speak) say(cur.single ? T('Now write {c} from memory.', { c: spokenChar(cur.word) }) : cur.sentenceLike ? T('Now write it from memory. {w}', { w: cur.word }) : T('Now write {w} from memory. One letter in each box.', { w: cur.word }));
   renderWide();
 }
 
@@ -1279,7 +1449,7 @@ function checkCursive() {
   const need = cur.single ? 0.86 : 0.82;
   meter.style.width = Math.round(Math.min(1, c / need) * 100) + '%';
   if (c >= need && off <= 0.3) return winWide();
-  if (c >= need && !nudgedW) { nudgedW = true; missed = true; say('Try to stay on the line. Tap the drop to start over.'); }
+  if (c >= need && !nudgedW) { nudgedW = true; missed = true; say(T('Try to stay on the line. Tap the drop to start over.')); }
 }
 // A cursive sentence from hearing: a close enough attempt wins outright; otherwise, after a pause, the model appears
 // and she traces it to check her letters.
@@ -1293,12 +1463,12 @@ function revealModel() {
   if (phase !== 'write' || cur.kind !== 'cursive') return;
   phase = 'reveal'; missed = true; nudgedW = false; meter.style.width = '0';
   setLabel(cur.text); renderWide();
-  say(`Here it is. ${cur.text} Trace it to check your letters.`);
+  say(T('Here it is. {t} Trace it to check your letters.', { t: cur.text }));
 }
 function chooseRead(word, btn) {
   if (busy || phase !== 'read') return;
   if (word === cur.text) { btn.classList.add('on'); say(word); return winWide(); }
-  missed = true; btn.disabled = true; say(`That says ${word}. Look again.`);
+  missed = true; btn.disabled = true; say(T('That says {w}. Look again.', { w: word }));
 }
 function boxStrokesInUnits(i) {
   const { s } = layout, b = layout.boxes[i];
@@ -1311,8 +1481,8 @@ function gradeBox(i) {
   if (res.ok) { b.state = 'ok'; renderWide(); say(charName(b.ch)); if (layout.boxes.every(x => x.state === 'ok')) winWide(); return; }
   missed = true; b.tries++;
   strokes = strokes.filter(st => st.box !== i); redrawInk();
-  if (b.tries >= 2) { b.state = 'ghost'; say(`This one is ${charName(b.ch)}. Trace it.`); }
-  else { b.state = 'retry'; b.flash = true; say(cur.sentenceLike ? 'Hmm, try that one again.' : `Hmm, try that letter again. ${cur.word}.`); }
+  if (b.tries >= 2) { b.state = 'ghost'; say(T('This one is {c}. Trace it.', { c: charName(b.ch) })); }
+  else { b.state = 'retry'; b.flash = true; say(cur.sentenceLike ? T('Hmm, try that one again.') : T('Hmm, try that letter again. {w}.', { w: cur.word })); }
   renderWide();
 }
 function checkGhost(i) {
@@ -1327,16 +1497,16 @@ function winWide() {
   if (cur.kind === 'spell' && cur.dictate) for (const b of layout.boxes) b.shown = true;
   if (cur.kind === 'cursive' && phase === 'write') phase = 'reveal';
   renderWide();
-  const plain = cur.kind === 'spell' && /^[a-z]+$/.test(cur.word);
-  const spelled = plain ? cur.word.split('').join(', ') + '. ' + cur.word + '!' : '';
-  const winText = cur.kind === 'spell' ? cur.word : (cur.single ? 'Cursive ' + cur.text : cur.text);
+  const plain = cur.kind === 'spell' && (LANG === 'es' ? /^[a-záéíóúüñ]+$/ : /^[a-z]+$/).test(cur.word);
+  const spelled = plain ? T('{letters}. {w}!', { letters: cur.word.split('').join(', '), w: cur.word }) : '';
+  const winText = cur.kind === 'spell' ? cur.word : (cur.single ? T('Cursive {t}', { t: cur.text }) : cur.text);
   $('winText').textContent = winText; $('winText').style.fontSize = winText.length > 16 ? '28px' : '';
   $('winEmoji').textContent = cur.kind === 'spell' ? (cur.emoji || '⭐') : cur.read ? '👀' : '✍️';
   $('win').classList.add('on'); sparkle();
-  say(cur.kind === 'spell' ? (plain ? 'You spelled it! ' + spelled : cur.single ? `You wrote ${spokenChar(cur.word)}!` : 'You wrote it! ' + cur.word) : cur.read ? 'You read it! ' + cur.text : 'Beautiful cursive!');
+  say(cur.kind === 'spell' ? (plain ? T('You spelled it! {s}', { s: spelled }) : cur.single ? T('You wrote {c}!', { c: spokenChar(cur.word) }) : T('You wrote it! {w}', { w: cur.word })) : cur.read ? T('You read it! {t}', { t: cur.text }) : T('Beautiful cursive!'));
   let wait = 3000;
-  if (ch > 0) { setTimeout(() => { $('winText').textContent = 'Level up!'; $('winText').style.fontSize = ''; $('winEmoji').textContent = LEVELS[mode][P.lv[mode]].name; say('Level up! ' + LEVELS[mode][P.lv[mode]].name + '!'); }, 2600); wait = 5000; }
-  else if (ch < 0) setTimeout(() => say('Let us practise some easier ones.'), 2600);
+  if (ch > 0) { setTimeout(() => { const name = T(LEVELS[mode][P.lv[mode]].name); $('winText').textContent = T('Level up!'); $('winText').style.fontSize = ''; $('winEmoji').textContent = name; say(T('Level up! {name}!', { name })); }, 2600); wait = 5000; }
+  else if (ch < 0) setTimeout(() => say(T('Let us practise some easier ones.')), 2600);
   winTimer = setTimeout(() => { if (mode !== 'little') { nudgedW = false; loadWide(); } }, wait);
 }
 let winTimer = null;
@@ -1376,9 +1546,9 @@ $('clear').onclick = () => { if (mode === 'little') loadLittle(idx, false); else
 $('hear').onclick = () => {
   if (mode === 'little') return say(item().say);
   if (cur.kind === 'spell') say(cur.hear);
-  else if (cur.read) say('Read the cursive word. Tap the printed word that matches.');
-  else if (cur.dictate && phase === 'write') say(`Write this sentence in cursive. ${cur.text}`);
-  else say(cur.single ? 'Cursive ' + (cur.upper ? 'capital ' : '') + cur.text : cur.text);
+  else if (cur.read) say(T('Read the cursive word. Tap the printed word that matches.'));
+  else if (cur.dictate && phase === 'write') say(T('Write this sentence in cursive. {t}', { t: cur.text }));
+  else say(cur.single ? T(cur.upper ? 'Cursive capital {t}' : 'Cursive {t}', { t: cur.text }) : cur.text);
 };
 document.querySelectorAll('.deck[data-deck]').forEach(b => b.onclick = () => {
   document.querySelectorAll('.deck[data-deck]').forEach(x => x.classList.toggle('on', x === b));
@@ -1390,9 +1560,9 @@ $('board-btn').onclick = () => {
     const cell = document.createElement('div'); cell.dataset.l = it.label; cell.textContent = got.has(it.id) ? (it.emoji.length > 4 ? it.emoji.slice(0, 2) : it.emoji) : '';
     if (got.has(it.id)) cell.classList.add('got'); grid.appendChild(cell);
   }
-  $('boardNote').textContent = `⭐ ${P.stars}: ${P.words} words spelled, ${P.cursive} cursive.`;
+  $('boardNote').textContent = T('⭐ {n}: {w} words spelled, {c} cursive.', { n: P.stars, w: P.words, c: P.cursive });
   $('board').classList.add('on');
-  say(`You have ${got.size} stickers!`);
+  say(T('You have {n} stickers!', { n: got.size }));
 };
 $('board-close').onclick = () => $('board').classList.remove('on');
 
@@ -1400,10 +1570,15 @@ function fit() { const m = document.querySelector('main'), s = Math.min(m.client
 let rz = null;
 addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (mode === 'little') fit(); else if (cur && !busy) { sizeWide(); layout = buildLayout(); strokes = []; if (phase === 'write') for (const b of layout.boxes) b.state = 'empty'; redrawInk(); renderWide(); } }, 200); });
 const TRACE_HOOK = { lookMs: 3500, gradeMs: 1500, revealMs: 4000 };
+// The markup written in English is translated once at startup; in English this changes nothing.
+document.title = T('Trace With Me');
+document.querySelectorAll('header h1, .mode, #board h2, #board-close').forEach(el => { el.textContent = T(el.textContent); });
+document.querySelectorAll('footer button[title]').forEach(el => { el.title = T(el.title); });
+if (LANG === 'es') document.documentElement.lang = 'es';
 let startMode = 'spell'; try { startMode = localStorage.getItem('trace-mode') || 'spell'; } catch (e) {}
 if (!['little', 'spell', 'cursive'].includes(startMode)) startMode = 'spell';
 setMode(startMode);
-addEventListener('pointerdown', () => { if (mode === 'little') say('Trace With Me! ' + item().say); else $('hear').click(); }, { once: true });
+addEventListener('pointerdown', () => { if (mode === 'little') say(T('Trace With Me! {s}', { s: item().say })); else $('hear').click(); }, { once: true });
 
 // Test hook.
 window.TRACE = {
