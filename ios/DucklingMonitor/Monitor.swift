@@ -1,4 +1,5 @@
 import DeviceActivity
+import Foundation
 import ManagedSettings
 
 /// The Screen Time side of other apps' daily limits (see OtherApps.swift in the app). iOS runs this extension when
