@@ -14,7 +14,9 @@ Source: `vosk-model-small-es-0.42` from https://alphacephei.com/vosk/models (Alp
 English model is packed inside the app (`apps/read-it-say-it/vosk/`); the Spanish one is served from here because
 the app is already large and only Spanish tablets need it.
 
-Unzip the archive and copy these files, keeping the folders, into `/opt/duckling/src/models/vosk-small-es/`:
+The one-step way, as root on the droplet: `bash /opt/duckling/src/deploy/install-vosk-es.sh` downloads the
+archive, copies the files below into place, sets permissions, and checks the API serves them. By hand instead:
+unzip the archive and copy these files, keeping the folders, into `/opt/duckling/src/models/vosk-small-es/`:
 
 ```
 am/final.mdl
