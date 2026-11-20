@@ -317,10 +317,73 @@ const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b,
 const $ = id => document.getElementById(id);
 const BRIGHT = [0xFF2E88, 0xFFD60A, 0x00E5FF, 0x7CFF4F, 0xFF7A00, 0xB04DFF, 0x00F5A0, 0xFF4040];
 
+// ---------------------------------------------------------------------------
+// Language (docs/languages-brief.md). On a Spanish tablet every line the child reads or hears comes from ES, keyed by
+// the English text. The helper is tr(), not T(), because T is this app's current task. The number line, the rocket
+// and the ladder do not change; only words do. Spoken numbers follow Spanish: "menos 3", "2 coma 3 5".
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const ES = {
+  'Number Line Rocket': 'Cohete numérico', 'Hear it again': 'Escúchalo otra vez',
+  'Level {n}: {name}': 'Nivel {n}: {name}', 'Level up! {name}': '¡Subiste de nivel! {name}', 'Practice: {name}': 'Práctica: {name}',
+  // Rung names, in ladder order.
+  'Zero to ten': 'De cero a diez', 'Count the jumps': 'Cuenta los saltos', 'Up to twenty': 'Hasta veinte', 'Tens to one hundred': 'Decenas hasta cien',
+  'Guess on 0 to 100': 'Estima de 0 a 100', 'Where did it land?': '¿Dónde aterrizó?', 'Hundreds to 1000': 'Centenas hasta 1000', 'Guess on 0 to 1000': 'Estima de 0 a 1000',
+  'Fractions of one': 'Fracciones de uno', 'Fractions to two': 'Fracciones hasta dos', 'Below zero': 'Bajo cero', 'Way below zero': 'Muy bajo cero',
+  'Tenths': 'Décimos', 'Hundredths': 'Centésimos', 'Mixed numbers': 'Números mixtos', 'Fifty each way': 'Cincuenta a cada lado', 'Integer jumps': 'Saltos de enteros',
+  'Changing scales': 'Escalas que cambian', 'Inequalities': 'Desigualdades', 'Square roots': 'Raíces cuadradas', 'Powers of ten': 'Potencias de diez',
+  // Feedback.
+  'Yum!': '¡Genial!', 'Super!': '¡Súper!', 'You got it!': '¡Lo lograste!', 'Wow!': '¡Guau!', 'Perfect!': '¡Perfecto!',
+  'Let us try an easier one': 'Probemos uno más fácil', 'Try again!': '¡Intenta otra vez!',
+  '{stars} Bullseye!': '{stars} ¡En el blanco!', '{stars} So close!': '{stars} ¡Casi!', '{stars} Close!': '{stars} ¡Cerca!', '{stars} Keep trying!': '{stars} ¡Sigue intentando!',
+  'It landed on {v}!': '¡Aterrizó en {v}!', 'Count by tens from zero, then look between the marks.': 'Cuenta de diez en diez desde cero y luego mira entre las marcas.',
+  'Try again. Find {goal}.': 'Intenta otra vez. Busca {goal}.',
+  // Prompts on screen and spoken.
+  '🚀 Launch!': '🚀 ¡Lanzar!',
+  'Where did the rocket land?': '¿Dónde aterrizó el cohete?', 'Watch the rocket. Where did it land?': 'Mira el cohete. ¿Dónde aterrizó?',
+  'Start at {from}. Jump {jump}': 'Empieza en {from}. Salta {jump}',
+  'Start at {from}. Jump forward {n}. Tap where the rocket lands. Then launch!': 'Empieza en {from}. Salta {n} hacia adelante. Toca donde aterriza el cohete. ¡Luego lanza el cohete!',
+  'Start at {from}. Jump back {n}. Tap where the rocket lands. Then launch!': 'Empieza en {from}. Salta {n} hacia atrás. Toca donde aterriza el cohete. ¡Luego lanza el cohete!',
+  'Tap any spot where {expr}': 'Toca cualquier punto donde {expr}', 'Fly to a spot where {expr}': 'Vuela a un punto donde {expr}',
+  'Tap any spot where x is {op} {c}. Then launch!': 'Toca cualquier punto donde x es {op} {c}. ¡Luego lanza el cohete!',
+  'Tap a spot that is {k} away from zero. There are two. Then launch!': 'Toca un punto que esté a {k} de cero. Hay dos. ¡Luego lanza el cohete!',
+  'Tap any spot less than {k} away from zero. Then launch!': 'Toca cualquier punto a menos de {k} de cero. ¡Luego lanza el cohete!',
+  'Tap any spot at most {k} away from zero. Then launch!': 'Toca cualquier punto a {k} o menos de cero. ¡Luego lanza el cohete!',
+  'The marks count by {tick}. ': 'Las marcas van de {tick} en {tick}. ',
+  'Fly the rocket to {v}': 'Lleva el cohete a {v}', 'Tap the line where {v} goes. Then launch!': 'Toca la línea donde va {v}. ¡Luego lanza el cohete!',
+  // How numbers, fractions, roots and powers are read aloud.
+  'negative {n}': 'menos {n}', '{i} point {f}': '{i} coma {f}', 'one {part}': 'un {part}', '{n} {parts}': '{n} {parts}', '{whole} and {frac}': '{whole} y {frac}',
+  'the square root of {n}': 'la raíz cuadrada de {n}', '{a} times 10 to the power of {b}': '{a} por 10 elevado a la {b}', '10 to the power of {b}': '10 elevado a la {b}',
+  'greater than': 'mayor que', 'less than': 'menor que', 'greater than or equal to': 'mayor o igual que', 'less than or equal to': 'menor o igual que',
+  // What the child is looking for, and what is said after a miss.
+  'a spot where x is {op} {c}': 'un punto donde x es {op} {c}', 'a spot {k} away from zero': 'un punto a {k} de cero',
+  'a spot less than {k} away from zero': 'un punto a menos de {k} de cero', 'a spot at most {k} away from zero': 'un punto a {k} o menos de cero',
+  'where x is {op} {c}': 'donde x es {op} {c}', 'less than {k} away from zero': 'donde x está a menos de {k} de cero', 'at most {k} away from zero': 'donde x está a {k} o menos de cero',
+  '{v} is not in the green part. That is where {cond} holds.': '{v} no está en la parte verde. La parte verde es {cond}.',
+  'You landed on {v}. {k} and negative {k} are both {k} from zero. The gold stars show them.': 'Aterrizaste en {v}. {k} y menos {k} están los dos a {k} de cero. Las estrellas doradas los muestran.',
+  'You landed on {v}. That is {err} away.': 'Aterrizaste en {v}. Eso está a {err} de distancia.', 'You landed on {v}.': 'Aterrizaste en {v}.',
+  '{off} {val} is about {approx}. It sits between {lo} and {hi}, at the gold star.': '{off} {val} es aproximadamente {approx}. Está entre {lo} y {hi}, en la estrella dorada.',
+  '{off} {val} is at the gold star.': '{off} {val} está en la estrella dorada.',
+};
+const USED = new Set();
+function tr(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+window.DucklingLang = { keys: () => Object.keys(ES), missing: () => [...USED].filter(k => ES[k] == null), allow: [] };
+if (LANG === 'es') {
+  document.documentElement.lang = 'es';
+  document.title = tr('Number Line Rocket');
+  document.querySelector('header h1').textContent = '🚀 ' + tr('Number Line Rocket');
+  $('hear').setAttribute('aria-label', tr('Hear it again'));
+}
+
 function say(t) {
   try { speechSynthesis.cancel(); } catch (e) {}
   VOICE.stop(); if (VOICE.play(t)) return;
-  try { const u = new SpeechSynthesisUtterance(String(t)); u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {}
+  try { const u = new SpeechSynthesisUtterance(String(t)); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.9; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {}
 }
 
 // Synthesized sounds, so nothing is loaded from disk.
@@ -370,7 +433,7 @@ function record(right) {
   persist(); return change;
 }
 function showBadge(flash) {
-  $('badge').textContent = `Level ${P.lv + 1}: ${LEVELS[P.lv].name}`;
+  $('badge').textContent = tr('Level {n}: {name}', { n: P.lv + 1, name: tr(LEVELS[P.lv].name) });
   $('stars').textContent = `⭐ ${P.stars}`;
   if (flash) { const b = $('badge'); b.classList.remove('up'); void b.offsetWidth; b.classList.add('up'); }
 }
@@ -378,7 +441,7 @@ let toastTimer = 0;
 function toast(text, ms = 1100) { const t = $('toast'); t.textContent = text; t.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms); }
 function levelBanner(change) {
   if (!change) return; const el = $('levelUp');
-  el.textContent = change > 0 ? `Level up! ${LEVELS[P.lv].name}` : `Practice: ${LEVELS[P.lv].name}`;
+  el.textContent = tr(change > 0 ? 'Level up! {name}' : 'Practice: {name}', { name: tr(LEVELS[P.lv].name) });
   if (change > 0) SFX.up();
   el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1800); showBadge(true);
 }
@@ -492,13 +555,13 @@ function answer(right, praise) {
   if (right) {
     T.done = true; P.stars += first ? 3 : 1; SFX.win();
     const change = first ? record(true) : 0;
-    toast(praise || pick(['Yum!', 'Super!', 'You got it!', 'Wow!', 'Perfect!']), 1300); showBadge(false);
-    say(praise || 'You got it!');
+    toast(praise || tr(pick(['Yum!', 'Super!', 'You got it!', 'Wow!', 'Perfect!'])), 1300); showBadge(false);
+    say(praise || tr('You got it!'));
     if (!HOLD) ADV = setTimeout(() => { levelBanner(change); newTask(); }, change ? 2100 : 1700);
   } else {
     SFX.oops();
-    if (first) { const change = record(false); if (change) { showBadge(true); T.done = true; if (!HOLD) ADV = setTimeout(() => { levelBanner(change); newTask(); }, 1500); toast('Let us try an easier one', 1400); return; } }
-    toast('Try again!', 900);
+    if (first) { const change = record(false); if (change) { showBadge(true); T.done = true; if (!HOLD) ADV = setTimeout(() => { levelBanner(change); newTask(); }, 1500); toast(tr('Let us try an easier one'), 1400); return; } }
+    toast(tr('Try again!'), 900);
   }
 }
 function kitStart() {
@@ -696,26 +759,44 @@ const fmt = (t, v) => {
   return String(Math.round(v));
 };
 const NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen'];
+const NUMW_ES = ['cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis'];
 const ORD = { 2: ['half', 'halves'], 3: ['third', 'thirds'], 4: ['fourth', 'fourths'], 6: ['sixth', 'sixths'], 8: ['eighth', 'eighths'] };
-const fracWords = (n, d) => `${NUMW[n] || n} ${n === 1 ? ORD[d][0] : ORD[d][1]}`;
-// How a number is spoken: "negative 3", "2 point 3 5".
+const ORD_ES = { 2: ['medio', 'medios'], 3: ['tercio', 'tercios'], 4: ['cuarto', 'cuartos'], 6: ['sexto', 'sextos'], 8: ['octavo', 'octavos'] };
+const numWord = n => (LANG === 'es' ? NUMW_ES : NUMW)[n] || n;
+const ordWord = (d, i) => (LANG === 'es' ? ORD_ES : ORD)[d][i];
+const fracWords = (n, d) => n === 1 ? tr('one {part}', { part: ordWord(d, 0) }) : tr('{n} {parts}', { n: numWord(n), parts: ordWord(d, 1) });
+// How a number is spoken: "negative 3", "2 point 3 5" (in Spanish "menos 3", "2 coma 3 5").
 function sayNum(v) {
-  if (v < 0) return `negative ${sayNum(-v)}`;
+  if (v < 0) return tr('negative {n}', { n: sayNum(-v) });
   if (Number.isInteger(v)) return String(v);
-  const [i, f] = String(rnd(v, 2)).split('.'); return `${i} point ${f.split('').join(' ')}`;
+  const [i, f] = String(rnd(v, 2)).split('.'); return tr('{i} point {f}', { i, f: f.split('').join(' ') });
 }
 function speakVal(t) {
-  if (t.d) { if (t.mixed && t.n > t.d) return `${NUMW[Math.floor(t.n / t.d)]} and ${fracWords(t.n % t.d, t.d)}`; return fracWords(t.n, t.d); }
-  if (t.root) return `the square root of ${t.root}`;
-  if (t.sci) return `${t.sci.a} times 10 to the power of ${t.sci.b}`;
+  if (t.d) { if (t.mixed && t.n > t.d) return tr('{whole} and {frac}', { whole: numWord(Math.floor(t.n / t.d)), frac: fracWords(t.n % t.d, t.d) }); return fracWords(t.n, t.d); }
+  if (t.root) return tr('the square root of {n}', { n: t.root });
+  if (t.sci) return tr('{a} times 10 to the power of {b}', { a: t.sci.a, b: t.sci.b });
   return sayNum(t.value);
+}
+// A landed value read aloud. English reads it as written; Spanish reads decimals with coma, negatives with menos and
+// fractions as words, so the narrator never reads a dot or a slash.
+function spokenVal(t, v) {
+  if (LANG !== 'es') return fmt(t, v);
+  if (t.log) { const { a, b } = t.snapInfo[nearestSnap(t, v)]; return a === 1 ? tr('10 to the power of {b}', { b }) : tr('{a} times 10 to the power of {b}', { a, b }); }
+  if (t.d) { const n = Math.round(v * t.d); if (n % t.d === 0) return sayNum(n / t.d); return t.mixed && n > t.d ? tr('{whole} and {frac}', { whole: numWord(Math.floor(n / t.d)), frac: fracWords(n % t.d, t.d) }) : fracWords(n, t.d); }
+  if (t.dec) return sayNum(rnd(v, t.dec));
+  return sayNum(Math.round(v));
 }
 // What the child is looking for, as spoken in "Find ..." lines.
 function speakGoal(t) {
-  if (t.ineq) return `a spot where x is ${OPW[t.ineq.op]} ${sayNum(t.ineq.c)}`;
-  if (t.abs) return `a spot ${sayNum(t.abs.k)} away from zero`;
-  if (t.absRegion) return `a spot ${t.absRegion.op === '<' ? 'less than' : 'at most'} ${sayNum(t.absRegion.k)} away from zero`;
+  if (t.ineq) return tr('a spot where x is {op} {c}', { op: tr(OPW[t.ineq.op]), c: sayNum(t.ineq.c) });
+  if (t.abs) return tr('a spot {k} away from zero', { k: sayNum(t.abs.k) });
+  if (t.absRegion) return tr(t.absRegion.op === '<' ? 'a spot less than {k} away from zero' : 'a spot at most {k} away from zero', { k: sayNum(t.absRegion.k) });
   return speakVal(t);
+}
+// The condition a green band stands for, as it reads inside "That is where ... holds."
+function speakCond(t) {
+  if (t.ineq) return tr('where x is {op} {c}', { op: tr(OPW[t.ineq.op]), c: sayNum(t.ineq.c) });
+  return tr(t.absRegion.op === '<' ? 'less than {k} away from zero' : 'at most {k} away from zero', { k: sayNum(t.absRegion.k) });
 }
 function valueHTML(t) {
   const big = s => `<b style="font-size:34px">${s}</b>`;
@@ -727,21 +808,23 @@ function valueHTML(t) {
 }
 // The prompt on screen and the line spoken with it. Pure, so the self-check can build it too.
 function promptFor(t) {
-  if (t.kind === 'read') return { html: 'Where did the rocket land?', speak: 'Watch the rocket. Where did it land?' };
-  if (t.from !== undefined) return { html: `Start at <b style="font-size:34px">${t.from}</b>. Jump <b style="font-size:34px">${t.jump > 0 ? '+' : '-'}${Math.abs(t.jump)}</b>`, speak: `Start at ${sayNum(t.from)}. Jump ${t.jump > 0 ? 'forward' : 'back'} ${Math.abs(t.jump)}. Tap where the rocket lands. Then launch!` };
-  if (t.ineq) return { html: `Tap any spot where <b style="font-size:34px">x ${t.ineq.op === '>' ? '&gt;' : t.ineq.op === '<' ? '&lt;' : t.ineq.op} ${numText(t.ineq.c)}</b>`, speak: `Tap any spot where x is ${OPW[t.ineq.op]} ${sayNum(t.ineq.c)}. Then launch!` };
-  if (t.abs) return { html: `Fly to a spot where <b style="font-size:34px">|x| = ${numText(t.abs.k)}</b>`, speak: `Tap a spot that is ${sayNum(t.abs.k)} away from zero. There are two. Then launch!` };
-  if (t.absRegion) return { html: `Tap any spot where <b style="font-size:34px">|x| ${t.absRegion.op === '<' ? '&lt;' : '≤'} ${numText(t.absRegion.k)}</b>`, speak: `Tap any spot ${t.absRegion.op === '<' ? 'less than' : 'at most'} ${sayNum(t.absRegion.k)} away from zero. Then launch!` };
-  const lead = t.scaleNote ? `The marks count by ${numText(t.tick)}. ` : '';
-  return { html: `${lead}Fly the rocket to ${valueHTML(t)}`, speak: `${lead}Tap the line where ${speakVal(t)} goes. Then launch!` };
+  const big = s => `<b style="font-size:34px">${s}</b>`;
+  if (t.kind === 'read') return { html: tr('Where did the rocket land?'), speak: tr('Watch the rocket. Where did it land?') };
+  if (t.from !== undefined) return { html: tr('Start at {from}. Jump {jump}', { from: big(t.from), jump: big(`${t.jump > 0 ? '+' : '-'}${Math.abs(t.jump)}`) }), speak: tr(t.jump > 0 ? 'Start at {from}. Jump forward {n}. Tap where the rocket lands. Then launch!' : 'Start at {from}. Jump back {n}. Tap where the rocket lands. Then launch!', { from: sayNum(t.from), n: Math.abs(t.jump) }) };
+  if (t.ineq) return { html: tr('Tap any spot where {expr}', { expr: big(`x ${t.ineq.op === '>' ? '&gt;' : t.ineq.op === '<' ? '&lt;' : t.ineq.op} ${numText(t.ineq.c)}`) }), speak: tr('Tap any spot where x is {op} {c}. Then launch!', { op: tr(OPW[t.ineq.op]), c: sayNum(t.ineq.c) }) };
+  if (t.abs) return { html: tr('Fly to a spot where {expr}', { expr: big(`|x| = ${numText(t.abs.k)}`) }), speak: tr('Tap a spot that is {k} away from zero. There are two. Then launch!', { k: sayNum(t.abs.k) }) };
+  if (t.absRegion) return { html: tr('Tap any spot where {expr}', { expr: big(`|x| ${t.absRegion.op === '<' ? '&lt;' : '≤'} ${numText(t.absRegion.k)}`) }), speak: tr(t.absRegion.op === '<' ? 'Tap any spot less than {k} away from zero. Then launch!' : 'Tap any spot at most {k} away from zero. Then launch!', { k: sayNum(t.absRegion.k) }) };
+  const lead = t.scaleNote ? tr('The marks count by {tick}. ', { tick: numText(t.tick) }) : '';
+  const spokenLead = t.scaleNote ? tr('The marks count by {tick}. ', { tick: LANG === 'es' ? sayNum(t.tick) : numText(t.tick) }) : '';
+  return { html: `${lead}${tr('Fly the rocket to {v}', { v: valueHTML(t) })}`, speak: `${spokenLead}${tr('Tap the line where {v} goes. Then launch!', { v: speakVal(t) })}` };
 }
 // What is said after a miss.
 function missSpeech(t, v, sc) {
-  if (t.region) return `${fmt(t, v)} is not in the green part. That is where ${speakGoal(t).replace(/^a spot /, '')} holds.`;
-  if (t.abs) return `You landed on ${fmt(t, v)}. ${sayNum(t.abs.k)} and negative ${sayNum(t.abs.k)} are both ${sayNum(t.abs.k)} from zero. The gold stars show them.`;
-  const off = t.estimate ? `You landed on ${fmt(t, v)}. That is ${fmt(t, sc.err)} away.` : `You landed on ${fmt(t, v)}.`;
-  if (t.root) { const f = Math.floor(t.value); return `${off} ${speakVal(t)} is about ${sayNum(rnd(t.value, 1))}. It sits between ${f} and ${f + 1}, at the gold star.`; }
-  return `${off} ${speakVal(t)} is at the gold star.`;
+  if (t.region) return tr('{v} is not in the green part. That is where {cond} holds.', { v: spokenVal(t, v), cond: speakCond(t) });
+  if (t.abs) return tr('You landed on {v}. {k} and negative {k} are both {k} from zero. The gold stars show them.', { v: spokenVal(t, v), k: sayNum(t.abs.k) });
+  const off = t.estimate ? tr('You landed on {v}. That is {err} away.', { v: spokenVal(t, v), err: spokenVal(t, sc.err) }) : tr('You landed on {v}.', { v: spokenVal(t, v) });
+  if (t.root) { const f = Math.floor(t.value); return tr('{off} {val} is about {approx}. It sits between {lo} and {hi}, at the gold star.', { off, val: speakVal(t), approx: sayNum(rnd(t.value, 1)), lo: f, hi: f + 1 }); }
+  return tr('{off} {val} is at the gold star.', { off, val: speakVal(t) });
 }
 // The tick marks of a line: value, whether it carries a number, and that number. Pure, so the self-check can read it.
 function tickList(t) {
@@ -883,7 +966,7 @@ function show(t) {
     return;
   }
   setPrompt(p.html, p.speak);
-  dock([{ html: '🚀 Launch!', id: 'launchBtn', on: () => launch(t) }]);
+  dock([{ html: tr('🚀 Launch!'), id: 'launchBtn', on: () => launch(t) }]);
   $('launchBtn').disabled = true; $('launchBtn').style.opacity = 0.5;
 }
 function setPick(t, x) {
@@ -954,19 +1037,19 @@ function showTruth(t, guess) {
 function afterLanding(t, v) {
   const sc = score(t, v); t.result = sc; showTruth(t, v);
   const stars = '⭐'.repeat(sc.stars) || '💫';
-  if (sc.right) { answer(true, `${stars} ${sc.stars === 3 ? 'Bullseye!' : 'So close!'}`); burst(new THREE.Vector3(xOf(t, t.region || t.truths ? v : t.value), LINE_Y + 1.5, 0.5), 60, 1.4); return; }
+  if (sc.right) { answer(true, tr(sc.stars === 3 ? '{stars} Bullseye!' : '{stars} So close!', { stars })); burst(new THREE.Vector3(xOf(t, t.region || t.truths ? v : t.value), LINE_Y + 1.5, 0.5), 60, 1.4); return; }
   const firstTry = t.tries === 0;
   answer(false);
-  if (!t.done) toast(`${stars} ${sc.stars ? 'Close!' : 'Keep trying!'}`, 1600);
+  if (!t.done) toast(tr(sc.stars ? '{stars} Close!' : '{stars} Keep trying!', { stars }), 1600);
   say(missSpeech(t, v, sc));
   if (T !== t || t.done) return;
   if (t.estimate || !firstTry) { t.done = true; clearTimeout(ADV); if (!HOLD) ADV = setTimeout(() => { if (T === t) newTask(); }, 2800); }
-  else setTimeout(() => { if (T === t && !t.done) { resetRocket(); if (reveal) { scene.remove(reveal); disposeTree(reveal); reveal = null; } marker.visible = picked !== null; say(`Try again. Find ${speakGoal(t)}.`); const b = $('launchBtn'); if (b) { b.disabled = false; b.style.opacity = 1; } } }, 2400);
+  else setTimeout(() => { if (T === t && !t.done) { resetRocket(); if (reveal) { scene.remove(reveal); disposeTree(reveal); reveal = null; } marker.visible = picked !== null; say(tr('Try again. Find {goal}.', { goal: speakGoal(t) })); const b = $('launchBtn'); if (b) { b.disabled = false; b.style.opacity = 1; } } }, 2400);
 }
 function readPick(t, v, btn) {
   if (t.done) return;
-  if (v === t.value) { btn.classList.add('right'); showTruth(t); answer(true, `It landed on ${v}!`); }
-  else { btn.classList.remove('wrong'); void btn.offsetWidth; btn.classList.add('wrong'); say('Count by tens from zero, then look between the marks.'); answer(false); }
+  if (v === t.value) { btn.classList.add('right'); showTruth(t); answer(true, tr('It landed on {v}!', { v })); }
+  else { btn.classList.remove('wrong'); void btn.offsetWidth; btn.classList.add('wrong'); say(tr('Count by tens from zero, then look between the marks.')); answer(false); }
 }
 
 // ---------------------------------------------------------------------------
@@ -1033,7 +1116,7 @@ const describeTask = t => `${t.text}${t.from !== undefined ? ` from ${t.from}` :
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => APP.start,
-  label: () => LEVELS[P.lv].name,
+  label: () => tr(LEVELS[P.lv].name),
   exercise: (i, n) => {
     if (!LEVELS[i]) throw new Error(`no rung ${i}`);
     const out = [], seen = new Set();
