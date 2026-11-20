@@ -224,7 +224,9 @@
     11 Vowel teams   12 Syllables   13 Prefixes and suffixes   14 Homophones   15 Greek and Latin roots
     16 Academic words   17 Spelling demons on a letter keyboard   18 Shades of meaning (connotation, figurative language)
   New players start where the child's reading grade puts them (level 4 for 2nd grade). The grade band of each
-  rung is listed above the LEVELS array.
+  rung is listed above the LEVELS array. On a Spanish tablet the same eighteen rungs read from Spanish word banks
+  (digraphs in place of vowel teams, homophones and tildes in place of English homophones) and every label and
+  spoken line comes from the ES dictionary; see the Language section in the script.
   three.js r149 is included below under its MIT license: Copyright 2010-2023 three.js authors, https://threejs.org,
   SPDX-License-Identifier: MIT.
 -->
@@ -283,6 +285,9 @@
   #panel[data-kind="keys"] .tile.back { width: 92px; background: #fff; }
   #panel[data-kind="keys"] #tray { gap: 6px; max-width: 980px; }
   #panel[data-kind="keys"] .brk { flex-basis: 100%; height: 0; }
+  /* Spanish titles and level names are longer: a smaller title, and a badge that wraps to two lines instead of cutting off. */
+  html[lang="es"] header h1 { font-size: 22px; }
+  html[lang="es"] #badge { font-size: 15px; line-height: 1.1; white-space: normal; text-align: center; padding: 4px 12px; max-height: 42px; }
 </style>
 </head>
 <body>
@@ -736,6 +741,46 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 // ---------------------------------------------------------------------------
+// Language. On a Spanish tablet (KidTablet.language) every label and spoken line comes from ES through T(), and the
+// Spanish word banks (the *_ES tables below the English ones) replace the English banks rung for rung: the same rung
+// count, Spanish words with pictures that fit them, accents and ñ as letters the child taps, and hints about Spanish
+// spelling. The spells on the stage stay keyed by their English names; every Spanish item names the spell it casts.
+// docs/languages-brief.md.
+// ---------------------------------------------------------------------------
+const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
+const USED = new Set();
+const ES = {
+  'Word Wizard': 'Mago de las palabras', '🪄 Word Wizard': '🪄 Mago de las palabras', 'Hear it again': 'Escúchalo otra vez', 'New word': 'Palabra nueva',
+  'Next spell ▶': 'Otro hechizo ▶', 'Back': 'Atrás', 'Level {n}: {name}': 'Nivel {n}: {name}', 'Level up! ⬆️': '¡Subiste de nivel! ⬆️',
+  'Level up! {name}': '¡Subiste de nivel! {name}', 'Easier words': 'Palabras más fáciles',
+  'Abracadabra!': '¡Abracadabra!', 'Magic!': '¡Magia!', 'Zap! You did it!': '¡Zas! ¡Lo lograste!', 'Wow, what a spell!': '¡Guau, qué hechizo!', 'Ta da!': '¡Tarán!',
+  'Not quite. Try again!': 'Casi. ¡Intenta otra vez!', 'Almost! Look again.': '¡Casi! Mira otra vez.', 'Oops, the spell fizzled. Try again!': 'Uy, el hechizo se apagó. ¡Intenta otra vez!',
+  '{prompt} Pick the ending.': '{prompt} Elige la terminación.', '{prompt} Spell {w}.': '{prompt} Escribe {w}.', 'Spell {w}.': 'Escribe {w}.',
+  'The word is {w}. Spell {w}.': 'La palabra es {w}. Escribe {w}.', 'Listen for the vowel team.': 'Busca el dígrafo: dos letras que suenan juntas.',
+  'Build {w}.': 'Arma {w}.', '{w}. Build {w} from its syllables.': '{w}. Arma {w} con sus sílabas.', '{q} Build {w}.': '{q} Arma {w}.',
+  '{s} Tap the right spelling of {a}.': '{s} Toca cómo se escribe {a}.', '{q} Build {w} from its word parts.': '{q} Arma {w} con sus partes.',
+  '{q} Tap the word that means this.': '{q} Toca la palabra que significa eso.', '{q} Type {w}.': '{q} Escribe {w} con el teclado.',
+  '{s} Tap the word that fits best.': '{s} Toca la palabra que queda mejor.', 'blank': 'algo',
+  'Three letters': 'Tres letras', 'Three letters, extra tiles': 'Tres letras, fichas de más', 'Four letters': 'Cuatro letras', 'Five letters': 'Cinco letras',
+  'Two-word spells': 'Hechizos de dos palabras', 'Endings -s -er -est': 'Terminaciones -s, -ito, -ísimo', 'Beginnings un- re-': 'Comienzos des-, re-, in-',
+  'Compound words': 'Palabras compuestas', 'Compound words, letter by letter': 'Palabras compuestas, letra por letra',
+  'Endings and beginnings, letter by letter': 'Terminaciones y comienzos, letra por letra', 'Vowel teams': 'Dígrafos ch, ll, rr, qu, gu', 'Syllables': 'Sílabas',
+  'Prefixes and suffixes': 'Prefijos y sufijos', 'Homophones': 'Homófonos y tildes', 'Greek and Latin roots': 'Raíces griegas y latinas',
+  'Academic words': 'Palabras académicas', 'Spelling demons': 'Palabras difíciles', 'Shades of meaning': 'Matices de significado',
+};
+function T(s, vars) {
+  USED.add(s);
+  let t = LANG === 'es' && ES[s] != null ? ES[s] : s;
+  if (vars) t = t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return t;
+}
+window.DucklingLang = { keys: () => Object.keys(ES), missing: () => [...USED].filter(k => ES[k] == null), allow: [] };
+if (LANG === 'es') document.documentElement.lang = 'es';
+document.title = T('Word Wizard');
+document.querySelector('header h1').textContent = T('🪄 Word Wizard');
+$('hear').title = T('Hear it again'); $('skip').title = T('New word'); $('next').textContent = T('Next spell ▶');
+
+// ---------------------------------------------------------------------------
 // Words. Each one has a picture and a spell. word:emoji
 // ---------------------------------------------------------------------------
 const parse = s => s.trim().split(/\s+/).map(x => { const i = x.indexOf(':'); return { w: x.slice(0, i), e: x.slice(i + 1) }; });
@@ -782,11 +827,16 @@ const promptFor = w => PROMPTS[w] || `Make ${article(w)} ${w}!`;
 // ---------------------------------------------------------------------------
 // Tasks. units: the pieces in order. fixed: units already placed. groups: unit counts per word.
 // ---------------------------------------------------------------------------
-const CONFUSE = { b: 'dp', d: 'bp', p: 'bq', m: 'nw', n: 'mh', a: 'eo', e: 'ai', i: 'el', o: 'au', u: 'on', s: 'cz', c: 'ks', t: 'fl', g: 'qj', w: 'vm', r: 'nh', l: 'it', f: 'tv', h: 'nk', k: 'hc' };
+const CONFUSE_EN = { b: 'dp', d: 'bp', p: 'bq', m: 'nw', n: 'mh', a: 'eo', e: 'ai', i: 'el', o: 'au', u: 'on', s: 'cz', c: 'ks', t: 'fl', g: 'qj', w: 'vm', r: 'nh', l: 'it', f: 'tv', h: 'nk', k: 'hc' };
+// Spanish decoys follow Spanish spelling trouble: b and v, c s z, g and j, ll and y, qu and c, n and ñ, a vowel and its accented form.
+const CONFUSE_ES = { b: 'vd', v: 'bf', d: 'bp', p: 'bq', m: 'nw', n: 'ñm', ñ: 'nm', a: 'áe', e: 'éi', i: 'íe', o: 'óu', u: 'úo', á: 'ae', é: 'ei', í: 'ie', ó: 'ou', ú: 'uo',
+  s: 'zc', c: 'szq', z: 'sc', g: 'jq', j: 'gx', t: 'dl', r: 'nl', l: 'ir', f: 'tv', h: 'nk', k: 'qc', q: 'kc', y: 'il', x: 'js', w: 'vm' };
+const CONFUSE = LANG === 'es' ? CONFUSE_ES : CONFUSE_EN;
+const FILLER = LANG === 'es' ? 'abcdefghijlmnoprstuvyzáéíóúñ' : 'abcdefghijklmnoprstuvwy';
 function decoyLetters(word, n) {
   const out = [], have = new Set(word);
   for (const ch of shuffle([...word])) { for (const c of (CONFUSE[ch] || '')) if (!have.has(c) && !out.includes(c) && out.length < n) out.push(c); }
-  while (out.length < n) { const c = 'abcdefghijklmnoprstuvwy'[rnd(0, 22)]; if (!have.has(c) && !out.includes(c)) out.push(c); }
+  while (out.length < n) { const c = FILLER[rnd(0, FILLER.length - 1)]; if (!have.has(c) && !out.includes(c)) out.push(c); }
   return out;
 }
 function letterTask(word, o) {
@@ -906,7 +956,9 @@ const DEMONS = [
   ['occasion', 'A birthday is a special occasion.', 'cake'], ['parallel', 'The train tracks are parallel.', 'train'], ['possession', 'The ball is in our possession.', 'ball'], ['tomorrow', 'See you tomorrow.', 'sunny'],
   ['twelfth', 'This is the twelfth day.'], ['vegetable', 'A carrot is a vegetable.', 'bunny'], ['argument', 'They had an argument about the rules.'], ['athlete', 'The athlete trains every day.', 'run'],
 ];
-const KEYS = 'abcdefghijklmnopqrstuvwxyz'.split('');
+// The letter keyboard. The Spanish one adds ñ and the accented vowels as keys of their own, in a third row.
+const KEYS = (LANG === 'es' ? 'abcdefghijklmnñopqrstuvwxyzáéíóúü' : 'abcdefghijklmnopqrstuvwxyz').split('');
+const KEY_ROWS = LANG === 'es' ? [13, 27] : [13];
 // Connotation and figurative language: a sentence with a blank, the word that fits, the words that do not.
 const CONN = [
   ['The dancer was ___ and graceful.', 'slender', ['scrawny', 'skinny']], ['The puppy was ___ and sweet.', 'curious', ['nosy', 'prying']],
@@ -927,6 +979,247 @@ const CONN = [
   ['Break a leg means ___.', 'good luck', ['be careful', 'sit down']], ['Her laugh was ___ that filled the room.', 'music', ['noise', 'sound']],
   ['The city at night was a ___ of lights.', 'sea', ['bucket', 'cup']], ['The toddler was a ___ bouncing off the walls.', 'tornado', ['breeze', 'cloud']],
 ];
+
+// ---------------------------------------------------------------------------
+// Spanish banks, one per rung, each as large as the English one. An item names its picture, the English spell it
+// casts (the stage only knows those) and its own prompt, since Spanish needs the article and the gender.
+// Letters: word, picture, spell, prompt.
+// ---------------------------------------------------------------------------
+const esWords = rows => rows.map(([w, e, k, p]) => ({ w, e, k, p }));
+const W3_ES = esWords([
+  ['sol', '☀️', 'sun', '¡Haz un sol!'], ['pan', '🍞', 'cake', '¡Haz un pan!'], ['pez', '🐟', 'fish', '¡Haz un pez!'], ['mar', '🌊', 'whale', '¡Haz el mar!'],
+  ['luz', '💡', 'lamp', '¡Haz luz!'], ['uva', '🍇', 'purple', '¡Haz una uva!'], ['oso', '🐻', 'bear', '¡Haz un oso!'], ['rey', '👑', 'crown', '¡Haz un rey!'],
+  ['ave', '🐦', 'bird', '¡Haz un ave!'], ['río', '🏞️', 'swim', '¡Haz un río!'], ['bus', '🚌', 'bus', '¡Haz un bus!'], ['gol', '⚽', 'ball', '¡Haz un gol!'],
+  ['ojo', '👁️', 'glow', '¡Haz un ojo!'], ['oro', '🥇', 'gold', '¡Haz oro!'], ['pie', '🦶', 'run', '¡Haz un pie!'], ['día', '🌞', 'sunny', '¡Que sea de día!'],
+  ['ají', '🌶️', 'fire', '¡Haz un ají!'], ['año', '🎉', 'fun', '¡Que empiece el año!'], ['voz', '🗣️', 'sing', '¡Usa tu voz!'], ['sal', '🧂', 'shake', '¡Echa sal!'],
+  ['col', '🥬', 'grow', '¡Haz una col!'], ['ola', '🌊', 'wet', '¡Haz una ola!'], ['uña', '💅', 'pink', '¡Pinta una uña!'], ['ríe', '😄', 'happy', '¡Ríe con todos!'],
+  ['paz', '🕊️', 'happy', '¡Haz la paz!'], ['aro', '⭕', 'spin', '¡Haz un aro!'],
+]);
+const W4_ES = esWords([
+  ['luna', '🌙', 'moon', '¡Haz la luna!'], ['flor', '🌷', 'flower', '¡Haz una flor!'], ['tren', '🚂', 'train', '¡Haz un tren!'], ['gato', '🐱', 'cat', '¡Haz un gato!'],
+  ['pato', '🦆', 'duck', '¡Haz un pato!'], ['rana', '🐸', 'frog', '¡Haz una rana!'], ['nube', '☁️', 'cloud', '¡Haz una nube!'], ['nido', '🪺', 'nest', '¡Haz un nido!'],
+  ['bote', '🚤', 'boat', '¡Haz un bote!'], ['casa', '🏠', 'house', '¡Haz una casa!'], ['vaca', '🐮', 'cow', '¡Haz una vaca!'], ['búho', '🦉', 'owl', '¡Haz un búho!'],
+  ['león', '🦁', 'cat', '¡Haz un león!'], ['piña', '🍍', 'plant', '¡Haz una piña!'], ['mono', '🐒', 'hop', '¡Haz un mono!'], ['rosa', '🌹', 'pink', '¡Que todo sea rosa!'],
+  ['azul', '🔵', 'blue', '¡Que todo sea azul!'], ['rojo', '🔴', 'red', '¡Que todo sea rojo!'], ['lago', '🏞️', 'pond', '¡Haz un lago!'], ['hoja', '🍃', 'tree', '¡Haz una hoja!'],
+  ['rayo', '⚡', 'zap', '¡Haz un rayo!'], ['sapo', '🐸', 'frog', '¡Haz un sapo!'], ['foca', '🦭', 'swim', '¡Haz una foca!'], ['cama', '🛏️', 'sleep', '¡A la cama!'],
+  ['taza', '🍵', 'cup', '¡Haz una taza!'], ['vela', '🕯️', 'glow', '¡Haz una vela!'], ['isla', '🏝️', 'sunny', '¡Haz una isla!'], ['miel', '🍯', 'bee', '¡Haz miel!'],
+  ['pino', '🌲', 'tree', '¡Haz un pino!'], ['pera', '🍐', 'apple', '¡Haz una pera!'], ['niño', '👦', 'happy', '¡Haz feliz al niño!'], ['baño', '🛁', 'wet', '¡Dales un baño!'],
+  ['frío', '🥶', 'snow', '¡Que haga frío!'], ['faro', '🗼', 'lighthouse', '¡Haz un faro!'], ['bola', '⚽', 'ball', '¡Haz una bola!'], ['leña', '🪵', 'fire', '¡Haz leña!'],
+]);
+const W5_ES = esWords([
+  ['perro', '🐶', 'dog', '¡Haz un perro!'], ['cerdo', '🐷', 'pig', '¡Haz un cerdo!'], ['oveja', '🐑', 'sheep', '¡Haz una oveja!'], ['zorro', '🦊', 'fox', '¡Haz un zorro!'],
+  ['abeja', '🐝', 'bee', '¡Haz una abeja!'], ['pollo', '🐔', 'hen', '¡Haz un pollo!'], ['cabra', '🐐', 'sheep', '¡Haz una cabra!'], ['nieve', '❄️', 'snow', '¡Que caiga nieve!'],
+  ['árbol', '🌳', 'tree', '¡Haz un árbol!'], ['fuego', '🔥', 'fire', '¡Haz fuego!'], ['globo', '🎈', 'balloon', '¡Haz un globo!'], ['barco', '⛵', 'ship', '¡Haz un barco!'],
+  ['avión', '✈️', 'jet', '¡Haz un avión!'], ['torta', '🎂', 'cake', '¡Haz una torta!'], ['huevo', '🥚', 'egg', '¡Haz un huevo!'], ['tigre', '🐯', 'cat', '¡Haz un tigre!'],
+  ['ratón', '🐭', 'tiny', '¡Haz un ratón!'], ['pulpo', '🐙', 'swim', '¡Haz un pulpo!'], ['feliz', '😊', 'happy', '¡Haz feliz a todos!'], ['verde', '🟢', 'green', '¡Que todo sea verde!'],
+  ['noche', '🌃', 'night', '¡Que sea de noche!'], ['brisa', '🌬️', 'wind', '¡Haz una brisa!'], ['salta', '🦘', 'jump', '¡Salta con ellos!'], ['baila', '💃', 'dance', '¡Baila con ellos!'],
+  ['canta', '🎵', 'sing', '¡Canta con ellos!'], ['crece', '🌱', 'grow', '¡Mira cómo crece!'], ['flota', '🎈', 'float', '¡Mira cómo flota!'], ['sueño', '😴', 'sleep', '¡Tengo sueño!'],
+  ['mango', '🥭', 'apple', '¡Haz un mango!'], ['fresa', '🍓', 'apple', '¡Haz una fresa!'], ['carro', '🚗', 'car', '¡Haz un carro!'], ['playa', '🏖️', 'sunny', '¡Vamos a la playa!'],
+  ['araña', '🕷️', 'bug', '¡Haz una araña!'], ['ñandú', '🐦', 'bird', '¡Haz un ñandú!'], ['limón', '🍋', 'apple', '¡Haz un limón!'], ['dulce', '🍬', 'cupcake', '¡Haz un dulce!'],
+  ['leche', '🥛', 'cup', '¡Haz leche!'], ['piano', '🎹', 'sing', '¡Toca el piano!'],
+]);
+// Two-word spells: the noun with its gender, picture and model; the adjective in both forms with its English spell.
+const NOUN_ES = [['gato', 'm', '🐱', 'cat'], ['perro', 'm', '🐶', 'dog'], ['cerdo', 'm', '🐷', 'pig'], ['rana', 'f', '🐸', 'frog'], ['pato', 'm', '🦆', 'duck'], ['pez', 'm', '🐟', 'fish'],
+  ['abeja', 'f', '🐝', 'bee'], ['búho', 'm', '🦉', 'owl'], ['zorro', 'm', '🦊', 'fox'], ['vaca', 'f', '🐮', 'cow'], ['oso', 'm', '🐻', 'bear'], ['conejo', 'm', '🐰', 'bunny'],
+  ['robot', 'm', '🤖', 'robot'], ['oveja', 'f', '🐑', 'sheep'], ['ballena', 'f', '🐳', 'whale'], ['caballo', 'm', '🐴', 'horse'], ['fantasma', 'm', '👻', 'ghost'],
+  ['gallina', 'f', '🐔', 'hen'], ['víbora', 'f', '🐍', 'snake']].map(([w, g, e, k]) => ({ w, g, e, k }));
+const ADJ_ES = [['grande', 'grande', 'big'], ['chiquito', 'chiquita', 'tiny'], ['rojo', 'roja', 'red'], ['azul', 'azul', 'blue'], ['rosa', 'rosa', 'pink'], ['dorado', 'dorada', 'gold'],
+  ['gigante', 'gigante', 'giant'], ['verde', 'verde', 'green'], ['feliz', 'feliz', 'happy'], ['morado', 'morada', 'purple']].map(([m, f, k]) => ({ m, f, k }));
+// Endings: the fixed base, the ending the child picks, the prompt, the picture, the spell and what to set up first.
+// Plurals in -s cast the "many" spell of their English word; -ito and -ote shrink or grow the thing; -ísimo is the "most" spell.
+const ENDS_ES = [
+  ['rana', 's', '¡Haz muchas ranas!', '🐸', 'frogs', 'frogs'], ['gato', 's', '¡Haz muchos gatos!', '🐱', 'cats', 'cats'], ['pato', 's', '¡Haz muchos patos!', '🦆', 'ducks', 'ducks'],
+  ['estrella', 's', '¡Haz muchas estrellas!', '⭐', 'stars', 'stars'], ['abeja', 's', '¡Haz muchas abejas!', '🐝', 'bees', 'bees'], ['cometa', 's', '¡Haz muchas cometas!', '🪁', 'kites', 'kites'],
+  ['pelota', 's', '¡Haz muchas pelotas!', '⚽', 'balls', 'balls'], ['cerdo', 's', '¡Haz muchos cerdos!', '🐷', 'pigs', 'pigs'],
+  ['flor', 'es', '¡Haz flores!', '🌷', 'flower', null], ['sol', 'es', '¡Haz soles!', '☀️', 'sun', null], ['árbol', 'es', '¡Haz árboles!', '🌳', 'tree', null],
+  ['tambor', 'es', '¡Haz tambores!', '🥁', 'drum', null], ['pan', 'es', '¡Haz panes!', '🍞', 'cake', null],
+  ['pat', 'ito', 'El pato es grande. ¡Hazlo patito!', '🦆', 'tiny', 'duck'], ['gat', 'ito', 'El gato es grande. ¡Hazlo gatito!', '🐱', 'tiny', 'cat'],
+  ['perr', 'ito', 'El perro es grande. ¡Hazlo perrito!', '🐶', 'tiny', 'dog'], ['os', 'ito', 'El oso es grande. ¡Hazlo osito!', '🐻', 'tiny', 'bear'],
+  ['cerd', 'ito', 'El cerdo es grande. ¡Hazlo cerdito!', '🐷', 'tiny', 'pig'], ['ran', 'ita', 'La rana es grande. ¡Hazla ranita!', '🐸', 'tiny', 'frog'],
+  ['zorr', 'ito', 'El zorro es grande. ¡Hazlo zorrito!', '🦊', 'tiny', 'fox'], ['conej', 'ito', 'El conejo es grande. ¡Hazlo conejito!', '🐰', 'tiny', 'bunny'],
+  ['poll', 'ito', 'La gallina tiene un bebé. ¡Haz un pollito!', '🐔', 'tiny', 'hen'], ['cas', 'ita', 'La casa es grande. ¡Hazla casita!', '🏠', 'tiny', 'house'],
+  ['perr', 'ote', 'El perro es chico. ¡Hazlo perrote!', '🐶', 'big', 'dog'], ['gat', 'ote', 'El gato es chico. ¡Hazlo gatote!', '🐱', 'big', 'cat'], ['cas', 'ota', 'La casa es chica. ¡Hazla casota!', '🏠', 'big', 'house'],
+  ['alt', 'ísima', 'La torre es alta. ¡Hazla altísima!', '🏰', 'tallest', 'tallest'], ['rapid', 'ísimo', 'El carro es rápido. ¡Hazlo rapidísimo!', '🏎️', 'fastest', 'fastest'],
+  ['fuert', 'ísimo', 'El tambor suena fuerte. ¡Hazlo fuertísimo!', '🥁', 'loudest', 'loudest'], ['pequeñ', 'ísimo', 'El oso es pequeño. ¡Hazlo pequeñísimo!', '🐻', 'smallest', 'smallest'],
+  ['brillant', 'ísima', 'La lámpara es brillante. ¡Hazla brillantísima!', '💡', 'brightest', 'brightest'],
+];
+const ENDINGS_ES = ['s', 'es', 'ito', 'ita', 'ote', 'ota', 'ísimo', 'ísima'];
+const TWIN_ES = { ito: 'ita', ita: 'ito', ote: 'ota', ota: 'ote', ísimo: 'ísima', ísima: 'ísimo' };
+const endDecoysEs = e => shuffle(ENDINGS_ES.filter(x => x !== e && x !== TWIN_ES[e])).slice(0, 2);
+// Beginnings: prefix, base, prompt, picture, spell (the spell also names the stage setup).
+const PRE_ES = [
+  ['des', 'atar', 'El regalo tiene un moño. ¡Vamos a desatar el moño!', '🎁', 'untie'], ['des', 'amarrar', 'El moño está apretado. ¡Vamos a desamarrar el moño!', '🎁', 'untie'],
+  ['des', 'envolver', '¡Un regalo! ¡Vamos a desenvolver el regalo!', '🎁', 'unwrap'], ['des', 'tapar', 'El regalo está tapado. ¡Vamos a destapar el regalo!', '🎁', 'unwrap'],
+  ['des', 'empacar', 'La maleta está llena. ¡Vamos a desempacar la maleta!', '🧳', 'unpack'], ['des', 'trabar', 'El cofre está trabado. ¡Vamos a destrabar el cofre!', '🔒', 'unlock'],
+  ['re', 'llenar', 'La taza está vacía. ¡Vamos a rellenar la taza!', '🥛', 'refill'], ['re', 'pintar', 'Pinta la casa otra vez. ¡Vamos a repintar la casa!', '🎨', 'repaint'],
+  ['re', 'construir', 'La torre se cayó. ¡Vamos a reconstruir la torre!', '🧱', 'rebuild'], ['re', 'armar', 'La torre se cayó. ¡Vamos a rearmar la torre!', '🧱', 'rebuild'],
+  ['in', 'feliz', 'El sol está infeliz. ¡Anímalo!', '🙁', 'unhappy'], ['re', 'sonar', 'El tambor suena. ¡Hazlo resonar otra vez!', '🥁', 'replay'],
+];
+const PREFIXES_ES = ['des', 're', 'in'];
+// Compound words: the two parts, picture, spell, prompt.
+const COMP_ES = [
+  ['para', 'guas', '☂️', 'rain', '¡Haz un paraguas!'], ['gira', 'sol', '🌻', 'sunflower', '¡Haz un girasol!'], ['saca', 'puntas', '✏️', null, '¡Haz un sacapuntas!'],
+  ['abre', 'latas', '🥫', null, '¡Haz un abrelatas!'], ['lava', 'platos', '🍽️', 'wet', '¡Haz un lavaplatos!'], ['medio', 'día', '🌞', 'sunny', '¡Que sea mediodía!'],
+  ['arco', 'íris', '🌈', 'rainbow', '¡Haz un arcoíris!'], ['cumple', 'años', '🎂', 'cake', '¡Haz un cumpleaños!'], ['tela', 'raña', '🕸️', 'bug', '¡Haz una telaraña!'],
+  ['espanta', 'pájaros', '🌾', 'bird', '¡Haz un espantapájaros!'], ['rasca', 'cielos', '🏙️', 'tower', '¡Haz un rascacielos!'], ['salta', 'montes', '🦗', 'jump', '¡Haz un saltamontes!'],
+  ['pasa', 'tiempo', '🎲', 'fun', '¡Haz un pasatiempo!'], ['rompe', 'cabezas', '🧩', 'fun', '¡Haz un rompecabezas!'], ['balon', 'cesto', '🏀', 'ball', '¡Juega baloncesto!'],
+  ['auto', 'pista', '🛣️', 'car', '¡Haz una autopista!'], ['bien', 'venida', '👋', 'happy', '¡Da la bienvenida!'], ['alta', 'voz', '🔊', 'sing', '¡Haz un altavoz!'],
+  ['quita', 'sol', '⛱️', 'sunny', '¡Haz un quitasol!'], ['guarda', 'bosques', '🌲', 'tree', '¡Haz un guardabosques!'], ['cuenta', 'gotas', '💧', 'rain', '¡Haz un cuentagotas!'],
+  ['traga', 'luz', '🪟', 'glow', '¡Haz un tragaluz!'], ['pica', 'flor', '🐦', 'bird', '¡Haz un picaflor!'], ['porta', 'voz', '🗣️', 'sing', '¡Haz un portavoz!'],
+  ['agua', 'nieve', '🌨️', 'snow', '¡Que caiga aguanieve!'], ['lava', 'manos', '🚰', 'wet', '¡Haz un lavamanos!'], ['para', 'sol', '⛱️', 'sunny', '¡Haz un parasol!'],
+  ['cubre', 'cama', '🛏️', 'sleep', '¡Haz un cubrecama!'],
+];
+const COMP_SHORT_ES = COMP_ES.filter(c => (c[0] + c[1]).length <= 9);
+// Digraphs, in place of vowel teams: word, digraph, picture, spell. The digraph is one tile.
+const DIGRAPHS_ES = ['ch', 'll', 'rr', 'qu', 'gu'];
+const DIG_ES = [
+  ['leche', 'ch', '🥛', 'cup'], ['noche', 'ch', '🌃', 'night'], ['coche', 'ch', '🚗', 'car'], ['chivo', 'ch', '🐐', 'sheep'], ['chile', 'ch', '🌶️', 'fire'], ['mochila', 'ch', '🎒'],
+  ['cuchara', 'ch', '🥄'], ['chocolate', 'ch', '🍫', 'cake'], ['chispa', 'ch', '✨', 'glow'], ['ocho', 'ch', '8️⃣'], ['chaleco', 'ch', '🦺'], ['lechuza', 'ch', '🦉', 'owl'], ['chango', 'ch', '🐒', 'hop'],
+  ['lluvia', 'll', '🌧️', 'rain'], ['pollo', 'll', '🐔', 'hen'], ['calle', 'll', '🛣️', 'car'], ['gallina', 'll', '🐔', 'hen'], ['estrella', 'll', '⭐', 'star'], ['silla', 'll', '🪑'],
+  ['caballo', 'll', '🐴', 'horse'], ['ballena', 'll', '🐳', 'whale'], ['llave', 'll', '🔑', 'glow'], ['castillo', 'll', '🏰', 'tower'], ['amarillo', 'll', '💛', 'gold'], ['anillo', 'll', '💍', 'gold'],
+  ['grillo', 'll', '🦗', 'jump'], ['tortilla', 'll', '🫓', 'cake'], ['llama', 'll', '🦙', 'sheep'],
+  ['perro', 'rr', '🐶', 'dog'], ['carro', 'rr', '🚗', 'car'], ['zorro', 'rr', '🦊', 'fox'], ['torre', 'rr', '🏰', 'tower'], ['arroz', 'rr', '🍚'], ['tierra', 'rr', '🌍', 'rock'],
+  ['burro', 'rr', '🫏', 'horse'], ['gorra', 'rr', '🧢', 'hat'], ['jarra', 'rr', '🏺', 'cup'], ['cotorra', 'rr', '🦜', 'bird'], ['corre', 'rr', '🏃', 'run'], ['cerro', 'rr', '⛰️', 'rock'],
+  ['queso', 'qu', '🧀'], ['paquete', 'qu', '📦', 'box'], ['bosque', 'qu', '🌲', 'tree'], ['raqueta', 'qu', '🎾', 'ball'], ['máquina', 'qu', '🤖', 'robot'], ['esquí', 'qu', '⛷️', 'snow'],
+  ['buque', 'qu', '🚢', 'ship'], ['pequeño', 'qu', '🤏', 'tiny'], ['quieto', 'qu', '😴', 'sleep'], ['mosquito', 'qu', '🦟', 'bug'], ['orquesta', 'qu', '🎻', 'sing'], ['parque', 'qu', '🌳', 'tree'],
+  ['equipo', 'qu', '👥'], ['banquete', 'qu', '🎂', 'cake'], ['bloque', 'qu', '🧱', 'tower'],
+  ['hoguera', 'gu', '🔥', 'fire'], ['águila', 'gu', '🦅', 'bird'], ['juguete', 'gu', '🧸', 'fun'], ['manguera', 'gu', '🚿', 'wet'], ['higuera', 'gu', '🌳', 'tree'],
+  ['hormiguero', 'gu', '🐜', 'ant'], ['guinda', 'gu', '🍒', 'apple'], ['guisante', 'gu', '🫛', 'grow'], ['merengue', 'gu', '🍮', 'cake'],
+];
+// Syllables: the syllables in order, picture, spell.
+const SYL_ES = [
+  [['ca', 'sa'], '🏠', 'house'], [['ga', 'to'], '🐱', 'cat'], [['pe', 'rro'], '🐶', 'dog'], [['pul', 'po'], '🐙', 'swim'], [['ra', 'tón'], '🐭', 'tiny'], [['ár', 'bol'], '🌳', 'tree'],
+  [['jar', 'dín'], '🌷', 'flower'], [['tam', 'bor'], '🥁', 'drum'], [['li', 'món'], '🍋', 'apple'], [['ro', 'bot'], '🤖', 'robot'], [['nie', 've'], '❄️', 'snow'], [['dra', 'gón'], '🐲', 'dragon'],
+  [['to', 'ma', 'te'], '🍅'], [['plá', 'ta', 'no'], '🍌'], [['san', 'dí', 'a'], '🍉'], [['can', 'gu', 'ro'], '🦘', 'jump'], [['ca', 'ba', 'llo'], '🐴', 'horse'], [['ba', 'lle', 'na'], '🐳', 'whale'],
+  [['tor', 'tu', 'ga'], '🐢'], [['co', 'ne', 'jo'], '🐰', 'bunny'], [['ar', 'di', 'lla'], '🐿️', 'hop'], [['pá', 'ja', 'ro'], '🐦', 'bird'], [['in', 'vier', 'no'], '⛄', 'snow'], [['ve', 'ra', 'no'], '☀️', 'sunny'],
+  [['es', 'tre', 'lla'], '⭐', 'star'], [['mon', 'ta', 'ña'], '🏔️', 'rock'], [['za', 'pa', 'to'], '👟', 'run'], [['ven', 'ta', 'na'], '🪟', 'glow'], [['mé', 'di', 'co'], '🩺'], [['nú', 'me', 'ro'], '🔢'],
+  [['mú', 'si', 'ca'], '🎵', 'sing'], [['ma', 'ña', 'na'], '🌅', 'sunny'], [['a', 'ra', 'ña'], '🕷️', 'bug'], [['pi', 'ña', 'ta'], '🎉', 'fun'], [['ca', 'ra', 'col'], '🐌'], [['es', 'cue', 'la'], '🏫'],
+  [['fan', 'tas', 'ma'], '👻', 'ghost'], [['ga', 'lle', 'ta'], '🍪', 'cake'],
+  [['ma', 'ri', 'po', 'sa'], '🦋', 'butterfly'], [['e', 'le', 'fan', 'te'], '🐘', 'giant'], [['di', 'no', 'sau', 'rio'], '🦕', 'dragon'], [['cum', 'ple', 'a', 'ños'], '🎂', 'cake'],
+  [['pa', 'ra', 'guas'], '☂️', 'rain'], [['pe', 'lí', 'cu', 'la'], '🎬'], [['te', 'lé', 'fo', 'no'], '📞', 'sing'], [['bi', 'ci', 'cle', 'ta'], '🚲'], [['cho', 'co', 'la', 'te'], '🍫', 'cake'],
+  [['u', 'ni', 'cor', 'nio'], '🦄', 'horse'], [['com', 'pu', 'ta', 'do', 'ra'], '💻', 'robot'], [['he', 'li', 'cóp', 'te', 'ro'], '🚁', 'jet'],
+];
+// Prefixes and suffixes: the parts, a sentence that says the word, picture, spell.
+const AFFIX_PARTS_ES = ['in', 'im', 'des', 're', 'pre', 'sub', 'super', 'oso', 'osa', 'mente', 'ción', 'dad', 'able', 'ero', 'ista'];
+const AFFIX_ES = [
+  [['in', 'feliz'], 'No es feliz. Es infeliz.', '😢', 'rain'], [['in', 'visible'], 'El fantasma no se ve. Es invisible.', '👻', 'ghost'], [['in', 'justo'], 'No es justo. Es injusto.', '⚖️'],
+  [['in', 'quieto'], 'El cachorro no se queda quieto. Es inquieto.', '🐶', 'dog'], [['im', 'posible'], 'No es posible. Es imposible.', '🚫'], [['im', 'par'], 'El tres no es par. Es impar.', '3️⃣'],
+  [['im', 'paciente'], 'No tiene paciencia. Es impaciente.', '⏳'], [['des', 'orden'], 'No hay orden. Hay desorden.', '🧸'], [['des', 'cubrir'], 'Quitar lo que cubre es descubrir.', '🔍', 'glow'],
+  [['des', 'cansar'], 'Dejar de trabajar para dormir es descansar.', '😴', 'sleep'], [['des', 'pegar'], 'El avión deja el suelo. Va a despegar.', '✈️', 'jet'], [['des', 'armar'], 'Separar las piezas es desarmar.', '🧱'],
+  [['re', 'leer'], 'Leer otra vez es releer.', '📖'], [['re', 'ciclar'], 'Usar el papel otra vez es reciclar.', '♻️', 'tree'], [['re', 'gresar'], 'Volver a casa es regresar.', '🏠', 'house'],
+  [['re', 'cargar'], 'Darle energía otra vez es recargar.', '🔋', 'zap'], [['pre', 'escolar'], 'La escuela de antes del kínder es preescolar.', '🏫'], [['pre', 'calentar'], 'Calienta el horno antes de hornear. Hay que precalentar.', '🔥', 'fire'],
+  [['pre', 'ver'], 'Ver lo que va a pasar es prever.', '🔮', 'glow'], [['sub', 'marino'], 'Un barco que va bajo el mar es un submarino.', '🚢', 'whale'], [['sub', 'terráneo'], 'Un túnel bajo la tierra es subterráneo.', '🕳️'],
+  [['sub', 'rayar'], 'Poner una raya debajo es subrayar.', '✏️'], [['super', 'héroe'], 'Un héroe con poderes es un superhéroe.', '🦸', 'giant'], [['super', 'mercado'], 'Un mercado muy grande es un supermercado.', '🛒'],
+  [['lluvi', 'oso'], 'Con mucha lluvia, el día es lluvioso.', '🌧️', 'rain'], [['peligr', 'oso'], 'Con peligro, es peligroso.', '⚠️'], [['ruid', 'oso'], 'Con mucho ruido, el tambor es ruidoso.', '🥁', 'drum'],
+  [['cariñ', 'oso'], 'Con mucho cariño, el perro es cariñoso.', '🐶', 'happy'], [['nub', 'oso'], 'Con nubes, el cielo está nuboso.', '☁️', 'cloud'], [['fam', 'osa'], 'La cantante es famosa.', '🎤', 'sing'],
+  [['rápida', 'mente'], 'Corre de forma rápida. Corre rápidamente.', '🏎️', 'car'], [['feliz', 'mente'], 'Vive de forma feliz. Vive felizmente.', '😊', 'happy'], [['lenta', 'mente'], 'La tortuga va lentamente.', '🐢'],
+  [['suave', 'mente'], 'Toca el tambor suavemente.', '🥁', 'drum'], [['celebra', 'ción'], 'Celebramos con una celebración.', '🎉', 'fun'], [['decora', 'ción'], 'Decoramos con una decoración.', '🎈', 'pop'],
+  [['imagina', 'ción'], 'Imaginar es usar la imaginación.', '💭', 'rainbow'], [['explora', 'ción'], 'Explorar es hacer una exploración.', '🧭'], [['inunda', 'ción'], 'Cuando el agua inunda todo, hay una inundación.', '🌊', 'wet'],
+  [['ilumina', 'ción'], 'Las luces dan iluminación.', '💡', 'lamp'], [['planta', 'ción'], 'Muchas plantas juntas son una plantación.', '🌱', 'grow'], [['nata', 'ción'], 'Nadar es practicar natación.', '🏊', 'swim'],
+  [['bon', 'dad'], 'Ser bueno es tener bondad.', '💗', 'happy'], [['oscuri', 'dad'], 'Cuando está oscuro, hay oscuridad.', '🌑', 'night'], [['veloci', 'dad'], 'Lo veloz tiene velocidad.', '🏎️', 'car'],
+  [['clari', 'dad'], 'Lo claro tiene claridad.', '✨', 'glow'], [['liber', 'tad'], 'Ser libre es tener libertad.', '🕊️', 'bird'], [['am', 'able'], 'Trata bien a todos. Es amable.', '🤝', 'happy'],
+  [['lav', 'able'], 'Se puede lavar. Es lavable.', '🧼', 'wet'], [['salud', 'able'], 'La manzana da salud. Es saludable.', '🍎', 'apple'], [['recicl', 'able'], 'Se puede reciclar. Es reciclable.', '♻️', 'tree'],
+  [['jardin', 'ero'], 'Cuida el jardín. Es jardinero.', '🌷', 'flower'], [['panad', 'ero'], 'Hace el pan. Es panadero.', '🍞', 'cake'], [['bomb', 'ero'], 'Apaga el fuego. Es bombero.', '🚒', 'wet'],
+  [['art', 'ista'], 'Hace arte. Es artista.', '🎨', 'rainbow'], [['dent', 'ista'], 'Cuida los dientes. Es dentista.', '🦷'], [['futbol', 'ista'], 'Juega fútbol. Es futbolista.', '⚽', 'ball'],
+];
+// Homophones and spelling confusions: a sentence with a blank, the right spelling, the other spellings, the rule the hint names.
+const HINT_ES = { h: 'Piensa en la h muda.', bv: 'Piensa: ¿con b o con v?', csz: 'Piensa: ¿con c, con s o con z?', lly: 'Piensa: ¿con ll o con y?', gj: 'Piensa: ¿con g o con j?', qu: 'Piensa: ¿con qu o con c?', tilde: 'Piensa en la tilde.' };
+const HOMO_ES = [
+  ['La ___ da leche.', 'vaca', ['baca', 'baka'], 'bv'], ['El agua pasa por el ___.', 'tubo', ['tuvo', 'tuvó'], 'bv'], ['Ayer ___ mucha suerte.', 'tuvo', ['tubo', 'tubó'], 'bv'],
+  ['El paisaje es muy ___.', 'bello', ['vello', 'beyo'], 'bv'], ['Vamos a ___ la pelota.', 'botar', ['votar', 'bothar'], 'bv'], ['Los adultos van a ___ el domingo.', 'votar', ['botar', 'votár'], 'bv'],
+  ['¿Tú ___ a mi fiesta?', 'vienes', ['bienes', 'vienés'], 'bv'], ['La abuela es muy ___.', 'sabia', ['savia', 'sávia'], 'bv'], ['Mi ___ tiene cuello largo.', 'jirafa', ['girafa', 'jiraffa'], 'gj'],
+  ['He ___ la tarea.', 'hecho', ['echo', 'hechó'], 'h'], ['Yo ___ la basura al bote.', 'echo', ['hecho', 'écho'], 'h'], ['Dije ___ a mi vecino.', 'hola', ['ola', 'jola'], 'h'],
+  ['La ___ mojó mis pies.', 'ola', ['hola', 'olá'], 'h'], ['Aquí ___ tres patos.', 'hay', ['ay', 'ahí'], 'h'], ['El libro está ___.', 'ahí', ['hay', 'ay'], 'h'],
+  ['Desayuné un ___.', 'huevo', ['uevo', 'güevo'], 'h'], ['La ___ carga una hoja.', 'hormiga', ['ormiga', 'hormíga'], 'h'], ['El conejo come ___.', 'zanahoria', ['sanaoria', 'zanaoria'], 'h'],
+  ['Vivo en una ___ azul.', 'casa', ['caza', 'kasa'], 'csz'], ['Voy a ___ el botón.', 'coser', ['cocer', 'cosér'], 'csz'], ['Hay que ___ las papas.', 'cocer', ['coser', 'cozer'], 'csz'],
+  ['Tengo ___ monedas.', 'cien', ['sien', 'zien'], 'csz'], ['Hay que ___ la puerta.', 'cerrar', ['serrar', 'cerar'], 'csz'], ['Te doy un ___.', 'abrazo', ['abraso', 'abrazó'], 'csz'],
+  ['Me pongo el ___.', 'zapato', ['sapato', 'zapáto'], 'csz'], ['Escribo con el ___.', 'lápiz', ['lápis', 'lapiz'], 'csz'], ['La ___ es roja.', 'cereza', ['seresa', 'cerezza'], 'csz'],
+  ['El vaso se ___ al piso.', 'cayó', ['calló', 'cayo'], 'lly'], ['Ella se ___ y no habló más.', 'calló', ['cayó', 'callo'], 'lly'], ['Voy a ___ el queso.', 'rallar', ['rayar', 'rayár'], 'lly'],
+  ['No debes ___ la mesa.', 'rayar', ['rallar', 'rrayar'], 'lly'], ['Espero que te ___ bien.', 'vaya', ['valla', 'baya'], 'lly'], ['El perro saltó la ___.', 'valla', ['vaya', 'baya'], 'lly'],
+  ['La ___ mojó el jardín.', 'lluvia', ['yuvia', 'lluvía'], 'lly'], ['Fui al parque ___.', 'ayer', ['aller', 'ayér'], 'lly'],
+  ['Hay mucha ___ en la plaza.', 'gente', ['jente', 'genté'], 'gj'], ['El ___ mira al sol.', 'girasol', ['jirasol', 'girazol'], 'gj'], ['Mi ___ llegó temprano.', 'jefe', ['gefe', 'jéfe'], 'gj'],
+  ['Corto el papel con ___.', 'tijeras', ['tigeras', 'tijéras'], 'gj'], ['El carro está en el ___.', 'garaje', ['garage', 'garajé'], 'gj'], ['Fue un truco ___.', 'mágico', ['májico', 'magico'], 'gj'],
+  ['El ratón come ___.', 'queso', ['ceso', 'kezo'], 'qu'], ['Mi hermana tiene ___ años.', 'quince', ['kince', 'quinse'], 'qu'], ['Los árboles del ___ son altos.', 'bosque', ['bosce', 'bozque'], 'qu'],
+  ['Escribo en mi ___.', 'cuaderno', ['quaderno', 'cuadérno'], 'qu'], ['El ratón es ___.', 'pequeño', ['pekeño', 'pequeno'], 'qu'],
+  ['Oye, ___ eres mi amigo.', 'tú', ['tu', 'ti'], 'tilde'], ['Este es ___ libro.', 'tu', ['tú', 'ti'], 'tilde'], ['Mira a ___ perro.', 'el', ['él', 'al'], 'tilde'], ['Ella juega con ___.', 'él', ['el', 'al'], 'tilde'],
+  ['Dije que ___, quiero ir.', 'sí', ['si', 'se'], 'tilde'], ['No salimos ___ llueve.', 'si', ['sí', 'se'], 'tilde'], ['Quiero ___ pastel.', 'más', ['mas', 'mes'], 'tilde'],
+  ['Tomo una taza de ___.', 'té', ['te', 'ti'], 'tilde'], ['Yo ___ quiero mucho.', 'te', ['té', 'ti'], 'tilde'], ['Esto es para ___.', 'mí', ['mi', 'me'], 'tilde'], ['Ese es ___ gato.', 'mi', ['mí', 'me'], 'tilde'],
+  ['Yo ___ la respuesta.', 'sé', ['se', 'si'], 'tilde'], ['Dime ___ hora es.', 'qué', ['que', 'quien'], 'tilde'], ['Creo ___ va a llover.', 'que', ['qué', 'quien'], 'tilde'],
+  ['No sé ___ está mi gato.', 'dónde', ['donde', 'dondé'], 'tilde'], ['Dime ___ te llamas.', 'cómo', ['como', 'comó'], 'tilde'], ['Yo ___ una manzana.', 'como', ['cómo', 'comó'], 'tilde'],
+  ['Mi ___ cocina rico.', 'papá', ['papa', 'pápa'], 'tilde'], ['Comí puré de ___.', 'papa', ['papá', 'pápa'], 'tilde'], ['Me gusta ___ casa.', 'esta', ['está', 'esto'], 'tilde'], ['El gato ___ dormido.', 'está', ['esta', 'esto'], 'tilde'],
+];
+const HOMO_WORDS_ES = HOMO_ES.map(h => h[1]);
+// Greek and Latin roots: the parts, a definition, picture, spell.
+const ROOTS_ES = [
+  [['telé', 'fono'], 'Un aparato para hablar con alguien que está lejos.', '📞', 'sing'], [['tele', 'scopio'], 'Un instrumento para ver cosas muy lejanas.', '🔭', 'moon'], [['tele', 'visión'], 'Una pantalla que muestra imágenes enviadas desde lejos.', '📺'],
+  [['micro', 'scopio'], 'Un instrumento para ver cosas muy pequeñas.', '🔬', 'tiny'], [['micró', 'fono'], 'Un aparato que hace fuerte un sonido pequeño.', '🎤', 'sing'], [['bio', 'logía'], 'El estudio de los seres vivos.', '🌱', 'grow'],
+  [['bio', 'grafía'], 'La historia real de la vida de una persona.', '📖'], [['geo', 'grafía'], 'El estudio de la Tierra y sus lugares.', '🗺️'], [['geo', 'logía'], 'El estudio de las rocas y la Tierra.', '🪨', 'rock'],
+  [['acua', 'rio'], 'Un tanque de vidrio para animales de agua.', '🐠', 'goldfish'], [['acuá', 'tico'], 'Que vive o crece en el agua.', '🐸', 'frog'], [['trans', 'porte'], 'Llevar personas o cosas de un lugar a otro.', '🚚', 'train'],
+  [['ex', 'portar'], 'Enviar productos a otro país.', '🚢', 'ship'], [['im', 'portar'], 'Traer productos de otro país.', '📦', 'box'], [['port', 'átil'], 'Fácil de llevar de un lado a otro.', '🎒'],
+  [['pre', 'decir'], 'Decir lo que va a pasar antes de que pase.', '🔮', 'glow'], [['dic', 'tar'], 'Decir palabras en voz alta para que alguien las escriba.', '🗣️'], [['cons', 'truir'], 'Hacer un edificio o una cosa.', '🏗️', 'tower'],
+  [['des', 'truc', 'ción'], 'El acto de derribar algo.', '💥', 'shake'], [['estruc', 'tura'], 'Algo que ha sido construido.', '🏛️', 'house'], [['autó', 'grafo'], 'El nombre de una persona famosa, escrito a mano.', '✍️'],
+  [['auto', 'móvil'], 'Un carro. Se mueve por sí mismo.', '🚗', 'car'], [['foto', 'grafía'], 'Una imagen hecha con una cámara.', '📷'], [['termó', 'metro'], 'Un instrumento que mide el calor o el frío.', '🌡️', 'snow'],
+  [['perí', 'metro'], 'La distancia alrededor de una figura.', '📐'], [['tri', 'ángulo'], 'Una figura con tres lados y tres ángulos.', '🔺'], [['tri', 'ciclo'], 'Una bicicleta con tres ruedas.', '🚲'],
+  [['bi', 'cicleta'], 'Un vehículo con dos ruedas.', '🚲'], [['uni', 'cornio'], 'Un caballo con un cuerno.', '🦄', 'horse'], [['astro', 'nauta'], 'Una persona que viaja al espacio.', '🧑‍🚀', 'rocket'],
+  [['astro', 'nomía'], 'El estudio de las estrellas y los planetas.', '🌌', 'star'], [['sub', 'marino'], 'Un barco que viaja bajo el mar.', '🚢', 'whale'], [['crono', 'logía'], 'Los hechos en el orden en que pasaron.', '📅'],
+  [['audi', 'encia'], 'Las personas que escuchan y miran un espectáculo.', '🎭'], [['vis', 'ible'], 'Que se puede ver.', '👀', 'glow'], [['espec', 'tador'], 'Una persona que mira un evento.', '🏟️'], [['multi', 'plicar'], 'Hacer algo muchas veces más grande.', '✖️', 'grow'],
+  [['aero', 'puerto'], 'El lugar de donde salen y llegan los aviones.', '✈️', 'jet'], [['hipo', 'pótamo'], 'Un animal grande que vive en los ríos.', '🦛', 'giant'], [['orto', 'grafía'], 'Escribir las palabras con las letras correctas.', '✏️'],
+  [['kiló', 'metro'], 'Mil metros.', '🛣️', 'car'], [['poli', 'deportivo'], 'Un lugar para muchos deportes.', '⚽', 'ball'], [['sin', 'fonía'], 'Una obra musical para orquesta.', '🎻', 'sing'],
+];
+// Academic words: the word and its definition. The other choices come from the same list.
+const VOCAB_ES = [
+  ['analizar', 'Estudiar con cuidado las partes de algo.'], ['evidencia', 'Hechos que muestran que algo es verdad.'], ['contrastar', 'Mostrar en qué se diferencian dos cosas.'], ['hipótesis', 'Una idea que puedes probar con un experimento.'],
+  ['resumir', 'Contar las ideas principales en pocas palabras.'], ['inferir', 'Descubrir algo que no se dice directamente.'], ['concluir', 'Decidir algo después de mirar los hechos.'], ['predecir', 'Decir lo que probablemente va a pasar.'],
+  ['comparar', 'Mostrar en qué se parecen dos cosas.'], ['significativo', 'Tan importante que se nota.'], ['preciso', 'Exacto y cuidadoso.'], ['relevante', 'Relacionado con el tema del que se habla.'],
+  ['justificar', 'Dar buenas razones para una decisión.'], ['interpretar', 'Explicar lo que algo significa.'], ['secuencia', 'El orden en que pasan las cosas.'], ['perspectiva', 'La forma en que una persona ve las cosas.'],
+  ['tema', 'La idea grande de la que trata una historia.'], ['contexto', 'Las palabras y los hechos alrededor de algo que ayudan a explicarlo.'], ['variable', 'Algo que puede cambiar en un experimento.'], ['procedimiento', 'Los pasos para hacer algo.'],
+  ['afirmación', 'Una idea que un escritor defiende como verdadera.'], ['citar', 'Nombrar la fuente de un dato o una frase.'], ['enfatizar', 'Darle más atención a algo.'], ['exacto', 'Sin ningún error, correcto en cada detalle.'],
+  ['evaluar', 'Juzgar qué tan bueno o útil es algo.'], ['distinguir', 'Notar la diferencia entre dos cosas.'], ['demostrar', 'Mostrar con claridad cómo funciona algo.'], ['alternativa', 'Otra opción.'],
+  ['consecuencia', 'Lo que pasa como resultado de una acción.'], ['suponer', 'Creer algo sin tener pruebas.'], ['aproximado', 'Cerca del número real, pero no exacto.'], ['abstracto', 'Una idea, no una cosa que se puede tocar.'],
+];
+// Hard words: the word and a sentence that says it. Typed on the letter keyboard, with ñ and the accented vowels as keys.
+const DEMONS_ES = [
+  ['exhausto', 'Después de correr quedé exhausto.', 'run'], ['hubiera', 'Si hubiera llovido, no salíamos.', 'rain'], ['huésped', 'El huésped llegó al hotel.'], ['oxígeno', 'Las plantas nos dan oxígeno.', 'tree'],
+  ['excelente', 'Hiciste un trabajo excelente.', 'happy'], ['exquisito', 'El pastel estaba exquisito.', 'cake'], ['hallar', 'Debes hallar la respuesta.', 'glow'], ['zanahoria', 'El conejo come zanahoria.', 'bunny'],
+  ['almohada', 'Duermo con una almohada suave.', 'sleep'], ['ahorrar', 'Quiero ahorrar para un juguete.'], ['vehículo', 'El autobús es un vehículo grande.', 'bus'], ['prohibido', 'Está prohibido correr aquí.'],
+  ['bahía', 'Los barcos descansan en la bahía.', 'ship'], ['búho', 'El búho canta de noche.', 'owl'], ['cohete', 'El cohete despega hacia el espacio.', 'rocket'], ['hierba', 'La vaca come hierba.', 'cow'],
+  ['hielo', 'El hielo está muy frío.', 'snow'], ['huella', 'El perro dejó una huella.', 'dog'], ['héroe', 'El bombero es un héroe.'], ['exhibir', 'Van a exhibir las pinturas.', 'rainbow'],
+  ['absorber', 'La esponja va a absorber el agua.', 'wet'], ['obvio', 'Es obvio que va a llover.', 'rain'], ['convivir', 'Aprendemos a convivir en paz.', 'happy'], ['vívido', 'Tuve un sueño vívido.', 'night'],
+  ['ascensor', 'Subimos en el ascensor.'], ['escena', 'La escena final fue hermosa.'], ['piscina', 'Nadamos en la piscina.', 'swim'], ['disciplina', 'La música pide disciplina.', 'sing'],
+  ['fascinante', 'El museo es fascinante.'], ['excepción', 'Hoy es la excepción a la regla.'], ['consciente', 'Soy consciente del peligro.'], ['extranjero', 'Mi primo vive en el extranjero.', 'jet'],
+  ['ejercicio', 'Hago ejercicio cada mañana.', 'jump'], ['ingeniero', 'El ingeniero diseñó el puente.', 'tower'], ['gigante', 'El árbol es gigante.', 'giant'], ['agencia', 'Compramos los boletos en la agencia.'],
+  ['proyecto', 'Terminamos el proyecto de ciencias.'], ['trayecto', 'El trayecto a la escuela es corto.', 'car'], ['yegua', 'La yegua corre por el campo.', 'horse'], ['también', 'Yo también quiero jugar.', 'fun'],
+  ['después', 'Después de comer, jugamos.', 'dance'], ['difícil', 'La palabra es difícil.'], ['murciélago', 'El murciélago vuela de noche.', 'bat'], ['océano', 'La ballena vive en el océano.', 'whale'],
+  ['electrónico', 'El robot es un juguete electrónico.', 'robot'], ['matemáticas', 'Me gustan las matemáticas.'], ['mamífero', 'El perro es un mamífero.', 'dog'], ['pingüino', 'El pingüino camina en el hielo.', 'snow'],
+  ['necesario', 'Es necesario usar casco.'], ['inmediatamente', 'Ven aquí inmediatamente.'], ['desarrollar', 'Vamos a desarrollar un plan.'], ['cigüeña', 'La cigüeña hace un nido grande.', 'nest'],
+];
+// Shades of meaning: a sentence with a blank, the word that fits, the words that do not. Figurative language and Spanish sayings at the end.
+const CONN_ES = [
+  ['La bailarina era ___ y elegante.', 'esbelta', ['flaca', 'escuálida']], ['El cachorro era ___ y dulce.', 'curioso', ['metiche', 'entrometido']],
+  ['La abogada dio un discurso ___ y ganó el caso.', 'seguro', ['arrogante', 'presumido']], ['Ella cuida su dinero porque es ___.', 'ahorrativa', ['tacaña', 'avara']],
+  ['El castillo era ___ y lleno de historia.', 'antiguo', ['decrépito', 'anticuado']], ['La sopa tenía un aroma ___ que llenó la cocina.', 'delicioso', ['abrumador', 'pesado']],
+  ['La capitana era ___ y siguió su plan.', 'decidida', ['terca', 'cabezona']], ['El estudiante dio una respuesta ___ y con detalles.', 'completa', ['interminable', 'enredada']],
+  ['La cabaña era ___ y fácil de disfrutar.', 'acogedora', ['apretada', 'estrecha']], ['Él es ___ con su dinero y ayuda a otros.', 'generoso', ['derrochador', 'gastador']],
+  ['La caminata fue ___ y nos sentimos orgullosos en la cima.', 'exigente', ['agotadora', 'brutal']], ['El nuevo entrenador es ___ y pone metas claras.', 'firme', ['mandón', 'autoritario']],
+  ['La vieja granja tenía un encanto ___.', 'pintoresco', ['destartalado', 'ruinoso']], ['El chef usó especias ___ de una receta secreta.', 'únicas', ['raras', 'extrañas']],
+  ['Mi hermano es ___ y siempre dice la verdad.', 'honesto', ['brusco', 'imprudente']], ['El espía sonrió de forma ___ antes de mentir.', 'astuta', ['lista', 'brillante']],
+  ['El niño ___ agarró todos los juguetes.', 'codicioso', ['entusiasta', 'emocionado']], ['El adolescente ___ puso los ojos en blanco ante cada regla.', 'rebelde', ['independiente', 'seguro']],
+  ['La multitud ___ tumbó la cerca.', 'descontrolada', ['animada', 'alegre']], ['Su comentario ___ lo lastimó.', 'hiriente', ['directo', 'franco']],
+  ['El tiempo es un ___ que se lleva nuestros días.', 'ladrón', ['reloj', 'amigo']], ['La nieve era una ___ sobre el pueblo.', 'manta', ['pila', 'hoja']],
+  ['El salón era un ___ cuando la maestra salió.', 'zoológico', ['cuarto', 'colegio']], ['Sus palabras duras eran ___ que herían.', 'dagas', ['lápices', 'notas']],
+  ['La luna era un ___ colgado en el cielo.', 'farol', ['piedra', 'círculo']], ['Corrió como ___ por el campo.', 'el viento', ['una tortuga', 'una piedra']],
+  ['Su risa era ___ que llenaba la sala.', 'música', ['ruido', 'sonido']], ['La ciudad de noche era un ___ de luces.', 'mar', ['balde', 'vaso']],
+  ['El niño pequeño era un ___ rebotando por las paredes.', 'tornado', ['brisa', 'nube']], ['El examen fue ___ y todos terminaron temprano.', 'pan comido', ['una tormenta', 'una montaña']],
+  ['Llover a cántaros significa que llueve ___.', 'muy fuerte', ['con jarras', 'poquito']], ['Estar en las nubes significa estar ___.', 'distraído', ['volando', 'mojado']],
+  ['Tener mariposas en el estómago significa sentirse ___.', 'nervioso', ['hambriento', 'cansado']], ['Meter la pata significa ___.', 'cometer un error', ['pisar algo', 'correr']],
+  ['No tener pelos en la lengua significa ___.', 'hablar sin miedo', ['estar enfermo', 'no hablar']], ['Costar un ojo de la cara significa que algo es ___.', 'muy caro', ['doloroso', 'feo']],
+  ['Estar como pez en el agua significa estar ___.', 'cómodo', ['mojado', 'nadando']], ['Dormir como un tronco significa dormir ___.', 'profundamente', ['en el bosque', 'poco']],
+];
+// The banks the rungs read: Spanish on a Spanish tablet, English otherwise.
+const B = LANG === 'es'
+  ? { W3: W3_ES, W4: W4_ES, W5: W5_ES, ENDS: ENDS_ES, PRE: PRE_ES, COMP: COMP_ES, COMP_SHORT: COMP_SHORT_ES, VT: DIG_ES, TEAMS: DIGRAPHS_ES, SYL: SYL_ES, AFFIX: AFFIX_ES, AFFIX_PARTS: AFFIX_PARTS_ES,
+    HOMO: HOMO_ES, HOMO_WORDS: HOMO_WORDS_ES, ROOTS: ROOTS_ES, VOCAB: VOCAB_ES, DEMONS: DEMONS_ES, CONN: CONN_ES }
+  : { W3, W4, W5, ENDS, PRE, COMP, COMP_SHORT, VT, TEAMS: VOWEL_TEAMS, SYL, AFFIX, AFFIX_PARTS, HOMO, HOMO_WORDS, ROOTS, VOCAB, DEMONS, CONN };
 // A chunk task: the pieces are tiles, with decoy chunks mixed in.
 function chunkTask(units, decoys, o) {
   return { kind: 'chunks', word: units.join(''), units, fixed: [], groups: [units.length], tiles: shuffle(units.concat(decoys)), prompt: o.prompt, say: o.say, emoji: o.emoji, spell: o.spell, setup: null };
@@ -949,48 +1242,52 @@ function keysTask(word, o) {
 //   17 Shades of meaning (connotation and figurative language), 8th
 // Rung 3 is where a 2nd grader starts (the levelFor call below).
 const LEVELS = [
-  { name: 'Three letters', g: -1, gen() { const x = fresh(W3, x => x.w); return letterTask(x.w, { emoji: x.e }); } },
-  { name: 'Three letters, extra tiles', g: 0, gen() { const x = fresh(W3, x => x.w); return letterTask(x.w, { emoji: x.e, decoys: 2 }); } },
-  { name: 'Four letters', g: 0, gen() { const x = fresh(W4, x => x.w); return letterTask(x.w, { emoji: x.e, decoys: 1 }); } },
-  { name: 'Five letters', g: 1, gen() { const x = fresh(W5, x => x.w); return letterTask(x.w, { emoji: x.e, decoys: 2 }); } },
-  { name: 'Two-word spells', g: 2, gen() { const n = fresh(NOUN, x => x.w); const a = pick(ADJ.filter(a => a.length + n.w.length <= 10)); const w = a + ' ' + n.w;
+  { name: 'Three letters', g: -1, gen() { const x = fresh(B.W3, x => x.w); return letterTask(x.w, { emoji: x.e, spell: x.k, prompt: x.p }); } },
+  { name: 'Three letters, extra tiles', g: 0, gen() { const x = fresh(B.W3, x => x.w); return letterTask(x.w, { emoji: x.e, spell: x.k, prompt: x.p, decoys: 2 }); } },
+  { name: 'Four letters', g: 0, gen() { const x = fresh(B.W4, x => x.w); return letterTask(x.w, { emoji: x.e, spell: x.k, prompt: x.p, decoys: 1 }); } },
+  { name: 'Five letters', g: 1, gen() { const x = fresh(B.W5, x => x.w); return letterTask(x.w, { emoji: x.e, spell: x.k, prompt: x.p, decoys: 2 }); } },
+  { name: 'Two-word spells', g: 2, gen() {
+    if (LANG === 'es') { // noun then adjective, agreeing in gender; the spell is the English pair
+      const n = fresh(NOUN_ES, x => x.w); const a = pick(ADJ_ES.filter(a => a.m.length + n.w.length <= 12)); const adj = n.g === 'f' ? a.f : a.m;
+      return letterTask(n.w + ' ' + adj, { emoji: n.e, prompt: `¡Haz ${n.g === 'f' ? 'una' : 'un'} ${n.w} ${adj}!`, spell: a.k + ' ' + n.k }); }
+    const n = fresh(NOUN, x => x.w); const a = pick(ADJ.filter(a => a.length + n.w.length <= 10)); const w = a + ' ' + n.w;
     return letterTask(w, { emoji: n.e, prompt: `Make ${article(a)} ${a} ${n.w}!` }); } },
-  { name: 'Endings -s -er -est', g: 2, gen() { const [b, e, q, pic] = fresh(ENDS, x => x[0] + x[1]);
-    const decoys = shuffle(['s', 'er', 'est', 'ing', 'ed'].filter(x => x !== e)).slice(0, 2);
-    return { kind: 'chunks', word: b + e, units: [b, e], fixed: [0], groups: [2], tiles: shuffle([e, ...decoys]), prompt: q, emoji: pic, spell: b + e, setup: b + e }; } },
-  { name: 'Beginnings un- re-', g: 2, gen() { const [p, b, q, pic] = fresh(PRE, x => x[0] + x[1]);
-    const other = pick(PRE.filter(x => x[1] !== b))[1];
-    return { kind: 'chunks', word: p + b, units: [p, b], fixed: [], groups: [2], tiles: shuffle([p, b, p === 'un' ? 're' : 'un', other]), prompt: q, emoji: pic, spell: p + b, setup: p + b }; } },
-  { name: 'Compound words', g: 3, gen() { const [a, b, pic] = fresh(COMP, x => x[0] + x[1]);
-    const others = shuffle(COMP.filter(x => x[0] !== a && x[1] !== b && x[0] !== b && x[1] !== a).map(x => pick([x[0], x[1]]))).filter((v, i, s) => s.indexOf(v) === i && v !== a && v !== b).slice(0, 2);
-    return { kind: 'chunks', word: a + b, units: [a, b], fixed: [], groups: [2], tiles: shuffle([a, b, ...others]), prompt: compPrompt(a + b), emoji: pic, spell: a + b }; } },
-  { name: 'Compound words, letter by letter', g: 3, gen() { const [a, b, pic] = fresh(COMP_SHORT, x => x[0] + x[1]);
-    const t = letterTask(a + ' ' + b, { emoji: pic, decoys: 2, prompt: compPrompt(a + b) });
-    t.word = a + b; t.spell = a + b; t.joined = true; return t; } },
+  { name: 'Endings -s -er -est', g: 2, gen() { const [b, e, q, pic, sp, su] = fresh(B.ENDS, x => x[0] + x[1]);
+    const decoys = LANG === 'es' ? endDecoysEs(e) : shuffle(['s', 'er', 'est', 'ing', 'ed'].filter(x => x !== e)).slice(0, 2);
+    return { kind: 'chunks', word: b + e, units: [b, e], fixed: [0], groups: [2], tiles: shuffle([e, ...decoys]), prompt: q, emoji: pic, spell: sp || b + e, setup: su === undefined ? b + e : su }; } },
+  { name: 'Beginnings un- re-', g: 2, gen() { const [p, b, q, pic, sp] = fresh(B.PRE, x => x[0] + x[1]);
+    const other = pick(B.PRE.filter(x => x[1] !== b))[1], otherPrefix = LANG === 'es' ? pick(PREFIXES_ES.filter(x => x !== p)) : (p === 'un' ? 're' : 'un');
+    return { kind: 'chunks', word: p + b, units: [p, b], fixed: [], groups: [2], tiles: shuffle([p, b, otherPrefix, other]), prompt: q, emoji: pic, spell: sp || p + b, setup: sp || p + b }; } },
+  { name: 'Compound words', g: 3, gen() { const [a, b, pic, sp, q] = fresh(B.COMP, x => x[0] + x[1]);
+    const others = shuffle(B.COMP.filter(x => x[0] !== a && x[1] !== b && x[0] !== b && x[1] !== a).map(x => pick([x[0], x[1]]))).filter((v, i, s) => s.indexOf(v) === i && v !== a && v !== b).slice(0, 2);
+    return { kind: 'chunks', word: a + b, units: [a, b], fixed: [], groups: [2], tiles: shuffle([a, b, ...others]), prompt: q || compPrompt(a + b), emoji: pic, spell: LANG === 'es' ? spellFor(a + b, sp) : a + b }; } },
+  { name: 'Compound words, letter by letter', g: 3, gen() { const [a, b, pic, sp, q] = fresh(B.COMP_SHORT, x => x[0] + x[1]);
+    const t = letterTask(a + ' ' + b, { emoji: pic, decoys: 2, prompt: q || compPrompt(a + b), spell: LANG === 'es' ? spellFor(a + b, sp) : undefined });
+    t.word = a + b; if (LANG !== 'es') t.spell = a + b; t.joined = true; return t; } },
   { name: 'Endings and beginnings, letter by letter', g: 3, gen() {
-    const all = ENDS.map(([b, e, q, p]) => [b + e, q, p, b + e]).concat(PRE.filter(x => (x[0] + x[1]).length <= 7).map(([p, b, q, pic]) => [p + b, q, pic, p + b]));
-    const [w, q, pic, setup] = fresh(all, x => x[0]); return letterTask(w, { emoji: pic, decoys: 2, prompt: q, setup }); } },
-  { name: 'Vowel teams', g: 3, gen() { const [w, team, pic, sp] = fresh(VT, x => x[0]);
+    const all = B.ENDS.map(([b, e, q, p, sp, su]) => [b + e, q, p, su === undefined ? b + e : su, sp]).concat(B.PRE.filter(x => (x[0] + x[1]).length <= 7).map(([p, b, q, pic, sp]) => [p + b, q, pic, sp || p + b, sp]));
+    const [w, q, pic, setup, sp] = fresh(all, x => x[0]); return letterTask(w, { emoji: pic, decoys: 2, prompt: q, setup, spell: sp }); } },
+  { name: 'Vowel teams', g: 3, gen() { const [w, team, pic, sp] = fresh(B.VT, x => x[0]);
     const at = w.indexOf(team), units = [...w.slice(0, at), team, ...w.slice(at + team.length)];
-    const spell = spellFor(w, sp), own = spell === w, prompt = own ? promptFor(w) : `Spell ${w}.`;
-    const say = (own ? `${prompt} Spell ${w}.` : `The word is ${w}. Spell ${w}.`) + ' Listen for the vowel team.';
-    const t = chunkTask(units, others(VOWEL_TEAMS, 2, [team]), { prompt, say, emoji: pic, spell });
+    const spell = spellFor(w, sp), own = spell === w, prompt = own ? promptFor(w) : T('Spell {w}.', { w });
+    const say = (own ? T('{prompt} Spell {w}.', { prompt, w }) : T('The word is {w}. Spell {w}.', { w })) + ' ' + T('Listen for the vowel team.');
+    const t = chunkTask(units, others(B.TEAMS, 2, [team]), { prompt, say, emoji: pic, spell });
     t.tiles = shuffle(t.tiles.concat(decoyLetters(w, 1))); return t; } },
-  { name: 'Syllables', g: 4, gen() { const [parts, pic, sp] = fresh(SYL, x => x[0].join('')); const w = parts.join('');
-    return chunkTask(parts.slice(), others(chunksOf(SYL), 2, parts), { prompt: `Build ${w}.`, say: `${w}. Build ${w} from its syllables.`, emoji: pic, spell: spellFor(w, sp) }); } },
-  { name: 'Prefixes and suffixes', g: 4, gen() { const [parts, q, pic, sp] = fresh(AFFIX, x => x[0].join('')); const w = parts.join('');
-    return chunkTask(parts.slice(), others(AFFIX_PARTS, 2, parts), { prompt: q, say: `${q} Build ${w}.`, emoji: pic, spell: spellFor(w, sp) }); } },
-  { name: 'Homophones', g: 5, gen() { const [s, a, alts] = fresh(HOMO, x => x[0]);
-    const choices = [a, ...alts]; if (choices.length < 3) choices.push(...others(HOMO_WORDS, 3 - choices.length, choices));
-    return choiceTask(a, choices, { prompt: s, say: `${blank(s, a)} Tap the right spelling of ${a}.`, emoji: '🗣️', spell: pick(FUN_SPELLS) }); } },
-  { name: 'Greek and Latin roots', g: 5, gen() { const [parts, q, pic, sp] = fresh(ROOTS, x => x[0].join('')); const w = parts.join('');
-    return chunkTask(parts.slice(), others(chunksOf(ROOTS), 2, parts), { prompt: q, say: `${q} Build ${w} from its word parts.`, emoji: pic, spell: spellFor(w, sp) }); } },
-  { name: 'Academic words', g: 6, gen() { const [w, q] = fresh(VOCAB, x => x[0]);
-    return choiceTask(w, [w, ...others(VOCAB.map(v => v[0]), 3, [w])], { prompt: q, say: `${q} Tap the word that means this.`, emoji: '📚', spell: pick(FUN_SPELLS) }); } },
-  { name: 'Spelling demons', g: 7, gen() { const [w, q, sp] = fresh(DEMONS, x => x[0]);
-    return keysTask(w, { prompt: q, say: `${q} Type ${w}.`, emoji: '✏️', spell: spellFor(w, sp) }); } },
-  { name: 'Shades of meaning', g: 8, gen() { const [s, a, alts] = fresh(CONN, x => x[0]);
-    return choiceTask(a, [a, ...alts], { prompt: s, say: `${blank(s, 'blank')} Tap the word that fits best.`, emoji: '💬', spell: pick(FUN_SPELLS) }); } },
+  { name: 'Syllables', g: 4, gen() { const [parts, pic, sp] = fresh(B.SYL, x => x[0].join('')); const w = parts.join('');
+    return chunkTask(parts.slice(), others(chunksOf(B.SYL), 2, parts), { prompt: T('Build {w}.', { w }), say: T('{w}. Build {w} from its syllables.', { w }), emoji: pic, spell: spellFor(w, sp) }); } },
+  { name: 'Prefixes and suffixes', g: 4, gen() { const [parts, q, pic, sp] = fresh(B.AFFIX, x => x[0].join('')); const w = parts.join('');
+    return chunkTask(parts.slice(), others(B.AFFIX_PARTS, 2, parts), { prompt: q, say: T('{q} Build {w}.', { q, w }), emoji: pic, spell: spellFor(w, sp) }); } },
+  { name: 'Homophones', g: 5, gen() { const [s, a, alts, rule] = fresh(B.HOMO, x => x[0]);
+    const choices = [a, ...alts]; if (choices.length < 3) choices.push(...others(B.HOMO_WORDS, 3 - choices.length, choices));
+    return choiceTask(a, choices, { prompt: s, say: T('{s} Tap the right spelling of {a}.', { s: blank(s, a), a }) + (rule ? ' ' + HINT_ES[rule] : ''), emoji: '🗣️', spell: pick(FUN_SPELLS) }); } },
+  { name: 'Greek and Latin roots', g: 5, gen() { const [parts, q, pic, sp] = fresh(B.ROOTS, x => x[0].join('')); const w = parts.join('');
+    return chunkTask(parts.slice(), others(chunksOf(B.ROOTS), 2, parts), { prompt: q, say: T('{q} Build {w} from its word parts.', { q, w }), emoji: pic, spell: spellFor(w, sp) }); } },
+  { name: 'Academic words', g: 6, gen() { const [w, q] = fresh(B.VOCAB, x => x[0]);
+    return choiceTask(w, [w, ...others(B.VOCAB.map(v => v[0]), 3, [w])], { prompt: q, say: T('{q} Tap the word that means this.', { q }), emoji: '📚', spell: pick(FUN_SPELLS) }); } },
+  { name: 'Spelling demons', g: 7, gen() { const [w, q, sp] = fresh(B.DEMONS, x => x[0]);
+    return keysTask(w, { prompt: q, say: T('{q} Type {w}.', { q, w }), emoji: '✏️', spell: spellFor(w, sp) }); } },
+  { name: 'Shades of meaning', g: 8, gen() { const [s, a, alts] = fresh(B.CONN, x => x[0]);
+    return choiceTask(a, [a, ...alts], { prompt: s, say: T('{s} Tap the word that fits best.', { s: blank(s, T('blank')) }), emoji: '💬', spell: pick(FUN_SPELLS) }); } },
 ];
 // Where a new player starts: from the child's level in this subject (set by the parent), 2nd grade when unknown.
 // g is the grade each rung is for (-1 pre-K, 0 K, 1..8). The child opens on the first rung at her reading grade.
@@ -1045,7 +1342,7 @@ function sfx(k, i) {
   else if (k === 'whoosh') noise(0.7, 0.25, 1500);
 }
 Kit.sfx = sfx;
-function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 0.9; u.pitch = 1.15; speechSynthesis.speak(u); } catch (e) {} }
+function say(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANG === 'es' ? 'es-MX' : 'en-US'; u.rate = 0.9; u.pitch = 1.15; speechSynthesis.speak(u); } catch (e) {} }
 
 // ---------------------------------------------------------------------------
 // Spells: what each word does on the stage.
@@ -1203,7 +1500,8 @@ function newRound(speak = true) {
   $('ask').classList.remove('pulse'); void $('ask').offsetWidth; $('ask').classList.add('pulse');
   if (speak) hear();
 }
-function hear() { const t = task; say(t.say || (t.prompt + (t.kind === 'chunks' && t.fixed.length ? ' Pick the ending.' : ' Spell ' + (t.joined ? t.word : t.spell) + '.'))); }
+// The spoken word is the word on the slots (in Spanish the spell is the English effect, not the word).
+function hear() { const t = task; say(t.say || (t.kind === 'chunks' && t.fixed.length ? T('{prompt} Pick the ending.', { prompt: t.prompt }) : T('{prompt} Spell {w}.', { prompt: t.prompt, w: t.word }))); }
 // How big the slots and tiles are: long words and long chunks shrink, word choices use a word size.
 function sizeFor(t) {
   if (t.kind === 'choice') return 'word';
@@ -1225,15 +1523,15 @@ function render() {
   });
   const tr = $('tray'); tr.innerHTML = '';
   task.tiles.forEach((t, i) => { const b = document.createElement('button'); b.className = 'tile' + (task.tileState[i] ? ' used' : ''); b.textContent = t; b.style.background = TILE_COLORS[i % TILE_COLORS.length]; b.dataset.i = i; b.onpointerdown = e => { e.preventDefault(); placeTile(i); }; tr.appendChild(b); });
-  if (task.kind === 'keys') { // a backspace key takes the last letter back; the keyboard breaks after m
-    const br = document.createElement('div'); br.className = 'brk'; tr.insertBefore(br, tr.children[13] || null);
-    const b = document.createElement('button'); b.className = 'tile back'; b.textContent = '⌫'; b.title = 'Back';
+  if (task.kind === 'keys') { // a backspace key takes the last letter back; the keyboard breaks into rows (KEY_ROWS)
+    KEY_ROWS.forEach((at, i) => { const br = document.createElement('div'); br.className = 'brk'; tr.insertBefore(br, tr.children[at + i] || null); });
+    const b = document.createElement('button'); b.className = 'tile back'; b.textContent = '⌫'; b.title = T('Back');
     b.onpointerdown = e => { e.preventDefault(); const last = slots.map((s, i) => s.u && !s.fixed ? i : -1).filter(i => i >= 0).pop(); if (last !== undefined) unplace(last); };
     tr.appendChild(b);
   }
   $('panel').classList.toggle('won', phase === 'won'); $('next').classList.toggle('on', phase === 'won');
 }
-function badge() { $('badge').textContent = `Level ${P.lv + 1}: ${LEVELS[P.lv].name}`; $('stars').textContent = '⭐ ' + P.stars; }
+function badge() { $('badge').textContent = T('Level {n}: {name}', { n: P.lv + 1, name: T(LEVELS[P.lv].name) }); $('stars').textContent = '⭐ ' + P.stars; }
 function placeTile(i) {
   if (phase !== 'play' || task.tileState[i]) return;
   const k = slots.findIndex(s => !s.fixed && !s.u); if (k < 0) return;
@@ -1250,10 +1548,10 @@ async function check() {
   if (ok) {
     phase = 'won'; els.forEach((e, i) => setTimeout(() => e.classList.add('yes'), i * 60));
     P.stars++; const change = missed ? 0 : record(true); badge();
-    say(pick(['Abracadabra!', 'Magic!', 'Zap! You did it!', 'Wow, what a spell!', 'Ta da!']));
+    say(T(pick(['Abracadabra!', 'Magic!', 'Zap! You did it!', 'Wow, what a spell!', 'Ta da!'])));
     $('panel').classList.add('won');
     await cast(task).catch(() => {});
-    if (change > 0) { toast('Level up! ⬆️'); sfx('up'); say('Level up! ' + LEVELS[P.lv].name); }
+    if (change > 0) { toast(T('Level up! ⬆️')); sfx('up'); say(T('Level up! {name}', { name: T(LEVELS[P.lv].name) })); }
     render(); badge(); els.forEach(e => e.classList.add('yes'));
     if (!window.WORD_WIZARD.hold) nextTimer = setTimeout(() => { if (phase === 'won') newRound(); }, 4200);
     return;
@@ -1262,12 +1560,12 @@ async function check() {
   sfx('wrong'); let change = 0;
   if (!missed) { missed = true; change = record(false); }
   els.forEach((e, i) => { if (!slots[i].fixed && slots[i].u !== task.units[i]) e.classList.add('no'); });
-  say(pick(['Not quite. Try again!', 'Almost! Look again.', 'Oops, the spell fizzled. Try again!']));
+  say(T(pick(['Not quite. Try again!', 'Almost! Look again.', 'Oops, the spell fizzled. Try again!'])));
   await new Promise(r => setTimeout(r, 650));
   slots.forEach((s, i) => { if (!s.fixed && s.u !== task.units[i]) { task.tileState[s.tile] = false; slots[i] = { u: null, tile: -1 }; } });
   phase = 'play'; render(); badge();
   const first = slots.findIndex(s => !s.u); if (first >= 0) document.querySelectorAll('.slot')[first].classList.add('hint');
-  if (change < 0) { toast('Easier words'); sfx('down'); }
+  if (change < 0) { toast(T('Easier words')); sfx('down'); }
 }
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1600); }
 $('hear').onclick = () => hear();
@@ -1301,16 +1599,16 @@ function checkTask(t, i) {
   if (t.groups.reduce((a, b) => a + b, 0) !== t.units.length) bad('groups do not match units');
   if (t.fixed.some(k => k < 0 || k >= t.units.length)) bad('fixed slot out of range');
   const need = t.units.filter((u, k) => !t.fixed.includes(k));
-  if (t.kind === 'keys') { if (t.tiles.length !== 26 || need.some(u => !/^[a-z]$/.test(u))) bad('keyboard cannot type ' + t.word); }
+  if (t.kind === 'keys') { if (t.tiles.length !== KEYS.length || need.some(u => !KEYS.includes(u))) bad('keyboard cannot type ' + t.word); }
   else { const pool = t.tiles.slice(); for (const u of need) { const j = pool.indexOf(u); if (j < 0) bad(`no tile for ${u}`); pool.splice(j, 1); } }
   if (t.kind === 'choice' && (t.tiles.length < 3 || new Set(t.tiles).size !== t.tiles.length || !t.tiles.includes(t.word))) bad('bad choices for ' + t.word);
-  if (t.tiles.length > 26) bad('too many tiles');
+  if (t.tiles.length > (t.kind === 'keys' ? KEYS.length : 26)) bad('too many tiles');
   if (!spellKind(t)) bad(`no spell for ${t.spell}`);
 }
 window.DucklingLadder = {
   levels: () => LEVELS.length,
   start: () => START,
-  label: () => LEVELS[P.lv].name,
+  label: () => T(LEVELS[P.lv].name),
   exercise: (i, n) => { const out = []; for (let k = 0; k < n; k++) { const t = LEVELS[i].gen(); checkTask(t, i); out.push(`${t.word}: ${t.prompt}`); } return out; },
 };
 </script>
