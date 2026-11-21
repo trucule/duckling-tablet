@@ -684,15 +684,33 @@ if (LANG === 'es') {
   $('chSay').setAttribute('aria-label', T('Say it again'));
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-let micStream = null;
+let micStream = null, micClean = true;
+// Opening the microphone on an iPad changes the device's sample rate, and an audio context made before that keeps its
+// old rate and hears nothing from the microphone. So the context is read again after every open (callers take
+// audio() after openMic), and when the microphone reports a different rate the context is rebuilt at that rate.
 async function openMic(clean) {
   closeMic();
   // Singing wants the raw voice (noise suppression smears pitch); the looper wants echo cancellation so the loops
   // already playing are not recorded again into the new part.
+  micClean = clean;
   micStream = await navigator.mediaDevices.getUserMedia({ audio: clean ? { echoCancellation: false, noiseSuppression: false, autoGainControl: true } : { echoCancellation: true, noiseSuppression: false, autoGainControl: true } });
+  matchMicRate(micStream);
   return micStream;
 }
+function matchMicRate(stream) {
+  const t = stream.getAudioTracks()[0], st = t && t.getSettings ? t.getSettings() : null, rate = st && st.sampleRate;
+  if (!rate || !ACTX || ACTX.sampleRate === rate) return;
+  if (typeof playing !== 'undefined' && playing) stopLoop();
+  try { ACTX.close(); } catch (e) {}
+  ACTX = null;
+  try { ACTX = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive', sampleRate: rate }); } catch (e) { ACTX = null; }
+  audio();
+}
 function closeMic() { if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; } }
+// A capture that delivers exact zeros for a second is a dead one (a raw, unprocessed microphone on some iPads), not a
+// quiet child: the caller reopens the microphone with processing on and records again.
+const DEAD_SEC = 1;
+function allZero(d) { for (let i = 0; i < d.length; i++) if (d[i] !== 0) return false; return true; }
 function concat(chunks) { const n = chunks.reduce((s, c) => s + c.length, 0), out = new Float32Array(n); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; } return out; }
 function rms(d) { let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; return Math.sqrt(s / d.length); }
 function normalize(d, peakTo = .9) { let p = 0; for (let i = 0; i < d.length; i++) p = Math.max(p, Math.abs(d[i])); if (p < 1e-6) return d; const g = peakTo / p; const o = new Float32Array(d.length); for (let i = 0; i < d.length; i++) o[i] = d[i] * g; return o; }
@@ -715,17 +733,23 @@ function playBuffer(data, rate, when = 0, dest) {
 // Records until she stops (silence after sound) or the time limit. onLevel(rms, frame) runs on every block.
 function recordVoice({ clean = true, maxSec = 12, silenceSec = 1.2, onLevel } = {}) {
   return new Promise(async (resolve, reject) => {
-    const a = audio(); if (!a || !navigator.mediaDevices) return reject(new Error('nomic'));
+    if (!audio() || !navigator.mediaDevices) return reject(new Error('nomic'));
     let stream; try { stream = await openMic(clean); } catch (e) { return reject(new Error('nomic')); }
+    const a = audio(); if (!a) return reject(new Error('nomic'));
     const src = a.createMediaStreamSource(stream), proc = a.createScriptProcessor(2048, 1, 1), sink = a.createGain(); sink.gain.value = 0;
-    const chunks = []; let heard = false, quiet = 0, total = 0, done = false; const rate = a.sampleRate;
-    const finish = () => { if (done) return; done = true; try { proc.disconnect(); src.disconnect(); } catch (e) {} closeMic(); resolve({ data: concat(chunks), rate }); };
-    recordVoice.stop = finish;
+    const chunks = []; let heard = false, quiet = 0, total = 0, zeros = 0, done = false; const rate = a.sampleRate;
+    const finish = dead => {
+      if (done) return; done = true; try { proc.disconnect(); src.disconnect(); } catch (e) {} closeMic();
+      if (dead) { recordVoice({ clean: false, maxSec, silenceSec, onLevel }).then(resolve, reject); return; }
+      resolve({ data: concat(chunks), rate });
+    };
+    recordVoice.stop = () => finish(false);
     proc.onaudioprocess = e => {
       const d = new Float32Array(e.inputBuffer.getChannelData(0)); const r = rms(d);
       chunks.push(d); total += d.length; if (onLevel) onLevel(r, d, rate);
+      if (clean && !heard && allZero(d)) { zeros += d.length; if (zeros > rate * DEAD_SEC) return finish(true); }
       if (r > 0.025) { heard = true; quiet = 0; } else if (heard) quiet += d.length;
-      if ((heard && quiet > rate * silenceSec) || total > rate * maxSec) finish();
+      if ((heard && quiet > rate * silenceSec) || total > rate * maxSec) finish(false);
     };
     src.connect(proc); proc.connect(sink).connect(a.destination);
   });
@@ -991,7 +1015,9 @@ $('fxRec').onclick = async () => {
 };
 $('fxPlay').onclick = () => { if (fxMode === 'rec') playFx(); };
 async function startLive() {
-  const a = audio(); try { await openMic(false); } catch (e) { $('fxMsg').textContent = T('No microphone found.'); return; }
+  if (!audio()) return;
+  try { await openMic(false); } catch (e) { $('fxMsg').textContent = T('No microphone found.'); return; }
+  const a = audio(); if (!a) return;
   liveSrc = a.createMediaStreamSource(micStream); liveNode = liveProcessor(a, () => fxName);
   const comp = a.createDynamicsCompressor(); liveOut = a.createGain(); liveOut.gain.value = .8;
   liveSrc.connect(liveNode); liveNode.connect(comp).connect(liveOut).connect(a.destination);
@@ -1078,8 +1104,9 @@ $('loopPlay').onclick = () => { audio(); if (playing) stopLoop(); else startLoop
 $('clickOn').onclick = () => { clickOn = !clickOn; $('clickOn').classList.toggle('on', clickOn); $('clickOn').textContent = T(clickOn ? '🕺 Beat on' : '🕺 Beat off'); };
 // Records exactly one loop, starting on the next loop start (after a count-in when the band is stopped).
 async function recordTrack(i) {
-  if (armed >= 0) return; const a = audio();
+  if (armed >= 0 || !audio()) return;
   try { await openMic(false); } catch (e) { $('loopMsg').textContent = T('No microphone found.'); return; }
+  const a = audio(); if (!a) return;
   armed = i; buildTracks();
   let recStart;
   if (!playing) { startLoop(true); recStart = t0; }
@@ -1573,15 +1600,21 @@ function duckSample() {
 }
 // Her voice through the microphone for loud and soft: the loudest moment, with the tablet's volume levelling off.
 let chMicBusy = false;
-async function voiceLevel(onLevel) {
-  const a = audio(); if (!a || !navigator.mediaDevices) throw new Error('nomic');
-  closeMic(); micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-  return new Promise(resolve => {
+async function voiceLevel(onLevel, clean = true) {
+  if (!audio() || !navigator.mediaDevices) throw new Error('nomic');
+  closeMic(); micClean = clean;
+  micStream = await navigator.mediaDevices.getUserMedia({ audio: clean ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false } : { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+  matchMicRate(micStream);
+  const a = audio(); if (!a) throw new Error('nomic');
+  return new Promise((resolve, reject) => {
     const src = a.createMediaStreamSource(micStream), proc = a.createScriptProcessor(2048, 1, 1), sink = a.createGain(); sink.gain.value = 0;
-    let peak = 0, heard = false, quiet = 0, total = 0, done = false; const rate = a.sampleRate;
-    const finish = () => { if (done) return; done = true; try { proc.disconnect(); src.disconnect(); } catch (e) {} closeMic(); resolve(peak); };
-    voiceLevel.stop = finish;
-    proc.onaudioprocess = e => { const r = rms(e.inputBuffer.getChannelData(0)); total += 2048; if (onLevel) onLevel(r); if (r > .015) { heard = true; quiet = 0; peak = Math.max(peak, r); } else if (heard) quiet += 2048; if ((heard && quiet > rate * .7) || total > rate * 5) finish(); };
+    let peak = 0, heard = false, quiet = 0, total = 0, zeros = 0, done = false; const rate = a.sampleRate;
+    const finish = dead => { if (done) return; done = true; try { proc.disconnect(); src.disconnect(); } catch (e) {} closeMic(); if (dead) voiceLevel(onLevel, false).then(resolve, reject); else resolve(peak); };
+    voiceLevel.stop = () => finish(false);
+    proc.onaudioprocess = e => {
+      const d = e.inputBuffer.getChannelData(0), r = rms(d); total += 2048; if (onLevel) onLevel(r);
+      if (clean && !heard && allZero(d)) { zeros += d.length; if (zeros > rate * DEAD_SEC) return finish(true); }
+      if (r > .015) { heard = true; quiet = 0; peak = Math.max(peak, r); } else if (heard) quiet += 2048; if ((heard && quiet > rate * .7) || total > rate * 5) finish(false); };
     src.connect(proc); proc.connect(sink).connect(a.destination);
   });
 }

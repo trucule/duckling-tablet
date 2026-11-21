@@ -685,6 +685,17 @@ function audio() {
   if (ctx && ctx.state === 'suspended') ctx.resume();
   return ctx;
 }
+// Opening the microphone on an iPad changes the device's sample rate, and a context made before that keeps its old
+// rate and hears nothing from the microphone: when the microphone reports another rate the context is rebuilt at it.
+function matchMicRate(stream) {
+  const t = stream.getAudioTracks()[0], st = t && t.getSettings ? t.getSettings() : null, rate = st && st.sampleRate;
+  if (!rate || !ctx || ctx.sampleRate === rate) return;
+  if (playing) setPlaying(false);
+  try { ctx.close(); } catch (e) {}
+  ctx = null;
+  try { ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: rate }); } catch (e) { ctx = null; }
+  audio();
+}
 function noise(a) {
   if (!noiseBuf) { noiseBuf = a.createBuffer(1, a.sampleRate, a.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
   const s = a.createBufferSource(); s.buffer = noiseBuf; return s;
@@ -928,11 +939,13 @@ document.querySelectorAll('#fx .pill').forEach(b => b.onclick = () => {
 
 let recording = false;
 async function record(i) {
-  if (recording) return; const a = audio(); if (!a || !navigator.mediaDevices) { say('nomic'); return; }
+  if (recording) return; if (!audio() || !navigator.mediaDevices) { say('nomic'); return; }
   const p = padEls[i], status = p.querySelector('.status'), level = p.querySelector('.level i');
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
   catch (e) { status.textContent = T('No microphone'); say('nomic'); return; }
+  matchMicRate(stream);
+  const a = audio(); if (!a) { stream.getTracks().forEach(t => t.stop()); say('nomic'); return; }
   recording = true; p.classList.add('rec'); status.textContent = T('Ready…'); say('ready');
   const src = a.createMediaStreamSource(stream), proc = a.createScriptProcessor(2048, 1, 1), sink = a.createGain(); sink.gain.value = 0;
   const chunks = []; let armed = false, heard = false, quiet = 0, total = 0; const rate = a.sampleRate;
