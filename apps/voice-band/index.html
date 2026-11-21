@@ -743,13 +743,10 @@ function recordVoice({ clean = true, maxSec = 12, silenceSec = 1.2, onLevel } = 
     const a = audio(); if (!a) return reject(new Error('nomic'));
     const src = a.createMediaStreamSource(stream), proc = a.createScriptProcessor(2048, 1, 1), sink = a.createGain(); sink.gain.value = 0;
     const chunks = []; let heard = false, quiet = 0, total = 0, zeros = 0, peak = 0, done = false; const rate = a.sampleRate;
-    // What the capture looked like, for the message a parent reads when nothing was heard: the context's rate, the
-    // microphone's own rate and state as the browser reports them, raw or processed, and the loudest sample.
-    const info = () => { const t = stream.getAudioTracks()[0], st = t && t.getSettings ? t.getSettings() : {}; return `ctx ${rate} ${a.state}, mic ${st.sampleRate || '?'} ${t ? (t.muted ? 'muted' : 'open') + ' ' + t.readyState : 'none'}, ${clean ? 'raw' : 'processed'}, peak ${peak.toFixed(4)}`; };
     const finish = dead => {
-      if (done) return; done = true; const seen = info(); try { proc.disconnect(); src.disconnect(); } catch (e) {} closeMic();
+      if (done) return; done = true; try { proc.disconnect(); src.disconnect(); } catch (e) {} closeMic();
       if (dead) { recordVoice({ clean: false, maxSec, silenceSec, onLevel }).then(resolve, reject); return; }
-      resolve({ data: scaled(concat(chunks), lift(peak)), rate, info: seen });
+      resolve({ data: scaled(concat(chunks), lift(peak)), rate });
     };
     recordVoice.stop = () => finish(false);
     proc.onaudioprocess = e => {
@@ -952,7 +949,7 @@ async function singFree() {
   try {
     const rec = await recordVoice({ clean: true, maxSec: 15, silenceSec: 1.4, onLevel: (r, d, rate) => setBall(r > .02 ? (f => f ? midiOf(f) : null)(yin(d, rate)) : null) });
     setBall(null); const data = trim(rec.data, rec.rate);
-    if (!data) { $('singMsg').textContent = T("I couldn't hear you. Try singing a little louder.") + ' (' + rec.info + ')'; return; }
+    if (!data) { $('singMsg').textContent = T("I couldn't hear you. Try singing a little louder."); return; }
     sung = { data, rate: rec.rate }; const { track, hopSec } = pitchTrack(data, rec.rate); sungNotes = segmentNotes(track, hopSec);
     if (!sungNotes.length) { $('singMsg').textContent = T("I heard you, but not a tune. Try humming 'la la la'."); drawRoll([]); return; }
     $('singMsg').textContent = T('You sang {n}: {notes}', { n: plural(sungNotes.length, 'note'), notes: sungNotes.map(n => noteName(n.midi)).join(' ') });
