@@ -7,6 +7,11 @@ name: iOS
 
 on:
   workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: Skip the simulator tests (for a release build of code whose tests already passed)
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -37,6 +42,7 @@ jobs:
           grep -E "warning:" "$RUNNER_TEMP/build.log" | grep -v "SourcePackages" | sort -u | head -30 || true
           tail -n 3 "$RUNNER_TEMP/build.log"
       - name: Test on an iPad simulator
+        if: ${{ !inputs.skip_tests }}
         working-directory: ios
         run: |
           SIM=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in sorted(d.items(), reverse=True) if 'iOS' in k for x in v if 'iPad' in x['name']))")
