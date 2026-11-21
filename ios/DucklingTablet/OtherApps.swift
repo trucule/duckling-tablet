@@ -90,9 +90,9 @@ final class OtherApps {
     /// changed since the last start.
     func apply(lockdownOn: Bool) {
         let signature = lockdownOn ? picks.keys.sorted().map { "\($0):\(picks[$0]!.minutes)" }.joined(separator: ",") : ""
-        if signature == defaults.string(forKey: "otherAppsApplied") { return }
+        if signature == (defaults.string(forKey: "otherAppsApplied") ?? "") { return }
         defaults.set(signature, forKey: "otherAppsApplied")
-        center.stopMonitoring([OtherApps.activity])
+        stopMonitoring()
         guard lockdownOn, !picks.isEmpty else { store.shield.applications = nil; return }
         // A limit shield from earlier today stays only for apps still picked with a limit.
         let limited = Set(picks.values.filter { $0.minutes != OtherApps.noLimit }.map { $0.token })
@@ -108,12 +108,26 @@ final class OtherApps {
             }
         }
         let day = DeviceActivitySchedule(intervalStart: DateComponents(hour: 0, minute: 0), intervalEnd: DateComponents(hour: 23, minute: 59), repeats: true)
-        do { try center.startMonitoring(OtherApps.activity, during: day, events: events) } catch { lastError = String(describing: error) }
+        #if targetEnvironment(simulator)
+        lastError = "no Screen Time monitoring in the simulator"
+        #else
+        do { try center.startMonitoring(OtherApps.activity, during: day, events: events); defaults.set(true, forKey: "otherAppsMonitoring") } catch { lastError = String(describing: error) }
+        #endif
+    }
+
+    /// Stops the day's monitoring, only when one was started: DeviceActivity's calls are synchronous and have no
+    /// daemon to answer them in the simulator, where the first one hangs the app (and CI's tests with it).
+    private func stopMonitoring() {
+        guard defaults.bool(forKey: "otherAppsMonitoring") else { return }
+        defaults.set(false, forKey: "otherAppsMonitoring")
+        #if !targetEnvironment(simulator)
+        center.stopMonitoring([OtherApps.activity])
+        #endif
     }
 
     /// Everything gone: the picks, the monitoring and any limit shield (Remove Duckling, or the family released).
     func clear() {
-        center.stopMonitoring([OtherApps.activity])
+        stopMonitoring()
         store.shield.applications = nil
         picks = [:]
         defaults.removeObject(forKey: "otherAppsApplied")
