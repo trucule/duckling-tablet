@@ -711,6 +711,11 @@ function closeMic() { if (micStream) { micStream.getTracks().forEach(t => t.stop
 // quiet child: the caller reopens the microphone with processing on and records again.
 const DEAD_SEC = 1;
 function allZero(d) { for (let i = 0; i < d.length; i++) if (d[i] !== 0) return false; return true; }
+// Microphones differ a lot in level: an iPad's raw capture peaks near 0.02 where a laptop's peaks near 0.5, and the
+// thresholds in the rooms (heard, quiet, a note on the ladder) assume the loud kind, so a take is lifted to that
+// range. The gain follows the loudest sample heard so far and is capped, so a silent room is not lifted into a voice.
+function lift(peakSoFar) { return Math.min(25, Math.max(1, 0.4 / Math.max(peakSoFar, 1e-4))); }
+function scaled(d, g) { if (g === 1) return d; const o = new Float32Array(d.length); for (let i = 0; i < d.length; i++) o[i] = d[i] * g; return o; }
 function concat(chunks) { const n = chunks.reduce((s, c) => s + c.length, 0), out = new Float32Array(n); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; } return out; }
 function rms(d) { let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; return Math.sqrt(s / d.length); }
 function normalize(d, peakTo = .9) { let p = 0; for (let i = 0; i < d.length; i++) p = Math.max(p, Math.abs(d[i])); if (p < 1e-6) return d; const g = peakTo / p; const o = new Float32Array(d.length); for (let i = 0; i < d.length; i++) o[i] = d[i] * g; return o; }
@@ -744,14 +749,15 @@ function recordVoice({ clean = true, maxSec = 12, silenceSec = 1.2, onLevel } = 
     const finish = dead => {
       if (done) return; done = true; const seen = info(); try { proc.disconnect(); src.disconnect(); } catch (e) {} closeMic();
       if (dead) { recordVoice({ clean: false, maxSec, silenceSec, onLevel }).then(resolve, reject); return; }
-      resolve({ data: concat(chunks), rate, info: seen });
+      resolve({ data: scaled(concat(chunks), lift(peak)), rate, info: seen });
     };
     recordVoice.stop = () => finish(false);
     proc.onaudioprocess = e => {
-      const d = new Float32Array(e.inputBuffer.getChannelData(0)); const r = rms(d);
-      chunks.push(d); total += d.length; if (onLevel) onLevel(r, d, rate);
-      for (let i = 0; i < d.length; i += 16) { const v = Math.abs(d[i]); if (v > peak) peak = v; }
-      if (clean && !heard && allZero(d)) { zeros += d.length; if (zeros > rate * DEAD_SEC) return finish(true); }
+      const raw = e.inputBuffer.getChannelData(0);
+      for (let i = 0; i < raw.length; i += 4) { const v = Math.abs(raw[i]); if (v > peak) peak = v; }
+      const d = scaled(raw, lift(peak)); const r = rms(d);
+      chunks.push(new Float32Array(raw)); total += d.length; if (onLevel) onLevel(r, d, rate);
+      if (clean && !heard && allZero(raw)) { zeros += raw.length; if (zeros > rate * DEAD_SEC) return finish(true); }
       if (r > 0.025) { heard = true; quiet = 0; } else if (heard) quiet += d.length;
       if ((heard && quiet > rate * silenceSec) || total > rate * maxSec) finish(false);
     };
@@ -1612,12 +1618,14 @@ async function voiceLevel(onLevel, clean = true) {
   const a = audio(); if (!a) throw new Error('nomic');
   return new Promise((resolve, reject) => {
     const src = a.createMediaStreamSource(micStream), proc = a.createScriptProcessor(2048, 1, 1), sink = a.createGain(); sink.gain.value = 0;
-    let peak = 0, heard = false, quiet = 0, total = 0, zeros = 0, done = false; const rate = a.sampleRate;
+    let peak = 0, top = 0, heard = false, quiet = 0, total = 0, zeros = 0, done = false; const rate = a.sampleRate;
     const finish = dead => { if (done) return; done = true; try { proc.disconnect(); src.disconnect(); } catch (e) {} closeMic(); if (dead) voiceLevel(onLevel, false).then(resolve, reject); else resolve(peak); };
     voiceLevel.stop = () => finish(false);
     proc.onaudioprocess = e => {
-      const d = e.inputBuffer.getChannelData(0), r = rms(d); total += 2048; if (onLevel) onLevel(r);
-      if (clean && !heard && allZero(d)) { zeros += d.length; if (zeros > rate * DEAD_SEC) return finish(true); }
+      const raw = e.inputBuffer.getChannelData(0);
+      for (let i = 0; i < raw.length; i += 4) { const v = Math.abs(raw[i]); if (v > top) top = v; }
+      const d = scaled(raw, lift(top)), r = rms(d); total += 2048; if (onLevel) onLevel(r);
+      if (clean && !heard && allZero(raw)) { zeros += raw.length; if (zeros > rate * DEAD_SEC) return finish(true); }
       if (r > .015) { heard = true; quiet = 0; peak = Math.max(peak, r); } else if (heard) quiet += 2048; if ((heard && quiet > rate * .7) || total > rate * 5) finish(false); };
     src.connect(proc); proc.connect(sink).connect(a.destination);
   });
