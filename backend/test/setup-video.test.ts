@@ -1,10 +1,14 @@
-// A setup video for parents: create the family, pair a tablet, invite a second parent, pair another tablet. It drives
-// the built portal and tablet app against a real API, takes a frame at each step with the next control outlined,
-// composes the frames at 1920 x 1080 with a caption, and encodes an MP4 with ffmpeg. Runs only when asked:
+// A setup video for parents: create the family, pair a tablet, invite a second parent, pair another tablet, keep the
+// website on a phone, ask for an app, allow a website, and give another app its screen time. It drives the built
+// portal and tablet app against a real API, takes a frame at each step with the next control outlined, composes the
+// frames at 1920 x 1080 with a caption, and encodes an MP4 with ffmpeg. Runs only when asked:
 //
-//   cd backend && SETUP_VIDEO=/some/folder npx vitest run test/setup-video.test.ts
+//   cd backend && SETUP_VIDEO=/some/folder [SETUP_VOICE=/folder/of/beats] npx vitest run test/setup-video.test.ts
 //
-// Writes setup.mp4 and the composed frames (frames/) to that folder. Needs web/dist, portal/dist and ffmpeg.
+// Writes setup.mp4, the composed frames (frames/) and the narration script (beats_duckling_setup.txt, one line per
+// scene in the voice clone's beats format) to that folder. With SETUP_VOICE, a folder of beat1.wav to beatN.wav read
+// from that script, each scene lasts at least as long as its line and the narration is mixed in.
+// Needs web/dist, portal/dist and ffmpeg.
 import { describe, it, beforeAll, afterAll } from 'vitest';
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -23,6 +27,7 @@ const ROOT = join(import.meta.dirname, '..', '..');
 const TOOLS = join(ROOT, 'tools');
 const ADMIN = 'admin-token-for-tests-0123456789';
 const OUT = process.env.SETUP_VIDEO ?? '';
+const VOICE = process.env.SETUP_VOICE ?? '';
 const ready = !!OUT && existsSync(join(ROOT, 'web', 'dist', 'index.html')) && existsSync(join(ROOT, 'portal', 'dist', 'index.html')) && existsSync(join(TOOLS, 'node_modules', 'fflate'));
 const PORTAL_HOST = 'https://parents.ducklingtablet.com';
 const W = 1920, H = 1080, FPS = 30;
@@ -44,7 +49,7 @@ const fakeShell = (platform: string) => `(() => {
     requestHomeRole: () => {}, openSecuritySettings: () => {}, openWifiSettings: () => {}, networkStatus: () => 'wifi',
     mediaAccess: () => JSON.stringify({ microphone: 'on', camera: 'on' }),
     setLockdown: () => {}, setAllowedHosts: () => {}, setSignInHosts: () => {}, setChildInfo: () => {}, setChildLevels: () => {}, setChildId: () => {}, setLanguage: () => {},
-    release: () => {}, installedPackages: () => '[]', chooseOtherApps: () => {}, launchPackage: () => {},
+    release: () => {}, installedPackages: () => ${JSON.stringify(platform === 'android' ? JSON.stringify([{ package: 'com.google.android.apps.youtube.kids', label: 'YouTube Kids' }, { package: 'com.example.puzzles', label: 'Puzzle Pals' }]) : '[]')}, chooseOtherApps: () => {}, launchPackage: () => {},
     canDrawOverlays: () => false, openOverlaySettings: () => {}, setAppAccountToken: () => {}, subscriptionPrice: () => '$4.99',
   };
 })();`;
@@ -87,9 +92,9 @@ afterAll(async () => {
 
 type Box = { x: number; y: number; width: number; height: number };
 type Pane =
-  | { kind: 'portal' | 'tablet'; img: string; vw: number; vh: number; ring?: Box; label?: string }
+  | { kind: 'portal' | 'tablet' | 'phone'; img: string; vw: number; vh: number; ring?: Box; label?: string }
   | { kind: 'mail'; to: string; subject: string; lines: string[]; ring?: number };
-type Shot = { part: string; caption: string; panes: Pane[]; seconds: number };
+type Shot = { part: string; caption: string; say: string; panes: Pane[]; seconds: number };
 
 describe.skipIf(!ready)('setup video', () => {
   it('records the setup from a new family to a second tablet', async () => {
@@ -100,8 +105,8 @@ describe.skipIf(!ready)('setup video', () => {
     const shots: Shot[] = [];
     let n = 0;
 
-    async function context(viewport: { width: number; height: number }, shell?: string) {
-      const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1.5, locale: 'en-US' });
+    async function context(viewport: { width: number; height: number }, shell?: string, extra: Record<string, unknown> = {}) {
+      const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1.5, locale: 'en-US', timezoneId: 'America/Los_Angeles', ...extra });
       await ctx.route('https://api.ducklingtablet.com/**', async (route) => {
         const req = route.request();
         const r = await fetch(req.url().replace('https://api.ducklingtablet.com', api), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() ?? undefined });
@@ -111,7 +116,7 @@ describe.skipIf(!ready)('setup video', () => {
       return ctx.newPage();
     }
     // The page as it is now, with the control about to be pressed outlined. The control is scrolled to the middle.
-    async function snap(p: Page, kind: 'portal' | 'tablet', target?: Locator, label?: string): Promise<Pane> {
+    async function snap(p: Page, kind: 'portal' | 'tablet' | 'phone', target?: Locator, label?: string): Promise<Pane> {
       if (target) await target.evaluate((el) => el.scrollIntoView({ block: 'center' }));
       await p.waitForTimeout(400);
       const img = join(dir, `raw-${++n}.jpg`);
@@ -121,77 +126,79 @@ describe.skipIf(!ready)('setup video', () => {
     }
     function mail(m: { to: string; subject: string; text: string }): Pane {
       const lines = m.text.replace(/http:\/\/127\.0\.0\.1:\d+/g, PORTAL_HOST).replace(/(token=)[\w-]+/g, '$1...').split('\n').filter((l, i, a) => l.trim() || (i > 0 && a[i - 1].trim())).slice(0, 9);
-      return { kind: 'mail', to: m.to, subject: m.subject, lines, ring: lines.findIndex((l) => l.includes(PORTAL_HOST)) };
+      return { kind: 'mail', to: m.to, subject: m.subject, lines, ring: lines.findIndex((l) => l.includes(PORTAL_HOST) || /\b\d{3} \d{3}\b/.test(l)) };
     }
-    const add = (part: string, caption: string, panes: Pane[], seconds = 4) => shots.push({ part, caption, panes, seconds });
+    // caption is what the frame says, say what the narrator says (no hyphens, the web address spelled out: the voice
+    // clone's script rules).
+    const add = (part: string, caption: string, say: string, panes: Pane[], seconds = 4) => shots.push({ part, caption, say, panes, seconds });
 
     // Part 1: the family.
     const P1 = 'Create your family';
     const mom = await context({ width: 960, height: 720 });
     await mom.goto(portal);
     await mom.getByLabel('Email').fill('sam@example.com');
-    add(P1, 'On a phone or computer, go to parents.ducklingtablet.com and type your email.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Send me a link' }))]);
+    add(P1, 'On a phone or computer, go to parents.ducklingtablet.com and type your email.', 'Go to parents dot duckling tablet dot com, and type your email.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Send me a link' }))]);
     await mom.getByRole('button', { name: 'Send me a link' }).click();
     await mom.getByText('Check your email').waitFor();
-    add(P1, 'Open the sign-in link in the email. The first sign-in creates your family.', [await snap(mom, 'portal'), mail(mails.at(-1)!)], 4.5);
+    add(P1, 'Open the sign-in link in the email. The first sign-in creates your family.', 'Open the link in the email. Your first sign in creates the family.', [await snap(mom, 'portal'), mail(mails.at(-1)!)], 4.5);
     await mom.goto(mails.at(-1)!.text.match(/(http\S+signin\?token=[\w-]+)/)![1]);
     await mom.getByRole('heading', { name: 'Children' }).waitFor();
     await mom.getByRole('button', { name: 'Not now' }).click().catch(() => {});
     await mom.getByPlaceholder('First name').fill('Ada');
     await mom.getByPlaceholder('Age').fill('7');
-    add(P1, 'Add your child with a first name and age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Add child' }))]);
+    add(P1, 'Add your child with a first name and age.', 'Add your child with a first name and an age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Add child' }))]);
     await mom.getByRole('button', { name: 'Add child' }).click();
     await mom.locator('#children .list li', { hasText: 'Ada' }).waitFor();
-    add(P1, 'Each subject starts at a level for that age. Levels changes it per subject.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Levels' }))]);
+    add(P1, 'Each subject starts at a level for that age. Levels changes it per subject.', 'Each subject starts at a level that fits that age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Levels' }))]);
 
     // Part 2: the first tablet.
     const P2 = 'Pair the tablet';
     const ipad = await context({ width: 1180, height: 820 }, 'ios');
     await ipad.goto(web);
     const haveCode = ipad.getByRole('button', { name: 'I have a code from the website' });
-    add(P2, 'Install Duckling Tablet on the tablet and open it. Choose I have a code from the website.', [await snap(ipad, 'tablet', haveCode, 'iPad')]);
+    add(P2, 'Install Duckling Tablet on the tablet and open it. Choose I have a code from the website.', 'On the tablet, install Duckling Tablet and open it.', [await snap(ipad, 'tablet', haveCode, 'iPad')]);
     await haveCode.click();
     await mom.locator('#devices select').first().selectOption({ label: 'Ada' });
     const makeCode = mom.getByRole('button', { name: 'Make a pairing code' });
-    add(P2, 'On the website, under Devices, choose the child and press Make a pairing code.', [await snap(mom, 'portal', makeCode), await snap(ipad, 'tablet', undefined, 'iPad')]);
+    add(P2, 'On the website, under Devices, choose the child and press Make a pairing code.', 'On the website, choose your child and make a pairing code.', [await snap(mom, 'portal', makeCode), await snap(ipad, 'tablet', undefined, 'iPad')]);
     await makeCode.click();
     const code = (await mom.locator('.code').textContent())!.trim();
     await ipad.getByPlaceholder('000000').fill(code);
     await ipad.getByLabel('Name for this tablet').fill('Ada\'s iPad');
     const pair = ipad.getByRole('button', { name: 'Pair', exact: true });
-    add(P2, 'Type the code on the tablet, give the tablet a name, and press Pair. The code works once, for 15 minutes.', [await snap(mom, 'portal', mom.locator('.code')), await snap(ipad, 'tablet', pair, 'iPad')], 5);
+    add(P2, 'Type the code on the tablet, give the tablet a name, and press Pair. The code works once, for 15 minutes.', 'Type the code on the tablet, name the tablet, and press Pair.', [await snap(mom, 'portal', mom.locator('.code')), await snap(ipad, 'tablet', pair, 'iPad')], 5);
     await pair.click();
     await ipad.getByRole('button', { name: '1', exact: true }).waitFor();
     for (const d of '2468') await ipad.getByRole('button', { name: d, exact: true }).click();
     await ipad.waitForTimeout(300);
-    add(P2, 'Choose a four-digit parent PIN and type it twice. It opens the parent area on every tablet in the family.', [await snap(ipad, 'tablet', ipad.locator('.pin, .dots, .keypad').first(), 'iPad')], 4.5);
+    add(P2, 'Choose a four-digit parent PIN and type it twice. It opens the parent area on every tablet in the family.', 'Choose a four digit parent PIN, and type it twice.', [await snap(ipad, 'tablet', ipad.locator('.pin, .dots, .keypad').first(), 'iPad')], 4.5);
     for (const d of '2468') await ipad.getByRole('button', { name: d, exact: true }).click();
     const done = ipad.getByRole('button', { name: 'Done', exact: true });
     await done.waitFor();
-    add(P2, 'The parent area on the tablet lists the steps that lock it down for your child. When they are done, press Done.', [await snap(ipad, 'tablet', done, 'iPad')], 5);
+    add(P2, 'The parent area on the tablet lists the steps that lock it down for your child. When they are done, press Done.', 'The parent area shows the lockdown steps. When they are done, press Done.', [await snap(ipad, 'tablet', done, 'iPad')], 5);
     await done.click();
     await ipad.getByRole('heading', { name: 'Ada\'s tablet' }).waitFor();
     await ipad.waitForTimeout(2500);
-    add(P2, 'The tablet is ready, with the starter apps installed. More apps are in the Library.', [await snap(ipad, 'tablet', undefined, 'iPad')], 4.5);
+    add(P2, 'The tablet is ready, with the starter apps installed. More apps are in the Library.', 'The tablet is ready, with the starter apps installed.', [await snap(ipad, 'tablet', undefined, 'iPad')], 4.5);
     await mom.getByRole('button', { name: 'Refresh' }).click();
     await mom.getByText('Ada\'s iPad').waitFor();
-    add(P2, 'The tablet now shows under Devices on the website, where you manage its apps and websites.', [await snap(mom, 'portal', mom.locator('#devices li', { hasText: 'Ada\'s iPad' }))]);
+    add(P2, 'The tablet now shows under Devices on the website, where you manage its apps and websites.', 'On the website, the tablet now shows under Devices.', [await snap(mom, 'portal', mom.locator('#devices li', { hasText: 'Ada\'s iPad' }))]);
 
     // Part 3: a second parent.
     const P3 = 'Add a parent';
     const invite = mom.getByPlaceholder('Another parent\'s email');
     await invite.fill('alex@example.com');
-    add(P3, 'Under Parents, type the other parent\'s email and press Invite.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Invite', exact: true }))]);
+    add(P3, 'Under Parents, type the other parent\'s email and press Invite.', 'Under Parents, invite the other parent by email.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Invite', exact: true }))]);
     await mom.getByRole('button', { name: 'Invite', exact: true }).click();
     await mom.getByText('Invitation sent', { exact: false }).waitFor();
     const inviteMail = mails.at(-1)!;
-    add(P3, 'They get an email with a link. The link works for 7 days.', [await snap(mom, 'portal', mom.getByText('Invitation sent', { exact: false })), mail(inviteMail)], 4.5);
+    add(P3, 'They get an email with a link. The link works for 7 days.', 'They get an email with a link that works for seven days.', [await snap(mom, 'portal', mom.getByText('Invitation sent', { exact: false })), mail(inviteMail)], 4.5);
     const dad = await context({ width: 960, height: 720 });
     await dad.goto(inviteMail.text.match(/(http\S+token=[\w-]+)/)![1]);
     await dad.getByRole('heading', { name: 'Children' }).waitFor();
     await dad.getByRole('button', { name: 'Not now' }).click().catch(() => {});
     await dad.waitForTimeout(500);
-    add(P3, 'The link signs them in to your family. Every parent can change the same settings.', [await snap(dad, 'portal', dad.locator('#parents'))], 4.5);
+    add(P3, 'The link signs them in to your family. Every parent can change the same settings.', 'The link signs them in to the same family.', [await snap(dad, 'portal', dad.locator('#parents'))], 4.5);
 
     // Part 4: another tablet, for a second child.
     const P4 = 'Add another tablet';
@@ -199,7 +206,7 @@ describe.skipIf(!ready)('setup video', () => {
     await mom.getByRole('heading', { name: 'Children' }).waitFor();
     await mom.getByPlaceholder('First name').fill('Leo');
     await mom.getByPlaceholder('Age').fill('5');
-    add(P4, 'A second child gets a profile of their own.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Add child' }))], 3.5);
+    add(P4, 'A second child gets a profile of their own.', 'A second child gets a profile of their own.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Add child' }))], 3.5);
     await mom.getByRole('button', { name: 'Add child' }).click();
     await mom.locator('#children .list li', { hasText: 'Leo' }).waitFor();
     await mom.locator('#devices select').first().selectOption({ label: 'Leo' });
@@ -211,7 +218,7 @@ describe.skipIf(!ready)('setup video', () => {
     await tab.getByPlaceholder('000000').fill(code2);
     await tab.getByLabel('Name for this tablet').fill('Leo\'s tablet');
     const pair2 = tab.getByRole('button', { name: 'Pair', exact: true });
-    add(P4, 'Each tablet pairs with its own code. Choose the child, make a code, and type it on the new tablet.', [await snap(mom, 'portal', mom.locator('.code')), await snap(tab, 'tablet', pair2, 'Android tablet')], 5);
+    add(P4, 'Each tablet pairs with its own code. Choose the child, make a code, and type it on the new tablet.', 'Each new tablet gets its own pairing code.', [await snap(mom, 'portal', mom.locator('.code')), await snap(tab, 'tablet', pair2, 'Android tablet')], 5);
     await pair2.click();
     // The family's PIN is already set, so the new tablet only asks for it before its parent area.
     const home2 = tab.getByRole('heading', { name: 'Leo\'s tablet' });
@@ -222,10 +229,101 @@ describe.skipIf(!ready)('setup video', () => {
     }
     await tab.getByRole('heading', { name: 'Leo\'s tablet' }).waitFor();
     await tab.waitForTimeout(2500);
-    add(P4, 'The new tablet shows Leo\'s apps at Leo\'s levels.', [await snap(tab, 'tablet', undefined, 'Android tablet')], 4);
+    add(P4, 'The new tablet shows Leo\'s apps at Leo\'s levels.', "The new tablet shows Leo's apps at Leo's levels.", [await snap(tab, 'tablet', undefined, 'Android tablet')], 4);
     await mom.getByRole('button', { name: 'Refresh' }).click();
     await mom.getByText('Leo\'s tablet').waitFor();
-    add(P4, 'Both tablets are listed under Devices. Any parent in the family can manage them.', [await snap(mom, 'portal', mom.locator('#devices'))], 5);
+    add(P4, 'Both tablets are listed under Devices. Any parent in the family can manage them.', 'Both tablets are listed under Devices, and any parent can manage them.', [await snap(mom, 'portal', mom.locator('#devices'))], 5);
+
+    // Part 5: the website on a phone, as a home screen app.
+    const P5 = 'Keep the website on your phone';
+    const IPHONE = { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', isMobile: true, hasTouch: true };
+    const safari = await context({ width: 390, height: 844 }, undefined, IPHONE);
+    await safari.goto(portal);
+    await safari.getByLabel('Email').fill('sam@example.com');
+    await safari.getByRole('button', { name: 'Send me a link' }).click();
+    await safari.getByText('Check your email').waitFor();
+    await safari.goto(mails.at(-1)!.text.match(/(http\S+signin\?token=[\w-]+)/)![1]);
+    const keep = safari.locator('.card', { has: safari.getByRole('heading', { name: 'Keep this page on your phone' }) });
+    await keep.waitFor();
+    add(P5, 'On a phone, the website shows how to put it on the home screen, where it opens like an app.', 'On your phone, the website can sit on your home screen, and it opens like an app.', [await snap(safari, 'phone', keep, 'iPhone')], 4.5);
+    const home = await context({ width: 390, height: 844 }, undefined, IPHONE);
+    await home.context().addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
+    await home.goto(portal);
+    await home.getByLabel('Email').fill('sam@example.com');
+    await home.getByRole('button', { name: 'Send me a code' }).click();
+    await home.getByLabel('Code').waitFor();
+    const codeMail = mails.at(-1)!;
+    await home.getByLabel('Code').fill(codeMail.text.match(/\b\d{3} \d{3}\b/)![0]);
+    add(P5, 'On an iPhone, the home screen app signs in with the six-digit code from the email.', 'On an iPhone, the home screen app signs in with the six digit code from the email.', [await snap(home, 'phone', home.getByRole('button', { name: 'Sign in' }), 'iPhone'), mail(codeMail)], 5);
+    await home.getByRole('button', { name: 'Sign in' }).click();
+    await home.getByRole('heading', { name: 'Children' }).waitFor();
+    add(P5, 'After that, it opens to your family, signed in.', 'After that, it opens straight to your family.', [await snap(home, 'phone', undefined, 'iPhone')], 3.5);
+
+    // Part 6: asking for an app.
+    const P6 = 'Ask for a new app';
+    await mom.reload();
+    await mom.getByRole('heading', { name: 'Children' }).waitFor();
+    await mom.getByPlaceholder('Search apps', { exact: false }).first().fill('volcano eruptions');
+    const ask = mom.getByRole('button', { name: 'Ask for this app' });
+    add(P6, 'Under Apps, search for what your child wants. When nothing fits, press Ask for this app.', 'Search the apps for what your child wants. When nothing fits, press Ask for this app.', [await snap(mom, 'portal', ask)], 4.5);
+    await ask.click();
+    await mom.getByPlaceholder('What should it do', { exact: false }).fill('Make a volcano erupt and show why it happens. Ada likes lava and the layers inside the earth.');
+    const send = mom.getByRole('button', { name: 'Send the request' });
+    add(P6, 'Describe the app and what your child likes about the idea, then press Send the request.', 'Describe the app and what your child likes about it, then send the request.', [await snap(mom, 'portal', send)], 4.5);
+    await send.click();
+    const asked = mom.locator('li', { hasText: 'Volcano eruptions' }).last();
+    await asked.waitFor();
+    add(P6, 'The request is listed with its status. Requests are included with the subscription.', 'The request is listed with its status, and requests are included with the subscription.', [await snap(mom, 'portal', asked)], 4.5);
+
+    // Part 7: a website as a tile.
+    const P7 = 'Allow a website';
+    await mom.getByPlaceholder('pbskids.org').fill('pbskids.org');
+    await mom.getByPlaceholder('Name on the tile').fill('PBS Kids');
+    const allowSite = mom.getByRole('button', { name: 'Allow site' });
+    add(P7, 'Under Websites, type the site\'s address and a name for its tile, then press Allow site.', 'Under Websites, type the address of a site, give its tile a name, and press Allow site.', [await snap(mom, 'portal', allowSite)], 4.5);
+    await allowSite.click();
+    await mom.locator('#websites li', { hasText: 'pbskids.org' }).waitFor();
+    await ipad.goto(web);
+    await ipad.getByRole('heading', { name: 'Ada\'s tablet' }).waitFor();
+    const pbs = ipad.getByRole('button', { name: 'PBS Kids' });
+    await pbs.waitFor();
+    await ipad.waitForTimeout(1500);
+    add(P7, 'Every tablet in the family gets the tile. Sites that are not allowed stay blocked.', 'Every tablet in the family gets the tile, and sites that are not allowed stay blocked.', [await snap(ipad, 'tablet', pbs, 'iPad')], 4.5);
+
+    // Part 8: screen time for the tablet's other apps. Leo's Android tablet reported its apps when it synced.
+    const P8 = 'Screen time in other apps';
+    await tab.goto(web);
+    await tab.getByRole('heading', { name: 'Leo\'s tablet' }).waitFor();
+    await tab.waitForTimeout(1500);
+    await mom.reload();
+    await mom.getByRole('heading', { name: 'Other apps' }).waitFor();
+    const which = mom.getByRole('tablist', { name: 'Which tablet' });
+    await which.getByRole('tab', { name: 'Leo\'s tablet' }).click();
+    const row = mom.locator('#other-apps li', { hasText: 'YouTube Kids' });
+    await row.waitFor();
+    add(P8, 'Under Other apps, the website lists the apps on an Android tablet. Press Allow to put one on its home screen.', 'Under Other apps, the website lists the apps on an Android tablet. Press Allow to put one on its home screen.', [await snap(mom, 'portal', row.getByRole('button', { name: 'Allow' }))], 5);
+    await row.getByRole('button', { name: 'Allow' }).click();
+    await row.getByText('0 of 30 min used today').waitFor();
+    await row.locator('select').selectOption('60');
+    await row.getByText('0 of 60 min used today').waitFor();
+    await row.locator('input[type=time]').first().fill('15:00');
+    await row.locator('input[type=time]').last().fill('18:00');
+    await row.getByRole('button', { name: 'Set hours' }).click();
+    await mom.waitForTimeout(800);
+    add(P8, 'Set the minutes it gets each day and the hours it can open.', 'Then set the minutes it gets each day and the hours it can open.', [await snap(mom, 'portal', row)], 4.5);
+    // The tablet at ten past four in the afternoon, inside those hours.
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
+    await tab.clock.setFixedTime(new Date(`${today}T16:10:00-08:00`));
+    await tab.goto(web);
+    await tab.getByRole('heading', { name: 'Leo\'s tablet' }).waitFor();
+    const yt = tab.getByRole('button', { name: 'YouTube Kids' });
+    await yt.waitFor();
+    await tab.waitForTimeout(1500);
+    add(P8, 'The tablet shows the app with the time it has left today.', 'The tablet shows the app with the time it has left today.', [await snap(tab, 'tablet', yt, 'Android tablet')], 4);
+    await which.getByRole('tab', { name: 'Ada\'s iPad' }).click();
+    const ipadNote = mom.getByText('On an iPad the apps are chosen on the iPad itself', { exact: false });
+    await ipadNote.waitFor();
+    add(P8, 'On an iPad, the apps are chosen on the iPad itself, in the parent area under Other apps.', 'On an iPad, the apps are chosen on the iPad itself, in the parent area under Other apps.', [await snap(mom, 'portal', ipadNote)], 5);
     await browser.close();
 
     // Compose and encode.
@@ -239,18 +337,37 @@ describe.skipIf(!ready)('setup video', () => {
       await compose.screenshot({ path: f, type: 'jpeg', quality: 92 });
       return f;
     };
-    frames.push(await save(titleCard('Setting up Duckling Tablet', 'Create a family, pair a tablet, add a parent, and add another tablet.'), '00-title.jpg'));
-    const scenes: { a: string; b?: string; seconds: number }[] = [{ a: frames[0], seconds: 3.5 }];
+    frames.push(await save(titleCard('Setting up Duckling Tablet', 'Pair tablets, add a parent, and manage apps, websites, and screen time.'), '00-title.jpg'));
+    const scenes: { a: string; b?: string; seconds: number; say: string }[] = [{ a: frames[0], seconds: 3.5, say: 'This video shows how to set up Duckling Tablet.' }];
     let i = 0;
     for (const s of shots) {
       i++;
       const a = await save(frame(s, false), `${String(i).padStart(2, '0')}a.jpg`);
       const ringed = s.panes.some((p) => p.ring !== undefined && p.ring !== -1);
       const b = ringed ? await save(frame(s, true), `${String(i).padStart(2, '0')}b.jpg`) : undefined;
-      scenes.push({ a, b, seconds: s.seconds });
+      scenes.push({ a, b, seconds: s.seconds, say: s.say });
     }
-    scenes.push({ a: await save(titleCard('Duckling Tablet', 'parents.ducklingtablet.com'), '99-end.jpg'), seconds: 3 });
+    scenes.push({ a: await save(titleCard('Duckling Tablet', 'parents.ducklingtablet.com'), '99-end.jpg'), seconds: 3, say: 'Set up your family at parents dot duckling tablet dot com.' });
     await compose.close();
+
+    // The narration script, one line per scene, for the voice clone (narrate_chatterbox.py --script).
+    writeFileSync(join(OUT, 'beats_duckling_setup.txt'), [
+      `# Duckling Tablet setup video. ${scenes.length} beats, one line each, in the order of the video's scenes.`,
+      '# Written by backend/test/setup-video.test.ts; change the lines there. The line count MUST match the scenes.',
+      '# All [calm], single grounded reference: narrate with --ref ref_calm.mp3 (NOT --voices).',
+      ...scenes.map((x) => `[calm] ${x.say}`), ''].join('\n'));
+    // With the recorded lines, each scene lasts until its line has finished, plus a pause.
+    const LEAD = 0.35;
+    const beats: number[] = [];
+    if (VOICE) {
+      for (const [k, x] of scenes.entries()) {
+        const wav = join(VOICE, `beat${k + 1}.wav`);
+        if (!existsSync(wav)) throw new Error(`${wav} is missing: the script has ${scenes.length} lines`);
+        const { stdout } = await execFile('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', wav]);
+        beats.push(Number(stdout.trim()));
+        x.seconds = Math.max(x.seconds, LEAD + beats[k] + 0.6);
+      }
+    }
 
     // One file per scene: a fade in from the scene before, then the outline fades in after a moment.
     const parts: string[] = [];
@@ -272,7 +389,16 @@ describe.skipIf(!ready)('setup video', () => {
     }
     writeFileSync(join(dir, 'list.txt'), parts.map((x) => `file '${x}'`).join('\n'));
     const tmp = join(OUT, 'setup.tmp.mp4');
-    await execFile('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', join(dir, 'list.txt'), '-c', 'copy', '-movflags', '+faststart', tmp]);
+    const silent = join(dir, 'silent.mp4');
+    await execFile('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', join(dir, 'list.txt'), '-c', 'copy', '-movflags', '+faststart', VOICE ? silent : tmp]);
+    if (VOICE) {
+      // Each line starts just after its scene fades in; the mix is leveled for online video.
+      let at = 0;
+      const f = scenes.map((x, k) => { const d = Math.round((at + LEAD) * 1000); at += x.seconds; return `[${k + 1}:a]aformat=sample_rates=48000:channel_layouts=mono,adelay=${d}:all=1[a${k}]`; });
+      f.push(`${scenes.map((_, k) => `[a${k}]`).join('')}amix=inputs=${scenes.length}:normalize=0:duration=longest,apad=whole_dur=${at},loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[out]`);
+      await execFile('ffmpeg', ['-y', '-v', 'error', '-i', silent, ...scenes.flatMap((_, k) => ['-i', join(VOICE, `beat${k + 1}.wav`)]), '-filter_complex', f.join(';'),
+        '-map', '0:v', '-map', '[out]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k', '-ac', '2', '-shortest', '-movflags', '+faststart', tmp], { maxBuffer: 1 << 24 });
+    }
     renameSync(tmp, join(OUT, 'setup.mp4'));
   }, 900_000);
 });
