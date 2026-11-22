@@ -181,7 +181,7 @@ describe.skipIf(!ready)('setup video', () => {
     await ipad.waitForTimeout(2500);
     add(P2, 'The tablet is ready, with the starter apps installed. More apps are in the Library.', 'The tablet is ready, with the starter apps installed.', [await snap(ipad, 'tablet', undefined, 'iPad')], 4.5);
     await mom.getByRole('button', { name: 'Refresh' }).click();
-    await mom.getByText('Ada\'s iPad').waitFor();
+    await mom.locator('#devices li', { hasText: 'Ada\'s iPad' }).waitFor();
     add(P2, 'The tablet now shows under Devices on the website, where you manage its apps and websites.', 'On the website, the tablet now shows under Devices.', [await snap(mom, 'portal', mom.locator('#devices li', { hasText: 'Ada\'s iPad' }))]);
 
     // Part 3: a second parent.
@@ -231,7 +231,7 @@ describe.skipIf(!ready)('setup video', () => {
     await tab.waitForTimeout(2500);
     add(P4, 'The new tablet shows Leo\'s apps at Leo\'s levels.', "The new tablet shows Leo's apps at Leo's levels.", [await snap(tab, 'tablet', undefined, 'Android tablet')], 4);
     await mom.getByRole('button', { name: 'Refresh' }).click();
-    await mom.getByText('Leo\'s tablet').waitFor();
+    await mom.locator('#devices li', { hasText: 'Leo\'s tablet' }).waitFor();
     add(P4, 'Both tablets are listed under Devices. Any parent in the family can manage them.', 'Both tablets are listed under Devices, and any parent can manage them.', [await snap(mom, 'portal', mom.locator('#devices'))], 5);
 
     // Part 5: the website on a phone, as a home screen app.
