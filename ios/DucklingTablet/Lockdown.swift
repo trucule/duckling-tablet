@@ -10,26 +10,37 @@ import LocalAuthentication
 /// what a child can still undo; that result goes into the build plan.
 final class Lockdown {
     static let shared = Lockdown()
+    /// Screen Time exists only on a device. In the simulator its daemons are missing: the calls block or retry, the
+    /// app floods its log and WebKit's page processes take minutes to start, which hung the CI tests. Simulator builds
+    /// make no Screen Time call and create none of its objects; every entry point here and in OtherApps checks this.
+    #if targetEnvironment(simulator)
+    static let screenTimeExists = false
+    #else
+    static let screenTimeExists = true
+    #endif
+
     /// The named store is shared with the DucklingMonitor extension, which shields a picked app at its daily limit.
     /// Builds before 1.1 used the unnamed store; its settings are cleared once so they do not stay applied underneath.
-    private let store = ManagedSettingsStore(named: OtherApps.storeName)
-    private let legacy = ManagedSettingsStore()
+    private lazy var store = ManagedSettingsStore(named: OtherApps.storeName)
+    private lazy var legacy = ManagedSettingsStore()
 
     /// Hosts the shell itself needs, always let through the web filter.
     static let ownHosts: Set<String> = ["app.ducklingtablet.com", "api.ducklingtablet.com", "parents.ducklingtablet.com", "ducklingtablet.com", "duckling.nyc3.cdn.digitaloceanspaces.com"]
 
-    var screenTimeApproved: Bool { AuthorizationCenter.shared.authorizationStatus == .approved }
+    var screenTimeApproved: Bool { Lockdown.screenTimeExists && AuthorizationCenter.shared.authorizationStatus == .approved }
     var guidedAccess: Bool { UIAccessibility.isGuidedAccessEnabled }
     var passcodeSet: Bool { LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) }
 
     /// Asks for Screen Time access. On a parent-owned iPad this shows the system sheet, approved with the device
     /// passcode or Face ID.
     func requestScreenTime() async -> Bool {
+        guard Lockdown.screenTimeExists else { return false }
         do { try await AuthorizationCenter.shared.requestAuthorization(for: .individual) } catch { return false }
         return screenTimeApproved
     }
 
     func apply(on: Bool, allowedHosts: [String]) {
+        guard Lockdown.screenTimeExists else { return }
         legacy.clearAllSettings()
         guard on, screenTimeApproved else { store.clearAllSettings(); OtherApps.shared.apply(lockdownOn: false); return }
         // Every app is shielded except the ones a parent picked in the parent area (OtherApps); their daily limits
@@ -48,6 +59,7 @@ final class Lockdown {
     }
 
     func release() {
+        guard Lockdown.screenTimeExists else { return }
         OtherApps.shared.clear()
         legacy.clearAllSettings()
         store.clearAllSettings()

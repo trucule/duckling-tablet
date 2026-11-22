@@ -23,8 +23,9 @@ final class OtherApps {
     static let noLimit = 0
 
     private let defaults = UserDefaults(suiteName: OtherApps.group) ?? .standard
-    private let store = ManagedSettingsStore(named: OtherApps.storeName)
-    private let center = DeviceActivityCenter()
+    // Created on first use, never in the simulator (Lockdown.screenTimeExists).
+    private lazy var store = ManagedSettingsStore(named: OtherApps.storeName)
+    private lazy var center = DeviceActivityCenter()
 
     struct Pick: Codable, Equatable { var token: ApplicationToken; var minutes: Int }
 
@@ -89,6 +90,7 @@ final class OtherApps {
     /// monitoring resets the day's count on iOS before 17.4, so nothing is restarted unless the picks or the state
     /// changed since the last start.
     func apply(lockdownOn: Bool) {
+        guard Lockdown.screenTimeExists else { return }
         let signature = lockdownOn ? picks.keys.sorted().map { "\($0):\(picks[$0]!.minutes)" }.joined(separator: ",") : ""
         if signature == (defaults.string(forKey: "otherAppsApplied") ?? "") { return }
         defaults.set(signature, forKey: "otherAppsApplied")
@@ -108,25 +110,19 @@ final class OtherApps {
             }
         }
         let day = DeviceActivitySchedule(intervalStart: DateComponents(hour: 0, minute: 0), intervalEnd: DateComponents(hour: 23, minute: 59), repeats: true)
-        #if targetEnvironment(simulator)
-        lastError = "no Screen Time monitoring in the simulator"
-        #else
         do { try center.startMonitoring(OtherApps.activity, during: day, events: events); defaults.set(true, forKey: "otherAppsMonitoring") } catch { lastError = String(describing: error) }
-        #endif
     }
 
-    /// Stops the day's monitoring, only when one was started: DeviceActivity's calls are synchronous and have no
-    /// daemon to answer them in the simulator, where the first one hangs the app (and CI's tests with it).
+    /// Stops the day's monitoring, only when one was started: DeviceActivity's calls are synchronous.
     private func stopMonitoring() {
         guard defaults.bool(forKey: "otherAppsMonitoring") else { return }
         defaults.set(false, forKey: "otherAppsMonitoring")
-        #if !targetEnvironment(simulator)
         center.stopMonitoring([OtherApps.activity])
-        #endif
     }
 
     /// Everything gone: the picks, the monitoring and any limit shield (Remove Duckling, or the family released).
     func clear() {
+        guard Lockdown.screenTimeExists else { picks = [:]; return }
         stopMonitoring()
         store.shield.applications = nil
         picks = [:]

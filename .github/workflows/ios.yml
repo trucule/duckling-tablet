@@ -12,6 +12,10 @@ on:
         description: Skip the simulator tests (for a release build of code whose tests already passed)
         type: boolean
         default: false
+      test_only:
+        description: Compile and test only; no archive and no upload to App Store Connect
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -53,12 +57,23 @@ jobs:
           # runner for hours and the log is lost with the cancel.
           perl -e 'alarm shift; exec @ARGV' 1500 \
             xcodebuild -project DucklingTablet.xcodeproj -scheme DucklingTablet -destination "id=$SIM" \
-            CODE_SIGNING_ALLOWED=NO test > "$RUNNER_TEMP/test.log" 2>&1 \
+            CODE_SIGNING_ALLOWED=NO -resultBundlePath "$RUNNER_TEMP/tests.xcresult" test > "$RUNNER_TEMP/test.log" 2>&1 \
             || { grep -E "error:|failed|XCTAssert|MIC-PROBE" "$RUNNER_TEMP/test.log" | sort -u | head -60; tail -n 40 "$RUNNER_TEMP/test.log"; exit 1; }
           grep -E "MIC-PROBE" "$RUNNER_TEMP/test.log" | head -3 || true
           grep -E "Test Case .*(passed|failed)|Executed" "$RUNNER_TEMP/test.log" | tail -n 12
+      # The whole test log and result bundle, kept for a week, since the step prints only an excerpt.
+      - name: Keep the test log
+        if: ${{ always() && !inputs.skip_tests }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-log
+          path: |
+            ${{ runner.temp }}/test.log
+            ${{ runner.temp }}/tests.xcresult
+          retention-days: 7
+          if-no-files-found: ignore
       - name: Archive and upload to App Store Connect
-        if: env.ASC_KEY_ID != '' && env.ASC_ISSUER_ID != '' && env.ASC_KEY_P8 != ''
+        if: ${{ !inputs.test_only && env.ASC_KEY_ID != '' && env.ASC_ISSUER_ID != '' && env.ASC_KEY_P8 != '' }}
         working-directory: ios
         run: |
           set -o pipefail
