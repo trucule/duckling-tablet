@@ -312,4 +312,13 @@ export const es: Record<string, string> = {
   "Asked for in the last 30 days": "Pedidas en los últimos 30 días",
   "Other apps parents allowed": "Otras apps que los padres permitieron",
   "{n} in all, highest {max}": "{n} en total, máximo {max}",
+  "Accounts": "Cuentas",
+  "Find an email or family id": "Buscar un correo o id de familia",
+  "{n} of {total} families, newest first.": "{n} de {total} familias, las más recientes primero.",
+  "Signed up": "Registro",
+  "Last sign-in": "Último inicio de sesión",
+  "Last tablet use": "Último uso de una tableta",
+  "Family id": "Id de familia",
+  "(invited)": "(invitado)",
+  "until {date}": "hasta el {date}",
 };

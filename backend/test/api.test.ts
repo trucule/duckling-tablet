@@ -1125,6 +1125,9 @@ describe('owner stats', () => {
     expect((await app.inject({ method: 'GET', url: '/family', headers: owner.auth })).json().stats).toBe(true);
     expect((await app.inject({ method: 'GET', url: '/stats', headers: owner.auth })).statusCode).toBe(200);
     expect((await app.inject({ method: 'GET', url: '/stats', headers: { authorization: `Bearer ${ADMIN}` } })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/stats/accounts', headers: plain.auth })).statusCode).toBe(403);
+    expect((await app.inject({ method: 'GET', url: '/stats/accounts' })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: '/stats/accounts', headers: owner.auth })).statusCode).toBe(200);
   });
 
   it('adds up every family without naming any', async () => {
@@ -1162,5 +1165,17 @@ describe('owner stats', () => {
     expect(s.subscriptions.byStatus.reduce((t: number, x: any) => t + x.n, 0)).toBe(2);
     // Counts only: no email, name or id from any family is in the answer.
     for (const secret of ['a@example.com', 'b@example.com', 'Ada', a.familyId, b.familyId, da.deviceId, db2.deviceId]) expect(r.body).not.toContain(secret);
+
+    // The accounts list names the parents, newest family first, and nothing about a child.
+    const acc = await app.inject({ method: 'GET', url: '/stats/accounts', headers: { authorization: `Bearer ${ADMIN}` } });
+    expect(acc.statusCode).toBe(200);
+    expect(acc.headers['cache-control']).toBe('no-store');
+    const list = acc.json().accounts;
+    expect(list.map((x: any) => x.familyId)).toEqual([b.familyId, a.familyId]);
+    expect(list[0]).toMatchObject({ language: 'es', minutes30: 5, parents: [{ email: 'b@example.com', role: 'owner', lastSignIn: expect.any(String) }],
+      tablets: [{ platform: 'android', lastSeen: expect.any(String) }], subscription: { status: expect.any(String) } });
+    expect(list[1]).toMatchObject({ language: 'en', minutes30: 10, parents: [{ email: 'a@example.com' }] });
+    expect(acc.body).not.toContain('Ada');
+    expect(acc.body).not.toMatch(/child/i);
   });
 });

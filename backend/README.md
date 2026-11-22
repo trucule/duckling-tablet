@@ -51,6 +51,7 @@ the web server already there (nginx or Caddy). Memory is capped at 300 MB becaus
 | `POST /admin/apps/:id/versions?version=&signature=&request=` | admin | Upload a signed package zip; `request` marks it shipped and installs it for that family |
 | `POST /admin/voice/pregenerate` `{lines}` | admin | Fill the voice cache with an app's fixed lines |
 | `GET /admin/requests`, `GET /admin/stats` | admin | Your view |
+| `GET /stats`, `GET /stats/accounts` | admin, or a parent in `STATS_EMAILS` | The portal's Stats page: counts across families, and each family's parents (emails, last sign-in), subscription and tablets. Nothing about children |
 | `GET /health` | anyone | Liveness |
 
 Device states: `active`, `release` (the device must undo the lockdown), `released`. A device of a deleted family gets

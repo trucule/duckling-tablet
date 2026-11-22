@@ -43,6 +43,15 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return json as T;
 }
 
+// The owner's accounts list (GET /stats/accounts): each family's parents, subscription and tablets. Nothing about children.
+export interface Account {
+  familyId: string; createdAt: string | null; language: string;
+  subscription: { status: string; source: string; periodEnd: string | null };
+  parents: { email: string; role: string; lastSignIn: string | null }[];
+  tablets: { platform: string; version: string; lastSeen: string | null }[];
+  minutes30: number;
+}
+
 // The owner's stats (GET /stats): counts across every family, no names.
 export interface Stats {
   at: string; trialDays: number;
@@ -62,6 +71,7 @@ export interface Stats {
 
 export const api = {
   stats: () => call<Stats>('GET', '/stats'),
+  statsAccounts: () => call<{ at: string; accounts: Account[] }>('GET', '/stats/accounts'),
   emailLink: (email: string, delivery: 'link' | 'code' = 'link') => call<{ sent: boolean; delivery: 'link' | 'code' }>('POST', '/auth/email-link', { email, delivery, language: lang.value }),
   verifyCode: (email: string, code: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/code/verify', { email, code, language: lang.value }),
   verify: (token: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/verify', { token, language: lang.value }),

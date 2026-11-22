@@ -1,6 +1,7 @@
-// The owner's stats: counts across every family, for the parents named in STATS_EMAILS (the portal's Stats page) or
-// the admin token. Nothing here names a family, a parent, a child or a tablet; every figure is a count or a sum.
-// It reads across families, so it runs as duckling_system.
+// The owner's stats, for the parents named in STATS_EMAILS (the portal's Stats page) or the admin token. GET /stats
+// is counts and sums across every family. GET /stats/accounts lists each family's account: its parents' emails,
+// subscription and tablets. Neither names a child or says anything about one. Both read across families, so they run
+// as duckling_system.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Ctx } from '../context.js';
 import { adminAuth, parentAuth } from '../auth.js';
@@ -104,6 +105,34 @@ export default async function statsRoutes(app: FastifyInstance, { ctx }: { ctx: 
           byLanguage: voiceByLang.map((v) => ({ lang: v.lang, clips: n(v.clips), hits: n(v.hits) })) },
         ai: { calls30: n(ai.calls), inputTokens30: n(ai.input), outputTokens30: n(ai.output) },
         otherApps: otherApps.map((o) => ({ label: o.label, families: n(o.families), minutes30: n(o.minutes30) })),
+      };
+    });
+  });
+
+  // One row per family, newest first: parents and their last sign-in, subscription, tablets and their use.
+  app.get('/stats/accounts', async (req, reply) => {
+    await statsAuth(ctx, req);
+    reply.header('Cache-Control', 'no-store');
+    return ctx.db.system(async (q) => {
+      const rows = await q.all<Record<string, unknown>>(`SELECT f.id, f.created_at, f.language,
+          e.status, e.source, e.current_period_end,
+          (SELECT coalesce(json_agg(json_build_object('email', p.email, 'role', p.role,
+              'lastSignIn', (SELECT max(s.created_at) FROM session s WHERE s.parent_id = p.id)) ORDER BY p.created_at), '[]')
+            FROM parent p WHERE p.family_id = f.id) parents,
+          (SELECT coalesce(json_agg(json_build_object('platform', d.platform, 'version', d.shell_version, 'lastSeen', d.last_seen_at) ORDER BY d.created_at), '[]')
+            FROM device d WHERE d.family_id = f.id AND d.state = 'active') tablets,
+          (SELECT coalesce(sum(u.seconds), 0) FROM app_usage u JOIN device d ON d.id = u.device_id WHERE d.family_id = f.id AND u.day > current_date - 30) seconds30
+        FROM family f LEFT JOIN entitlement e ON e.family_id = f.id ORDER BY f.created_at DESC LIMIT 2000`);
+      const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null);
+      return {
+        at: new Date().toISOString(),
+        accounts: rows.map((r) => ({
+          familyId: String(r.id), createdAt: iso(r.created_at), language: String(r.language),
+          subscription: { status: String(r.status ?? 'none'), source: String(r.source ?? ''), periodEnd: iso(r.current_period_end) },
+          parents: (r.parents as { email: string; role: string; lastSignIn: string | null }[]).map((p) => ({ email: p.email, role: p.role, lastSignIn: iso(p.lastSignIn) })),
+          tablets: (r.tablets as { platform: string; version: string | null; lastSeen: string | null }[]).map((t) => ({ platform: t.platform, version: t.version ?? '', lastSeen: iso(t.lastSeen) })),
+          minutes30: Math.round(n(r.seconds30) / 60),
+        })),
       };
     });
   });

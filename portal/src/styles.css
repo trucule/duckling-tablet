@@ -79,6 +79,13 @@ nav.sections .chip { font-size: 14px; padding: 7px 14px; }
 .scroll { overflow-x: auto; }
 table.stats { border-collapse: collapse; width: 100%; font-size: 15px; }
 table.stats.narrow { max-width: 560px; }
+table.stats.accounts td { vertical-align: top; }
+table.stats.accounts { font-size: 14px; }
+table.stats.accounts th, table.stats.accounts td { text-align: left; padding: 6px 6px; }
+table.stats.accounts td:first-child { white-space: normal; word-break: break-all; min-width: 190px; }
+table.stats.accounts td:last-child, table.stats.accounts th:last-child { text-align: right; }
+table.stats.accounts code { display: block; font-size: 11px; color: var(--ink-soft); }
+input.find { max-width: 280px; }
 table.stats th, table.stats td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 table.stats th:first-child, table.stats td:first-child { text-align: left; }
 table.stats.narrow td:first-child { white-space: normal; }

@@ -1,12 +1,14 @@
 import { tr, lang, LANGUAGE_NAMES, type Lang } from '../i18n';
 import { useEffect, useState } from 'preact/hooks';
-import { api, type Stats as StatsT } from '../api';
+import { api, type Account, type Stats as StatsT } from '../api';
 
-// The owner's view across every family: counts and sums only. Offered to the parents named in STATS_EMAILS.
+// The owner's view across every family: counts and sums, and the accounts list (parents, subscription, tablets; no
+// children). Offered to the parents named in STATS_EMAILS.
 export function Stats({ onBack }: { onBack: () => void }) {
   const [s, setS] = useState<StatsT | null>(null);
+  const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [error, setError] = useState('');
-  const load = () => api.stats().then((r) => { setS(r); setError(''); }).catch((e) => setError((e as Error).message));
+  const load = () => Promise.all([api.stats(), api.statsAccounts()]).then(([r, a]) => { setS(r); setAccounts(a.accounts); setError(''); }).catch((e) => setError((e as Error).message));
   useEffect(() => { load(); }, []);
 
   const back = <p><a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}>{tr('Back')}</a></p>;
@@ -14,9 +16,7 @@ export function Stats({ onBack }: { onBack: () => void }) {
 
   const num = (v: number) => v.toLocaleString(lang.value);
   const pct = (a: number, b: number) => (b > 0 ? `${Math.round((a / b) * 100)}%` : '–');
-  const STATUS: Record<string, string> = { trial: tr('Trial'), active: tr('Paying'), grace: tr('Payment retrying'), ended: tr('Ended'), none: tr('No subscription') };
-  const SOURCE: Record<string, string> = { trial: '–', google: 'Google Play', apple: 'App Store', stripe: tr('Card') };
-  const PLATFORM: Record<string, string> = { android: 'Android', ios: 'iPad', windows: 'Windows', web: tr('Browser') };
+  const { STATUS, SOURCE, PLATFORM } = labels();
   const REQUEST: Record<string, string> = { requested: tr('Received'), planned: tr('Planned'), building: tr('Being built'), declined: tr('Not taken on'), shipped: tr('Finished') };
   const SUBJECT: Record<string, string> = { reading: tr('Reading'), math: tr('Math'), science: tr('Science'), logic: tr('Logic'), art: tr('Art'), music: tr('Music') };
   const grade = (g: number) => (g < 0 ? tr('Pre-K') : g === 0 ? tr('K') : String(g));
@@ -39,6 +39,8 @@ export function Stats({ onBack }: { onBack: () => void }) {
           <Kpi value={num(minutes7)} label={tr('Minutes in apps this week')} note={tr('{n} a tablet', { n: num(s.tablets.seen7 ? Math.round(minutes7 / s.tablets.seen7) : 0) })} />
         </div>
       </div>
+
+      {accounts && <Accounts accounts={accounts} />}
 
       <div class="card">
         <h2>{tr('The last 30 days')}</h2>
@@ -144,6 +146,62 @@ export function Stats({ onBack }: { onBack: () => void }) {
         )}
       </div>
     </>
+  );
+}
+
+function labels() {
+  return {
+    STATUS: { trial: tr('Trial'), active: tr('Paying'), grace: tr('Payment retrying'), ended: tr('Ended'), none: tr('No subscription') } as Record<string, string>,
+    SOURCE: { trial: '–', google: 'Google Play', apple: 'App Store', stripe: tr('Card') } as Record<string, string>,
+    PLATFORM: { android: 'Android', ios: 'iPad', windows: 'Windows', web: tr('Browser') } as Record<string, string>,
+  };
+}
+
+// Every family's account, newest first, with a filter on email or family id.
+function Accounts({ accounts }: { accounts: Account[] }) {
+  const [find, setFind] = useState('');
+  const { STATUS, SOURCE, PLATFORM } = labels();
+  const year = new Date().getFullYear();
+  const day = (v: string | null) => {
+    if (!v) return '–';
+    const d = new Date(v);
+    return d.toLocaleDateString(lang.value, d.getFullYear() === year ? { month: 'short', day: 'numeric' } : { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+  // "2 Android, iPad": tablets by platform, a count when there is more than one.
+  const tabletsText = (a: Account) => {
+    const by = new Map<string, number>();
+    for (const t of a.tablets) { const name = PLATFORM[t.platform] ?? t.platform; by.set(name, (by.get(name) ?? 0) + 1); }
+    return [...by].map(([name, k]) => (k > 1 ? `${k} ${name}` : name)).join(', ') || '–';
+  };
+  const latest = (vs: (string | null)[]) => vs.filter((v): v is string => !!v).sort().pop() ?? null;
+  const f = find.trim().toLowerCase();
+  const shown = f ? accounts.filter((a) => a.familyId.toLowerCase().includes(f) || a.parents.some((p) => p.email.toLowerCase().includes(f))) : accounts;
+  return (
+    <div class="card">
+      <div class="row"><h2 class="grow" style={{ margin: 0 }}>{tr('Accounts')}</h2>
+        <input class="find" type="search" aria-label={tr('Find an email or family id')} placeholder={tr('Find an email or family id')} value={find} onInput={(e) => setFind((e.target as HTMLInputElement).value)} /></div>
+      <p class="muted" style={{ marginTop: 6 }}>{tr('{n} of {total} families, newest first.', { n: shown.length.toLocaleString(lang.value), total: accounts.length.toLocaleString(lang.value) })}</p>
+      <div class="scroll">
+        <table class="stats accounts">
+          <thead><tr><th>{tr('Email')}</th><th>{tr('Signed up')}</th><th>{tr('Last sign-in')}</th><th>{tr('Language')}</th><th>{tr('Subscription')}</th><th>{tr('Tablets')}</th><th>{tr('Last tablet use')}</th><th>{tr('Minutes, 30 days')}</th></tr></thead>
+          <tbody>{shown.map((a) => {
+            const sub = a.subscription;
+            return (
+              <tr key={a.familyId}>
+                <td>{a.parents.map((p) => <div key={p.email}><a href={`mailto:${p.email}`}>{p.email}</a>{p.role !== 'owner' && <span class="muted"> {tr('(invited)')}</span>}</div>)}<code title={tr('Family id')}>{a.familyId}</code></td>
+                <td>{day(a.createdAt)}</td>
+                <td>{day(latest(a.parents.map((p) => p.lastSignIn)))}</td>
+                <td>{LANGUAGE_NAMES[a.language as Lang] ?? a.language}</td>
+                <td>{STATUS[sub.status] ?? sub.status}{sub.source && SOURCE[sub.source] !== '–' ? `, ${SOURCE[sub.source] ?? sub.source}` : ''}{sub.periodEnd && sub.status !== 'none' ? <div class="muted">{tr('until {date}', { date: day(sub.periodEnd) })}</div> : null}</td>
+                <td>{tabletsText(a)}</td>
+                <td>{day(latest(a.tablets.map((t) => t.lastSeen)))}</td>
+                <td>{a.minutes30.toLocaleString(lang.value)}</td>
+              </tr>
+            );
+          })}</tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

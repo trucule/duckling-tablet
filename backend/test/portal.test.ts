@@ -467,6 +467,14 @@ describe.skipIf(!ready)('parent portal', () => {
     // Installs count the tablets the earlier tests paired too; the use is this tablet's alone.
     await expect.poll(async () => (await row.locator('td').allTextContents()).filter((_, i) => i !== 1)).toEqual(['Word Wizard', '1', '3', '47', '3', '47', '0', '0']);
     expect(await p.locator('.bars').count()).toBe(4);
+    // The accounts list: every family's parents, found by email; no child's name.
+    const accounts = p.locator('table.accounts tbody tr');
+    await expect.poll(() => accounts.count()).toBeGreaterThan(1);
+    await p.getByRole('searchbox', { name: 'Find an email or family id' }).fill('owner@');
+    await expect.poll(() => accounts.count()).toBe(1);
+    expect(await accounts.first().locator('td a').textContent()).toBe('owner@example.com');
+    expect(await accounts.first().locator('td').nth(5).textContent()).toBe('iPad');
+    await p.getByRole('searchbox', { name: 'Find an email or family id' }).fill('');
     expect(await p.locator('.bars').first().locator('.plot span:not(.zero)').count()).toBe(5);
     await p.screenshot({ path: join(process.env.SHOT_DIR ?? dir, 'portal-stats.png'), fullPage: true });
     await p.getByRole('link', { name: 'Back' }).click();
