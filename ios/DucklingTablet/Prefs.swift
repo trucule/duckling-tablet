@@ -25,6 +25,14 @@ final class Prefs {
         get { d.dictionary(forKey: "permissions") as? [String: [String]] ?? [:] }
         set { d.set(newValue, forKey: "permissions") }
     }
+    /// The tablet's language, 'en' or 'es', as the home screen last said (setLanguage). Until it has, the iPad's own
+    /// language when that is Spanish.
+    var language: String {
+        get { d.string(forKey: "language") ?? (Locale.preferredLanguages.first?.hasPrefix("es") == true ? "es" : "en") }
+        set { d.set(newValue == "es" ? "es" : "en", forKey: "language") }
+    }
+    /// The Home pill's words in the tablet's language.
+    var homeTitle: String { language == "es" ? "\u{2302} Inicio" : "\u{2302} Home" }
     var childId: String { get { d.string(forKey: "childId") ?? "" } set { d.set(newValue, forKey: "childId") } }
     var childName: String { get { d.string(forKey: "childName") ?? "" } set { d.set(newValue, forKey: "childName") } }
     var childLevels: String { get { d.string(forKey: "childLevels") ?? "{}" } set { d.set(newValue, forKey: "childLevels") } }

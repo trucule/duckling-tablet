@@ -1,7 +1,7 @@
 // App state: the device config from the server, the catalog, and what the shell has installed. Installs the server
 // expects (starter apps at pairing, apps a parent added remotely) are downloaded as soon as the config arrives.
 import { signal, computed, effect } from '@preact/signals';
-import { setLang, tr } from './i18n';
+import { lang, setLang, tr } from './i18n';
 import { adoptTabletBackground, forgetPictures, forgetTabletBackground } from './pictures';
 import { api, ReleasedError, type DeviceConfig, type CatalogApp, type OtherApp, type Entitlement } from './api';
 import { shell } from './shell';
@@ -13,6 +13,8 @@ const storedConfig = (): DeviceConfig | null => { try { return JSON.parse(localS
 export const config = signal<DeviceConfig | null>(storedConfig());
 // The tablet speaks the language the server sends (the child's, else the family's); before pairing, its own.
 effect(() => { if (config.value?.language) setLang(config.value.language); });
+// The shell's own screens follow the tablet's language too.
+effect(() => { shell.setLanguage(lang.value); });
 // Removed from the family on the website, or the family account was deleted: the server answers 410. The tablet
 // keeps its apps, PIN and lockdown and the parent area asks for a new pairing code. Nothing is wiped; only the
 // tablet's own "Remove Duckling from this device" does that.

@@ -8,6 +8,8 @@ namespace Duckling.Shell;
 /// read as pointer input so a finger that drifts during the tap still counts. From the Surface home screen.</summary>
 public class HomePill : Form
 {
+    /// <summary>The pill's word in the tablet's language (ShellBridge.setLanguage).</summary>
+    public static string Label { get; set; } = "Home";
     readonly Action onHome;
     bool down, pointerDown;
     float scale = 1f;
@@ -22,7 +24,7 @@ public class HomePill : Form
         BackColor = Color.FromArgb(36, 36, 56);
         DoubleBuffered = true;
         Cursor = Cursors.Hand;
-        AccessibleName = "Home";
+        AccessibleName = Label;
         AccessibleRole = AccessibleRole.PushButton;
     }
 
@@ -105,7 +107,8 @@ public class HomePill : Form
             g.DrawRectangle(pen, cx - r + S(4), cy, 2 * r - S(8), r);
         }
         using var f = new Font("Segoe UI", 15f, FontStyle.Bold);
-        TextRenderer.DrawText(g, "Home", f, new Rectangle(S(58), 0, Width - S(58), Height), Color.White, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+        AccessibleName = Label;
+        TextRenderer.DrawText(g, Label, f, new Rectangle(S(58), 0, Width - S(58), Height), Color.White, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
     }
 
     protected override void OnMouseDown(MouseEventArgs e) { down = true; Invalidate(); }

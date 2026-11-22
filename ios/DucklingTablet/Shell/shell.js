@@ -78,6 +78,7 @@
     setChildInfo: function (name, voice) { post('setChildInfo', [name, voice]); },
     setChildLevels: function (json) { post('setChildLevels', [json]); },
     setChildId: function (id) { post('setChildId', [id]); },
+    setLanguage: function (lang) { post('setLanguage', [String(lang || 'en')]); },
     setAppAccountToken: function (t) { post('setAppAccountToken', [String(t || '')]); },
     release: function () { post('release'); },
     // Other apps on the iPad: the parent picks them in Apple's picker (chooseOtherApps opens it), so the list the page

@@ -66,6 +66,8 @@ export interface Shell {
   setChildInfo(name: string, voice: string): void;
   setChildLevels(levels: Record<string, number>): void;
   setChildId(id: string): void;
+  // The tablet's language ('en' or 'es'), for the shell's own screens (the iPad's app-failure page). Older shells skip it.
+  setLanguage(lang: string): void;
   release(): void;
   // Other apps: what is on the tablet, opening one for a number of seconds, and the permission that lets Duckling
   // come back when that time ends. The iPad cannot list its apps: a parent picks them there (Screen Time), so its
@@ -125,6 +127,7 @@ interface NativeShell {
   setChildInfo(name: string, voice: string): void;
   setChildLevels?(json: string): void;
   setChildId?(id: string): void;
+  setLanguage?(lang: string): void;
   release(): void;
   installedPackages?(): string;
   launchPackage?(pkg: string, seconds: number): void;
@@ -153,12 +156,21 @@ declare global {
   interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void; onOtherApps(): void; onBilling(status: string, message: string): void; onWindows(kind: string, ok: boolean, message: string): void } }
 }
 
+// Messages the Android, iPad and Windows shells send in English, shown in the tablet's language. The dictionary is
+// keyed by the English text, so a known message translates as it is; the list the Spanish dictionary must cover is
+// NATIVE in backend/test/i18n.test.ts. A message not in the dictionary is shown as it came.
+export function nativeText(m: string): string {
+  if (!m) return m;
+  const code = /^Download failed \((\d+)\)\.$/.exec(m);
+  return code ? tr('Download failed ({code}).', { code: code[1] }) : tr(m);
+}
+
 const pending = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
 window.DucklingWeb = {
   onInstall(id, ok, message) {
     const p = pending.get(id); pending.delete(id);
     if (!p) return;
-    ok ? p.resolve() : p.reject(new Error(message || tr('Install failed')));
+    ok ? p.resolve() : p.reject(new Error(nativeText(message) || tr('Install failed')));
   },
   // The shell calls this when the activity comes back to the front (after a settings screen, for example).
   onResume() { window.dispatchEvent(new Event('duckling:resume')); },
@@ -169,7 +181,7 @@ window.DucklingWeb = {
   // The iPad's list of picked apps changed (the parent used the picker): report it again.
   onOtherApps() { window.dispatchEvent(new Event('duckling:otherapps')); },
   // A store purchase, restore or its failure: one at a time, so the waiting promise is the only one.
-  onBilling(status, message) { const w = billingWait; billingWait = null; w?.({ status, message }); },
+  onBilling(status, message) { const w = billingWait; billingWait = null; w?.({ status, message: nativeText(message) }); },
   // Windows: the end of a lockdown step, a Wi-Fi scan or join, the parent browser closing.
   onWindows(kind, ok, message) {
     const w = windowsWaits.get(kind); windowsWaits.delete(kind);
@@ -179,7 +191,7 @@ window.DucklingWeb = {
 };
 const windowsWaits = new Map<string, (ok: boolean, message: string) => void>();
 const windowsCall = (kind: string, start: () => void) => new Promise<string>((resolve, reject) => {
-  windowsWaits.set(kind, (ok, message) => (ok ? resolve(message) : reject(new Error(message || 'That did not work.'))));
+  windowsWaits.set(kind, (ok, message) => (ok ? resolve(message) : reject(new Error(nativeText(message) || tr('That did not work.')))));
   try { start(); } catch (e) { windowsWaits.delete(kind); reject(e as Error); }
 });
 
@@ -234,6 +246,7 @@ function native(n: NativeShell): Shell {
     setChildInfo: (name, voice) => n.setChildInfo(name, voice),
     setChildLevels: (l) => { try { n.setChildLevels?.(JSON.stringify(l)); } catch { /* older shell */ } },
     setChildId: (id) => { try { n.setChildId?.(id); } catch { /* older shell */ } },
+    setLanguage: (l) => { try { n.setLanguage?.(l); } catch { /* older shell */ } },
     release: () => n.release(),
     installedPackages: () => { try { return JSON.parse(n.installedPackages?.() || '[]'); } catch { return []; } },
     launchPackage: (pkg, seconds) => n.launchPackage?.(pkg, seconds),
@@ -285,6 +298,7 @@ function browser(): Shell {
     setChildInfo() {},
     setChildLevels() {},
     setChildId() {},
+    setLanguage() {},
     release() { set('token', null); set('installed', null); set('pin', null); },
     installedPackages: () => [],
     launchPackage() { alert(tr('On the tablet this opens the app.')); },

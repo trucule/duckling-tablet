@@ -70,7 +70,7 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         try? AVAudioSession.sharedInstance().setActive(true)
 
         var look = UIButton.Configuration.filled()
-        look.title = "⌂ Home"
+        look.title = Prefs.shared.homeTitle
         look.baseBackgroundColor = UIColor(white: 0.1, alpha: 0.55)
         look.baseForegroundColor = .white
         look.cornerStyle = .capsule
@@ -162,12 +162,13 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     private func showFailure(_ error: Error) {
         let e = error as NSError
         if e.domain == NSURLErrorDomain && e.code == NSURLErrorCancelled { return }
+        let es = Prefs.shared.language == "es"
         let esc = { (s: String) in s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;") }
         let html = """
-        <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+        <!doctype html><html lang="\(es ? "es" : "en")"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
         <body style="margin:0;background:#1e2a33;color:#fff;font:20px -apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center">
-        <div style="max-width:560px;padding:24px"><p style="font-size:28px;font-weight:700">This app did not open.</p>
-        <p>Tap Home and try again. If it happens again, a parent can send this line to support:</p>
+        <div style="max-width:560px;padding:24px"><p style="font-size:28px;font-weight:700">\(es ? "Esta app no se abrió." : "This app did not open.")</p>
+        <p>\(es ? "Toca Inicio e inténtalo de nuevo. Si vuelve a pasar, un padre o una madre puede enviar esta línea a soporte:" : "Tap Home and try again. If it happens again, a parent can send this line to support:")</p>
         <p style="font:15px ui-monospace,monospace;opacity:.8">\(esc(appId)) \(esc(e.domain)) \(e.code) \(esc(e.localizedDescription))</p></div></body>
         """
         web.loadHTMLString(html, baseURL: nil)

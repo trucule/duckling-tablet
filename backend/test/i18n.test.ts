@@ -40,12 +40,47 @@ function linesIn(src: string): string[] {
 
 const names = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
+// Messages the Android, iPad and Windows shells send in English; web/src/shell.ts (nativeText) shows them in Spanish.
+const NATIVE = [
+  "Bad app id.",
+  "Bad file name in package.",
+  "Could not finish the install.",
+  "Download failed.",
+  "Package has no index.html.",
+  "Package has too many files.",
+  "Package is too large.",
+  "Packages come only over HTTPS.",
+  "The download did not match. Try again.",
+  "The package could not be opened.",
+  "This package is not signed by Duckling.",
+  "Connect this iPad to the internet and try again.",
+  "Connect this tablet to the internet and try again.",
+  "The subscription is not available right now.",
+  "The purchase is waiting for approval.",
+  "The purchase is waiting for payment.",
+  "The purchase could not be confirmed. Try Restore purchases in a minute.",
+  "No subscription was found for this Apple ID.",
+  "No subscription was found for the Google account on this tablet.",
+  "Choose the child's Windows account first.",
+  "Could not connect to that network.",
+  "Enter the parent PIN first.",
+  "Give the account a name.",
+  "That is the account in use right now. Choose or create the child's own account.",
+  "That network is out of range.",
+  "The Duckling service closed the connection.",
+  "The Duckling service is not running.",
+  "The PIN is 4 to 12 digits.",
+  "This device has no Wi-Fi.",
+  "This network needs a company sign-in, which Duckling cannot do. Join it from a parent's Windows account.",
+  "This network needs its password.",
+];
+
 const TREES = [
   {
     name: 'tablet', src: join(import.meta.dirname, '..', '..', 'web', 'src'), es: webEs, min: 200,
     listed: ['Waiting', 'Downloading', 'this iPad', 'this device', 'this tablet', "{name}'s tablet", "{name}'s iPad", "{name}'s device", "{name}'s browser",
       'uses the camera', 'uses the microphone', 'uses the microphone and camera', 'reading', 'math', 'science', 'logic', 'art', 'music',
-      'Received', 'Planned', 'Being built', 'Not taken on', 'In the Library', 'Withdrawn', 'Finished'],
+      'Received', 'Planned', 'Being built', 'Not taken on', 'In the Library', 'Withdrawn', 'Finished', ...NATIVE],
     // Not words to translate: units, ids, the portal's address, the device header.
     quiet: ['MB', '· id', '· shell', 'parents.ducklingtablet.com'],
   },

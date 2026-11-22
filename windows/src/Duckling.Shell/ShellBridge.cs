@@ -17,7 +17,7 @@ public class ShellBridge(MainForm main)
     public static readonly string[] Methods = {
         "platform", "shellVersion", "getDeviceToken", "setDeviceToken", "pushToken", "installedApps", "installApp", "uninstallApp", "openApp",
         "hasPin", "setPin", "verifyPin", "setPinHash", "lockdownStatus", "requestHomeRole", "openSecuritySettings", "openWifiSettings", "networkStatus",
-        "setLockdown", "setAllowedHosts", "setSignInHosts", "setChildInfo", "setChildLevels", "setChildId", "release", "installedPackages", "launchPackage",
+        "setLockdown", "setAllowedHosts", "setSignInHosts", "setChildInfo", "setChildLevels", "setChildId", "setLanguage", "release", "installedPackages", "launchPackage",
         "canDrawOverlays", "openOverlaySettings", "setAppAccountToken", "takeLocalBackground",
         // Windows only
         "setChildAccount", "restartDevice", "restartSession", "wifiNetworks", "connectWifi", "openParentPage", "setOtherApps", "endParent", "exitShell", "isChildSession",
@@ -165,6 +165,8 @@ public class ShellBridge(MainForm main)
     public void setSignInHosts(string csv) { Guard(); main.SignInHosts = Hosts.Normalize(csv.Split(',')); }
     public void setChildInfo(string name, string voice) { Guard(); Task.Run(() => { try { Call("setChild", new { name, voice }); } catch (Exception) { } }); }
     public void setChildLevels(string json) { Guard(); Task.Run(() => { try { Call("setChild", new { levels = json }); } catch (Exception) { } }); }
+    /// <summary>The tablet's language, for the Home pill's words.</summary>
+    public void setLanguage(string lang) { Guard(); HomePill.Label = lang == "es" ? "Inicio" : "Home"; }
     public void setChildId(string id) { Guard(); Task.Run(() => { try { Call("setChild", new { id }); } catch (Exception) { } }); }
     public void setAppAccountToken(string t) { Guard(); Task.Run(() => { try { Call("setAppAccountToken", new { token = t }); } catch (Exception) { } }); }
 

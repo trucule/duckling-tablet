@@ -1,0 +1,3 @@
+/* The iPad's camera and microphone prompts in Spanish (project.yml has the English). */
+"NSMicrophoneUsageDescription" = "Algunas apps de aprendizaje escuchan mientras el niño o la niña lee en voz alta o canta. El sonido se queda en este iPad.";
+"NSCameraUsageDescription" = "Camera Fun toma fotos para que el niño o la niña juegue con ellas. Las fotos se quedan en este iPad.";

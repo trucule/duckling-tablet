@@ -46,7 +46,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
 
     private func addHomePill() {
         var look = UIButton.Configuration.filled()
-        look.title = "\u{2302} Home"
+        look.title = prefs.homeTitle
         look.baseBackgroundColor = UIColor(white: 0.1, alpha: 0.55)
         look.baseForegroundColor = .white
         look.cornerStyle = .capsule
@@ -175,6 +175,9 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         case "openSettings":
             if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
         case "chooseOtherApps": chooseOtherApps(spanish: str(0) == "es")
+        case "setLanguage":
+            prefs.language = str(0)
+            homePill.configuration?.title = prefs.homeTitle
         case "setLockdown":
             prefs.lockdownOn = (a.first as? Bool) ?? (str(0) == "true")
             Lockdown.shared.apply(on: prefs.lockdownOn, allowedHosts: prefs.allowedHosts)
