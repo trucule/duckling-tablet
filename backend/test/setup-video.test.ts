@@ -57,7 +57,7 @@ const SHORT: [string, string, string][] = [
   ['You decide how many minutes a day it gets and the hours it can open, and when the time ends, the tablet comes back to Duckling.', 'Other apps get the minutes and hours you set.', 'Other apps get only the minutes and hours you choose, and when the time ends, the tablet comes back to Duckling.'],
   ['Every tablet in the family gets the tile, and sites that are not allowed stay blocked.', 'Allowed websites get their own tile. Other sites stay blocked.', 'Websites you allow get their own tile, and every other site stays blocked.'],
   ['Search the apps for what your child wants. When nothing fits, press Ask for this app.', 'When no app fits, ask for a new one.', 'When no app fits, you can ask for a new one, and requests are included with the subscription.'],
-  ['After that, it opens straight to your family.', 'Manage it all from your phone.', 'You manage everything from the parents website, and it can live on your phone\'s home screen.'],
+  ['After that, it opens straight to your family.', 'Manage it all from your phone.', 'You manage everything from the parents website, and you can keep it on your phone\'s home screen.'],
 ];
 
 // A tablet shell as the web app sees it: installs succeed and the lockdown steps are done.
