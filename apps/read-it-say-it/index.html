@@ -248,6 +248,8 @@
   Speech is checked offline by Vosk (vosk/*.js, built by tools/build-read-it-say-it-vendor.py), listening only for the
   sentence's own words. Without a microphone she taps each word as she reads it, and a parent can turn on "Trust me"
   (one big "I read it" button). The parent switch is behind the gear button: press and hold it.
+  Under the words she is reading runs a finger line with a checkpoint after each word; dragging along it lights the word
+  above her finger so she can sound it out. The 👉 button in the header hides or shows it (saved with her progress).
   Ladder (four right first try in a row moves up, two missed in a row moves down; localStorage key read-it-say-it-v1):
     levels 1 to 8 are sentences made on the spot (pre-K to 2nd grade), levels 9 to 17 are passages from passages.js
     (2nd to 8th grade), read one sentence at a time with questions afterwards. The full list is above LEVELS below.
@@ -278,6 +280,19 @@
   .w.missed { background: #FFC2CF; }
   .w.no { animation: shake .4s; background: #FF9AAE; }
   .w.done { background: #5CFF8F; animation: wave .6s; }
+  /* The finger line: a track under each row of the words being read, with a checkpoint after each word. Dragging along
+     it lights the word above the finger, so she can sound out one word at a time. The words make room for it. */
+  #words { position: relative; }
+  #words.guided { row-gap: 46px; padding-bottom: 40px; }
+  .gtrack { position: absolute; height: 40px; touch-action: none; z-index: 2; }
+  .gtrack .gl, .gtrack .gf { position: absolute; left: 0; top: 17px; height: 6px; border-radius: 3px; background: #d6d0e2; width: 100%; }
+  .gtrack .gf { background: #00B4FF; width: 0; }
+  .gtrack .gd { position: absolute; top: 12px; width: 10px; height: 10px; margin-left: -8px; border: 3px solid var(--ink); border-radius: 50%; background: #fff; }
+  .gtrack .gd.on { background: #00B4FF; }
+  .gtrack .gk { position: absolute; top: 4px; width: 26px; height: 26px; margin-left: -16px; border: 3px solid var(--ink); border-radius: 50%; background: #FFC300; box-shadow: 0 3px 0 #2B214055; display: none; }
+  .gtrack.cur .gk { display: block; }
+  .w.fg { border-color: #00B4FF; box-shadow: 0 0 0 4px #00B4FF; }
+  #guideBtn.on { background: #00B4FF; }
   @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
   @keyframes wave { 50% { transform: translateY(-14px) scale(1.08); } }
   #controls { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; justify-content: center; }
@@ -319,6 +334,9 @@
   #app.passage .w.missed { background-color: #FFC2CF; }
   #app.passage .w.now { background-color: #FFD000; }
   #app.passage .w.done { animation: none; }
+  #app.passage #words.guided { padding-bottom: 0; }
+  #app.passage #words.guided .w { line-height: 2.3; }
+  #app.passage .w.fg { box-shadow: 0 0 0 3px #00B4FF; }
   /* A new paragraph, a line of a poem, a gap between stanzas. */
   #app.passage .brk { display: block; height: 0; }
   #app.passage .brk.para, #app.passage .brk.stanza { height: 14px; }
@@ -351,6 +369,7 @@
     <h1>📖 Read It Say It Make It</h1>
     <span id="badge">Level 1</span>
     <span id="stars">⭐ 0</span>
+    <button class="pill" id="guideBtn" title="Finger line">👉</button>
     <button class="pill" id="skip" title="New sentence">🔁</button>
   </header>
   <div id="card">
@@ -839,7 +858,7 @@ const cap = s => s[0].toUpperCase() + s.slice(1);
 // ---------------------------------------------------------------------------
 const LANG = window.KidTablet && window.KidTablet.language === 'es' ? 'es' : 'en';
 const ES = {
-  'Read It Say It Make It': 'Léelo, dilo, hazlo', '📖 Read It Say It Make It': '📖 Léelo, dilo, hazlo', 'New sentence': 'Otra oración',
+  'Read It Say It Make It': 'Léelo, dilo, hazlo', 'Finger line': 'Línea para el dedo', '📖 Read It Say It Make It': '📖 Léelo, dilo, hazlo', 'New sentence': 'Otra oración',
   '🎤 Read it!': '🎤 ¡Léelo!', '✅ I read it!': '✅ ¡Ya lo leí!', '🔊 Hear it': '🔊 Escúchalo', 'Next ▶': 'Siguiente ▶', '👂 Listening...': '👂 Escuchando...',
   'For grown-ups: press and hold': 'Para adultos: mantén presionado', 'For grown-ups: how she reads': 'Para adultos: cómo lee',
   '🎤 Microphone checks her reading': '🎤 El micrófono revisa su lectura',
@@ -1172,7 +1191,7 @@ const START = (window.KidTablet && KidTablet.rungFor ? KidTablet.rungFor('readin
 // ---------------------------------------------------------------------------
 // Progress and settings
 // ---------------------------------------------------------------------------
-let P = { lv: START, st: { streak: 0, miss: 0 }, stars: 0, mode: 'auto' };
+let P = { lv: START, st: { streak: 0, miss: 0 }, stars: 0, mode: 'auto', guide: true };
 try { const s = JSON.parse(localStorage.getItem('read-it-say-it-v1') || 'null'); if (s) P = Object.assign(P, s, { st: Object.assign({ streak: 0, miss: 0 }, s.st || {}) }); } catch (e) {}
 P.lv = Math.max(0, Math.min(LEVELS.length - 1, P.lv | 0)); if (!['auto', 'tap', 'trust'].includes(P.mode)) P.mode = 'auto';
 function persist() { try { localStorage.setItem('read-it-say-it-v1', JSON.stringify(P)); } catch (e) {} }
@@ -1205,6 +1224,7 @@ function sfx(k, i) {
   if (k === 'word') tone(500 + (i || 0) * 40, 0.12, 'triangle', 0.2);
   else if (k === 'magic') { [523, 659, 784, 1047, 1319].forEach((f, j) => tone(f, 0.3, 'sine', 0.2, j * 0.07)); noise(0.5, 0.12, 3000); }
   else if (k === 'wrong') tone(220, 0.25, 'square', 0.1, 0, 150);
+  else if (k === 'tick') tone(1300, 0.04, 'sine', 0.07);
   else if (k === 'pop') { tone(900, 0.08, 'sine', 0.25, 0, 300); }
   else if (k === 'thunder') noise(1.2, 0.4, 300);
   else if (k === 'sing') tone([523, 587, 659, 784, 880][(i || 0) % 5], 0.3, 'triangle', 0.16);
@@ -1349,7 +1369,65 @@ function paint(cls) {
     el.classList.toggle('heard', !!got[i]); if (cls) el.classList.add(cls);
     if (isPassage()) { const inCur = phase === 'read' && c && i >= c.a && i < c.b; el.classList.toggle('cur', inCur); el.classList.toggle('read', !inCur && (phase !== 'read' || (c && i < c.a))); }
   });
+  guideLayout();
 }
+// The finger line. It follows the words being read (the sentence, or the yellow part of a passage), one track per row
+// on the screen, with a checkpoint after each word. It only shows the way; it marks nothing as read.
+let gRows = [], gKey = '', gDrag = null;
+function guideRange() {
+  if (!P.guide || phase !== 'read' || !task) return null;
+  if (isPassage()) { const c = task.chunks[ci]; return c ? [c.a, c.b] : null; }
+  return [0, task.words.length];
+}
+function guideLayout(force) {
+  const box = $('words'), r = guideRange();
+  box.classList.toggle('guided', !!P.guide);
+  const key = r ? r.join('-') + '|' + box.clientWidth + '|' + round : '';
+  if (!force && key === gKey && (gDrag || !r || box.querySelector('.gtrack'))) return;
+  gKey = key; gDrag = null;
+  box.querySelectorAll('.gtrack').forEach(t => t.remove()); box.querySelectorAll('.w.fg').forEach(w => w.classList.remove('fg')); gRows = [];
+  if (!r) return;
+  const els = box.querySelectorAll('.w'), b = box.getBoundingClientRect();
+  for (let i = r[0]; i < r[1]; i++) {
+    const q = els[i] && els[i].getBoundingClientRect(); if (!q || !q.width) continue;
+    const w = { i, l: q.left - b.left + box.scrollLeft, r: q.right - b.left + box.scrollLeft, t: q.top - b.top + box.scrollTop, btm: q.bottom - b.top + box.scrollTop };
+    const row = gRows[gRows.length - 1];
+    if (row && Math.abs(w.t - row.t) < (w.btm - w.t) / 2) { row.words.push(w); row.btm = Math.max(row.btm, w.btm); } else gRows.push({ t: w.t, btm: w.btm, words: [w] });
+  }
+  const pas = isPassage();
+  gRows.forEach((row, n) => {
+    row.l = row.words[0].l; row.r = row.words[row.words.length - 1].r + 6;
+    const tr = document.createElement('div'); tr.className = 'gtrack' + (n === 0 ? ' cur' : '');
+    tr.style.left = row.l + 'px'; tr.style.width = (row.r - row.l) + 'px'; tr.style.top = (row.btm + (pas ? -2 : 4)) + 'px';
+    tr.innerHTML = '<i class="gl"></i><i class="gf"></i>' + row.words.map(w => `<i class="gd" style="left:${w.r + 4 - row.l}px"></i>`).join('') + '<i class="gk" style="left:0"></i>';
+    tr.onpointerdown = e => { e.stopPropagation(); e.preventDefault(); hideGloss(); try { tr.setPointerCapture(e.pointerId); } catch (x) {} gDrag = { id: e.pointerId, word: -1, dots: 0 }; guideMove(e); };
+    tr.onpointermove = e => { if (gDrag && gDrag.id === e.pointerId) guideMove(e); };
+    tr.onpointerup = tr.onpointercancel = e => { if (gDrag && gDrag.id === e.pointerId) guideEnd(); };
+    row.el = tr; box.appendChild(tr);
+  });
+}
+// The finger picks the row nearest to it, so she can slide down to the next row and keep going.
+function guideMove(e) {
+  const box = $('words'), b = box.getBoundingClientRect(), x = e.clientX - b.left + box.scrollLeft, y = e.clientY - b.top + box.scrollTop;
+  let n = 0, best = Infinity;
+  gRows.forEach((row, k) => { const d = Math.abs(y - (row.btm + 10)); if (d < best) { best = d; n = k; } });
+  const row = gRows[n]; if (!row) return;
+  const px = Math.max(row.l, Math.min(row.r, x));
+  let word = row.words[0].i, dots = 0;
+  gRows.forEach((rw, k) => {
+    const fill = k < n ? rw.r : k === n ? px : rw.l;
+    rw.el.classList.toggle('cur', k === n);
+    rw.el.querySelector('.gf').style.width = (fill - rw.l) + 'px';
+    rw.el.querySelector('.gk').style.left = (k === n ? px - rw.l : 0) + 'px';
+    rw.el.querySelectorAll('.gd').forEach((d, j) => { const on = rw.words[j].r + 4 <= fill + 1; d.classList.toggle('on', on); if (on) dots++; });
+  });
+  for (const w of row.words) if (px >= w.l - 8) word = w.i;
+  if (dots > gDrag.dots && !listening) sfx('tick');
+  gDrag.dots = dots;
+  if (word !== gDrag.word) { gDrag.word = word; box.querySelectorAll('.w').forEach((el, i) => el.classList.toggle('fg', i === word)); }
+}
+function guideEnd() { gDrag = null; $('words').querySelectorAll('.w.fg').forEach(w => w.classList.remove('fg')); }
+function guideToggle() { P.guide = !P.guide; persist(); $('guideBtn').classList.toggle('on', P.guide); guideLayout(true); }
 // How to read the current part, on the levels that teach expression: a question, an exclamation, or someone talking.
 function exprHint() {
   const el = $('expr'); let t = '';
@@ -1587,6 +1665,9 @@ $('trust').onclick = trustMe;
 $('listen').onclick = hearIt;
 $('next').onclick = () => newRound();
 $('skip').onclick = () => newRound();
+$('guideBtn').onclick = guideToggle; $('guideBtn').classList.toggle('on', P.guide);
+addEventListener('resize', () => guideLayout(true));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => guideLayout(true));
 document.addEventListener('pointerdown', e => { if (!e.target.closest || !e.target.closest('.w.gl')) hideGloss(); }, true);
 $('stage').addEventListener('pointerdown', e => { const h = K.pick(e.clientX, e.clientY); if (h && !h.userData.busy) K.act(h, pick(['hop', 'spin', 'dance'])); });
 // Grown-up switch: press and hold the gear for 1.5 seconds.
