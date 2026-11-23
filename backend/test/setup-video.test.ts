@@ -172,7 +172,7 @@ describe.skipIf(!ready)('setup video', () => {
     add(P1, 'Add your child with a first name and age.', 'Add your child with a first name and an age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Add child' }))]);
     await mom.getByRole('button', { name: 'Add child' }).click();
     await mom.locator('#children .list li', { hasText: 'Scarlett' }).waitFor();
-    add(P1, 'Each subject starts at a level for that age. Levels changes it per subject.', 'Each subject starts at a level that fits that age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Levels' }))]);
+    add(P1, 'Each subject starts at a level for that age. Levels changes it per subject.', 'Each subject starts at a level that fits her age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Levels' }))]);
 
     // Part 2: the first tablet.
     const P2 = 'Pair the tablet';
@@ -189,7 +189,7 @@ describe.skipIf(!ready)('setup video', () => {
     await ipad.getByPlaceholder('000000').fill(code);
     await ipad.getByLabel('Name for this tablet').fill('Scarlett\'s iPad');
     const pair = ipad.getByRole('button', { name: 'Pair', exact: true });
-    add(P2, 'Type the code on the tablet, give the tablet a name, and press Pair. The code works once, for 15 minutes.', 'Type the code on the tablet, name the tablet, and press Pair.', [await snap(mom, 'portal', mom.locator('.code')), await snap(ipad, 'tablet', pair, 'iPad')], 5);
+    add(P2, 'Type the code on the tablet, give the tablet a name, and press Pair. The code works once, for 15 minutes.', 'Type the code on the tablet, give it a name, and press Pair.', [await snap(mom, 'portal', mom.locator('.code')), await snap(ipad, 'tablet', pair, 'iPad')], 5);
     await pair.click();
     await ipad.getByRole('button', { name: '1', exact: true }).waitFor();
     for (const d of '2468') await ipad.getByRole('button', { name: d, exact: true }).click();
@@ -198,7 +198,7 @@ describe.skipIf(!ready)('setup video', () => {
     for (const d of '2468') await ipad.getByRole('button', { name: d, exact: true }).click();
     const done = ipad.getByRole('button', { name: 'Done', exact: true });
     await done.waitFor();
-    add(P2, 'The parent area on the tablet lists the steps that lock it down for your child. When they are done, press Done.', 'The parent area shows the lockdown steps. When they are done, press Done.', [await snap(ipad, 'tablet', done, 'iPad')], 5);
+    add(P2, 'The parent area on the tablet lists the steps that lock it down for your child. When every step is finished, press Done.', 'The parent area lists the steps that lock the tablet down. When every step is finished, press Done.', [await snap(ipad, 'tablet', done, 'iPad')], 5);
     await done.click();
     await ipad.getByRole('heading', { name: 'Scarlett\'s tablet' }).waitFor();
     await ipad.waitForTimeout(2500);
