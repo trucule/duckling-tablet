@@ -118,6 +118,81 @@
     return (box[name] = loadScript(id).then(() => bitmapTexture(takeBytes(id), 'image/webp')).then(t => { t.flipY = false; t.encoding = T.sRGBEncoding; return t; }));
   }
 
+  // ------------------------------------------------------------------------------------------------------------
+  // Surface detail drawn in code: small tiling normal maps for skin pores and fabric weaves, so surfaces catch light
+  // the way skin and cloth do. Nothing is downloaded; each pattern is made once.
+  // ------------------------------------------------------------------------------------------------------------
+  const DETAIL = {};
+  function hash(x, y) { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+  function smoothNoise(x, y, n) {   // value noise that tiles every n cells
+    const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const v = (a, b) => hash(((a % n) + n) % n, ((b % n) + n) % n);
+    return (v(xi, yi) * (1 - sx) + v(xi + 1, yi) * sx) * (1 - sy) + (v(xi, yi + 1) * (1 - sx) + v(xi + 1, yi + 1) * sx) * sy;
+  }
+  const PATTERNS = {
+    // Fine bumps and scattered pores.
+    pores: (u, v) => 0.55 * smoothNoise(u * 48, v * 48, 48) + 0.3 * smoothNoise(u * 96, v * 96, 96) - (hash(Math.floor(u * 160), Math.floor(v * 160)) > 0.93 ? 0.6 : 0),
+    // Plain weave: threads over and under.
+    cotton: (u, v) => { const a = Math.sin(u * Math.PI * 16), b = Math.sin(v * Math.PI * 16); return 0.5 + 0.5 * (Math.sign(a * b) * Math.min(Math.abs(a), Math.abs(b))) + 0.15 * smoothNoise(u * 16, v * 16, 16); },
+    // Twill: diagonal ribs.
+    denim: (u, v) => 0.5 + 0.3 * Math.sin((u * 8 + v * 8) * Math.PI * 2) + 0.35 * smoothNoise(u * 16, v * 32, 16),
+    // Knit: columns of V stitches.
+    knit: (u, v) => { const cx = (u * 24) % 1, cy = (v * 32) % 1, side = cx < 0.5 ? cx * 2 : (1 - cx) * 2; const vv = (cy + side * 0.5) % 1; return Math.pow(Math.sin(vv * Math.PI), 0.6) * Math.pow(Math.sin(cx * Math.PI * 2 % Math.PI || 0.0001), 0.3); },
+    // Leather: soft cells.
+    leather: (u, v) => { let d = 9; const gx = u * 24, gy = v * 24, ix = Math.floor(gx), iy = Math.floor(gy);
+      for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const cx = ix + a + hash(((ix + a) % 24 + 24) % 24, ((iy + b) % 24 + 24) % 24), cy = iy + b + hash(((iy + b) % 24 + 24) % 24 + 99, ((ix + a) % 24 + 24) % 24); d = Math.min(d, Math.hypot(gx - cx, gy - cy)); }
+      return Math.min(1, d * 1.6); },
+  };
+  function detailMap(name) {
+    if (DETAIL[name]) return DETAIL[name];
+    const N = 256, h = new Float32Array(N * N), f = PATTERNS[name];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) h[y * N + x] = f(x / N, y / N);
+    const d = new Uint8Array(N * N * 4), at = (x, y) => h[((y + N) % N) * N + ((x + N) % N)];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) * 2, dy = (at(x, y + 1) - at(x, y - 1)) * 2, l = Math.hypot(dx, dy, 1), i = (y * N + x) * 4;
+      d[i] = (-dx / l * 0.5 + 0.5) * 255; d[i + 1] = (-dy / l * 0.5 + 0.5) * 255; d[i + 2] = (1 / l * 0.5 + 0.5) * 255; d[i + 3] = 255;
+    }
+    const t = new T.DataTexture(d, N, N, T.RGBAFormat); t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.magFilter = T.LinearFilter; t.minFilter = T.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = 4; t.needsUpdate = true;
+    return (DETAIL[name] = t);
+  }
+  // Which detail each piece of clothing gets, and how strong: [pattern, repeat, strength, sheen].
+  function fabricOf(id) {
+    if (/sweater|warmers/.test(id)) return ['knit', 30, 0.45, 0.5];
+    if (/jean|cargo/.test(id)) return ['denim', 40, 0.2, 0.15];
+    if (/pants|harem/.test(id)) return ['denim', 40, 0.12, 0.3];
+    if (/leather|mary-janes|ankle-boots/.test(id)) return ['leather', 20, 0.35, 0];
+    if (/^(top|dress|bottom|socks)-|sneakers|flats/.test(id)) return ['cotton', 40, 0.15, 0.35];
+    return null;
+  }
+  // Physical materials, so skin, hair and cloth can have sheen.
+  function physical(m) {
+    if (m.isMeshPhysicalMaterial) return m;
+    const p = new T.MeshPhysicalMaterial(); p.copy(m); p.userData = m.userData; return p;
+  }
+  function finish(mesh, kind, id) {
+    const one = m => {
+      const p = physical(m);
+      if (kind === 'body') {
+        p.normalMap = detailMap('pores'); p.normalMap.repeat.set(40, 40); p.normalScale.set(0.07, 0.07);
+        p.roughness = 0.5; p.sheen = 0.25; p.sheenRoughness = 0.5; p.sheenColor = new T.Color('#ffb4a0');
+        p.clearcoat = 0.06; p.clearcoatRoughness = 0.45;
+      } else if (kind === 'eyes') {
+        // The iris and pupil glow a little from their own texture and the cornea is wet, so the eyes read from across the room.
+        p.emissive = new T.Color('#ffffff'); p.emissiveMap = p.map; p.emissiveIntensity = 0.15; p.roughness = 0.1; p.clearcoat = 0.5; p.clearcoatRoughness = 0.05;
+      } else if (kind === 'hair') {
+        p.roughness = 0.55; p.sheen = 0.1; p.sheenRoughness = 0.3; p.sheenColor = p.color.clone().lerp(new T.Color('#ffffff'), 0.4); p.clearcoat = 0;
+      } else if (kind === 'clothes' && id) {
+        const f = fabricOf(id);
+        p.clearcoat = 0;
+        if (f) { p.normalMap = detailMap(f[0]).clone(); p.normalMap.needsUpdate = true; p.normalMap.repeat.set(f[1], f[1]); p.normalScale.set(f[2], f[2]); p.sheen = f[3]; p.sheenRoughness = 0.6; p.sheenColor = new T.Color('#ffffff'); p.roughness = Math.max(p.roughness, 0.75); }
+        if (/glasses|jewel/.test(id)) { p.roughness = 0.2; p.clearcoat = 0.6; }
+      }
+      p.needsUpdate = true; return p;
+    };
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(one) : one(mesh.material);
+  }
+
   function setupMaterial(m, kind) {
     if (m.map) m.map.encoding = T.sRGBEncoding;
     m.transparent = false; m.depthWrite = true;
@@ -144,6 +219,7 @@
         if (kind === 'eyes') { m.material.roughness = 0.3; m.material.side = T.FrontSide; m.material.metalness = 0; }
         if (kind === 'body') { m.material.roughness = 0.62; m.material.metalness = 0; }
         if (kind === 'teeth' || kind === 'lashes' || kind === 'eyes') m.castShadow = false;
+        finish(m, kind);
       }
       const mixer = new T.AnimationMixer(root), clips = {};
       for (const c of g.animations) clips[c.name] = c;
@@ -220,10 +296,11 @@
       m.frustumCulled = false; m.castShadow = kind !== 'eyebrows'; m.receiveShadow = true;
       const mats = Array.isArray(m.material) ? m.material : [m.material];
       mats.forEach(x => setupMaterial(x, kind));
+      if (kind !== 'eyebrows') finish(m, kind, id);
       if (kind === 'eyebrows') m.renderOrder = 2;
       // Layers, so a closer layer wins where two nearly touch (a shirt hem over the top of the trousers).
       const layer = { socks: 1, bottom: 2, shoes: 3, top: 4, dress: 4, glasses: 5, hat: 5, jewel: 5 }[id.split('-')[0]] || 0;
-      if (layer) mats.forEach(x => { x.polygonOffset = true; x.polygonOffsetFactor = -layer; x.polygonOffsetUnits = -4 * layer; });
+      if (layer) (Array.isArray(m.material) ? m.material : [m.material]).forEach(x => { x.polygonOffset = true; x.polygonOffsetFactor = -layer; x.polygonOffsetUnits = -4 * layer; });
     }
     return { meshes: out, kind };
   }
@@ -331,7 +408,7 @@
     R.texturesReady = false;
     Promise.all(texWait).then(([st, et]) => { R.texturesReady = true;
       const bm = body.parts.body.material; if (bm.map !== st) { bm.map = st; bm.needsUpdate = true; }
-      if (body.parts.eyes) { const em = body.parts.eyes.material; if (em.map !== et) { em.map = et; em.needsUpdate = true; } }
+      if (body.parts.eyes) { const em = body.parts.eyes.material; if (em.map !== et) { em.map = et; if (em.emissiveMap) em.emissiveMap = et; em.needsUpdate = true; } }
     }).catch(e => R.errors.push('texture: ' + e.message));
     body.parts.body.material.color.copy(sk.tint);
 

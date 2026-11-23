@@ -200,7 +200,7 @@ function restoreFromHome() {
 // ---------------------------------------------------------------------------------------------------------------
 const stage = $('stage');
 const renderer = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));   // sharp on tablet screens; the avatar is the whole scene
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
 renderer.outputEncoding = T.sRGBEncoding; renderer.toneMapping = T.LinearToneMapping; renderer.toneMappingExposure = 0.85;
 stage.appendChild(renderer.domElement);
@@ -208,7 +208,7 @@ const scene = new T.Scene();
 const camera = new T.PerspectiveCamera(30, 1, 0.05, 200);
 const hemi = new T.HemisphereLight('#ffffff', '#b9a99a', 0.75); scene.add(hemi);
 const key = new T.DirectionalLight('#fff4e6', 1.05); key.position.set(2.2, 4, 3.2); key.castShadow = true;
-key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -2, right: 2, top: 3, bottom: -1, near: 0.5, far: 12 }); key.shadow.bias = -0.0005;
+key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 3; Object.assign(key.shadow.camera, { left: -2, right: 2, top: 3, bottom: -1, near: 0.5, far: 12 }); key.shadow.bias = -0.0005;
 scene.add(key);
 const rim = new T.DirectionalLight('#cfe0ff', 0.55); rim.position.set(-3, 2.5, -2.5); scene.add(rim);
 const fill = new T.DirectionalLight('#ffe9f2', 0.3); fill.position.set(-2.5, 1.2, 3); scene.add(fill);

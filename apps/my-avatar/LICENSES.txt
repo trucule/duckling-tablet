@@ -1,0 +1,111 @@
+My Avatar: third-party content and licenses
+===========================================
+
+Code
+----
+three.min.js, three-gltf.min.js   three.js r149, MIT license, Copyright 2010-2023 three.js authors (https://threejs.org).
+avatar.js, real.js, extras.js,    ET Ducky LLC. The drawn avatar, the shop items (hats, wings, pets, places and the
+lang.js                           rest in extras.js) and the surface detail patterns in real.js are drawn in code.
+
+3D models and textures (models/)
+--------------------------------
+Every file in models/ is built by tools/build-avatar-models.py (in the Surface-Pro-X-KidSetup repo) from MakeHuman
+assets, using the MakeHuman asset packs from https://static.makehumancommunity.org/assets/assetpacks.html. Every pack
+used is a CC0 pack. MakeHuman's core assets are shared under CC0
+(https://static.makehumancommunity.org/about/license.html).
+
+Audit 2026-11-23: each source asset was found in the packs in Chris's Downloads folder, and its own file header was
+read. Columns: app file | MakeHuman asset | pack | author (from the file) | license in the file header.
+"Repo" marks an asset whose license was also read from the pack's page on makehumancommunity.org.
+
+Body, eyes, teeth, skins, poses
+body.js (body, eyes, teeth)    | MakeHuman base mesh, high-poly, teeth_base | makehuman_system_assets | MakeHuman | CC0
+body.js (eyelashes)            | mindfront_eyelashes_02               | eyelashes01             | Mindfront        | CC0
+skin-light.js                  | young_caucasian_female               | makehuman_system_assets | MakeHuman        | CC0
+skin-medium.js                 | young_asian_female                   | makehuman_system_assets | MakeHuman        | CC0
+skin-deep.js                   | young_african_female                 | makehuman_system_assets | MakeHuman        | CC0
+skin-freckles.js               | toigo_light_skin_female_freckles     | skins01                 | MargaretToigo    | CC0 (pack)
+eye-*.js                       | eyes/materials (brownlight, green, blue, lightblue, grey, bluegreen) | makehuman_system_assets | MakeHuman | CC0
+body.js poses                  | callharvey3d_*, drednicolson_arms_akimbo, elvs_super_him_standing_pose_1, gpedroso_peace_and_love, sohh_posing2 | poses03 | various | CC0 (pack)
+body.js pose fly               | fly01                                | makehuman_system_poses  | MakeHuman        | CC0
+
+Hair
+hair-long.js                   | long01                               | makehuman_system_assets | MakeHuman        | CC0
+hair-ponytail.js               | ponytail01                           | makehuman_system_assets | MakeHuman        | CC0
+hair-braid.js                  | braid01                              | makehuman_system_assets | MakeHuman        | CC0
+hair-short.js                  | short02                              | makehuman_system_assets | MakeHuman        | CC0
+hair-short-side.js             | short03                              | makehuman_system_assets | MakeHuman        | CC0
+hair-afro.js                   | afro01                               | makehuman_system_assets | MakeHuman        | CC0
+hair-bob.js                    | toigo_blunt_bob                      | hair01                  | MRT (MargaretToigo) | CC0
+hair-bob-bangs.js              | toigo_blunt_bob_with_bangs           | hair01                  | MRT              | CC0
+hair-curled-bob.js             | toigo_curled_under_bob               | hair01                  | MRT              | CC0
+hair-inverted-bob.js           | toigo_inverted_bob                   | hair01                  | MRT              | CC0
+hair-wavy-short.js             | culturalibre_hair_05                 | hair01                  | culturalibre     | CC0
+hair-straight.js               | culturalibre_hair_01                 | hair01                  | culturalibre     | AGPL3 header, CC0 pack [1]
+hair-bun.js                    | rehmanpolanski_hair_bun_brown        | hair01                  | Rehman Polanski  | AGPL3 header, CC0 pack [1]
+hair-double-braid.js           | elvs_double_mh_braid                 | hair01                  | Elvaerwyn        | AGPL3 header, CC0 pack [1]
+hair-headband.js               | sonntag78_blond_with_headband        | hair01                  | sonntag78        | AGPL3 header, CC0 pack [1]
+hair-bangs.js                  | cortu_straight_bangs                 | hair01                  | cortu            | no header, CC0 pack [1]
+hair-curls.js                  | cortu_strawberry_cloud_hair          | hair01                  | cortu            | no header, CC0 pack [1]
+hair-braid-bun.js              | elvs_reverse_french_braid_bun        | hair01                  | Elvaerwyn        | CC-BY header, CC0 pack [2]
+
+Eyebrows
+brows-natural.js, brows-soft.js, brows-thick.js, brows-arched.js | mindfront_eyebrows_01, _05, _09, _12 | eyebrows01 | Mindfront | CC0
+
+Tops, bottoms, dresses
+top-tee.js                     | joepal_crude_t-shirt_female          | shirts01                | Joel Palmius     | CC0
+top-tucked-tee.js              | toigo_basic_tucked_t-shirt           | shirts01                | MRT              | CC0
+top-polo.js                    | namuhekam_male_polo_shirt            | shirts01                | Namuhekam        | CC0
+top-sweater.js                 | toigo_fisherman_sweater              | shirts01                | MRT              | CC0
+top-tank.js                    | toigo_camisole_top                   | shirts01                | MRT              | CC0
+bottom-jean-shorts.js          | cortu_jeans_shorts                   | pants01                 | cortu            | no header, CC0 pack [1]
+bottom-cargo.js                | cortu_cargo_pants                    | pants01                 | cortu            | no header, CC0 pack [1]
+bottom-pants.js                | toigo_wool_pants                     | pants01                 | MRT              | CC0
+bottom-harem.js                | toigo_harem_pants                    | pants01                 | MRT              | CC0
+bottom-ruffle-skirt.js         | toigo_skirt_with_lace_ruffle         | skirts01                | MRT              | CC0
+bottom-tiered-skirt.js         | toigo_tiered_skirt                   | skirts01                | MRT              | CC0
+bottom-long-skirt.js           | toigo_long_full_skirt                | skirts01                | MRT              | CC0
+bottom-plaid-skirt.js          | frankyaye_mini_skirt_02              | skirts01                | frankyaye        | AGPL3 header, CC0 pack [1]
+dress-sundress.js              | toigo_camisole_dress_with_full_skirt | dress01                 | MRT              | CC0
+dress-tiered.js                | toigo_dress_with_tiered_skirt        | dress01                 | MRT              | CC0
+dress-party.js                 | toigo_bodice_dress_with_lace_ruffle_skirt | dress01            | MRT              | CC0
+dress-tunic.js                 | wdg_mycenaean_tunic                  | dress01                 | WDG              | AGPL3 header, CC0 pack [1]
+dress-overalls.js              | male_worksuit01                      | makehuman_system_assets | MakeHuman        | CC0
+
+Shoes and socks
+shoes-sneakers.js              | shoes05                              | makehuman_system_assets | MakeHuman        | CC0
+shoes-blue-sneakers.js         | shoes06                              | makehuman_system_assets | MakeHuman        | CC0
+shoes-leather.js               | shoes01                              | makehuman_system_assets | MakeHuman        | CC0
+shoes-mary-janes.js            | toigo_mj_cloth_shoes                 | shoes01                 | MRT              | CC0
+shoes-flats-bows.js            | toigo_ballet_flats_with_bows         | shoes01                 | MRT              | CC0
+shoes-flats-flowers.js         | toigo_ballet_flats_with_flowers      | shoes01                 | MRT              | CC0
+shoes-ankle-boots.js           | toigo_ankle_boots_male               | shoes01                 | MRT              | CC0
+shoes-rain-boots.js            | culturalibre_hero_boots_2            | shoes01                 | culturalibre     | CC0
+socks-low.js, socks-high.js    | joepal_crude_low_socks, joepal_crude_high_socks | underwear04  | Joel Palmius     | CC0
+socks-frill.js                 | toigo_lace_frill_socks               | underwear04             | MRT              | CC0
+socks-warmers.js               | toigo_leg_warmer_socks               | underwear04             | MRT              | CC0
+
+Hats, glasses, jewelry
+hat-newsboy.js                 | jujube_newsboy_cap                   | hats01                  | jujube           | AGPL3 header; Repo: CC0
+hat-santa.js                   | joepal_xmas_cap                      | hats01                  | Joel Palmius     | CC0; Repo: CC0
+glasses-black.js               | spamrakuen_tbm_glasses_frames_01     | glasses01               | spamrakuen       | CC0
+glasses-leopard.js             | toigo_round_glasses_leopard          | glasses01               | MRT              | CC0
+glasses-goggles.js             | culturalibre_doc_ock_glasses         | glasses01               | culturalibre     | CC0
+glasses-round.js               | kwnet_at_optical_glasses             | glasses01               | kwnet_at         | AGPL3 header, CC0 pack [1]
+glasses-library.js             | frankyaye_glasses_library_male       | glasses01               | frankyaye        | AGPL3 header, CC0 pack [1]
+glasses-3d.js                  | ews_3d_glasses                       | glasses01               | EWS              | AGPL3 header, CC0 pack [1]
+jewel-pearls.js                | toigo_pearl_necklace                 | jewelry01               | MargaretToigo    | CC0; Repo: CC0
+jewel-pearl-earrings.js        | toigo_pearl_earrings                 | jewelry01               | MRT              | CC0
+jewel-hoops.js                 | ews_hoop_earrings                    | jewelry01               | EWS              | AGPL3 header; Repo: CC0
+jewel-lightning.js             | culturalibre_heroine_lightning_earrings | jewelry01            | culturalibre     | CC0; Repo: CC0
+
+Notes
+[1] The file carries the old MakeClothes header (AGPL3) or none, while the pack is a CC0 pack. For the two assets of
+    this kind checked on the repository pages (jujube_newsboy_cap, ews_hoop_earrings), the repository lists CC0, so
+    the header is the old default. The remaining ones are to be read on the hair01, skirts01, dress01 and glasses01
+    pack pages.
+[2] elvs_reverse_french_braid_bun's file header says CC-BY while it ships in the CC0 hair01 pack. Until the hair01
+    page is read, it is credited as if CC-BY: "Reverse French braid bun" by Elvaerwyn, MakeHuman community asset
+    repository, https://static.makehumancommunity.org/assets/assetpacks/hair01.html.
+
+Credits: MakeHuman and MPFB (https://static.makehumancommunity.org); hair "Reverse French braid bun" by Elvaerwyn.
