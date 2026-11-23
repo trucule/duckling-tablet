@@ -518,8 +518,9 @@ describe.skipIf(!ready)('setup video', () => {
     }
     if (VOICE || MUSIC) {
       // With both, the song drops about 8 dB while the narrator speaks (the narration keys a compressor on the song).
+      // The whole mix ends at -16 LUFS, or -14 for the phone cut, where TikTok and Reels play.
       const mix = VOICE && MUSIC
-        ? '[0:a]aformat=channel_layouts=stereo,asplit=2[v][key];[1:a][key]sidechaincompress=threshold=0.02:ratio=5:attack=40:release=600[bed];[v][bed]amix=inputs=2:normalize=0,alimiter=limit=0.89[out]'
+        ? `[0:a]aformat=channel_layouts=stereo,asplit=2[v][key];[1:a][key]sidechaincompress=threshold=0.02:ratio=5:attack=40:release=600[bed];[v][bed]amix=inputs=2:normalize=0,loudnorm=I=${VERTICAL ? -14 : -16}:TP=-1.5:LRA=11,aresample=48000[out]`
         : '[0:a]aformat=channel_layouts=stereo[out]';
       const inputs = [VOICE ? voiceWav : bedWav, ...(VOICE && MUSIC ? [bedWav] : [])];
       await execFile('ffmpeg', ['-y', '-v', 'error', '-i', silent, ...inputs.flatMap((x) => ['-i', x]), '-filter_complex', mix.replace(/\[(\d):a\]/g, (_, d) => `[${Number(d) + 1}:a]`),
