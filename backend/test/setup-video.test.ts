@@ -3,11 +3,16 @@
 // portal and tablet app against a real API, takes a frame at each step with the next control outlined, composes the
 // frames at 1920 x 1080 with a caption, and encodes an MP4 with ffmpeg. Runs only when asked:
 //
-//   cd backend && SETUP_VIDEO=/some/folder [SETUP_VOICE=/folder/of/beats] npx vitest run test/setup-video.test.ts
+//   cd backend && SETUP_VIDEO=/some/folder [SETUP_VOICE=/folder/of/beats] [SETUP_MUSIC=/song.mp3 \
+//     SETUP_MUSIC_GRID=period,firstBeat,loopFrom,loopTo] npx vitest run test/setup-video.test.ts
 //
 // Writes setup.mp4, the composed frames (frames/) and the narration script (beats_duckling_setup.txt, one line per
 // scene in the voice clone's beats format) to that folder. With SETUP_VOICE, a folder of beat1.wav to beatN.wav read
 // from that script, each scene lasts at least as long as its line and the narration is mixed in.
+// With SETUP_MUSIC the song plays under the video and drops while the narrator speaks. SETUP_MUSIC_GRID is the song's
+// beat in seconds (beat length and the first beat) and a loop: when the video outlasts loopTo, the song goes back to
+// loopFrom. Both loop points sit on beats a whole number of bars apart, so the beat runs on through the jump. Every
+// scene change lands on a beat. The grid comes from the song (librosa onset strength against a beat grid).
 // Needs web/dist, portal/dist and ffmpeg.
 import { describe, it, beforeAll, afterAll } from 'vitest';
 import { execFile as execFileCb } from 'node:child_process';
@@ -28,6 +33,8 @@ const TOOLS = join(ROOT, 'tools');
 const ADMIN = 'admin-token-for-tests-0123456789';
 const OUT = process.env.SETUP_VIDEO ?? '';
 const VOICE = process.env.SETUP_VOICE ?? '';
+const MUSIC = process.env.SETUP_MUSIC ?? '';
+const GRID = (process.env.SETUP_MUSIC_GRID ?? '').split(',').filter(Boolean).map(Number);
 const ready = !!OUT && existsSync(join(ROOT, 'web', 'dist', 'index.html')) && existsSync(join(ROOT, 'portal', 'dist', 'index.html')) && existsSync(join(TOOLS, 'node_modules', 'fflate'));
 const PORTAL_HOST = 'https://parents.ducklingtablet.com';
 const W = 1920, H = 1080, FPS = 30;
@@ -416,6 +423,19 @@ describe.skipIf(!ready)('setup video', () => {
       if (fast.length) console.warn(`Fast lines (--only ${fast.map((x) => x.k).join(',')}):\n${fast.map((x) => `  beat${x.k} ${x.rate.toFixed(1)}/s ${x.say}`).join('\n')}`);
     }
 
+    // Scene changes on the song's beat: each scene runs on to the next beat. Then every boundary is rounded to a whole
+    // frame from the start, so the picture and the sound keep the same clock over the whole video.
+    if (MUSIC && GRID.length === 4) {
+      const [period, first] = GRID;
+      let end = 0;
+      for (const x of scenes) {
+        const want = end + x.seconds;
+        const next = first + Math.ceil((want - first) / period - 1e-6) * period;
+        x.seconds = next - end; end = next;
+      }
+    }
+    { let t = 0, f = 0; for (const x of scenes) { t += x.seconds; const g = Math.round(t * FPS); x.seconds = (g - f) / FPS; f = g; } }
+
     // One file per scene: a fade in from the scene before, then the outline fades in after a moment.
     const parts: string[] = [];
     let prev = '';
@@ -437,14 +457,38 @@ describe.skipIf(!ready)('setup video', () => {
     writeFileSync(join(dir, 'list.txt'), parts.map((x) => `file '${x}'`).join('\n'));
     const tmp = join(OUT, 'setup.tmp.mp4');
     const silent = join(dir, 'silent.mp4');
-    await execFile('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', join(dir, 'list.txt'), '-c', 'copy', '-movflags', '+faststart', VOICE ? silent : tmp]);
+    await execFile('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', join(dir, 'list.txt'), '-c', 'copy', '-movflags', '+faststart', VOICE || MUSIC ? silent : tmp]);
+    const total = scenes.reduce((n, x) => n + x.seconds, 0);
+    const voiceWav = join(dir, 'voice.wav'), bedWav = join(dir, 'music.wav');
     if (VOICE) {
-      // Each line starts just after its scene fades in; the mix is leveled for online video.
+      // Each line starts just after its scene fades in; the narration is leveled for online video.
       let at = 0;
-      const f = scenes.map((x, k) => { const d = Math.round((at + LEAD) * 1000); at += x.seconds; return `[${k + 1}:a]aformat=sample_rates=48000:channel_layouts=mono,adelay=${d}:all=1[a${k}]`; });
-      f.push(`${scenes.map((_, k) => `[a${k}]`).join('')}amix=inputs=${scenes.length}:normalize=0:duration=longest,apad=whole_dur=${at},loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[out]`);
-      await execFile('ffmpeg', ['-y', '-v', 'error', '-i', silent, ...scenes.flatMap((_, k) => ['-i', join(VOICE, `beat${k + 1}.wav`)]), '-filter_complex', f.join(';'),
-        '-map', '0:v', '-map', '[out]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k', '-ac', '2', '-shortest', '-movflags', '+faststart', tmp], { maxBuffer: 1 << 24 });
+      const f = scenes.map((x, k) => { const d = Math.round((at + LEAD) * 1000); at += x.seconds; return `[${k}:a]aformat=sample_rates=48000:channel_layouts=mono,adelay=${d}:all=1[a${k}]`; });
+      f.push(`${scenes.map((_, k) => `[a${k}]`).join('')}amix=inputs=${scenes.length}:normalize=0:duration=longest,apad=whole_dur=${total},atrim=0:${total},loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[out]`);
+      await execFile('ffmpeg', ['-y', '-v', 'error', ...scenes.flatMap((_, k) => ['-i', join(VOICE, `beat${k + 1}.wav`)]), '-filter_complex', f.join(';'), '-map', '[out]', '-ac', '1', voiceWav], { maxBuffer: 1 << 24 });
+    }
+    if (MUSIC) {
+      // The song from the top, then from loopFrom to loopTo as often as the video needs, joined on the beat. It fades
+      // in and out, and sits well under the narration.
+      const [, , from, to] = GRID.length === 4 ? GRID : [0, 0, 0, Infinity];
+      const { stdout } = await execFile('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', MUSIC]);
+      const songEnd = Math.min(Number(stdout.trim()), to);
+      const pieces: [number, number][] = [[0, songEnd]];
+      let have = songEnd;
+      while (have < total) { pieces.push([from, songEnd]); have += songEnd - from; }
+      const f = [`[0:a]asplit=${pieces.length}${pieces.map((_, k) => `[s${k}]`).join('')}`,
+        ...pieces.map(([a, b], k) => `[s${k}]atrim=${a}:${b},asetpts=PTS-STARTPTS[p${k}]`),
+        `${pieces.map((_, k) => `[p${k}]`).join('')}concat=n=${pieces.length}:v=0:a=1,atrim=0:${total},afade=t=in:d=1.5,afade=t=out:st=${Math.max(0, total - 3)}:d=3,loudnorm=I=${VOICE ? -27 : -18}:TP=-2:LRA=11,aresample=48000[out]`];
+      await execFile('ffmpeg', ['-y', '-v', 'error', '-i', MUSIC, '-filter_complex', f.join(';'), '-map', '[out]', '-ac', '2', bedWav], { maxBuffer: 1 << 24 });
+    }
+    if (VOICE || MUSIC) {
+      // With both, the song drops about 8 dB while the narrator speaks (the narration keys a compressor on the song).
+      const mix = VOICE && MUSIC
+        ? '[0:a]aformat=channel_layouts=stereo,asplit=2[v][key];[1:a][key]sidechaincompress=threshold=0.02:ratio=5:attack=40:release=600[bed];[v][bed]amix=inputs=2:normalize=0,alimiter=limit=0.89[out]'
+        : '[0:a]aformat=channel_layouts=stereo[out]';
+      const inputs = [VOICE ? voiceWav : bedWav, ...(VOICE && MUSIC ? [bedWav] : [])];
+      await execFile('ffmpeg', ['-y', '-v', 'error', '-i', silent, ...inputs.flatMap((x) => ['-i', x]), '-filter_complex', mix.replace(/\[(\d):a\]/g, (_, d) => `[${Number(d) + 1}:a]`),
+        '-map', '0:v', '-map', '[out]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', tmp], { maxBuffer: 1 << 24 });
     }
     renameSync(tmp, join(OUT, 'setup.mp4'));
   }, 900_000);
