@@ -1,4 +1,4 @@
-// A setup video for parents: create the family, pair a tablet, invite a second parent, pair another tablet, keep the
+// A setup video for parents: why the tablet exists, then create the family, pair a tablet, invite a second parent, pair another tablet, keep the
 // website on a phone, ask for an app, allow a website, and give another app its screen time. It drives the built
 // portal and tablet app against a real API, takes a frame at each step with the next control outlined, composes the
 // frames at 1920 x 1080 with a caption, and encodes an MP4 with ffmpeg. Runs only when asked:
@@ -90,11 +90,34 @@ afterAll(async () => {
   if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
+// One app from its folder, with the compat script and a bridge giving the child's name, voice and grades (as in
+// store-shots.test.ts).
+const VOICE_STUB = `(() => { const ss = window.speechSynthesis; if (!ss) return; ss.speak = (u) => { setTimeout(() => { try { u.dispatchEvent(new Event('start')); } catch (e) {} setTimeout(() => { try { u.dispatchEvent(new Event('end')); } catch (e) {} }, 250); }, 10); }; ss.cancel = () => {}; ss.getVoices = () => []; })();`;
+const SEED = `(() => { let a = 20261121; Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })();`;
+function serveApp(id: string, CHILD: string): Promise<{ url: string; close: () => void }> {
+  const root = join(ROOT, 'apps', id), compat = readFileSync(join(TOOLS, 'duckling-compat.js'), 'utf8');
+  const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json', '.glb': 'model/gltf-binary', '.woff2': 'font/woff2' };
+  const levels = JSON.stringify({ reading: 2, math: 2, science: 2, logic: 2, art: 2, music: 2 });
+  const srv = createServer((req, res) => {
+    const u = decodeURIComponent((req.url ?? '/').split('?')[0]);
+    if (u === '/' || u === '/index.html') {
+      const bridge = `window.DucklingApp={appId:()=>${JSON.stringify(id)},deviceToken:()=>'t',apiUrl:()=>location.origin+'/api',childName:()=>${JSON.stringify(CHILD)},childId:()=>'c1',voice:()=>'en-US-AnaNeural',language:()=>'en',levels:()=>${JSON.stringify(levels)}};`;
+      const html = readFileSync(join(root, 'index.html'), 'utf8').replace(/<script src="voice-config\.js"><\/script>/, '').replace(/<!-- KID-VOICE START -->[\s\S]*?<!-- KID-VOICE END -->/, '')
+        .replace(/<head>/i, `<head><script>${bridge}</script><script>${compat.replace(/<\/script/g, '<\\/script')}</script>`);
+      res.writeHead(200, { 'content-type': 'text/html' }); return res.end(html);
+    }
+    const f = join(root, u);
+    if (!f.startsWith(root) || !existsSync(f) || !statSync(f).isFile()) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, { 'content-type': types[extname(f)] ?? 'application/octet-stream' }); createReadStream(f).pipe(res);
+  });
+  return new Promise((r) => srv.listen(0, '127.0.0.1', () => r({ url: `http://127.0.0.1:${(srv.address() as { port: number }).port}/`, close: () => srv.close() })));
+}
+
 type Box = { x: number; y: number; width: number; height: number };
 type Pane =
   | { kind: 'portal' | 'tablet' | 'phone'; img: string; vw: number; vh: number; ring?: Box; label?: string }
   | { kind: 'mail'; to: string; subject: string; lines: string[]; ring?: number };
-type Shot = { part: string; caption: string; say: string; panes: Pane[]; seconds: number };
+type Shot = { part: string; caption: string; say: string; panes: Pane[]; seconds: number; card?: { title: string; sub: string } };
 
 describe.skipIf(!ready)('setup video', () => {
   it('records the setup from a new family to a second tablet', async () => {
@@ -144,11 +167,11 @@ describe.skipIf(!ready)('setup video', () => {
     await mom.goto(mails.at(-1)!.text.match(/(http\S+signin\?token=[\w-]+)/)![1]);
     await mom.getByRole('heading', { name: 'Children' }).waitFor();
     await mom.getByRole('button', { name: 'Not now' }).click().catch(() => {});
-    await mom.getByPlaceholder('First name').fill('Ada');
+    await mom.getByPlaceholder('First name').fill('Scarlett');
     await mom.getByPlaceholder('Age').fill('7');
     add(P1, 'Add your child with a first name and age.', 'Add your child with a first name and an age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Add child' }))]);
     await mom.getByRole('button', { name: 'Add child' }).click();
-    await mom.locator('#children .list li', { hasText: 'Ada' }).waitFor();
+    await mom.locator('#children .list li', { hasText: 'Scarlett' }).waitFor();
     add(P1, 'Each subject starts at a level for that age. Levels changes it per subject.', 'Each subject starts at a level that fits that age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Levels' }))]);
 
     // Part 2: the first tablet.
@@ -158,13 +181,13 @@ describe.skipIf(!ready)('setup video', () => {
     const haveCode = ipad.getByRole('button', { name: 'I have a code from the website' });
     add(P2, 'Install Duckling Tablet on the tablet and open it. Choose I have a code from the website.', 'On the tablet, install Duckling Tablet and open it.', [await snap(ipad, 'tablet', haveCode, 'iPad')]);
     await haveCode.click();
-    await mom.locator('#devices select').first().selectOption({ label: 'Ada' });
+    await mom.locator('#devices select').first().selectOption({ label: 'Scarlett' });
     const makeCode = mom.getByRole('button', { name: 'Make a pairing code' });
     add(P2, 'On the website, under Devices, choose the child and press Make a pairing code.', 'On the website, choose your child and make a pairing code.', [await snap(mom, 'portal', makeCode), await snap(ipad, 'tablet', undefined, 'iPad')]);
     await makeCode.click();
     const code = (await mom.locator('.code').textContent())!.trim();
     await ipad.getByPlaceholder('000000').fill(code);
-    await ipad.getByLabel('Name for this tablet').fill('Ada\'s iPad');
+    await ipad.getByLabel('Name for this tablet').fill('Scarlett\'s iPad');
     const pair = ipad.getByRole('button', { name: 'Pair', exact: true });
     add(P2, 'Type the code on the tablet, give the tablet a name, and press Pair. The code works once, for 15 minutes.', 'Type the code on the tablet, name the tablet, and press Pair.', [await snap(mom, 'portal', mom.locator('.code')), await snap(ipad, 'tablet', pair, 'iPad')], 5);
     await pair.click();
@@ -177,12 +200,13 @@ describe.skipIf(!ready)('setup video', () => {
     await done.waitFor();
     add(P2, 'The parent area on the tablet lists the steps that lock it down for your child. When they are done, press Done.', 'The parent area shows the lockdown steps. When they are done, press Done.', [await snap(ipad, 'tablet', done, 'iPad')], 5);
     await done.click();
-    await ipad.getByRole('heading', { name: 'Ada\'s tablet' }).waitFor();
+    await ipad.getByRole('heading', { name: 'Scarlett\'s tablet' }).waitFor();
     await ipad.waitForTimeout(2500);
+    const herHome = await snap(ipad, 'tablet', undefined, 'iPad');
     add(P2, 'The tablet is ready, with the starter apps installed. More apps are in the Library.', 'The tablet is ready, with the starter apps installed.', [await snap(ipad, 'tablet', undefined, 'iPad')], 4.5);
     await mom.getByRole('button', { name: 'Refresh' }).click();
-    await mom.locator('#devices li', { hasText: 'Ada\'s iPad' }).waitFor();
-    add(P2, 'The tablet now shows under Devices on the website, where you manage its apps and websites.', 'On the website, the tablet now shows under Devices.', [await snap(mom, 'portal', mom.locator('#devices li', { hasText: 'Ada\'s iPad' }))]);
+    await mom.locator('#devices li', { hasText: 'Scarlett\'s iPad' }).waitFor();
+    add(P2, 'The tablet now shows under Devices on the website, where you manage its apps and websites.', 'On the website, the tablet now shows under Devices.', [await snap(mom, 'portal', mom.locator('#devices li', { hasText: 'Scarlett\'s iPad' }))]);
 
     // Part 3: a second parent.
     const P3 = 'Add a parent';
@@ -200,38 +224,33 @@ describe.skipIf(!ready)('setup video', () => {
     await dad.waitForTimeout(500);
     add(P3, 'The link signs them in to your family. Every parent can change the same settings.', 'The link signs them in to the same family.', [await snap(dad, 'portal', dad.locator('#parents'))], 4.5);
 
-    // Part 4: another tablet, for a second child.
+    // Part 4: another tablet for the same child.
     const P4 = 'Add another tablet';
     await mom.reload();
     await mom.getByRole('heading', { name: 'Children' }).waitFor();
-    await mom.getByPlaceholder('First name').fill('Leo');
-    await mom.getByPlaceholder('Age').fill('5');
-    add(P4, 'A second child gets a profile of their own.', 'A second child gets a profile of their own.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Add child' }))], 3.5);
-    await mom.getByRole('button', { name: 'Add child' }).click();
-    await mom.locator('#children .list li', { hasText: 'Leo' }).waitFor();
-    await mom.locator('#devices select').first().selectOption({ label: 'Leo' });
+    await mom.locator('#devices select').first().selectOption({ label: 'Scarlett' });
     await mom.getByRole('button', { name: 'Make a pairing code' }).click();
     const code2 = (await mom.locator('.code').textContent())!.trim();
     const tab = await context({ width: 1280, height: 800 }, 'android');
     await tab.goto(web);
     await tab.getByRole('button', { name: 'I have a code from the website' }).click();
     await tab.getByPlaceholder('000000').fill(code2);
-    await tab.getByLabel('Name for this tablet').fill('Leo\'s tablet');
+    await tab.getByLabel('Name for this tablet').fill('Scarlett\'s Android');
     const pair2 = tab.getByRole('button', { name: 'Pair', exact: true });
     add(P4, 'Each tablet pairs with its own code. Choose the child, make a code, and type it on the new tablet.', 'Each new tablet gets its own pairing code.', [await snap(mom, 'portal', mom.locator('.code')), await snap(tab, 'tablet', pair2, 'Android tablet')], 5);
     await pair2.click();
     // The family's PIN is already set, so the new tablet only asks for it before its parent area.
-    const home2 = tab.getByRole('heading', { name: 'Leo\'s tablet' });
+    const home2 = tab.getByRole('heading', { name: 'Scarlett\'s tablet' });
     for (let k = 0; k < 6 && !(await home2.count()); k++) {
       await tab.waitForTimeout(1200);
       if (await tab.getByRole('button', { name: '1', exact: true }).count()) for (const d of '2468') await tab.getByRole('button', { name: d, exact: true }).click();
       else if (await tab.getByRole('button', { name: 'Done', exact: true }).count()) await tab.getByRole('button', { name: 'Done', exact: true }).click();
     }
-    await tab.getByRole('heading', { name: 'Leo\'s tablet' }).waitFor();
+    await tab.getByRole('heading', { name: 'Scarlett\'s tablet' }).waitFor();
     await tab.waitForTimeout(2500);
-    add(P4, 'The new tablet shows Leo\'s apps at Leo\'s levels.', "The new tablet shows Leo's apps at Leo's levels.", [await snap(tab, 'tablet', undefined, 'Android tablet')], 4);
+    add(P4, 'The new tablet has the same child\'s apps, levels and stars.', 'The new tablet has the same apps, levels, and stars for Scarlett.', [await snap(tab, 'tablet', undefined, 'Android tablet')], 4);
     await mom.getByRole('button', { name: 'Refresh' }).click();
-    await mom.locator('#devices li', { hasText: 'Leo\'s tablet' }).waitFor();
+    await mom.locator('#devices li', { hasText: 'Scarlett\'s Android' }).waitFor();
     add(P4, 'Both tablets are listed under Devices. Any parent in the family can manage them.', 'Both tablets are listed under Devices, and any parent can manage them.', [await snap(mom, 'portal', mom.locator('#devices'))], 5);
 
     // Part 5: the website on a phone, as a home screen app.
@@ -267,7 +286,7 @@ describe.skipIf(!ready)('setup video', () => {
     const ask = mom.getByRole('button', { name: 'Ask for this app' });
     add(P6, 'Under Apps, search for what your child wants. When nothing fits, press Ask for this app.', 'Search the apps for what your child wants. When nothing fits, press Ask for this app.', [await snap(mom, 'portal', ask)], 4.5);
     await ask.click();
-    await mom.getByPlaceholder('What should it do', { exact: false }).fill('Make a volcano erupt and show why it happens. Ada likes lava and the layers inside the earth.');
+    await mom.getByPlaceholder('What should it do', { exact: false }).fill('Make a volcano erupt and show why it happens. Scarlett likes lava and the layers inside the earth.');
     const send = mom.getByRole('button', { name: 'Send the request' });
     add(P6, 'Describe the app and what your child likes about the idea, then press Send the request.', 'Describe the app and what your child likes about it, then send the request.', [await snap(mom, 'portal', send)], 4.5);
     await send.click();
@@ -284,21 +303,21 @@ describe.skipIf(!ready)('setup video', () => {
     await allowSite.click();
     await mom.locator('#websites li', { hasText: 'pbskids.org' }).waitFor();
     await ipad.goto(web);
-    await ipad.getByRole('heading', { name: 'Ada\'s tablet' }).waitFor();
+    await ipad.getByRole('heading', { name: 'Scarlett\'s tablet' }).waitFor();
     const pbs = ipad.getByRole('button', { name: 'PBS Kids' });
     await pbs.waitFor();
     await ipad.waitForTimeout(1500);
     add(P7, 'Every tablet in the family gets the tile. Sites that are not allowed stay blocked.', 'Every tablet in the family gets the tile, and sites that are not allowed stay blocked.', [await snap(ipad, 'tablet', pbs, 'iPad')], 4.5);
 
-    // Part 8: screen time for the tablet's other apps. Leo's Android tablet reported its apps when it synced.
+    // Part 8: screen time for the tablet's other apps. The Android tablet reported its apps when it synced.
     const P8 = 'Screen time in other apps';
     await tab.goto(web);
-    await tab.getByRole('heading', { name: 'Leo\'s tablet' }).waitFor();
+    await tab.getByRole('heading', { name: 'Scarlett\'s tablet' }).waitFor();
     await tab.waitForTimeout(1500);
     await mom.reload();
     await mom.getByRole('heading', { name: 'Other apps' }).waitFor();
     const which = mom.getByRole('tablist', { name: 'Which tablet' });
-    await which.getByRole('tab', { name: 'Leo\'s tablet' }).click();
+    await which.getByRole('tab', { name: 'Scarlett\'s Android' }).click();
     const row = mom.locator('#other-apps li', { hasText: 'YouTube Kids' });
     await row.waitFor();
     add(P8, 'Under Other apps, the website lists the apps on an Android tablet. Press Allow to put one on its home screen.', 'Under Other apps, the website lists the apps on an Android tablet. Press Allow to put one on its home screen.', [await snap(mom, 'portal', row.getByRole('button', { name: 'Allow' }))], 5);
@@ -310,25 +329,48 @@ describe.skipIf(!ready)('setup video', () => {
     await row.locator('input[type=time]').last().fill('18:00');
     await row.getByRole('button', { name: 'Set hours' }).click();
     await mom.waitForTimeout(800);
-    add(P8, 'Set the minutes it gets each day and the hours it can open.', 'Then set the minutes it gets each day and the hours it can open.', [await snap(mom, 'portal', row)], 4.5);
+    add(P8, 'Set the minutes a day and the hours it can open. When the time ends, the tablet comes back to Duckling.', 'You decide how many minutes a day it gets and the hours it can open, and when the time ends, the tablet comes back to Duckling.', [await snap(mom, 'portal', row)], 4.5);
     // The tablet at ten past four in the afternoon, inside those hours.
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
     await tab.clock.setFixedTime(new Date(`${today}T16:10:00-08:00`));
     await tab.goto(web);
-    await tab.getByRole('heading', { name: 'Leo\'s tablet' }).waitFor();
+    await tab.getByRole('heading', { name: 'Scarlett\'s tablet' }).waitFor();
     const yt = tab.getByRole('button', { name: 'YouTube Kids' });
     await yt.waitFor();
     await tab.waitForTimeout(1500);
     add(P8, 'The tablet shows the app with the time it has left today.', 'The tablet shows the app with the time it has left today.', [await snap(tab, 'tablet', yt, 'Android tablet')], 4);
-    await which.getByRole('tab', { name: 'Ada\'s iPad' }).click();
+    await which.getByRole('tab', { name: 'Scarlett\'s iPad' }).click();
     const ipadNote = mom.getByText('On an iPad the apps are chosen on the iPad itself', { exact: false });
     await ipadNote.waitFor();
     add(P8, 'On an iPad, the apps are chosen on the iPad itself, in the parent area under Other apps.', 'On an iPad, the apps are chosen on the iPad itself, in the parent area under Other apps.', [await snap(mom, 'portal', ipadNote)], 5);
+
+    // The opening: why the tablet exists, then what she sees on it.
+    const W0 = 'Why Duckling Tablet';
+    const appShot = async (id: string, act?: (p: Page) => Promise<void>) => {
+      const srv = await serveApp(id, 'Scarlett');
+      const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: 1.5, locale: 'en-US' });
+      await ctx.addInitScript(VOICE_STUB); await ctx.addInitScript(SEED);
+      const p = await ctx.newPage();
+      await p.route('**/api/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ design: null, owned: [], spent: 0, savedAt: 0, earned: 48, earnedByApp: { 'word-wizard': 20, 'count-with-me': 16, 'planet-explorer': 12 }, content: [{ type: 'text', text: '{}' }] }) }));
+      await p.goto(srv.url); await p.waitForTimeout(4000);
+      if (act) { await act(p); await p.waitForTimeout(1500); }
+      const pane = await snap(p, 'tablet', undefined, 'iPad');
+      await ctx.close(); srv.close();
+      return pane;
+    };
+    const intro: Shot[] = [
+      { part: '', caption: '', say: 'I made Duckling Tablet for my daughter, Scarlett.', panes: [], seconds: 3.5, card: { title: 'Duckling Tablet', sub: 'A learning tablet for kids, locked down by a parent.' } },
+      { part: '', caption: '', say: 'On a tablet that is not locked down, there are ads everywhere, and one video leads to the next until a child ends up somewhere inappropriate.', panes: [], seconds: 5, card: { title: 'Tablets that are not locked down', sub: 'Ads in the apps, and one video after another.' } },
+      { part: W0, caption: 'Her tablet opens only the apps and websites a parent allows.', say: 'On her Duckling tablet, she can open only the learning apps and the websites we allow.', panes: [herHome], seconds: 4.5 },
+      { part: W0, caption: 'Every app starts at the child\'s level and moves up a little at a time.', say: 'Every app is designed to move a child forward a little at a time, starting at her own level.', panes: [await appShot('word-wizard')], seconds: 4.5 },
+      { part: W0, caption: 'Stars from learning and playing decorate her avatar.', say: 'As she learns and plays, she earns stars to decorate her own avatar.', panes: [await appShot('my-avatar', (p) => p.getByRole('button', { name: /Hats/ }).first().click())], seconds: 4.5 },
+      { part: '', caption: '', say: 'When I saw her progress in reading and math, I decided to share it with other families. Here is how to set it up.', panes: [], seconds: 5, card: { title: 'Made for Scarlett', sub: 'Shared with other families after her reading and math improved.' } },
+    ];
+    shots.unshift(...intro);
     await browser.close();
 
     // Compose and encode.
     const compose = await (await chromium.launch()).newPage({ viewport: { width: W, height: H } });
-    const frames: string[] = [];
     const save = async (html: string, name: string) => {
       const page = join(dir, `${name}.html`);
       writeFileSync(page, html);
@@ -337,12 +379,11 @@ describe.skipIf(!ready)('setup video', () => {
       await compose.screenshot({ path: f, type: 'jpeg', quality: 92 });
       return f;
     };
-    frames.push(await save(titleCard('Setting up Duckling Tablet', 'Pair tablets, add a parent, and manage apps, websites, and screen time.'), '00-title.jpg'));
-    const scenes: { a: string; b?: string; seconds: number; say: string }[] = [{ a: frames[0], seconds: 3.5, say: 'This video shows how to set up Duckling Tablet.' }];
+    const scenes: { a: string; b?: string; seconds: number; say: string }[] = [];
     let i = 0;
     for (const s of shots) {
       i++;
-      const a = await save(frame(s, false), `${String(i).padStart(2, '0')}a.jpg`);
+      const a = await save(s.card ? titleCard(s.card.title, s.card.sub) : frame(s, false), `${String(i).padStart(2, '0')}a.jpg`);
       const ringed = s.panes.some((p) => p.ring !== undefined && p.ring !== -1);
       const b = ringed ? await save(frame(s, true), `${String(i).padStart(2, '0')}b.jpg`) : undefined;
       scenes.push({ a, b, seconds: s.seconds, say: s.say });
@@ -354,8 +395,8 @@ describe.skipIf(!ready)('setup video', () => {
     writeFileSync(join(OUT, 'beats_duckling_setup.txt'), [
       `# Duckling Tablet setup video. ${scenes.length} beats, one line each, in the order of the video's scenes.`,
       '# Written by backend/test/setup-video.test.ts; change the lines there. The line count MUST match the scenes.',
-      '# All [calm], single grounded reference: narrate with --ref ref_calm.mp3 (NOT --voices).',
-      ...scenes.map((x) => `[calm] ${x.say}`), ''].join('\n'));
+      '# All [warm], single reference: narrate with --ref ref_warm.mp3 (NOT --voices).',
+      ...scenes.map((x) => `[warm] ${x.say}`), ''].join('\n'));
     // With the recorded lines, each scene lasts until its line has finished, plus a pause.
     const LEAD = 0.35;
     const beats: number[] = [];
