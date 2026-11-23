@@ -305,24 +305,54 @@
 // ---------------------------------------------------------------------------
 window.Kit = (function () {
   const T = THREE;
+  // Colors are written as sRGB hex and lit in linear light, then shown as sRGB: midtones stay soft instead of blowing out.
+  T.ColorManagement.legacyMode = false;
   const K = { models: {}, things: [], camZ: 8.5 };
   const mats = {};
+  // The storybook look: flat toon shading in three steps, a dark ink outline around each part (inkLines below), soft
+  // shadows on a grass ground drawn in code. Nothing here is downloaded.
+  const TOON = (() => { const t = new T.DataTexture(new Uint8Array([95, 175, 255]), 3, 1, T.RedFormat); t.minFilter = t.magFilter = T.NearestFilter; t.needsUpdate = true; return t; })();
+  // Less fill light and more sun than before, so the toon steps show.
+  const LIGHT = { hemi: 1.0, sun: 2.4 };
   function mat(color, o) {
     const key = color + JSON.stringify(o || {});
     if (!mats[key]) {
       const c = new T.Color(color);
-      mats[key] = new T.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.42, metalness: 0.02, emissive: c.clone().multiplyScalar(0.16) }, o || {}));
+      const opt = Object.assign({}, o || {}); delete opt.roughness; delete opt.metalness;
+      mats[key] = new T.MeshToonMaterial(Object.assign({ color: c, gradientMap: TOON, emissive: c.clone().multiplyScalar(0.08) }, opt));
     }
     return mats[key];
   }
   K.mat = mat;
   const G = {
-    sphere: new T.SphereGeometry(1, 20, 14), box: new T.BoxGeometry(1, 1, 1), cyl: new T.CylinderGeometry(1, 1, 1, 18),
-    cone: new T.ConeGeometry(1, 1, 18), torus: new T.TorusGeometry(1, 0.3, 10, 28), ico: new T.IcosahedronGeometry(1, 0),
+    sphere: new T.SphereGeometry(1, 36, 24), box: new T.BoxGeometry(1, 1, 1), cyl: new T.CylinderGeometry(1, 1, 1, 28),
+    cone: new T.ConeGeometry(1, 1, 28), torus: new T.TorusGeometry(1, 0.3, 10, 28), ico: new T.IcosahedronGeometry(1, 0),
   };
   function mesh(geo, color, sx, sy, sz, x, y, z, o) {
     const m = new T.Mesh(typeof geo === 'string' ? G[geo] : geo, typeof color === 'object' && color.isMaterial ? color : mat(color, o));
-    m.scale.set(sx, sy === undefined ? sx : sy, sz === undefined ? sx : sz); m.position.set(x || 0, y || 0, z || 0); return m;
+    m.scale.set(sx, sy === undefined ? sx : sy, sz === undefined ? sx : sz); m.position.set(x || 0, y || 0, z || 0); m.castShadow = true; return m;
+  }
+  // Ink outline: a slightly larger copy of each solid part drawn inside out, about the same width on every part.
+  // Marked userData.ink, so color and glow changes skip it, and taps pass through it.
+  const INK = new T.MeshBasicMaterial({ color: '#2B2140', side: T.BackSide });
+  const noHit = () => {};
+  function inkLines(g) {
+    const parts = []; g.traverse(m => { if (m.isMesh && !m.isInstancedMesh && !m.userData.ink && !(m.material && m.material.transparent)) parts.push(m); });
+    for (const m of parts) {
+      const s = m.scale, w = 0.03;
+      if (Math.min(Math.abs(s.x), Math.abs(s.y), Math.abs(s.z)) < 0.035) continue;
+      const o = new T.Mesh(m.geometry, INK); o.userData.ink = true; o.raycast = noHit;
+      o.scale.set(1 + w / Math.abs(s.x), 1 + w / Math.abs(s.y), 1 + w / Math.abs(s.z)); m.add(o);
+    }
+    return g;
+  }
+  K.inkLines = inkLines;
+  function grassTexture() {
+    const c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d');
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 512, 512);
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 9000; i++) { const v = 160 + rnd() * 95 | 0; x.strokeStyle = `rgb(${v},${v},${v})`; x.lineWidth = 1.6; const px = rnd() * 512, py = rnd() * 512; x.beginPath(); x.moveTo(px, py); x.lineTo(px + (rnd() - 0.5) * 3, py - 6 - rnd() * 5); x.stroke(); }
+    const t = new T.CanvasTexture(c); t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(7, 7); t.anisotropy = 4; t.encoding = T.sRGBEncoding; return t;
   }
   function add(g, ...ms) { ms.forEach(m => g.add(m)); return g; }
   function eyes(g, x, y, z, r, gap, color) {
@@ -505,6 +535,7 @@ window.Kit = (function () {
   const frameFns = new Set();
   K.init = function (host) {
     renderer = new T.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+    renderer.outputEncoding = T.sRGBEncoding; renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     host.appendChild(renderer.domElement);
     renderer.domElement.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
@@ -512,12 +543,14 @@ window.Kit = (function () {
     camera.position.set(0, 2.6, 8.5); camera.lookAt(0, 1.1, 0);
     hemi = new T.HemisphereLight('#ffffff', '#7fdc9a', 0.95); scene.add(hemi);
     sunLight = new T.DirectionalLight('#fff3d6', 0.95); sunLight.position.set(4, 8, 6); scene.add(sunLight);
+    sunLight.castShadow = true; sunLight.shadow.mapSize.set(1024, 1024); sunLight.shadow.radius = 4; sunLight.shadow.bias = -0.0006;
+    Object.assign(sunLight.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 30 });
     const sky = new T.Mesh(new T.SphereGeometry(80, 24, 12), skyMat = new T.ShaderMaterial({ side: T.BackSide, depthWrite: false,
       uniforms: { top: { value: new T.Color('#47B5FF') }, bot: { value: new T.Color('#C6F1FF') } },
       vertexShader: 'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: 'uniform vec3 top; uniform vec3 bot; varying float h; void main(){ gl_FragColor = vec4(mix(bot, top, clamp(h*1.6+0.15,0.0,1.0)), 1.0); }' }));
+      fragmentShader: 'uniform vec3 top; uniform vec3 bot; varying float h; void main(){ gl_FragColor = vec4(mix(bot, top, clamp(h*1.6+0.15,0.0,1.0)), 1.0);\n#include <encodings_fragment>\n}' }));
     scene.add(sky);
-    ground = new T.Mesh(new T.CircleGeometry(30, 48), new T.MeshStandardMaterial({ color: '#2FD158', roughness: 0.9 })); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+    ground = new T.Mesh(new T.CircleGeometry(30, 48), new T.MeshStandardMaterial({ color: '#2FD158', roughness: 0.9, map: grassTexture() })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
     const hills = [[-9, -14, 6, '#3DDC5A'], [8, -16, 7, '#2DC653'], [0, -20, 8, '#4BE36B']];
     hills.forEach(([x, z, r, c]) => scene.add(mesh('sphere', c, r, r * 0.45, r, x, 0, z)));
     root = new T.Group(); scene.add(root);
@@ -544,15 +577,15 @@ window.Kit = (function () {
     const s = SKY[name] || SKY.day; skyNow = name; const my = ++skyToken;
     const f = [skyMat.uniforms.top.value.clone(), skyMat.uniforms.bot.value.clone(), ground.material.color.clone(), hemi.intensity, sunLight.intensity];
     const to = [new T.Color(s[0]), new T.Color(s[1]), new T.Color(s[2])];
-    if (!dur) { skyMat.uniforms.top.value.copy(to[0]); skyMat.uniforms.bot.value.copy(to[1]); ground.material.color.copy(to[2]); ground.material.emissive.copy(to[2]).multiplyScalar(0.16); hemi.intensity = s[3]; sunLight.intensity = s[4]; return Promise.resolve(); }
-    return K.play(dur, p => { if (my !== skyToken) return; skyMat.uniforms.top.value.copy(f[0]).lerp(to[0], p); skyMat.uniforms.bot.value.copy(f[1]).lerp(to[1], p); ground.material.color.copy(f[2]).lerp(to[2], p); ground.material.emissive.copy(ground.material.color).multiplyScalar(0.16); hemi.intensity = f[3] + (s[3] - f[3]) * p; sunLight.intensity = f[4] + (s[4] - f[4]) * p; });
+    if (!dur) { skyMat.uniforms.top.value.copy(to[0]); skyMat.uniforms.bot.value.copy(to[1]); ground.material.color.copy(to[2]); ground.material.emissive.copy(to[2]).multiplyScalar(0.05); hemi.intensity = s[3] * LIGHT.hemi; sunLight.intensity = s[4] * LIGHT.sun; return Promise.resolve(); }
+    return K.play(dur, p => { if (my !== skyToken) return; skyMat.uniforms.top.value.copy(f[0]).lerp(to[0], p); skyMat.uniforms.bot.value.copy(f[1]).lerp(to[1], p); ground.material.color.copy(f[2]).lerp(to[2], p); ground.material.emissive.copy(ground.material.color).multiplyScalar(0.05); hemi.intensity = f[3] + (s[3] * LIGHT.hemi - f[3]) * p; sunLight.intensity = f[4] + (s[4] * LIGHT.sun - f[4]) * p; });
   };
   K.skyNow = () => skyNow;
 
   // ---- Things on the stage ----
   K.make = function (name, o) {
     o = o || {}; const f = M[name]; if (!f) throw new Error('no model ' + name);
-    const g = f(o.color); const holder = new T.Group(); holder.add(g); holder.userData = { name, inner: g, base: o.scale || 1, phase: Math.random() * 6, behave: o.behave || null };
+    const g = inkLines(f(o.color)); const holder = new T.Group(); holder.add(g); holder.userData = { name, inner: g, base: o.scale || 1, phase: Math.random() * 6, behave: o.behave || null };
     holder.scale.setScalar(holder.userData.base); return holder;
   };
   K.spawn = function (name, o) {
@@ -676,9 +709,9 @@ window.Kit = (function () {
       case 'sleep': u.asleep = true; job = (async () => { await P(0.6, p => { inner.rotation.z = p * 0.35; inner.position.y = -p * 0.05; }); for (let i = 0; i < 3; i++) { K.zzz(h); await K.wait(0.5); } })(); break;
       case 'wake': u.asleep = false; job = P(0.4, p => { inner.rotation.z = 0.35 * (1 - p); }); break;
       case 'sing': job = (async () => { for (let i = 0; i < 5; i++) { K.note(h); K.sfx && K.sfx('sing', i); await P(0.35, p => { inner.scale.y = 1 + Math.sin(p * Math.PI) * 0.1; }); } })(); break;
-      case 'glow': { const ms = []; h.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); ms.push(m.material); } });
+      case 'glow': { const ms = []; h.traverse(m => { if (m.isMesh && !m.userData.ink) { m.material = m.material.clone(); ms.push(m.material); } });
         job = P(1.6, p => ms.forEach(m => { m.emissiveIntensity = 1 + Math.sin(p * Math.PI) * 3; })).then(() => { K.burst(h.position.clone().add(V3(0, 0.6, 0)), ['#FFF3B0', '#FFD60A'], 16); }); break; }
-      case 'color': { const c = new T.Color(o.color); const ms = []; h.traverse(m => { if (m.isMesh && m.material.color) { const hsl = {}; m.material.color.getHSL(hsl); if (hsl.s > 0.25 || o.all) { m.material = m.material.clone(); ms.push([m.material, m.material.color.clone()]); } } });
+      case 'color': { const c = new T.Color(o.color); const ms = []; h.traverse(m => { if (m.isMesh && !m.userData.ink && m.material.color) { const hsl = {}; m.material.color.getHSL(hsl); if (hsl.s > 0.25 || o.all) { m.material = m.material.clone(); ms.push([m.material, m.material.color.clone()]); } } });
         job = P(0.7, p => ms.forEach(([m, c0]) => { m.color.copy(c0).lerp(c, p); m.emissive.copy(m.color).multiplyScalar(0.16); })).then(() => K.burst(h.position.clone().add(V3(0, 0.6, 0)), [o.color, '#ffffff'], 16)); break; }
       case 'pop': job = P(0.25, p => h.scale.setScalar(s * (1 + p * 0.4))).then(() => { K.sfx && K.sfx('pop'); K.burst(h.position.clone().add(V3(0, 0.8 * s, 0)), ['#FF2D55', '#FFD60A', '#ffffff'], 22, { speed: 4 }); K.remove(h, true); }); break;
       case 'eat': job = (async () => { for (let i = 0; i < 4; i++) { await P(0.25, p => { inner.rotation.x = Math.sin(p * Math.PI) * 0.35; }); K.sfx && K.sfx('munch'); } })(); break;
