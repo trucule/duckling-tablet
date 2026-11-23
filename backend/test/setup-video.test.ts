@@ -172,14 +172,14 @@ describe.skipIf(!ready)('setup video', () => {
     add(P1, 'Add your child with a first name and age.', 'Add your child with a first name and an age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Add child' }))]);
     await mom.getByRole('button', { name: 'Add child' }).click();
     await mom.locator('#children .list li', { hasText: 'Scarlett' }).waitFor();
-    add(P1, 'Each subject starts at a level for that age. Levels changes it per subject.', 'Each subject starts at a level that fits her age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Levels' }))]);
+    add(P1, 'Each subject starts at a level for that age. Levels changes it per subject.', 'Each subject starts at a level that fits their age.', [await snap(mom, 'portal', mom.getByRole('button', { name: 'Levels' }))]);
 
     // Part 2: the first tablet.
     const P2 = 'Pair the tablet';
     const ipad = await context({ width: 1180, height: 820 }, 'ios');
     await ipad.goto(web);
     const haveCode = ipad.getByRole('button', { name: 'I have a code from the website' });
-    add(P2, 'Install Duckling Tablet on the tablet and open it. Choose I have a code from the website.', 'On the tablet, install Duckling Tablet and open it.', [await snap(ipad, 'tablet', haveCode, 'iPad')]);
+    add(P2, 'On the tablet, install Duckling Tablet: Kids Learning from the App Store or Google Play and open it. Choose I have a code from the website.', 'On the tablet, find Duckling Tablet Kids Learning in the Apple App Store or the Google Play Store, install it, and open it.', [await snap(ipad, 'tablet', haveCode, 'iPad')]);
     await haveCode.click();
     await mom.locator('#devices select').first().selectOption({ label: 'Scarlett' });
     const makeCode = mom.getByRole('button', { name: 'Make a pairing code' });
@@ -273,7 +273,7 @@ describe.skipIf(!ready)('setup video', () => {
     await home.getByLabel('Code').waitFor();
     const codeMail = mails.at(-1)!;
     await home.getByLabel('Code').fill(codeMail.text.match(/\b\d{3} \d{3}\b/)![0]);
-    add(P5, 'On an iPhone, the home screen app signs in with the six-digit code from the email.', 'On an iPhone, the home screen app signs in with the six digit code from the email.', [await snap(home, 'phone', home.getByRole('button', { name: 'Sign in' }), 'iPhone'), mail(codeMail)], 5);
+    add(P5, 'On an iPhone, the home screen app keeps its own sign-in, so the email has a six-digit code to type. On Android, the link in the email signs it in.', 'On an iPhone, the home screen app keeps its own sign in, so the email has a six digit code to type in. On Android, the link in the email works.', [await snap(home, 'phone', home.getByRole('button', { name: 'Sign in' }), 'iPhone'), mail(codeMail)], 5);
     await home.getByRole('button', { name: 'Sign in' }).click();
     await home.getByRole('heading', { name: 'Children' }).waitFor();
     add(P5, 'After that, it opens to your family, signed in.', 'After that, it opens straight to your family.', [await snap(home, 'phone', undefined, 'iPhone')], 3.5);
@@ -344,7 +344,7 @@ describe.skipIf(!ready)('setup video', () => {
     await ipadNote.waitFor();
     add(P8, 'On an iPad, the apps are chosen on the iPad itself, in the parent area under Other apps.', 'On an iPad, the apps are chosen on the iPad itself, in the parent area under Other apps.', [await snap(mom, 'portal', ipadNote)], 5);
 
-    // The opening: why the tablet exists, then what she sees on it.
+    // The opening: why the tablet exists, then what a child sees on it.
     const W0 = 'Why Duckling Tablet';
     const appShot = async (id: string, act?: (p: Page) => Promise<void>) => {
       const srv = await serveApp(id, 'Scarlett');
@@ -361,9 +361,9 @@ describe.skipIf(!ready)('setup video', () => {
     const intro: Shot[] = [
       { part: '', caption: '', say: 'I made Duckling Tablet for my daughter, Scarlett.', panes: [], seconds: 3.5, card: { title: 'Duckling Tablet', sub: 'A learning tablet for kids, locked down by a parent.' } },
       { part: '', caption: '', say: 'On a tablet that is not locked down, there are ads everywhere, and one video leads to the next until a child ends up somewhere inappropriate.', panes: [], seconds: 5, card: { title: 'Tablets that are not locked down', sub: 'Ads in the apps, and one video after another.' } },
-      { part: W0, caption: 'Her tablet opens only the apps and websites a parent allows.', say: 'On her Duckling tablet, she can open only the learning apps and the websites we allow.', panes: [herHome], seconds: 4.5 },
-      { part: W0, caption: 'Every app starts at the child\'s level and moves up a little at a time.', say: 'Every app is designed to move a child forward a little at a time, starting at her own level.', panes: [await appShot('word-wizard')], seconds: 4.5 },
-      { part: W0, caption: 'Stars from learning and playing decorate her avatar.', say: 'As she learns and plays, she earns stars to decorate her own avatar.', panes: [await appShot('my-avatar', (p) => p.getByRole('button', { name: /Hats/ }).first().click())], seconds: 4.5 },
+      { part: W0, caption: 'The tablet opens only the apps and websites a parent allows.', say: 'On a Duckling tablet, kids can open only the learning apps and the websites their parents allow.', panes: [herHome], seconds: 4.5 },
+      { part: W0, caption: 'Every app starts at the child\'s level and moves up a little at a time.', say: 'Every app is designed to move a child forward a little at a time, starting at their own level.', panes: [await appShot('word-wizard')], seconds: 4.5 },
+      { part: W0, caption: 'Stars from learning and playing decorate their avatar.', say: 'As they learn and play, they earn stars to decorate their own avatar.', panes: [await appShot('my-avatar', (p) => p.getByRole('button', { name: /Hats/ }).first().click())], seconds: 4.5 },
       { part: '', caption: '', say: 'When I saw her progress in reading and math, I decided to share it with other families. Here is how to set it up.', panes: [], seconds: 5, card: { title: 'Made for Scarlett', sub: 'Shared with other families after her reading and math improved.' } },
     ];
     shots.unshift(...intro);
@@ -395,7 +395,7 @@ describe.skipIf(!ready)('setup video', () => {
     writeFileSync(join(OUT, 'beats_duckling_setup.txt'), [
       `# Duckling Tablet setup video. ${scenes.length} beats, one line each, in the order of the video's scenes.`,
       '# Written by backend/test/setup-video.test.ts; change the lines there. The line count MUST match the scenes.',
-      '# All [warm], single reference: narrate with --ref ref_warm.mp3 (NOT --voices).',
+      '# All [warm], single reference: narrate with --ref ref_warm_clean.wav (NOT --voices). Pick takes with pick_takes.py.',
       ...scenes.map((x) => `[warm] ${x.say}`), ''].join('\n'));
     // With the recorded lines, each scene lasts until its line has finished, plus a pause.
     const LEAD = 0.35;
