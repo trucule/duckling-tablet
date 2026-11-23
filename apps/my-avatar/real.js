@@ -185,7 +185,8 @@
       } else if (kind === 'clothes' && id) {
         const f = fabricOf(id);
         p.clearcoat = 0;
-        if (f) { p.normalMap = detailMap(f[0]).clone(); p.normalMap.needsUpdate = true; p.normalMap.repeat.set(f[1], f[1]); p.normalScale.set(f[2], f[2]); p.sheen = f[3]; p.sheenRoughness = 0.6; p.sheenColor = new T.Color('#ffffff'); p.roughness = Math.max(p.roughness, 0.75); }
+        // A piece that brings its own normal map (the knit sweater, the cargo pants) keeps it; the others get one drawn here.
+        if (f && !p.normalMap) { p.normalMap = detailMap(f[0]).clone(); p.normalMap.needsUpdate = true; p.normalMap.repeat.set(f[1], f[1]); p.normalScale.set(f[2], f[2]); p.sheen = f[3]; p.sheenRoughness = 0.6; p.sheenColor = new T.Color('#ffffff'); p.roughness = Math.max(p.roughness, 0.75); }
         if (/glasses|jewel/.test(id)) { p.roughness = 0.2; p.clearcoat = 0.6; }
       }
       p.needsUpdate = true; return p;

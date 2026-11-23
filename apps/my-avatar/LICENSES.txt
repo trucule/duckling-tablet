@@ -9,7 +9,7 @@ lang.js                           rest in extras.js) and the surface detail patt
 
 3D models and textures (models/)
 --------------------------------
-Every file in models/ is built by tools/build-avatar-models.py (in the Surface-Pro-X-KidSetup repo) from MakeHuman
+Every file in models/ is built by tools/build-avatar-models.py from MakeHuman
 assets, using the MakeHuman asset packs from https://static.makehumancommunity.org/assets/assetpacks.html. Every pack
 used is a CC0 pack. MakeHuman's core assets are shared under CC0
 (https://static.makehumancommunity.org/about/license.html).
