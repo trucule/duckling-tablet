@@ -13,6 +13,10 @@
 // beat in seconds (beat length and the first beat) and a loop: when the video outlasts loopTo, the song goes back to
 // loopFrom. Both loop points sit on beats a whole number of bars apart, so the beat runs on through the jump. Every
 // scene change lands on a beat. The grid comes from the song (librosa onset strength against a beat grid).
+// SETUP_FORMAT=vertical makes the phone cut instead (short.mp4, beats_duckling_short.txt): 1080 x 1920, the scenes
+// listed in SHORT with their own captions and lines, text kept clear of the app buttons down the right side and the
+// caption area along the bottom that TikTok, Reels and Shorts draw over a video. SETUP_MUSIC_START starts the song
+// later (on a beat), so a short cut opens on the full arrangement.
 // Needs web/dist, portal/dist and ffmpeg.
 import { describe, it, beforeAll, afterAll } from 'vitest';
 import { execFile as execFileCb } from 'node:child_process';
@@ -37,7 +41,24 @@ const MUSIC = process.env.SETUP_MUSIC ?? '';
 const GRID = (process.env.SETUP_MUSIC_GRID ?? '').split(',').filter(Boolean).map(Number);
 const ready = !!OUT && existsSync(join(ROOT, 'web', 'dist', 'index.html')) && existsSync(join(ROOT, 'portal', 'dist', 'index.html')) && existsSync(join(TOOLS, 'node_modules', 'fflate'));
 const PORTAL_HOST = 'https://parents.ducklingtablet.com';
-const W = 1920, H = 1080, FPS = 30;
+const VERTICAL = process.env.SETUP_FORMAT === 'vertical';
+const MUSIC_START = Number(process.env.SETUP_MUSIC_START ?? 0);
+const [W, H] = VERTICAL ? [1080, 1920] : [1920, 1080];
+const FPS = 30;
+// The phone cut: which scenes (named by their line in the full video) and what each says there, in this order.
+const SHORT: [string, string, string][] = [
+  ['I made Duckling Tablet for my daughter, Scarlett.', '', 'I made Duckling Tablet for my daughter, Scarlett.'],
+  ['On a tablet that is not locked down, there are ads everywhere, and one video leads to the next until a child ends up somewhere inappropriate.', '', 'On a tablet that is not locked down, there are ads everywhere, and one video leads to the next until a child ends up somewhere inappropriate.'],
+  ['On a Duckling tablet, kids can open only the learning apps and the websites their parents allow.', 'The tablet opens only the apps and websites a parent allows.', 'On a Duckling tablet, kids can open only the learning apps and the websites their parents allow.'],
+  ['Every app is designed to move a child forward a little at a time, starting at their own level.', 'Every app starts at the child\'s level and moves up a little at a time.', 'Every app is designed to move a child forward a little at a time, starting at their own level.'],
+  ['As they learn and play, they earn stars to decorate their own avatar.', 'Stars from learning and playing decorate their avatar.', 'As they learn and play, they earn stars to decorate their own avatar.'],
+  ['When I saw her progress in reading and math, I decided to share it with other families. Here is how to set it up.', '', 'When I saw her progress in reading and math, I decided to share it with other families.'],
+  ['Type the code on the tablet, give it a name, and press Pair.', 'Pair a tablet with a code from the parents website.', 'Setup takes about three minutes. You make a pairing code on the parents website and type it on the tablet.'],
+  ['You decide how many minutes a day it gets and the hours it can open, and when the time ends, the tablet comes back to Duckling.', 'Other apps get the minutes and hours you set.', 'Other apps get only the minutes and hours you choose, and when the time ends, the tablet comes back to Duckling.'],
+  ['Every tablet in the family gets the tile, and sites that are not allowed stay blocked.', 'Allowed websites get their own tile. Other sites stay blocked.', 'Websites you allow get their own tile, and every other site stays blocked.'],
+  ['Search the apps for what your child wants. When nothing fits, press Ask for this app.', 'When no app fits, ask for a new one.', 'When no app fits, you can ask for a new one, and requests are included with the subscription.'],
+  ['After that, it opens straight to your family.', 'Manage it all from your phone.', 'You manage everything from the parents website, and it can live on your phone\'s home screen.'],
+];
 
 // A tablet shell as the web app sees it: installs succeed and the lockdown steps are done.
 const fakeShell = (platform: string) => `(() => {
@@ -375,6 +396,14 @@ describe.skipIf(!ready)('setup video', () => {
     ];
     shots.unshift(...intro);
     await browser.close();
+    if (VERTICAL) {
+      const cut = SHORT.map(([long, caption, say]) => {
+        const s = shots.find((x) => x.say === long);
+        if (!s) throw new Error(`SHORT names a scene the video does not have: ${long}`);
+        return { ...s, caption: caption || s.caption, say };
+      });
+      shots.splice(0, shots.length, ...cut);
+    }
 
     // Compose and encode.
     const compose = await (await chromium.launch()).newPage({ viewport: { width: W, height: H } });
@@ -395,14 +424,16 @@ describe.skipIf(!ready)('setup video', () => {
       const b = ringed ? await save(frame(s, true), `${String(i).padStart(2, '0')}b.jpg`) : undefined;
       scenes.push({ a, b, seconds: s.seconds, say: s.say });
     }
-    scenes.push({ a: await save(titleCard('Duckling Tablet', 'parents.ducklingtablet.com'), '99-end.jpg'), seconds: 3, say: 'Set up your family at parents dot duckling tablet dot com.' });
+    scenes.push(VERTICAL
+      ? { a: await save(titleCard('Duckling Tablet: Kids Learning', 'App Store and Google Play'), '99-end.jpg'), seconds: 3, say: 'Search for Duckling Tablet, Kids Learning, in the App Store or Google Play.' }
+      : { a: await save(titleCard('Duckling Tablet', 'parents.ducklingtablet.com'), '99-end.jpg'), seconds: 3, say: 'Set up your family at parents dot duckling tablet dot com.' });
     await compose.close();
 
     // The narration script, one line per scene, for the voice clone (narrate_chatterbox.py --script).
-    writeFileSync(join(OUT, 'beats_duckling_setup.txt'), [
-      `# Duckling Tablet setup video. ${scenes.length} beats, one line each, in the order of the video's scenes.`,
+    writeFileSync(join(OUT, VERTICAL ? 'beats_duckling_short.txt' : 'beats_duckling_setup.txt'), [
+      `# Duckling Tablet ${VERTICAL ? 'phone cut' : 'setup video'}. ${scenes.length} beats, one line each, in the order of the video's scenes.`,
       '# Written by backend/test/setup-video.test.ts; change the lines there. The line count MUST match the scenes.',
-      '# All [warm], single reference: narrate with --ref ref_warm_clean.wav (NOT --voices). Pick takes with pick_takes.py.',
+      '# All [warm], single reference: narrate with --ref ref_excited_clean.wav (NOT --voices). Pick takes with pick_takes.py.',
       ...scenes.map((x) => `[warm] ${x.say}`), ''].join('\n'));
     // With the recorded lines, each scene lasts until its line has finished, plus a pause.
     const LEAD = 0.35;
@@ -426,7 +457,9 @@ describe.skipIf(!ready)('setup video', () => {
     // Scene changes on the song's beat: each scene runs on to the next beat. Then every boundary is rounded to a whole
     // frame from the start, so the picture and the sound keep the same clock over the whole video.
     if (MUSIC && GRID.length === 4) {
-      const [period, first] = GRID;
+      const [period, songFirst] = GRID;
+      // The first beat in video time: the song may start later than its own beginning.
+      const first = (((songFirst - MUSIC_START) % period) + period) % period;
       let end = 0;
       for (const x of scenes) {
         const want = end + x.seconds;
@@ -475,8 +508,8 @@ describe.skipIf(!ready)('setup video', () => {
       const [, , from, to] = GRID.length === 4 ? GRID : [0, 0, 0, Infinity];
       const { stdout } = await execFile('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', MUSIC]);
       const songEnd = Math.min(Number(stdout.trim()), to);
-      const pieces: [number, number][] = [[0, songEnd]];
-      let have = songEnd;
+      const pieces: [number, number][] = [[MUSIC_START, songEnd]];
+      let have = songEnd - MUSIC_START;
       while (have < total) { pieces.push([from, songEnd]); have += songEnd - from; }
       const f = [`[0:a]asplit=${pieces.length}${pieces.map((_, k) => `[s${k}]`).join('')}`,
         ...pieces.map(([a, b], k) => `[s${k}]atrim=${a}:${b},asetpts=PTS-STARTPTS[p${k}]`),
@@ -492,7 +525,7 @@ describe.skipIf(!ready)('setup video', () => {
       await execFile('ffmpeg', ['-y', '-v', 'error', '-i', silent, ...inputs.flatMap((x) => ['-i', x]), '-filter_complex', mix.replace(/\[(\d):a\]/g, (_, d) => `[${Number(d) + 1}:a]`),
         '-map', '0:v', '-map', '[out]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', tmp], { maxBuffer: 1 << 24 });
     }
-    renameSync(tmp, join(OUT, 'setup.mp4'));
+    renameSync(tmp, join(OUT, VERTICAL ? 'short.mp4' : 'setup.mp4'));
   }, 900_000);
 });
 
@@ -514,7 +547,7 @@ const STYLE = `<style>
   .device { background: #1d2323; border-radius: 34px; padding: 22px; box-shadow: 0 18px 50px rgba(20,40,40,.22); }
   .device img { border-radius: 12px; display: block; }
   .shot { position: relative; }
-  .shot img { display: block; }
+  .shot img { display: block; max-width: none; }
   .ring { position: absolute; border: 6px solid #f0a23b; border-radius: 16px; box-shadow: 0 0 0 6px rgba(240,162,59,.28); }
   .label { position: absolute; left: 0; right: 0; bottom: -34px; text-align: center; font-size: 20px; color: #55615f; }
   .mail { width: 760px; background: #fff; border-radius: 14px; box-shadow: 0 18px 50px rgba(20,40,40,.18); padding: 34px 38px; font-size: 21px; line-height: 1.45; }
@@ -523,6 +556,14 @@ const STYLE = `<style>
   .mail p.hl { outline: 6px solid #f0a23b; outline-offset: 6px; border-radius: 6px; }
   .title { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 22px; }
   .title h1 { font-size: 76px; } .title p { font-size: 34px; color: #55615f; }
+${VERTICAL ? `
+  .top { height: auto; padding: 170px 160px 0 70px; }
+  .part { font-size: 34px; } .cap { font-size: 58px; line-height: 1.2; max-width: 850px; margin-top: 14px; }
+  .stage { top: 560px; bottom: 400px; left: 40px; right: 140px; flex-direction: column; gap: 70px; }
+  .label { font-size: 26px; bottom: -40px; }
+  .title { padding: 0 160px 400px 70px; text-align: center; gap: 30px; }
+  .title h1 { font-size: 78px; line-height: 1.1; } .title p { font-size: 42px; line-height: 1.3; }
+  .mail { width: 860px; }` : ''}
 </style>`;
 
 function titleCard(title: string, sub: string) {
@@ -531,16 +572,29 @@ function titleCard(title: string, sub: string) {
 
 function frame(s: Shot, ring: boolean) {
   const two = s.panes.length > 1;
-  const maxW = two ? 860 : 1500, maxH = 790;
+  // The stage: 1500 x 790 across, or in the phone cut 900 x 960 down the middle, split between two panes.
+  const [maxW, maxH] = VERTICAL ? [900, two ? 420 : 900] : [two ? 860 : 1500, 790];
   const panes = s.panes.map((p) => {
     if (p.kind === 'mail') {
       return `<div class="mail"><div class="h">From: Duckling Tablet<br>To: ${esc(p.to)}</div><div class="s">${esc(p.subject)}</div>${p.lines.map((l, i) => `<p class="${l.includes(PORTAL_HOST) ? 'link' : ''} ${ring && i === p.ring ? 'hl' : ''}">${esc(l)}</p>`).join('')}</div>`;
     }
-    const chrome = p.kind === 'portal' ? 44 : 44;
-    const scale = Math.min(maxW / p.vw, (maxH - chrome) / p.vh);
-    const w = Math.round(p.vw * scale), h = Math.round(p.vh * scale);
-    const r = ring && p.ring ? `<div class="ring" style="left:${p.ring.x * scale - 12}px;top:${p.ring.y * scale - 12}px;width:${p.ring.width * scale + 24}px;height:${p.ring.height * scale + 24}px"></div>` : '';
-    const img = `<div class="shot"><img src="file://${p.img}" width="${w}" height="${h}">${r}</div>`;
+    const chrome = 44;
+    // The part of the screen shown: all of it, or in the phone cut a window around the outlined control, zoomed so the
+    // text is readable on a phone. The window is the same with and without the outline, so the outline fades in on a
+    // still picture.
+    let cx = 0, cy = 0, cw = p.vw, ch = p.vh;
+    if (VERTICAL && p.ring) {
+      const aspect = maxW / (maxH - chrome);
+      cw = Math.min(p.vw, Math.max(p.ring.width * 2.2, p.vw * 0.55));
+      ch = cw / aspect;
+      if (ch > p.vh) { ch = p.vh; cw = ch * aspect; }
+      cx = Math.min(Math.max(p.ring.x + p.ring.width / 2 - cw / 2, 0), p.vw - cw);
+      cy = Math.min(Math.max(p.ring.y + p.ring.height / 2 - ch / 2, 0), p.vh - ch);
+    }
+    const scale = Math.min(maxW / cw, (maxH - chrome) / ch);
+    const w = Math.round(cw * scale), h = Math.round(ch * scale);
+    const r = ring && p.ring ? `<div class="ring" style="left:${(p.ring.x - cx) * scale - 12}px;top:${(p.ring.y - cy) * scale - 12}px;width:${p.ring.width * scale + 24}px;height:${p.ring.height * scale + 24}px"></div>` : '';
+    const img = `<div class="shot" style="width:${w}px;height:${h}px;overflow:hidden"><img src="file://${p.img}" style="position:absolute;left:${-cx * scale}px;top:${-cy * scale}px;width:${Math.round(p.vw * scale)}px;height:${Math.round(p.vh * scale)}px">${r}</div>`;
     return p.kind === 'portal'
       ? `<div class="pane browser"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">parents.ducklingtablet.com</span></div>${img}</div>`
       : `<div class="pane"><div class="device">${img}</div>${p.label ? `<div class="label">${esc(p.label)}</div>` : ''}</div>`;
