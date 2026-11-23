@@ -186,7 +186,7 @@ describe.skipIf(!ready)('setup video', () => {
     const ipad = await context({ width: 1180, height: 820 }, 'ios');
     await ipad.goto(web);
     const haveCode = ipad.getByRole('button', { name: 'I have a code from the website' });
-    add(P2, 'On the tablet, install Duckling Tablet: Kids Learning from the App Store or Google Play and open it. Choose I have a code from the website.', 'On the tablet, find Duckling Tablet Kids Learning in the Apple App Store or the Google Play Store, install it, and open it.', [await snap(ipad, 'tablet', haveCode, 'iPad')]);
+    add(P2, 'Open the app store on the tablet and search for Duckling Tablet: Kids Learning. Install it, open it, and choose I have a code from the website.', 'Open the app store on the tablet and search for Duckling Tablet, Kids Learning.', [await snap(ipad, 'tablet', haveCode, 'iPad')]);
     await haveCode.click();
     await mom.locator('#devices select').first().selectOption({ label: 'Scarlett' });
     const makeCode = mom.getByRole('button', { name: 'Make a pairing code' });
@@ -461,10 +461,12 @@ describe.skipIf(!ready)('setup video', () => {
     const total = scenes.reduce((n, x) => n + x.seconds, 0);
     const voiceWav = join(dir, 'voice.wav'), bedWav = join(dir, 'music.wav');
     if (VOICE) {
-      // Each line starts just after its scene fades in; the narration is leveled for online video.
+      // Each line starts just after its scene fades in. The voice gets a gentle EQ: below 80 Hz cut, 3 dB less around
+      // 300 Hz where a cloned voice sounds throaty, 2.5 dB more presence around 4 kHz. Then it is leveled for online
+      // video.
       let at = 0;
       const f = scenes.map((x, k) => { const d = Math.round((at + LEAD) * 1000); at += x.seconds; return `[${k}:a]aformat=sample_rates=48000:channel_layouts=mono,adelay=${d}:all=1[a${k}]`; });
-      f.push(`${scenes.map((_, k) => `[a${k}]`).join('')}amix=inputs=${scenes.length}:normalize=0:duration=longest,apad=whole_dur=${total},atrim=0:${total},loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[out]`);
+      f.push(`${scenes.map((_, k) => `[a${k}]`).join('')}amix=inputs=${scenes.length}:normalize=0:duration=longest,apad=whole_dur=${total},atrim=0:${total},highpass=f=80,equalizer=f=300:t=o:w=1.2:g=-3,equalizer=f=4000:t=o:w=1.5:g=2.5,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[out]`);
       await execFile('ffmpeg', ['-y', '-v', 'error', ...scenes.flatMap((_, k) => ['-i', join(VOICE, `beat${k + 1}.wav`)]), '-filter_complex', f.join(';'), '-map', '[out]', '-ac', '1', voiceWav], { maxBuffer: 1 << 24 });
     }
     if (MUSIC) {
