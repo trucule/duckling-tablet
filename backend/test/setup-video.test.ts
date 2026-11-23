@@ -469,6 +469,17 @@ describe.skipIf(!ready)('setup video', () => {
     }
     { let t = 0, f = 0; for (const x of scenes) { t += x.seconds; const g = Math.round(t * FPS); x.seconds = (g - f) / FPS; f = g; } }
 
+    // Subtitles of the narration (setup.vtt or short.vtt), timed like the audio, for viewers without sound. The spoken
+    // forms in the script go back to their written forms.
+    if (VOICE) {
+      const written = (t: string) => t.replace(/parents dot duckling tablet dot com/g, 'parents.ducklingtablet.com')
+        .replace(/Duckling Tablet, Kids Learning/g, 'Duckling Tablet: Kids Learning').replace(/\b(four|six) digit\b/g, '$1-digit').replace(/\bown sign in\b/g, 'own sign-in');
+      const stamp = (x: number) => new Date(Math.round(x * 1000)).toISOString().slice(11, 23);
+      let at = 0;
+      const cues = scenes.map((x, k) => { const from = at + LEAD; at += x.seconds; return `${k + 1}\n${stamp(from)} --> ${stamp(from + beats[k])}\n${written(x.say)}\n`; });
+      writeFileSync(join(OUT, VERTICAL ? 'short.vtt' : 'setup.vtt'), `WEBVTT\n\n${cues.join('\n')}`);
+    }
+
     // One file per scene: a fade in from the scene before, then the outline fades in after a moment.
     const parts: string[] = [];
     let prev = '';

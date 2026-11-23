@@ -109,6 +109,8 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; 
 section { padding: 3.25rem 0 0; }
 section + section { margin-top: 1rem; }
 .section-title { max-width: 24ch; }
+.video { margin: 1.5rem 0 0; }
+.video video { display: block; width: 100%; height: auto; border-radius: var(--radius); background: var(--ink); box-shadow: 0 30px 60px -30px rgba(30, 42, 51, 0.45); }
 .two-col { display: grid; gap: 2rem 3rem; grid-template-columns: 1fr; }
 @media (min-width: 820px) { .two-col { grid-template-columns: 1fr 1fr; } }
 .plain-list { padding-left: 1.2rem; }
