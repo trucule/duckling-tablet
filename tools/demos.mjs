@@ -160,7 +160,13 @@ const SCRIPTS = {
   'pattern-machine': async (page) => { await sleep(1500); const b = await canvasBox(page); await tapFrac(page, b, 0.5, 0.3, 900); await tapFrac(page, b, 0.3, 0.94, 1000); await tapFrac(page, b, 0.5, 0.94, 1000); await tapFrac(page, b, 0.7, 0.94, 900); },
   'planet-explorer': async (page) => { await sleep(1800); await tapText(page, /Look closer/, 1500); const b = await canvasBox(page, '#gl'); await tapFrac(page, b, 0.5, 0.5, 700); await tapSel(page, 'button.ans', 1500); },
   'playground-lab': async (page) => { await sleep(1500); await tapText(page, /🎳/u, 600); const b = await canvasBox(page, '#c'); await tapFrac(page, b, 0.55, 0.6, 400); await tapSel(page, '#fire', 2200); await tapSel(page, '#slow', 400); await tapSel(page, '#fire', 1500); },
-  'read-it-say-it': async (page) => { await sleep(1800); await tapSel(page, '#listen', 1500); await tapSel(page, '#mic', 1200); const b = await canvasBox(page); await tapFrac(page, b, 0.3, 0.4, 500); await tapFrac(page, b, 0.5, 0.4, 500); await tapFrac(page, b, 0.7, 0.4, 700); },
+  // Follows the words with a finger along the line under them, then hears the sentence and taps the scene.
+  'read-it-say-it': async (page) => {
+    await sleep(1800);
+    const t = await page.locator('.gtrack').first().boundingBox();
+    if (t) { const y = t.y + 20; await page.mouse.move(t.x + 4, y, { steps: 8 }); touched(); await page.mouse.down(); for (let i = 1; i <= 12; i++) { await page.mouse.move(t.x + 4 + (t.width - 8) * i / 12, y, { steps: 1 }); await sleep(110); } await page.mouse.up(); await sleep(300); }
+    await tapSel(page, '#listen', 1300); const b = await canvasBox(page); await tapFrac(page, b, 0.4, 0.4, 500); await tapFrac(page, b, 0.6, 0.4, 600);
+  },
   'story-maker': async (page) => { await sleep(1500); await tapText(page, /Spark/, 500); await tapText(page, /Luna/, 500); await tapText(page, /moon/, 700); for (let i = 0; i < 3; i++) { const c = (await candidates(page)).filter((x) => x.b.y > 60); if (!c.length) break; const pick = c.find((x) => /start|go|tell|make|begin|read/i.test(x.text)) || c[0]; await tapAt(page, pick.b.x + pick.b.width / 2, pick.b.y + pick.b.height / 2); await sleep(900); } },
   'camera-fun': async (page) => { await sleep(2200); await tapText(page, /Comic/, 900); await tapText(page, /Stamps/, 700); const c = (await candidates(page)).filter((x) => x.b.y > 540 && x.b.x < 700); if (c[1]) { await tapAt(page, c[1].b.x + c[1].b.width / 2, c[1].b.y + c[1].b.height / 2); await sleep(500); } await tapAt(page, 420, 300); await sleep(500); await tapSel(page, '#snap', 1500); },
   'robot-path': async (page) => { await sleep(1300); for (const re of [/\u27a1/, /\u27a1/, /\u2b06/, /\u27a1/]) { await tapText(page, re, 220); } await tapSel(page, '#go', 3800); },
