@@ -408,6 +408,12 @@ describe.skipIf(!ready)('setup video', () => {
         beats.push(Number(stdout.trim()));
         x.seconds = Math.max(x.seconds, LEAD + beats[k] + 0.6);
       }
+      // Lines the voice rushed: conversational speech runs near 5 syllables a second. Above 6.5 a line sounds sped
+      // up; fast-lines.txt names them for narrate_chatterbox.py --only.
+      const syllables = (t: string) => (t.toLowerCase().match(/[a-z']+/g) ?? []).reduce((n, w) => n + Math.max(1, (w.match(/[aeiouy]+/g) ?? []).length - (/[^l]e$/.test(w) ? 1 : 0)), 0);
+      const fast = scenes.map((x, k) => ({ k: k + 1, rate: syllables(x.say) / Math.max(0.5, beats[k] - 0.14), say: x.say })).filter((x) => x.rate > 6.5);
+      writeFileSync(join(OUT, 'fast-lines.txt'), fast.map((x) => `beat${x.k}\t${x.rate.toFixed(1)} syllables/s\t${x.say}`).join('\n') + '\n');
+      if (fast.length) console.warn(`Fast lines (--only ${fast.map((x) => x.k).join(',')}):\n${fast.map((x) => `  beat${x.k} ${x.rate.toFixed(1)}/s ${x.say}`).join('\n')}`);
     }
 
     // One file per scene: a fade in from the scene before, then the outline fades in after a moment.
