@@ -1,41 +1,41 @@
 {
- "source": "116f7a12e3b947c65ea364014cf5bb9c121d9ac852ae0483b29a6f38a256f150",
+ "source": "782e6e14febda59406ab9e4c5146c633d0990ba7cacda82a19c5544d0252b5d9",
  "lines": [
   {
-   "text": "2, menos 1, menos 4, menos 7. ¿Esta sucesión es aritmética o geométrica, y qué sigue? Tócalo.",
+   "text": "2, 4, 8, 16. ¿Esta sucesión es aritmética o geométrica, y qué sigue? Tócalo.",
    "rate": -10,
    "lang": "es"
   },
   {
-   "text": "20, 24, 28, 32. Is this pattern arithmetic or geometric, and what comes next? Tap it.",
+   "text": "22, 20, 18, 16. Is this pattern arithmetic or geometric, and what comes next? Tap it.",
    "rate": -10
   },
   {
-   "text": "Encuentra la regla con los tres pares. Luego, si entra 6, ¿qué sale? Escríbelo.",
+   "text": "Encuentra la regla con los tres pares. Luego, si entra 10, ¿qué sale? Escríbelo.",
    "rate": -10,
    "lang": "es"
   },
   {
-   "text": "Esta máquina la pinta de azul. ¿Qué sale? Tócala.",
+   "text": "Esta máquina la hace más grande. ¿Qué sale? Tócala.",
    "rate": -10,
    "lang": "es"
   },
   {
-   "text": "Esta máquina la pinta de naranja. ¿Qué sale? Tócala.",
+   "text": "Esta máquina la pinta de rosa. ¿Qué sale? Tócala.",
    "rate": -10,
    "lang": "es"
   },
   {
-   "text": "Este patrón usa dos pasos cada vez. 3, 8, 23, 68. ¿Qué sigue? Tócalo.",
+   "text": "Este patrón usa dos pasos cada vez. 7, 17, 37, 77. ¿Qué sigue? Tócalo.",
    "rate": -10,
    "lang": "es"
   },
   {
-   "text": "Find the rule from the three pairs. Then, when 10 goes in, what comes out? Type it.",
+   "text": "Find the rule from the three pairs. Then, when 6 goes in, what comes out? Type it.",
    "rate": -10
   },
   {
-   "text": "La figura pasa por 2 máquinas. La primera la gira media vuelta. La última la pinta de naranja. ¿Qué sale al final?",
+   "text": "La figura pasa por 2 máquinas. La primera la gira media vuelta. La última la pinta de verde. ¿Qué sale al final?",
    "rate": -10,
    "lang": "es"
   },
@@ -59,7 +59,7 @@
    "lang": "es"
   },
   {
-   "text": "The shape goes through 2 machines. First one flips it like a mirror. Last one paints it green. What comes out at the end?",
+   "text": "The shape goes through 2 machines. First one paints it yellow. Last one turns it a half turn. What comes out at the end?",
    "rate": -10
   },
   {
@@ -71,7 +71,7 @@
    "rate": -10
   },
   {
-   "text": "This machine makes it bigger. What comes out? Tap it.",
+   "text": "This machine paints it blue. What comes out? Tap it.",
    "rate": -10
   },
   {
@@ -83,7 +83,7 @@
    "rate": -10
   },
   {
-   "text": "This pattern uses two steps each time. 4, 9, 24, 69. What comes next? Tap it.",
+   "text": "This pattern uses two steps each time. 2, 9, 30, 93. What comes next? Tap it.",
    "rate": -10
   }
  ]

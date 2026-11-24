@@ -1,5 +1,5 @@
 {
- "source": "c0c5cdf98ad95daa959e512367ee50d22c1563f95c70eed6860e3483f8251ba6",
+ "source": "489fbe7d918a0d3c0cec413490c7543baf56da88133d6245e17f3786b2d45ba3",
  "lines": [
   {
    "text": "¡Arma un timbre! Agrega un interruptor para que el zumbador suene.",
@@ -22,11 +22,11 @@
    "lang": "es"
   },
   {
-   "text": "10 volts push through 5 ohms. How many amps flow?",
+   "text": "16 volts push through 4 ohms. How many amps flow?",
    "rate": -8
   },
   {
-   "text": "20 voltios empujan a través de 4 ohmios. ¿Cuántos amperios pasan?",
+   "text": "5 amperios pasan por 1 ohmios. ¿Cuántos voltios los empujan?",
    "rate": -8,
    "lang": "es"
   },
@@ -57,7 +57,7 @@
    "rate": -8
   },
   {
-   "text": "Enciende 2 focos. Después uno de ellos se quita.",
+   "text": "Enciende los dos focos. Después probamos el cableado.",
    "rate": -8,
    "lang": "es"
   },
@@ -75,16 +75,16 @@
    "rate": -8
   },
   {
-   "text": "Look at the batteries. Which house glows brighter?",
-   "rate": -8
-  },
-  {
    "text": "Mira las pilas. ¿Qué casa brilla más?",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "Which coil picks up more paper clips? One has an iron core.",
+   "text": "Which coil picks up more paper clips?",
+   "rate": -8
+  },
+  {
+   "text": "Which house gets more push from its batteries?",
    "rate": -8
   },
   {

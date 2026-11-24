@@ -1,7 +1,7 @@
 {
   "id": "kitchen-lab",
   "name": "Kitchen Lab",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Recipes as experiments: measure, mix and watch what changes, with each step read aloud.",
   "subjects": [
     "science"

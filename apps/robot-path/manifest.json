@@ -1,7 +1,7 @@
 {
   "id": "robot-path",
   "name": "Robot Path",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Program a toy robot with cards to collect gems. The ladder runs from arrow cards to repeats, ifs, whiles, a stamp, variables, debugging and one program for three mazes.",
   "subjects": [
     "logic"

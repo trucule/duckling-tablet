@@ -1,7 +1,7 @@
 {
   "id": "playground-lab",
   "name": "Playground Lab",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "A 3D physics playground with a slingshot, catapult, seesaw, trampoline, dominoes, moon gravity and slow motion.",
   "subjects": [
     "science"

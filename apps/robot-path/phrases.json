@@ -1,5 +1,5 @@
 {
- "source": "522a0fa6ca8b1da0c9c7dffcfd19054b9575033df0ab376d41ab25b6534575f4",
+ "source": "278e588789b36e28c7bf70f6cc2dd20380c8eb139708afb1c5a05afad198f4e1",
  "lines": [
   {
    "text": "Encuentra el camino más corto. Recoge las 3 gemas en 10 pasos o menos.",
@@ -12,7 +12,7 @@
    "lang": "es"
   },
   {
-   "text": "Find the shortest way. Get all 3 gems in 9 moves or less.",
+   "text": "Find the shortest way. Get all 4 gems in 10 moves or less.",
    "rate": -10
   },
   {
@@ -24,7 +24,7 @@
    "rate": -10
   },
   {
-   "text": "Get all 3 gems with 12 cards or fewer. Fewer cards earn more stars. 8 cards earns three stars.",
+   "text": "Get all 3 gems with 9 cards or fewer. Fewer cards earn more stars. 5 cards earns three stars.",
    "rate": -10
   },
   {
@@ -37,17 +37,17 @@
    "rate": -10
   },
   {
-   "text": "Recoge las 2 gemas usando solo 3 tarjetas. Una tarjeta Repetir hace las tarjetas de adentro una y otra vez. Toca el número para elegir cuántas veces.",
+   "text": "Recoge las 3 gemas con 11 tarjetas o menos. Menos tarjetas dan más estrellas. 7 tarjetas dan tres estrellas.",
    "rate": -10,
    "lang": "es"
   },
   {
-   "text": "Recoge las 2 gemas usando solo 5 tarjetas. Una tarjeta Repetir hace las tarjetas de adentro una y otra vez. Toca el número para elegir cuántas veces.",
+   "text": "Recoge las 3 gemas usando solo 3 tarjetas. Una tarjeta Repetir hace las tarjetas de adentro una y otra vez. Toca el número para elegir cuántas veces.",
    "rate": -10,
    "lang": "es"
   },
   {
-   "text": "Recoge las 3 gemas con 8 tarjetas o menos. Menos tarjetas dan más estrellas. 4 tarjetas dan tres estrellas.",
+   "text": "Recoge las 3 gemas usando solo 5 tarjetas. Una tarjeta Repetir hace las tarjetas de adentro una y otra vez. Toca el número para elegir cuántas veces.",
    "rate": -10,
    "lang": "es"
   },

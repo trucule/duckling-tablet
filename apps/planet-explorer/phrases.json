@@ -1,94 +1,94 @@
 {
- "source": "73be560ddb3142e56d4770079b356777c2b30ea340df72cddcdbb0a13bd629cd",
+ "source": "a8e1fc4851a51c9e4ee772e2fcc5320fabd893a884dca376d07802c766243cc2",
  "lines": [
   {
-   "text": "¡Planeta misterioso! Soy el planeta más lejano al Sol. Tengo los vientos más rápidos de todos los planetas. ¿Quién soy?",
+   "text": "¡Planeta misterioso! Tengo una tormenta gigante llamada la Gran Mancha Roja. Tengo el día más corto, unas 10 horas. ¿Quién soy?",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "¡Vuela a Neptuno! Toca el planeta.",
+   "text": "¡Vuela a Venus! Toca el planeta.",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "¡Vuela al planeta más lejano al Sol!",
+   "text": "¡Vuela al planeta más cercano al Sol!",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "¿Cuál es más pequeño, Venus o Neptuno?",
+   "text": "¿Cuál es más pequeño, Venus o Marte?",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "¿Qué hay en el centro de la Vía Láctea?",
+   "text": "¿De qué color son las estrellas más calientes?",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "Count out from the Sun. Fly to the fourth planet!",
+   "text": "Count out from the Sun. Fly to the sixth planet!",
    "rate": -8
   },
   {
-   "text": "Count out from the Sun. Fly to the seventh planet!",
-   "rate": -8
-  },
-  {
-   "text": "Cuenta desde el Sol. ¡Vuela al quinto planeta!",
+   "text": "Cuenta desde el Sol. ¡Vuela al sexto planeta!",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "Earth is 1 AU from the Sun. Read the strip. About how many AU is Neptune?",
-   "rate": -8
-  },
-  {
-   "text": "En la Tierra saltas 1 pie de alto. ¿Qué tan alto saltas en la Luna?",
+   "text": "En la Tierra saltas 1 pie de alto. ¿Qué tan alto saltas en Júpiter?",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "Fly to Mars! Tap it.",
+   "text": "Fly to Mercury! Tap it.",
    "rate": -8
   },
   {
-   "text": "How fast does light travel?",
+   "text": "Fly to the planet closest to the Sun!",
    "rate": -8
   },
   {
-   "text": "La corriente de partículas diminutas que sale del Sol se llama ...",
+   "text": "How far away is the Andromeda galaxy?",
+   "rate": -8
+  },
+  {
+   "text": "How many Earths would fit side by side across the Sun?",
+   "rate": -8
+  },
+  {
+   "text": "Miras una estrella a 100 años luz. Ves luz que salió de ella hace ...",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "La Tierra está a 1 UA del Sol. Lee la tira. ¿A cuántas UA está Júpiter?",
+   "text": "Mystery planet! I have oceans of liquid water on my outside. I am the third planet from the Sun. Who am I?",
+   "rate": -8
+  },
+  {
+   "text": "Si el Sol fuera un balón de básquet, ¿de qué tamaño sería la Luna?",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "Mystery planet! I spin backwards, so my Sun rises in the west. I am the hottest planet. Who am I?",
-   "rate": -8
-  },
-  {
-   "text": "Una bolsa de manzanas pesa 267 libras en Urano, donde la gravedad es 0.89 veces la de la Tierra. ¿Cuánto pesa en la Tierra? Escribe las libras.",
+   "text": "Sueltas una pluma y un martillo en la Luna, donde no hay aire. ¿Cuál llega primero al suelo?",
    "rate": -8,
    "lang": "es"
   },
   {
-   "text": "What sits at the center of the Milky Way?",
+   "text": "Weight is ...",
    "rate": -8
   },
   {
-   "text": "Which is smaller, Neptune or Earth?",
+   "text": "Which is bigger, Mercury or Uranus?",
    "rate": -8
   },
   {
-   "text": "You fly to Neptune. What stays the same?",
+   "text": "You jump 1 foot high on Earth. About how high on Mercury?",
    "rate": -8
   },
   {
-   "text": "You jump 1 foot high on Earth. About how high on the Moon?",
+   "text": "You look at a star 100 light-years away. You are seeing light that left it ...",
    "rate": -8
   }
  ]

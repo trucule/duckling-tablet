@@ -1,7 +1,7 @@
 {
   "id": "ecosystem-aquarium",
   "name": "Ecosystem Aquarium",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Set fish, snails, plants, light and food, then run the days and watch oxygen, algae and the food chain. Higher levels add food webs, population graphs, invaders, energy pyramids and fair tests.",
   "subjects": [
     "science"
