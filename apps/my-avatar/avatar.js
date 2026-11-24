@@ -341,9 +341,9 @@ function buildPlace(id) {
 // atan2(z, x); 0.88 is front right), or face, the part of the photo to show behind her.
 const PHOTO_PLACE = {
   park: ['ballawley_park', { sunAt: 0.88 }], beach: ['fish_hoek_beach', { sunAt: -1.2 }], castle: ['monkstown_castle', { sunAt: 0.48 }], farm: ['farm_field', { sunAt: 0.88 }],
-  bedroom: ['hotel_room', { face: 0.45 }], desert: ['goegap', { sunAt: 0.88 }], artstudio: ['art_studio', { face: 0.85 }], snow: ['snowy_meadow', { face: 0.5 }],
-  city: ['potsdamer_platz', { face: 0.8 }], jungle: ['rainforest_trail', { sunAt: 0.88 }], nightsky: ['qwantani_night', { sunAt: 0.88 }], space: ['outer_space', { face: 0.3 }],
-  underwater: ['under_the_sea', { face: 0.5 }], sunset: ['kiara_8_sunset', { sunAt: 0.88 }], rainbow: ['rainbow_hill', { face: 0.6 }], volcano: ['volcano_island', { face: 0.3 }],
+  bedroom: ['kids_bedroom', { face: 0.42 }], desert: ['goegap', { sunAt: 0.88 }], artstudio: ['art_studio', { face: 0.85 }], snow: ['snowy_meadow', { face: 0.5 }],
+  city: ['potsdamer_platz', { face: 0.8 }], jungle: ['rainforest_trail', { sunAt: 0.88 }], nightsky: ['night_meadow', { face: 0.3 }], space: ['outer_space', { face: 0.3 }],
+  underwater: ['under_the_sea', { face: 0.5 }], sunset: ['kiara_8_sunset', { sunAt: 0.88 }], rainbow: ['rainbow_hill_2', { face: 0.37 }], volcano: ['volcano_island_2', { face: 0.27 }],
   stage: ['big_stage', { face: 0.5 }], candyland: ['candy_land', { face: 0.5 }], clouds: ['cloud_kingdom', { face: 0.7 }], icecastle: ['ice_palace', { face: 0.5 }],
 };
 let placeNow = null, photoLight = null;

@@ -39,6 +39,10 @@ MADE = {
     'outer_space':    dict(x=0.78, y=0.29, find=True,  strength=200, color=[1.0, 1.0, 1.0]),
     'moon_surface':   dict(x=0.00, y=0.33, find=True,  strength=200, color=[1.0, 1.0, 1.0]),
     'snowy_meadow':   dict(x=0.50, y=0.25, find=False, strength=8,   color=[1.0, 1.0, 1.0]),
+    'volcano_island_2': dict(x=0.60, y=0.15, find=False, strength=150, color=[1.0, 0.95, 0.85]),
+    'rainbow_hill_2': dict(x=0.00, y=0.40, find=False, strength=120, color=[1.0, 0.95, 0.85]),
+    'kids_bedroom':   dict(x=0.73, y=0.42, find=False, strength=60,  color=[1.0, 0.95, 0.85]),
+    'night_meadow':   dict(x=0.27, y=0.43, find=True,  strength=6,   color=[0.8, 0.85, 1.0]),
     'snowy_mountain': dict(x=0.01, y=0.03, find=True,  strength=160, color=[1.0, 0.97, 0.9]),
 }
 MADE_SOURCE = 'Generated for Duckling Tablet with Google Gemini'
@@ -120,7 +124,7 @@ for f in sorted(os.listdir(src)):
 build_made()
 # Photos taken indoors: how far the walls are from the camera, in camera heights (backdrops.js lays the photo on a
 # dome that size instead of a wide one).
-ROOM = {'hotel_room': 1.6, 'art_studio': 2.2, 'lythwood_room': 1.6, 'big_stage': 4}
+ROOM = {'hotel_room': 1.6, 'kids_bedroom': 1.6, 'art_studio': 2.2, 'lythwood_room': 1.6, 'big_stage': 4}
 for v in meta.values(): v.setdefault('source', POLY)
 for k, v in ROOM.items():
     if k in meta: meta[k]['room'] = v

@@ -714,7 +714,7 @@ window.Kit = (function () {
   // place, and a later sky's photo fades in over it. The stage keeps its own sun, front right, and takes the photo's
   // sun colour, and its sky and ground as fill light.
   // Each sky: the photo, and how it is turned (backdrops.js load: sunAt, or face, the part of the photo straight ahead).
-  const PHOTO_SKY = { day: ['meadow_2', {}], sunny: ['rainbow_hill', { face: 0.25 }], sunset: ['kiara_8_sunset', {}], night: ['qwantani_night', {}],
+  const PHOTO_SKY = { day: ['meadow_2', {}], sunny: ['rainbow_hill', { face: 0.25 }], sunset: ['kiara_8_sunset', {}], night: ['night_meadow', { face: 0.3 }],
     storm: ['kloofendal_overcast', {}], snow: ['snowy_meadow', { face: 0.5 }] };
   let photoNow = null, catcher = null;
   const drawn = () => [skyMat && K.scene.children.find(o => o.material === skyMat), ground, ...K.scene.children.filter(o => o.userData.hill)];

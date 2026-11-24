@@ -377,6 +377,29 @@
    "sunStrength": 200,
    "exposure": 3.12028
   },
+  "kids_bedroom": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.823,
+    0.767,
+    0.714
+   ],
+   "groundColor": [
+    0.772,
+    0.679,
+    0.601
+   ],
+   "sunAz": 1.4451,
+   "sunEl": 0.2513,
+   "sunColor": [
+    1.0,
+    0.95,
+    0.85
+   ],
+   "sunStrength": 60,
+   "exposure": 1,
+   "room": 1.6
+  },
   "kloofendal_overcast": {
    "source": "Poly Haven (polyhaven.com), CC0",
    "skyColor": [
@@ -488,6 +511,28 @@
    "sunStrength": 200,
    "exposure": 1
   },
+  "night_meadow": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.204,
+    0.248,
+    0.313
+   ],
+   "groundColor": [
+    0.146,
+    0.153,
+    0.08
+   ],
+   "sunAz": -1.3702,
+   "sunEl": 0.16,
+   "sunColor": [
+    0.8,
+    0.85,
+    1.0
+   ],
+   "sunStrength": 6,
+   "exposure": 1
+  },
   "outer_space": {
    "source": "Generated for Duckling Tablet with Google Gemini",
    "skyColor": [
@@ -567,6 +612,28 @@
     0.141
    ],
    "sunAz": -1.4451,
+   "sunEl": 0.3142,
+   "sunColor": [
+    1.0,
+    0.95,
+    0.85
+   ],
+   "sunStrength": 120,
+   "exposure": 1
+  },
+  "rainbow_hill_2": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.706,
+    0.732,
+    0.771
+   ],
+   "groundColor": [
+    0.317,
+    0.336,
+    0.158
+   ],
+   "sunAz": -3.1416,
    "sunEl": 0.3142,
    "sunColor": [
     1.0,
@@ -675,6 +742,28 @@
     0.386,
     0.33,
     0.272
+   ],
+   "sunAz": 0.6283,
+   "sunEl": 1.0996,
+   "sunColor": [
+    1.0,
+    0.95,
+    0.85
+   ],
+   "sunStrength": 150,
+   "exposure": 1
+  },
+  "volcano_island_2": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.639,
+    0.747,
+    0.872
+   ],
+   "groundColor": [
+    0.382,
+    0.335,
+    0.31
    ],
    "sunAz": 0.6283,
    "sunEl": 1.0996,

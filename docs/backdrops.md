@@ -28,7 +28,8 @@ from the API the first time a child goes to that place and is kept on the tablet
 
 Things to check in a screenshot: no letters or signs in view, no people, the cast stands on open ground, and the
 picture's horizon meets the drawn ground where the two touch. My Avatar's camera sees only about 15 degrees above
-the horizon, so something tall in the picture (a volcano's top, a rainbow) may not show there.
+the horizon, so the prompt asks for the main subject to sit low. A volcano and a rainbow made without that rule did
+not show there.
 
 ## Prompt for the made-up places
 
