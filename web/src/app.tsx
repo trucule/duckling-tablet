@@ -1,4 +1,6 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useErrorBoundary } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
+import { tr } from './i18n';
 import { route, paired, themeColors, startCheckins, lastError, go, parentUnlocked } from './state';
 import { Pair } from './screens/Pair';
 import { Home } from './screens/Home';
@@ -21,8 +23,24 @@ export function App() {
   const screen = r === 'store' ? <Store /> : r === 'pin' ? <Pin /> : r === 'parent' ? (parentUnlocked.value ? <Parent /> : <Pin />) : <Home />;
   return (
     <>
-      {screen}
+      <Guard>{screen}</Guard>
       {lastError.value && r === 'home' && <div class="banner">{lastError.value}</div>}
     </>
+  );
+}
+
+/** A screen that fails to draw shows what failed and a way to try again, never a blank page (an iPad showed only the
+ *  white home background, with no way to tell why). */
+function Guard({ children }: { children: ComponentChildren }) {
+  const [err, reset] = useErrorBoundary();
+  if (!err) return <>{children}</>;
+  const e = err as Error;
+  return (
+    <div class="crash">
+      <h2>{tr('This screen could not be shown.')}</h2>
+      <p>{tr('Send a photo of this message to support. The details help us fix it.')}</p>
+      <pre>{`${e?.name || 'Error'}: ${e?.message || String(err)}\n${(e?.stack || '').split('\n').slice(0, 6).join('\n')}`}</pre>
+      <button class="btn" onClick={() => { reset(); location.reload(); }}>{tr('Try again')}</button>
+    </div>
   );
 }

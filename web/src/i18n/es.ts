@@ -2,6 +2,10 @@
 // parent. Settings names are the ones a Spanish-language iPad, Android tablet or Windows device shows. API messages are
 // at the end. Every line needs a review by a native speaker before release.
 export const es: Record<string, string> = {
+  // A screen that could not be drawn
+  'This screen could not be shown.': 'No se pudo mostrar esta pantalla.',
+  'Send a photo of this message to support. The details help us fix it.': 'Envía una foto de este mensaje a soporte. Los detalles nos ayudan a arreglarlo.',
+  'Try again': 'Intentar de nuevo',
   // Home screen
   'Install': 'Instalar',
   'Subscribing keeps every app on this tablet and lets you request new apps at no charge.': 'Con la suscripción conservas todas las apps de esta tableta y puedes pedir apps nuevas sin costo.',

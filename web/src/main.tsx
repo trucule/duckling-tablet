@@ -17,4 +17,18 @@ registerSW({
   },
 });
 
+// An error outside drawing (a failed module, a rejected promise) that leaves the page empty is written on the page,
+// so a blank tablet still says what went wrong.
+const reportBlank = (what: string) => setTimeout(() => {
+  const root = document.getElementById('app');
+  if (root && !root.textContent?.trim()) {
+    const pre = document.createElement('pre');
+    pre.className = 'crash';
+    pre.textContent = what;
+    root.appendChild(pre);
+  }
+}, 3000);
+window.addEventListener('error', (e) => reportBlank(`${e.message}\n${e.filename}:${e.lineno}:${e.colno}`));
+window.addEventListener('unhandledrejection', (e) => { const r = e.reason as Error; reportBlank(`${r?.name || 'Error'}: ${r?.message || String(e.reason)}\n${r?.stack || ''}`); });
+
 render(<App />, document.getElementById('app')!);
