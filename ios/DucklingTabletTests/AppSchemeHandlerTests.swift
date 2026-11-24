@@ -2,21 +2,19 @@ import XCTest
 import WebKit
 @testable import DucklingTablet
 
-/// Loads an app package the way the app runner does, through AppSchemeHandler, in a real WKWebView: the page renders,
-/// localStorage keeps a value across loads, the page is a secure context (the microphone and camera need one), its own
-/// files load by fetch, ranges are answered, and nothing outside the packages is served.
+/// A package page in a real WKWebView, served through AppSchemeHandler the way the app runner serves it. Each test
+/// class gets one web view of its own in a visible window, as the app runner's page is always on screen, and every
+/// load and script has its own time limit, so a stall fails that one test instead of holding the runner.
 ///
-/// The tests share one web view in a visible window, as the app runner's page is always on screen. In the iOS 27
-/// simulator a page off screen has its web content process suspended (a script waiting on it never answered and the
-/// test host hung for 25 minutes), and a second web view made in the same test host never finished its first load
-/// (each test after the first timed out at 60 seconds). Every load and every script also has its own time limit, so
-/// a stall fails that one test instead of holding the runner.
+/// Why it is set up this way, from the iOS 27 simulator: a page off screen has its web content process suspended, and
+/// a script waiting on it never answered (the test host hung for 25 minutes); and after a page had used the microphone,
+/// the next load in that test host never finished, so the microphone test has a class and a web view of its own
+/// (MicrophoneTests), which runs after these.
 @MainActor
-final class AppSchemeHandlerTests: XCTestCase {
-    private static var sharedWeb: WKWebView?
-    private static var window: UIWindow?
-    private var web: WKWebView!
-    private let id = "scheme-test"
+class PackagePageTestCase: XCTestCase {
+    private static var webs: [String: (WKWebView, UIWindow)] = [:]
+    var web: WKWebView!
+    let id = "scheme-test"
 
     override func setUp() async throws {
         let dir = Packages.shared.dir(id)
@@ -28,15 +26,17 @@ final class AppSchemeHandlerTests: XCTestCase {
         """.write(to: dir.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
         try #"{"word":"duck"}"#.write(to: dir.appendingPathComponent("data.json"), atomically: true, encoding: .utf8)
         try Data((0..<200).map { UInt8($0) }).write(to: dir.appendingPathComponent("clip.bin"))
-        if Self.sharedWeb == nil {
+        let key = String(describing: type(of: self))
+        if Self.webs[key] == nil {
             let config = WKWebViewConfiguration()
             config.setURLSchemeHandler(AppSchemeHandler(), forURLScheme: AppSchemeHandler.scheme)
             let w = WKWebView(frame: CGRect(x: 0, y: 0, width: 800, height: 600), configuration: config)
             let window = UIWindow(frame: UIScreen.main.bounds)
             let host = UIViewController(); host.view.addSubview(w); window.rootViewController = host; window.makeKeyAndVisible()
-            Self.sharedWeb = w; Self.window = window
+            Self.webs[key] = (w, window)
         }
-        web = Self.sharedWeb
+        web = Self.webs[key]!.0
+        Self.webs[key]!.1.makeKeyAndVisible()
     }
 
     override func tearDown() async throws {
@@ -45,7 +45,7 @@ final class AppSchemeHandlerTests: XCTestCase {
         Packages.shared.uninstall(id)
     }
 
-    private func load(_ path: String) async throws {
+    func load(_ path: String) async throws {
         let done = expectation(description: "load"); done.assertForOverFulfill = false
         let nav = Nav { done.fulfill() }
         web.navigationDelegate = nav
@@ -58,7 +58,7 @@ final class AppSchemeHandlerTests: XCTestCase {
 
     /// Runs a script in the page and gives up after `seconds`. callAsyncJavaScript has no time limit of its own and
     /// cannot be cancelled, so the answer and a timer race and whichever comes first ends the wait.
-    private func js(_ code: String, seconds: Double = 20) async throws -> Any? {
+    func js(_ code: String, seconds: Double = 20) async throws -> Any? {
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Any?, Error>) in
             var finished = false
             web.callAsyncJavaScript(code, arguments: [:], in: nil, in: .page) { result in
@@ -76,7 +76,12 @@ final class AppSchemeHandlerTests: XCTestCase {
             }
         }
     }
+}
 
+/// Loads an app package the way the app runner does: the page renders, localStorage keeps a value across loads, the
+/// page is a secure context (the microphone and camera need one), its own files load by fetch, ranges are answered,
+/// and nothing outside the packages is served.
+final class AppSchemeHandlerTests: PackagePageTestCase {
     func testPackageLoadsWithStorageAndSecureContext() async throws {
         try await load("index.html")
         let v1 = try await js("await window.ready; return document.getElementById('h').textContent") as? String
@@ -109,26 +114,7 @@ final class AppSchemeHandlerTests: XCTestCase {
 }
 
 
-extension AppSchemeHandlerTests {
-    /// A microphone request from a package page reaches the app runner's decision with the package's own origin, and
-    /// getUserMedia resolves once it is granted. The workflow grants the simulator's microphone to the app first.
-    func testMicrophoneRequestFromAPackage() async throws {
-        let ui = Capture()
-        web.uiDelegate = ui
-        try await load("index.html")
-        let result = try await js("""
-            try { const s = await Promise.race([navigator.mediaDevices.getUserMedia({ audio: true }), new Promise((_, no) => setTimeout(() => no(Object.assign(new Error('no answer in 10 s'), { name: 'Timeout' })), 10000))]); s.getTracks().forEach(t => t.stop()); return 'ok'; }
-            catch (e) { return e.name + ': ' + e.message; }
-            """, seconds: 30) as? String
-        print("MIC-PROBE getUserMedia=\(result ?? "nil") asked=\(ui.asked)")
-        XCTAssertEqual(ui.asked.count, 1, "WebKit did not ask the app about the microphone")
-        XCTAssertEqual(ui.asked.first?.scheme, AppSchemeHandler.scheme)
-        XCTAssertEqual(ui.asked.first?.host, AppSchemeHandler.host)
-        XCTAssertEqual(result, "ok")
-    }
-}
-
-private final class Capture: NSObject, WKUIDelegate {
+final class Capture: NSObject, WKUIDelegate {
     var asked: [(scheme: String, host: String)] = []
     func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
         asked.append((origin.protocol, origin.host))
@@ -136,7 +122,7 @@ private final class Capture: NSObject, WKUIDelegate {
     }
 }
 
-private final class Nav: NSObject, WKNavigationDelegate {
+final class Nav: NSObject, WKNavigationDelegate {
     var error: Error?
     let done: () -> Void
     init(_ done: @escaping () -> Void) { self.done = done }

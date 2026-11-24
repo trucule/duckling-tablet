@@ -54,9 +54,9 @@ jobs:
           xcrun simctl boot "$SIM" || true
           xcrun simctl privacy "$SIM" grant microphone com.ducklingtablet.app || true
           # Each test gets 2 minutes (XCTest stops a test past its allowance, reports it as failed, and runs the rest);
-          # the whole run gets 15 minutes at most, so a hung test host cannot hold the runner. Test lines are printed as
+          # the whole run (about 5 minutes of it is booting and building) gets 20 minutes at most, so a hung test host cannot hold the runner. Test lines are printed as
           # they happen, so a run that GitHub cancels still shows how far the tests got.
-          ( perl -e 'alarm shift; exec @ARGV' 900 \
+          ( perl -e 'alarm shift; exec @ARGV' 1200 \
               xcodebuild -project DucklingTablet.xcodeproj -scheme DucklingTablet -destination "id=$SIM" \
               -test-timeouts-enabled YES -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 180 \
               CODE_SIGNING_ALLOWED=NO -resultBundlePath "$RUNNER_TEMP/tests.xcresult" test 2>&1
