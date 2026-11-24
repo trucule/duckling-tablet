@@ -24,10 +24,13 @@
   if ('outputColorSpace' in renderer) renderer.outputColorSpace = T.SRGBColorSpace;
 
   // ---- shapes and materials ----------------------------------------------------------------------------------
+  // The storybook look shared with the other 3D apps: flat toon shading in three steps and a dark ink outline round each
+  // part (ink() below). The child's own face is her My Avatar portrait and keeps its realistic look.
+  const TOON = (() => { const t = new T.DataTexture(new Uint8Array([100, 165, 215]), 3, 1, T.RedFormat); t.minFilter = t.magFilter = T.NearestFilter; t.needsUpdate = true; return t; })();
   const mats = new Map();
   const mat = (c, r = 0.55, extra) => {
     const key = c + '|' + r + '|' + (extra ? JSON.stringify(extra) : '');
-    if (!mats.has(key)) mats.set(key, new T.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: 0 }, extra || {})));
+    if (!mats.has(key)) { const o = Object.assign({}, extra || {}); delete o.metalness; delete o.roughness; mats.set(key, new T.MeshToonMaterial(Object.assign({ color: c, gradientMap: TOON }, o))); }
     return mats.get(key);
   };
   const glow = (c, k = 1.2) => mat(c, 0.4, { emissive: c, emissiveIntensity: k });
@@ -50,6 +53,25 @@
     s.lineTo(x - r, y); s.quadraticCurveTo(x - r, y - r, x, y - r);
     const g = new T.ExtrudeGeometry(s, { depth: Math.max(0.001, d - 2 * r), bevelEnabled: true, bevelThickness: r, bevelSize: r * 0.98, bevelSegments: 4, curveSegments: 8 });
     g.translate(0, 0, -(d - 2 * r) / 2); g.computeVertexNormals(); return g;
+  }
+  // Ink outline: a copy of each solid part drawn inside out and pushed out along its normals by a fixed width in view
+  // space, so thin and thick parts get the same line whatever their scale. Glows, sprites, see-through parts, the
+  // portrait face and the big ground and sea pieces get none.
+  const INK_W = 0.024;
+  const INK = new T.MeshBasicMaterial({ color: '#2B2140', side: T.BackSide });
+  INK.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nmvPosition.xyz += normalize( normalMatrix * normal ) * ' + INK_W.toFixed(4) + ';\ngl_Position = projectionMatrix * mvPosition;'); };
+  const ws = new T.Vector3();
+  function ink(root) {
+    const list = []; root.updateMatrixWorld(true);
+    root.traverse(m => { if (m.isMesh && !m.userData.ink && !m.userData.inked) list.push(m); });
+    for (const m of list) {
+      const mt = m.material; m.userData.inked = true;
+      if (!mt || Array.isArray(mt) || !mt.isMeshToonMaterial || mt.transparent || (mt.emissiveIntensity > 0.5 && mt.emissive && mt.emissive.getHex())) continue;
+      if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+      m.getWorldScale(ws); const r = m.geometry.boundingSphere.radius * Math.max(ws.x, ws.y, ws.z);
+      if (r < 0.03 || r > 4) continue;
+      const o = new T.Mesh(m.geometry, INK); o.userData.ink = true; o.raycast = () => {}; o.castShadow = o.receiveShadow = false; m.add(o);
+    }
   }
   // An emoji drawn on a canvas, for props, the scene's things and the child's face when there is no portrait.
   const emojiCache = new Map();
@@ -594,11 +616,12 @@
     const P = PLACE[id] || PLACE.castle; setId = PLACE[id] ? id : 'castle';
     setGroup = new T.Group(); anims = []; scene.add(setGroup);
     if (P.water) water(setGroup, P.water, anims);
-    P.build(setGroup, anims);
+    P.build(setGroup, anims); ink(setGroup);
     scene.background = sky(P.sky);
     scene.fog = new T.Fog(P.fog || P.sky[1], 20, 42);
     const L = P.light || ['#fff3dc', 0.55, 1.25];
-    sun.color.set(L[0]); hemi.intensity = L[1]; sun.intensity = L[2];
+    // Toon shading reads brighter than the old smooth shading, so the fill light is lower and the sun a touch stronger.
+    sun.color.set(L[0]); hemi.intensity = L[1] * 0.7; sun.intensity = L[2];
   }
 
   // ---- acting ---------------------------------------------------------------------------------------------------
@@ -732,7 +755,7 @@
     if (!keep) {
       for (const a of actors) scene.remove(a.root);
       actors = ids.filter(id => MAKE[id]).slice(0, 3).map(id => cast[id] || (cast[id] = MAKE[id]()));
-      for (const a of actors) { scene.add(a.root); if (a.portrait) loadPortrait(a); }
+      for (const a of actors) { scene.add(a.root); ink(a.root); if (a.portrait) loadPortrait(a); }
     }
     events = []; speaking = null;
     for (const p of props.slice()) { scene.remove(p.s); } props = [];
