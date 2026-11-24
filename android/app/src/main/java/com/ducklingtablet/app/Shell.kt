@@ -122,6 +122,33 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     @JavascriptInterface fun openAppSettings() { if (!ok()) return; main.post { activity.openAppSettings() } }
 
     /**
+     * Clears what the given websites saved on this tablet (hosts as a JSON array): their storage, offline files and
+     * service workers, and their cookies, plus the WebView's shared download cache. Duckling's own pages and the apps
+     * keep their data. For a website that stopped loading or keeps showing an old version.
+     */
+    @JavascriptInterface fun clearWebsiteData(hostsJson: String) {
+        if (!ok()) return
+        val hosts = try { JSONArray(hostsJson).let { a -> (0 until a.length()).map { a.getString(it).lowercase() } } } catch (_: Exception) { return }
+        main.post {
+            web.clearCache(true)
+            val mine = setOf(Uri.parse(MainActivity.WEB_APP).host, "appassets.androidplatform.net")
+            val matches = { host: String -> host !in mine && hosts.any { host == it || host.endsWith(".$it") } }
+            android.webkit.WebStorage.getInstance().getOrigins { origins ->
+                for (o in (origins ?: emptyMap<Any, Any>()).keys) {
+                    val origin = (o as? android.webkit.WebStorage.Origin)?.origin ?: o.toString()
+                    if (matches(Uri.parse(origin).host ?: "")) android.webkit.WebStorage.getInstance().deleteOrigin(origin)
+                }
+            }
+            val cookies = android.webkit.CookieManager.getInstance()
+            for (h in hosts) for (url in listOf("https://$h", "https://www.$h")) {
+                val names = (cookies.getCookie(url) ?: "").split(";").map { it.substringBefore("=").trim() }.filter { it.isNotEmpty() }
+                for (n in names) for (domain in listOf(h, ".$h", "www.$h")) cookies.setCookie(url, "$n=; Max-Age=0; Path=/; Domain=$domain")
+            }
+            cookies.flush()
+        }
+    }
+
+    /**
      * Android's Wi-Fi settings, from the parent area: a parent picks a network (and signs in on a captive portal if
      * the network has one), then comes back with Back. The lockdown is lifted for that visit and comes back in
      * onResume. An app cannot join networks itself without device-owner provisioning.

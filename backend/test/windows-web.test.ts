@@ -67,7 +67,7 @@ const FAKE_SHELL = `(() => {
     uninstallApp: rec('uninstallApp', (id) => { delete st.installed[id]; save(); }), openApp: rec('openApp'),
     hasPin: () => !!st.pin, setPin: rec('setPin', (p) => { st.pin = p; save(); }), verifyPin: (p) => p === st.pin, setPinHash: rec('setPinHash'),
     lockdownStatus: () => JSON.stringify(status()), requestHomeRole: () => {}, openSecuritySettings: () => {}, openWifiSettings: () => {},
-    networkStatus: () => 'wifi',
+    networkStatus: () => 'wifi', clearWebsiteData: rec('clearWebsiteData'),
     mediaAccess: () => JSON.stringify({ microphone: st.mic, camera: 'on' }),
     setLockdown: rec('setLockdown', (on) => { st.lockdownOn = on; cb('lockdown', true, on ? 'on' : 'off'); }),
     setAllowedHosts: rec('setAllowedHosts'), setSignInHosts: rec('setSignInHosts'), setChildInfo: rec('setChildInfo'), setChildLevels: () => {}, setChildId: () => {},
@@ -281,6 +281,18 @@ describe.skipIf(!ready)('web app on Windows', () => {
         expect(await p.getByRole('heading', { name: 'Other apps' }).count()).toBe(0);
       }
       if (process.env.WEB_SHOTS) await p.screenshot({ path: join(process.env.WEB_SHOTS, `${platform}-permissions.png`), fullPage: true });
+      // Loading problems (still in the parent area on Android): the websites' saved data goes through the shell,
+      // Duckling's own offline copy is dropped, and the page reloads.
+      if (platform === 'android') {
+        const loading = p.locator('.card', { has: p.getByRole('heading', { name: 'Loading problems' }) });
+        if (process.env.WEB_SHOTS) await loading.screenshot({ path: join(process.env.WEB_SHOTS, `${platform}-loading.png`) });
+        p.once('dialog', (d) => void d.accept());
+        const reloaded = p.waitForEvent('load');
+        await loading.getByRole('button', { name: 'Clear saved website data' }).click();
+        expect(await p.evaluate(() => (window as any).__calls.filter((c: unknown[]) => c[0] === 'clearWebsiteData').length)).toBe(1);
+        await reloaded;
+        expect(await p.evaluate(async () => (await caches.keys()).length)).toBe(0);
+      }
       await browser.close();
     }, 120_000);
   }

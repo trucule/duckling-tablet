@@ -656,6 +656,8 @@ function buildPrompt(ctx) {
   const begin = ctx.sceneNo === 1
     ? `\nThis is the OPENING scene, so begin at the beginning. The first narrator line says where the friends are, when it is (a time of day or a season) and what they are doing there, with one thing to see or hear. Then each cast member appears by name, with one thing that shows what they are like. Before the scene ends, show the event that starts the story: ${want} the story is about, so the reader knows what the friends want or need. Do not open in the middle of the action.`
     : `\nThe story began like this: ${ctx.premise || (ctx.history[0] && ctx.history[0].summary) || 'see scene 1'}. Open this scene by showing what happened because of her last choice, and keep the friends moving toward what they want.`;
+  // A new story with the same friends (the dice) must not retell one she has just had.
+  const past = ctx.sceneNo === 1 && ctx.past && ctx.past.length ? `\nShe has already had these stories with these friends today, so make this one about something different, with a different problem and different events: ${ctx.past.map(x => '"' + x + '"').join('; ')}.` : '';
   // The 3D stage acts out every line while it is read (stage.js): where each friend goes, what they do, who they
   // look at, what they hold. Its marks and actions are fixed lists; cleanAct drops anything else.
   const S = window.STAGE || { MARKS: ['left', 'center', 'right', 'front', 'back'], ACTIONS: ['wave', 'jump', 'talk'] };
@@ -670,7 +672,7 @@ function buildPrompt(ctx) {
   } else if (isLast && !little) {
     ending = ` Also "questions": 4 questions about the WHOLE story to check she understood it, covering who, what happened, why something happened, and the order of events${rank >= 2 ? ', plus one about the meaning of a word from the story' : ''}: [{"q": "the question", "choices": ["three short answers"], "answer": index of the one right choice}]. Exactly one choice is right; the other two are clearly wrong for this story.`;
   }
-  const user = `Cast: ${castDesc}.${teller}\nPlace: ${ctx.place[1]}. Kind: ${ctx.kind[1]}. Drama level: ${ctx.drama[1]} (${ctx.drama[3]}). Total scenes: ${ctx.total}.\n${vocab}\nSo far:\n${history}${begin}${acting}\n\nWrite scene ${ctx.sceneNo}${isLast ? ', the LAST scene: resolve everything happily and end with a warm closing line' : ''}.\nJSON shape: {"title": "short scene title", "emoji": ["one", "two", "three emoji for the scene"], "lines": [{"who": "narrator" or a cast id, "text": "${little ? 'one or two sentences' : 'one to three sentences'}", "mood": one of "neutral","cheerful","excited","sad","whispering","shouting","friendly", "act": [{"who": a cast id, "move": "" or one of ${S.MARKS.join(', ')}, "do": "" or one of ${S.ACTIONS.join(', ')}, "face": "" or a cast id or audience or back, "prop": "" or one emoji the character holds or finds}]}], "summary": "one sentence of what happened",${premise} "choices": [{"label": "3-6 words, what happens next", "emoji": "one emoji"}, ...]}. Choices: ${R.choices}.${words} ${R.lines}. ${isLast ? 'For the last scene: "choices": [] and "end": true.' : ''}${ending}`;
+  const user = `Cast: ${castDesc}.${teller}\nPlace: ${ctx.place[1]}. Kind: ${ctx.kind[1]}. Drama level: ${ctx.drama[1]} (${ctx.drama[3]}). Total scenes: ${ctx.total}.\n${vocab}\nSo far:\n${history}${begin}${past}${acting}\n\nWrite scene ${ctx.sceneNo}${isLast ? ', the LAST scene: resolve everything happily and end with a warm closing line' : ''}.\nJSON shape: {"title": "short scene title", "emoji": ["one", "two", "three emoji for the scene"], "lines": [{"who": "narrator" or a cast id, "text": "${little ? 'one or two sentences' : 'one to three sentences'}", "mood": one of "neutral","cheerful","excited","sad","whispering","shouting","friendly", "act": [{"who": a cast id, "move": "" or one of ${S.MARKS.join(', ')}, "do": "" or one of ${S.ACTIONS.join(', ')}, "face": "" or a cast id or audience or back, "prop": "" or one emoji the character holds or finds}]}], "summary": "one sentence of what happened",${premise} "choices": [{"label": "3-6 words, what happens next", "emoji": "one emoji"}, ...]}. Choices: ${R.choices}.${words} ${R.lines}. ${isLast ? 'For the last scene: "choices": [] and "end": true.' : ''}${ending}`;
   // Spanish: every word the child sees or hears is written in Spanish; the JSON keys, ids and moods stay as given.
   const system = LANG === 'es' ? R.system + `\nLanguage: write every text value (titles, lines, choices, summaries, questions, answers, word meanings) in Spanish, the neutral Latin American Spanish a child in the United States or Latin America reads at this grade, with the same rules for sentence length and difficulty. The grade words above are Spanish words for this grade: use them as written. Keep the JSON keys, the "who" ids, the "mood" values and every "act" value except "prop" exactly as given in English.` : R.system;
   return { system, user, maxTokens: R.maxTokens * 1.35 * (LANG === 'es' ? 1.3 : 1) | 0 };
@@ -686,7 +688,7 @@ function parseScene(text) {
 // tells the child and uses the built-in story). Network and server errors throw.
 async function writeScene() {
   const s = story, isLast = s.scenes.length + 1 >= s.total, lv = s.level, R = RUNGS[lv];
-  const p = buildPrompt({ lv, cast: picked, place, kind, drama, total: s.total, sceneNo: s.scenes.length + 1, history: s.history, vocab: s.vocab, premise: s.premise });
+  const p = buildPrompt({ lv, cast: picked, place, kind, drama, total: s.total, sceneNo: s.scenes.length + 1, history: s.history, vocab: s.vocab, premise: s.premise, past: pastStories.filter(Boolean) });
   const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': CFG.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
     body: JSON.stringify({ model: CFG.storyModel, max_tokens: p.maxTokens, system: p.system, messages: [{ role: 'user', content: p.user }] }) });
   if (!r.ok) throw new Error('api ' + r.status);
@@ -962,12 +964,15 @@ function storyQuestions() {
 // ---------------------------------------------------------------------------
 // Telling it
 // ---------------------------------------------------------------------------
+const pastStories = [];   // this visit's earlier stories (premise or first title), newest last
 async function start(sameFriends) {
+  if (story && story.scenes.length) { pastStories.push(story.premise || story.scenes[0].title || ''); if (pastStories.length > 5) pastStories.shift(); }
   story = { scenes: [], history: [], reading: -1, ai: canUseAI(), level: level[1], glossary: {}, total: totalScenes(), vocab: drawVocab(level[1]) };
   VOICE.beginStory();   // which voice service this story uses, decided once
   if (story.ai) countStory();
   $('setup').classList.add('off'); $('story').classList.add('on'); $('back').hidden = false; $('end').classList.remove('on'); $('quiz').classList.remove('on'); $('note').classList.remove('on');
-  $('title').textContent = ''; $('scene').innerHTML = ''; $('text').innerHTML = '';
+  $('title').textContent = ''; $('text').innerHTML = '';
+  if (!$('scene').classList.contains('stage')) $('scene').innerHTML = '';   // the 3D stage stays mounted; only emoji scenes are cleared
   $('text').classList.toggle('grown', grown()); $('text').classList.toggle('upper', upper(level[1])); $('story').classList.toggle('upper', upper(level[1]));
   showMode();
   await nextScene();
@@ -1110,7 +1115,15 @@ $('mode').onclick = () => {
 };
 $('go').onclick = () => start();
 $('read').onclick = () => { if (story) readFrom(0); };
-$('another').onclick = () => { VOICE.stop(); start(true); };
+// The dice: the same friends, level, trouble and length in a new place with a new kind of story, and the writer is
+// told the stories they have already had so it writes a different one.
+$('another').onclick = () => {
+  VOICE.stop();
+  const other = (list, now) => { const rest = list.filter(x => x !== now); return rest[Math.floor(Math.random() * rest.length)] || now; };
+  choose($('places'), PLACES, place = other(PLACES, place)); choose($('kinds'), KINDS, kind = other(KINDS, kind));
+  start(true);
+};
+function choose(box, list, item) { [...box.children].forEach((x, i) => x.classList.toggle('on', list[i] === item)); }
 $('back').onclick = () => { VOICE.stop(); if (window.STAGE && STAGE.ok) STAGE.stop(); story = null; $('setup').classList.remove('off'); $('story').classList.remove('on'); $('back').hidden = true; };
 $('stars').textContent = '⭐ ' + stars;
 try { speechSynthesis.onvoiceschanged = () => {}; } catch (e) {}

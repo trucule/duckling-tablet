@@ -118,6 +118,25 @@ export function otherAppState(a: OtherApp): { ok: boolean; secondsLeft: number; 
 
 export const travelActive = (c: DeviceConfig | null) => !!c?.travel.active && !!c.travel.until && new Date(c.travel.until).getTime() > Date.now();
 
+// Every website this tablet may open from its config: the allowlist, what those sites need for videos and sign-in,
+// and the sites of other apps.
+export function websiteHosts(c: DeviceConfig): string[] {
+  const hosts = new Set(c.allowlist.map((w) => w.host.replace(/^\*\./, '')));
+  for (const h of [...(c.mediaHosts ?? []), ...(c.signInHosts ?? [])]) hosts.add(h);
+  for (const a of c.otherApps ?? []) for (const h of a.hosts) hosts.add(h.replace(/^\*\./, ''));
+  return [...hosts].filter((h) => h && h !== '*');
+}
+
+// Fixes loading problems: the websites' saved data on the device (through the shell), then Duckling's own offline
+// copy of its screens (the service worker and its caches), and a reload from the server. The apps, the child's
+// progress and pictures, the PIN and the pairing stay.
+export async function clearSavedData(c: DeviceConfig | null) {
+  if (c) shell.clearWebsiteData(websiteHosts(c));
+  try { for (const k of await caches.keys()) await caches.delete(k); } catch { /* no Cache API */ }
+  try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch { /* no service worker */ }
+  setTimeout(() => location.reload(), 600);
+}
+
 function applyHosts(c: DeviceConfig) {
   // Sign-in services a website may send a parent to (Log in with Google); the shell shows them a standard browser
   // user agent, since they refuse an embedded web view (backend/src/sitehosts.ts).

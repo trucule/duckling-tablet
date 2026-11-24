@@ -18,7 +18,7 @@ public class ShellBridge(MainForm main)
         "platform", "shellVersion", "getDeviceToken", "setDeviceToken", "pushToken", "installedApps", "installApp", "uninstallApp", "openApp",
         "hasPin", "setPin", "verifyPin", "setPinHash", "lockdownStatus", "requestHomeRole", "openSecuritySettings", "openWifiSettings", "networkStatus",
         "setLockdown", "setAllowedHosts", "setSignInHosts", "setChildInfo", "setChildLevels", "setChildId", "setLanguage", "release", "installedPackages", "launchPackage",
-        "canDrawOverlays", "openOverlaySettings", "setAppAccountToken", "takeLocalBackground",
+        "canDrawOverlays", "openOverlaySettings", "setAppAccountToken", "takeLocalBackground", "clearWebsiteData",
         // Windows only
         "setChildAccount", "restartDevice", "restartSession", "wifiNetworks", "connectWifi", "openParentPage", "setOtherApps", "endParent", "exitShell", "isChildSession",
     };
@@ -160,6 +160,24 @@ public class ShellBridge(MainForm main)
         var hosts = Hosts.Normalize(csv.Split(','));
         main.AllowedHosts = hosts;
         Task.Run(() => { try { Call("setAllowedHosts", new { hosts }); } catch (Exception) { } });
+    }
+    /// <summary>Clears what the given websites (a JSON array of hosts) saved on this device: storage, offline files,
+    /// service workers and cookies, plus the shared download cache. Duckling's own pages and the apps keep their
+    /// data. For a website that stopped loading or keeps showing an old version.</summary>
+    public void clearWebsiteData(string hostsJson)
+    {
+        Guard();
+        string[] hosts;
+        try { hosts = Hosts.Normalize(JsonSerializer.Deserialize<string[]>(hostsJson) ?? []).Where(h => !Hosts.IsOwn(h)).ToArray(); } catch (JsonException) { return; }
+        main.BeginInvoke(async () =>
+        {
+            var core = main.Web.CoreWebView2; if (core == null) return;
+            foreach (var h in hosts)
+                foreach (var origin in new[] { "https://" + h, "https://www." + h })
+                    try { await core.CallDevToolsProtocolMethodAsync("Storage.clearDataForOrigin", JsonSerializer.Serialize(new { origin, storageTypes = "all" })); }
+                    catch (Exception e) { ShellLog.Write($"clearWebsiteData: {e.Message}"); }
+            try { await core.Profile.ClearBrowsingDataAsync(Microsoft.Web.WebView2.Core.CoreWebView2BrowsingDataKinds.DiskCache); } catch (Exception) { }
+        });
     }
     /// <summary>Sign-in services a website may send a parent to; the shell presents its plain Edge user agent there.</summary>
     public void setSignInHosts(string csv) { Guard(); main.SignInHosts = Hosts.Normalize(csv.Split(',')); }

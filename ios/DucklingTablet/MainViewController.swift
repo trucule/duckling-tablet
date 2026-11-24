@@ -121,6 +121,23 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         }
     }
 
+    /// Clears what the given websites saved on this iPad (hosts as a JSON array): storage, offline files, service
+    /// workers and cookies. Duckling's own pages and the apps keep their data. For a website that stopped loading or
+    /// keeps showing an old version.
+    private func clearWebsiteData(hostsJson: String) {
+        guard let data = hostsJson.data(using: .utf8), let list = try? JSONSerialization.jsonObject(with: data) as? [String] else { return }
+        let hosts = list.map { $0.lowercased() }
+        let store = WKWebsiteDataStore.default(), types = WKWebsiteDataStore.allWebsiteDataTypes()
+        store.fetchDataRecords(ofTypes: types) { records in
+            // A record is named by its site (example.com); Duckling's own records (ducklingtablet.com, the app scheme) stay.
+            let theirs = records.filter { r in
+                let name = r.displayName.lowercased()
+                return !name.contains("ducklingtablet") && hosts.contains { name == $0 || name.hasSuffix("." + $0) || $0.hasSuffix("." + name) }
+            }
+            store.removeData(ofTypes: types, for: theirs) {}
+        }
+    }
+
     /// Asks iOS for what it has not asked about yet; anything already declined can only be turned on in Settings, so
     /// Duckling's page in Settings opens.
     private func requestMedia() {
@@ -184,6 +201,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         case "requestScreenTime":
             Task { _ = await Lockdown.shared.requestScreenTime(); await MainActor.run { self.pushState() } }
         case "requestMedia": requestMedia()
+        case "clearWebsiteData": clearWebsiteData(hostsJson: str(0))
         case "tookLocalBackground": if AppViewController.pendingLocalBackground != nil { AppViewController.pendingLocalBackground = nil; installScripts() }
         case "openSettings":
             if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }

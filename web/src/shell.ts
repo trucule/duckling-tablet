@@ -58,6 +58,9 @@ export interface Shell {
   // A picture an app set as this tablet's own background (Camera Fun), as a JPEG data URL, once; 'none' when a painting
   // set on her profile from this tablet replaces it; '' when there is nothing new or the shell is too old to hold one.
   takeLocalBackground(): string;
+  // Clears what these websites saved on the device (storage, offline files, service workers, cookies); Duckling's own
+  // pages and the apps keep theirs. False when the shell is too old to do it.
+  clearWebsiteData(hosts: string[]): boolean;
   setLockdown(on: boolean): void;
   setAllowedHosts(hosts: string[]): void;
   // Hosts a website opened from a tile may sign in through: the shell presents a standard browser user agent there
@@ -121,6 +124,7 @@ interface NativeShell {
   requestMediaAccess?(): void;
   openAppSettings?(): void;
   takeLocalBackground?(): string;
+  clearWebsiteData?(hostsJson: string): void;
   setLockdown(on: boolean): void;
   setAllowedHosts(csv: string): void;
   setSignInHosts?(csv: string): void;
@@ -239,6 +243,7 @@ function native(n: NativeShell): Shell {
     requestMediaAccess: () => { try { n.requestMediaAccess?.(); } catch { /* older shell */ } },
     openAppSettings: () => { try { n.openAppSettings?.(); } catch { /* older shell */ } },
     takeLocalBackground: () => { try { return n.takeLocalBackground?.() || ''; } catch { return ''; } },
+    clearWebsiteData: (hosts) => { if (typeof n.clearWebsiteData !== 'function') return false; try { n.clearWebsiteData(JSON.stringify(hosts)); return true; } catch { return false; } },
     networkStatus: () => { try { return (n.networkStatus?.() as ReturnType<Shell['networkStatus']>) || (navigator.onLine ? 'other' : 'none'); } catch { return navigator.onLine ? 'other' : 'none'; } },
     setLockdown: (on) => n.setLockdown(on),
     setAllowedHosts: (hosts) => n.setAllowedHosts(hosts.join(',')),
@@ -291,6 +296,7 @@ function browser(): Shell {
     openAppSettings() {},
     // Tests put a picture under this key to stand in for an app on the tablet.
     takeLocalBackground() { const d = get('localBackground') || ''; if (d) set('localBackground', null); return d; },
+    clearWebsiteData: () => false,
     networkStatus: () => (navigator.onLine ? 'other' : 'none'),
     setLockdown() {},
     setAllowedHosts() {},

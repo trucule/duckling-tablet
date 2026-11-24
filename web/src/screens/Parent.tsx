@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { config, checkin, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink, entitlement } from '../state';
+import { config, checkin, clearSavedData, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink, entitlement } from '../state';
 import { forgetTabletBackground, tabletBackground, useHomeBackground, usePicture } from '../pictures';
 import { shell, type LockdownStatus, type BillingResult, type WifiNetwork, type MediaAccess, type MediaState } from '../shell';
 import { api, type AppRequest } from '../api';
@@ -241,6 +241,12 @@ export function Parent() {
         <h2>{tr('This device')}</h2>
         <p>{c?.child ? tr(shell.platform === 'web' ? "{name}'s browser" : ios ? "{name}'s iPad" : win ? "{name}'s device" : "{name}'s tablet", { name: c.child.firstName }) : tr('Unassigned')} · id {c?.deviceId ?? '?'} · shell {shell.shellVersion()}{status.windows?.productName ? ` · ${status.windows.productName}` : ''}</p>
         {win && !win.isChildSession() && <div class="row"><button class="pill quiet" onClick={() => win.exitShell()}>{tr('Close Duckling')}</button></div>}
+      </div>
+
+      <div class="card">
+        <h2>{tr('Loading problems')}</h2>
+        <p>{tr('A website that stops loading or keeps showing an old version, or a Duckling screen that stays blank, can be fixed by clearing what is saved for them on this device. Websites may ask the child to sign in again. Apps, progress, pictures and settings stay.')}</p>
+        <div class="row"><button class="pill quiet" disabled={busy} onClick={() => { if (confirm(tr('Clear saved website data and reload Duckling?'))) { setBusy(true); void clearSavedData(c); } }}>{tr('Clear saved website data')}</button></div>
       </div>
 
       <div class="card">

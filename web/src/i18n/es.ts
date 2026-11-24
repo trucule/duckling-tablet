@@ -6,6 +6,10 @@ export const es: Record<string, string> = {
   'This screen could not be shown.': 'No se pudo mostrar esta pantalla.',
   'Send a photo of this message to support. The details help us fix it.': 'Envía una foto de este mensaje a soporte. Los detalles nos ayudan a arreglarlo.',
   'Try again': 'Intentar de nuevo',
+  'Loading problems': 'Problemas al cargar',
+  'A website that stops loading or keeps showing an old version, or a Duckling screen that stays blank, can be fixed by clearing what is saved for them on this device. Websites may ask the child to sign in again. Apps, progress, pictures and settings stay.': 'Si un sitio web deja de cargar o sigue mostrando una versión vieja, o una pantalla de Duckling se queda en blanco, se puede arreglar borrando lo que tienen guardado en este dispositivo. Es posible que los sitios web le pidan al niño que vuelva a iniciar sesión. Las apps, el progreso, los dibujos y los ajustes se conservan.',
+  'Clear saved website data and reload Duckling?': '¿Borrar los datos guardados de los sitios web y volver a cargar Duckling?',
+  'Clear saved website data': 'Borrar datos guardados de sitios web',
   // Home screen
   'Install': 'Instalar',
   'Subscribing keeps every app on this tablet and lets you request new apps at no charge.': 'Con la suscripción conservas todas las apps de esta tableta y puedes pedir apps nuevas sin costo.',
