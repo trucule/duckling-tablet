@@ -350,9 +350,10 @@
   // Every set is a round island of ground with its landmark behind the cast. The marks are the same on every set.
   const MARK = { left: [-2.1, 1.0], center: [0, 1.4], right: [2.1, 1.0], front: [0, 2.9], back: [0.9, -1.3] };   // back is off center, so whoever stands in the middle does not hide it
   const HOME = [[[0, 1.4]], [[-1.0, 1.3], [1.0, 1.3]], [[-1.7, 1.1], [0, 1.6], [1.7, 1.1]]];
+  // Drawn ground, water, clouds and far mountains are marked userData.drawnBg: a photo backdrop hides them and keeps everything else.
   function island(g, top, side, r = 7.2) {
-    add(g, cyl(r, r - 0.4, 0.6, 56), mat(top, 0.95), 0, -0.3, 0);
-    add(g, cyl(r - 0.4, r - 1.2, 0.8, 56), mat(side, 0.95), 0, -0.95, 0);
+    add(g, cyl(r, r - 0.4, 0.6, 56), mat(top, 0.95), 0, -0.3, 0).userData.drawnBg = true;
+    add(g, cyl(r - 0.4, r - 1.2, 0.8, 56), mat(side, 0.95), 0, -0.95, 0).userData.drawnBg = true;
   }
   function tree(g, x, z, s, leaf, trunk) {
     const t = new T.Group(); t.position.set(x, 0, z); t.scale.setScalar(s); g.add(t);
@@ -377,7 +378,7 @@
   }
   function clouds(g, list, col = '#ffffff') {
     for (const [x, y, z, s] of list) {
-      const c = new T.Group(); c.position.set(x, y, z); c.scale.setScalar(s); g.add(c);
+      const c = new T.Group(); c.position.set(x, y, z); c.scale.setScalar(s); c.userData.drawnBg = true; g.add(c);
       for (const [cx, cy, r] of [[0, 0, 0.9], [0.9, -0.15, 0.7], [-0.9, -0.2, 0.65], [0.3, 0.45, 0.6]]) add(c, sph(r, 16), mat(col, 1), cx, cy, 0, { noShadow: true });
     }
   }
@@ -496,8 +497,8 @@
     mountain: { sky: ['#8ec5ff', '#dceeff', '#f7fbff'], fog: '#e6f1ff', build(g, A) {
       island(g, '#f4f8ff', '#b9c6d8');
       for (const [x, z, h, r] of [[-3.6, -6, 6.5, 3.6], [1.4, -7.5, 8.5, 4.4], [5.8, -5.6, 5.5, 3.2]]) {
-        add(g, cone(r, h, 6), mat('#8796ad', 0.9), x, h / 2 - 0.4, z, { r: [0, x, 0] });
-        add(g, cone(r * 0.42, h * 0.42, 6), mat('#ffffff', 0.8), x, h - 0.4 - h * 0.21 + 0.01, z, { r: [0, x, 0] });
+        add(g, cone(r, h, 6), mat('#8796ad', 0.9), x, h / 2 - 0.4, z, { r: [0, x, 0] }).userData.drawnBg = true;
+        add(g, cone(r * 0.42, h * 0.42, 6), mat('#ffffff', 0.8), x, h - 0.4 - h * 0.21 + 0.01, z, { r: [0, x, 0] }).userData.drawnBg = true;
       }
       for (const [x, z, s] of [[-4.6, -1.2, 1.1], [4.8, -0.8, 1.2], [-5.4, 2.0, 0.8], [5.4, 2.4, 0.85], [-2.6, -2.8, 0.9]]) pine(g, x, z, s, '#2f7f57', true);
       const S = new T.Group(); S.position.set(2.6, 0, -1.8); g.add(S);
@@ -592,7 +593,7 @@
   };
   // A water plane around the island sets, under the sky.
   function water(g, col, A) {
-    const w = add(g, new T.CircleGeometry(40, 48), mat(col, 0.15, { metalness: 0.1 }), 0, -0.35, 0, { r: [-Math.PI / 2, 0, 0], noShadow: true });
+    const w = add(g, new T.CircleGeometry(40, 48), mat(col, 0.15, { metalness: 0.1 }), 0, -0.35, 0, { r: [-Math.PI / 2, 0, 0], noShadow: true }); w.userData.drawnBg = true;
     A.push({ o: w, f: (o, t) => { o.position.y = -0.36 + Math.sin(t * 0.8) * 0.04; } });
   }
 
@@ -622,6 +623,40 @@
     const L = P.light || ['#fff3dc', 0.55, 1.25];
     // Toon shading reads brighter than the old smooth shading, so the fill light is lower and the sun a touch stronger.
     sun.color.set(L[0]); hemi.intensity = L[1] * 0.7; sun.intensity = L[2];
+    hemi.color.set('#eaf6ff'); hemi.groundColor.set('#6f8f4f'); sun.position.set(5, 9, 6);
+    clearPhoto(); if (PHOTO[setId]) wantPhoto(setId);
+  }
+
+  // ---- photo backdrops ----------------------------------------------------------------------------------------
+  // A set with a photo shows its drawn sky and ground first. The photo (tools/backdrops.js) downloads the first time
+  // the set is used and is kept on the tablet, so later it comes up at once. It replaces the drawn sky, ground, water
+  // and clouds; the landmark, props and cast stay in front of it, lit like the photo.
+  // Each set's photo and where its sun goes (radians round the stage, atan2(z, x); 0.88 is behind the camera on the
+  // right, -1.57 straight ahead), chosen so the view behind the cast is the photo's best side.
+  const PHOTO = { castle: ['meadow_2', 0.88], forest: ['epping_forest_01', 0.88], beach: ['fish_hoek_beach', -1.2], island: ['blouberg_sunrise_1', 2.35], mountain: ['fouriesburg_mountain_midday', -0.34], train: ['bloem_train_track_clear', 0.88], fair: ['air_museum_playground', 0.88] };
+  let photo = null;
+  function clearPhoto() { if (photo) { scene.remove(photo); photo = null; } }
+  function wantPhoto(id) {
+    const B = window.DucklingBackdrops; if (!B) return;
+    B.load(PHOTO[id][0], { linear: true, sunAt: PHOTO[id][1] }).then(set => {
+      if (!set || setId !== id || !setGroup) return;
+      clearPhoto();
+      photo = new T.Group();
+      photo.add(B.ground(set, { height: 2.2, radius: 50 }));
+      const catcher = new T.Mesh(new T.PlaneGeometry(18, 18), new T.ShadowMaterial({ opacity: 0.28 }));
+      catcher.rotation.x = -Math.PI / 2; catcher.position.y = 0.002; catcher.receiveShadow = true; catcher.userData.noInk = catcher.userData.inked = true; catcher.raycast = () => {};
+      photo.add(catcher); scene.add(photo);
+      setGroup.traverse(o => { if (o.userData.drawnBg) o.visible = false; });
+      scene.background = null; scene.fog = null;
+      // The cast keeps the stage's sun, front right, so faces stay lit; it takes the photo's sun colour and strength
+      // and the photo's sky and ground as the fill light.
+      const m = set.meta;
+      sun.color.setRGB(m.sunColor[0], m.sunColor[1], m.sunColor[2]).lerp(new T.Color('#ffffff'), 0.4);
+      sun.intensity = 0.7 + 0.45 * Math.min(1, m.sunStrength / 60);
+      hemi.color.setRGB(m.skyColor[0], m.skyColor[1], m.skyColor[2]); hemi.groundColor.setRGB(m.groundColor[0], m.groundColor[1], m.groundColor[2]);
+      hemi.intensity = 0.55 - 0.15 * Math.min(1, m.sunStrength / 60);
+      if (!running) render();
+    });
   }
 
   // ---- acting ---------------------------------------------------------------------------------------------------

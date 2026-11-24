@@ -1,0 +1,236 @@
+{
+ "source": "Poly Haven (polyhaven.com), CC0",
+ "backdrops": {
+  "air_museum_playground": {
+   "skyColor": [
+    0.97,
+    0.972,
+    0.974
+   ],
+   "groundColor": [
+    0.581,
+    0.592,
+    0.286
+   ],
+   "sunAz": 0.6261,
+   "sunEl": 0.5428,
+   "sunColor": [
+    1.0,
+    0.846,
+    0.585
+   ],
+   "sunStrength": 200,
+   "exposure": 1.70689
+  },
+  "ballawley_park": {
+   "skyColor": [
+    0.983,
+    0.988,
+    0.994
+   ],
+   "groundColor": [
+    0.607,
+    0.625,
+    0.491
+   ],
+   "sunAz": 0.6319,
+   "sunEl": 0.3318,
+   "sunColor": [
+    1.0,
+    0.998,
+    0.964
+   ],
+   "sunStrength": 200,
+   "exposure": 6.17658
+  },
+  "bloem_train_track_clear": {
+   "skyColor": [
+    0.846,
+    0.903,
+    0.951
+   ],
+   "groundColor": [
+    0.758,
+    0.699,
+    0.62
+   ],
+   "sunAz": 0.6326,
+   "sunEl": 0.1576,
+   "sunColor": [
+    1.0,
+    0.873,
+    0.673
+   ],
+   "sunStrength": 200,
+   "exposure": 4.25227
+  },
+  "blouberg_sunrise_1": {
+   "skyColor": [
+    0.734,
+    0.769,
+    0.838
+   ],
+   "groundColor": [
+    0.593,
+    0.578,
+    0.566
+   ],
+   "sunAz": -2.7623,
+   "sunEl": 0.1466,
+   "sunColor": [
+    1.0,
+    0.645,
+    0.197
+   ],
+   "sunStrength": 48.3,
+   "exposure": 0.72389
+  },
+  "epping_forest_01": {
+   "skyColor": [
+    0.965,
+    0.969,
+    0.974
+   ],
+   "groundColor": [
+    0.806,
+    0.711,
+    0.594
+   ],
+   "sunAz": 0.4608,
+   "sunEl": 0.7818,
+   "sunColor": [
+    1.0,
+    0.946,
+    0.913
+   ],
+   "sunStrength": 128.2,
+   "exposure": 2.21095
+  },
+  "farm_field": {
+   "skyColor": [
+    0.986,
+    0.988,
+    0.992
+   ],
+   "groundColor": [
+    0.7,
+    0.565,
+    0.425
+   ],
+   "sunAz": 0.6404,
+   "sunEl": 0.9046,
+   "sunColor": [
+    1.0,
+    0.896,
+    0.767
+   ],
+   "sunStrength": 21.6,
+   "exposure": 2.83813
+  },
+  "fish_hoek_beach": {
+   "skyColor": [
+    0.839,
+    0.863,
+    0.911
+   ],
+   "groundColor": [
+    0.61,
+    0.593,
+    0.579
+   ],
+   "sunAz": -0.0392,
+   "sunEl": 0.0779,
+   "sunColor": [
+    1.0,
+    0.557,
+    0.224
+   ],
+   "sunStrength": 9.3,
+   "exposure": 0.76045
+  },
+  "fouriesburg_mountain_midday": {
+   "skyColor": [
+    0.946,
+    0.946,
+    0.948
+   ],
+   "groundColor": [
+    0.697,
+    0.573,
+    0.428
+   ],
+   "sunAz": 0.6278,
+   "sunEl": 0.8416,
+   "sunColor": [
+    1.0,
+    0.953,
+    0.882
+   ],
+   "sunStrength": 200,
+   "exposure": 1.05593
+  },
+  "lythwood_room": {
+   "skyColor": [
+    0.811,
+    0.733,
+    0.573
+   ],
+   "groundColor": [
+    0.765,
+    0.68,
+    0.578
+   ],
+   "sunAz": 0.5878,
+   "sunEl": 0.2374,
+   "sunColor": [
+    0.818,
+    0.909,
+    1.0
+   ],
+   "sunStrength": 68.1,
+   "exposure": 0.45712
+  },
+  "meadow_2": {
+   "skyColor": [
+    0.987,
+    0.986,
+    0.986
+   ],
+   "groundColor": [
+    0.564,
+    0.629,
+    0.348
+   ],
+   "sunAz": 0.6304,
+   "sunEl": 0.4719,
+   "sunColor": [
+    1.0,
+    0.895,
+    0.766
+   ],
+   "sunStrength": 200,
+   "exposure": 2.24904
+  },
+  "monkstown_castle": {
+   "skyColor": [
+    0.819,
+    0.862,
+    0.903
+   ],
+   "groundColor": [
+    0.793,
+    0.775,
+    0.737
+   ],
+   "sunAz": -0.5484,
+   "sunEl": 0.1964,
+   "sunColor": [
+    1.0,
+    0.999,
+    0.948
+   ],
+   "sunStrength": 43.5,
+   "exposure": 1.11222
+  }
+ }
+}

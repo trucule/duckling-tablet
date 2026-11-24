@@ -1,7 +1,7 @@
 {
   "id": "story-maker",
   "name": "Story Maker",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Choose characters, a place and a kind of story, and a new story is written scene by scene, read aloud by a cast of voices and acted out by 3D characters on a set for the place, with choices along the way.",
   "subjects": [
     "reading"

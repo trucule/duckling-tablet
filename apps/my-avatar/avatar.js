@@ -214,6 +214,8 @@ const rim = new T.DirectionalLight('#cfe0ff', 0.55); rim.position.set(-3, 2.5, -
 const fill = new T.DirectionalLight('#ffe9f2', 0.3); fill.position.set(-2.5, 1.2, 3); scene.add(fill);
 // Soft light from a whole room, which skin and cloth need to look real.
 if (T.RoomEnvironment) { try { const pm = new T.PMREMGenerator(renderer); scene.environment = pm.fromScene(new T.RoomEnvironment(), 0.04).texture; hemi.intensity = 0.15; key.intensity = 0.9; rim.intensity = 0.3; fill.intensity = 0.15; } catch (e) {} }
+// The studio lighting, put back when a place's photo goes away.
+const STUDIO = { env: scene.environment, hemi: hemi.intensity, key: key.intensity, rim: rim.intensity, fill: fill.intensity, keyColor: key.color.clone(), keyPos: key.position.clone() };
 
 const mats = {};
 function mat(color, o) {
@@ -272,10 +274,11 @@ function starsTexture() {
 }
 let floorY = 0;
 function buildPlace(id) {
+  placeNow = id; photoLight = null; studioLight();
   disposeDrawn(backdrop); backdrop.clear(); floorY = 0; placeAnims.length = 0;
   if (scene.background && scene.background.isTexture) { scene.background.dispose(); scene.background = null; }
   const extra = EX && id && !['park', 'beach', 'space', 'castle', 'bedroom', 'underwater'].includes(id) ? EX.place(id) : undefined;
-  if (extra !== undefined) { scene.fog = extra ? new T.Fog(extra, 6, 22) : null; avatar.position.y = floorY; return; }
+  if (extra !== undefined) { scene.fog = extra ? new T.Fog(extra, 6, 22) : null; avatar.position.y = floorY; wantPhoto(id); return; }
   const ground = (c, r) => { const g = mesh(new T.CircleGeometry(r || 30, 48), mat(c, { roughness: 0.95 })); g.rotation.x = -Math.PI / 2; g.castShadow = false; backdrop.add(g); return g; };
   const plinth = (c, top) => { floorY = 0.091; backdrop.add(mesh(new T.CylinderGeometry(0.62, 0.66, 0.08, 48), mat(c, { roughness: 0.4 }), 0, 0.04, 0)); backdrop.add(mesh(new T.CylinderGeometry(0.6, 0.6, 0.012, 48), mat(top, { roughness: 0.35 }), 0, 0.085, 0)); };
   let fogC = null;
@@ -328,6 +331,43 @@ function buildPlace(id) {
   }
   scene.fog = fogC ? new T.Fog(fogC, 6, 22) : null;
   avatar.position.y = floorY;
+  wantPhoto(id);
+}
+
+// Photo places. A place with a photo shows its drawn version first; the photo (backdrops.js) downloads the first time
+// she goes there and is kept on the tablet, so later it comes up at once. The photo replaces everything drawn, lights
+// her from all round the way the place is lit, and its sun casts her shadow on the photo's ground.
+// Each entry: the photo, and where its sun goes round her (radians, atan2(z, x); 0.88 is front right).
+// Indoor photos smear when laid on the ground (the room's furniture is not on the floor plane), so the bedroom stays drawn.
+const PHOTO_PLACE = { park: ['ballawley_park', 0.88], beach: ['fish_hoek_beach', -1.2], castle: ['monkstown_castle', 0.48], farm: ['farm_field', 0.88] };
+let placeNow = null, photoLight = null;
+const photoEnv = {};
+function studioLight() {
+  if (scene.environment !== STUDIO.env) scene.environment = STUDIO.env;
+  hemi.intensity = STUDIO.hemi; key.intensity = STUDIO.key; rim.intensity = STUDIO.rim; fill.intensity = STUDIO.fill;
+  key.color.copy(STUDIO.keyColor); key.position.copy(STUDIO.keyPos);
+}
+function wantPhoto(id) {
+  const B = window.DucklingBackdrops, P = PHOTO_PLACE[id]; if (!B || !P) return;
+  B.load(P[0], { sunAt: P[1] }).then(set => {
+    if (!set || placeNow !== id) return;
+    for (const c of backdrop.children) c.visible = false;
+    placeAnims.length = 0; floorY = 0; avatar.position.y = 0;
+    backdrop.add(B.ground(set, { height: 1.6, radius: 40 }));
+    const catcher = new T.Mesh(new T.PlaneGeometry(8, 8), new T.ShadowMaterial({ opacity: 0.38 }));
+    catcher.rotation.x = -Math.PI / 2; catcher.position.y = 0.001; catcher.receiveShadow = true; catcher.raycast = () => {};
+    backdrop.add(catcher);
+    if (scene.background && scene.background.isTexture) scene.background.dispose();
+    scene.background = null; scene.fog = null;
+    try { if (!photoEnv[P[0]]) { const pm = new T.PMREMGenerator(renderer); photoEnv[P[0]] = pm.fromEquirectangular(set.light).texture; pm.dispose(); } scene.environment = photoEnv[P[0]]; } catch (e) {}
+    const m = set.meta, d = B.sunDirection(set); d.y = Math.max(d.y, 0.45); d.normalize();
+    photoLight = () => {
+      key.position.copy(d).multiplyScalar(5); key.color.setRGB(m.sunColor[0], m.sunColor[1], m.sunColor[2]).convertSRGBToLinear();
+      key.intensity = 0.2 + 0.9 * Math.min(1, m.sunStrength / 80);
+      hemi.intensity = 0; rim.intensity = 0; fill.intensity = 0;
+    };
+    photoLight();
+  });
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -863,6 +903,7 @@ function portrait(look) {
   look = Object.assign({ badgebg: S.design.badgebg, frame: S.design.frame }, look || {});
   if (!pr) { pr = new T.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); pr.setSize(384, 384, false); pr.setPixelRatio(1); pr.outputEncoding = renderer.outputEncoding; pr.toneMapping = renderer.toneMapping; pr.toneMappingExposure = renderer.toneMappingExposure; pcam = new T.PerspectiveCamera(30, 1, 0.05, 50); }
   const H = parts.H || 1, bg = scene.background, fog = scene.fog, ry = avatar.rotation.y, sp = parts.sparkle;
+  const env = scene.environment; studioLight();   // the picture keeps the studio light wherever she is
   scene.background = null; scene.fog = null; backdrop.visible = false; avatar.rotation.y = 0.22; if (sp) sp.visible = false;
   // Frame the head and a little of the shoulders; step back for tall hats and big hair.
   const hatNow = S.design.hat || (EXL && (EXL.OUTFIT_ITEMS[S.design.outfit] || {}).hat);
@@ -873,7 +914,7 @@ function portrait(look) {
   const back = parts.real ? 0.04 : 0, drop = parts.real ? 0.035 : 0;   // real heads are smaller; show a little more of her
   pcam.position.set(0, hy + (0.02 + (tall + big) * 0.04) * k, (1.45 + (tall + big) * 0.3) * k + back); pcam.lookAt(0, hy + (-0.06 + (tall + big) * 0.05) * k - drop + 0.03, 0);
   pr.setClearColor(0x000000, 0); pr.render(scene, pcam);
-  scene.background = bg; scene.fog = fog; backdrop.visible = true; avatar.rotation.y = ry; if (sp) sp.visible = true;
+  scene.background = bg; scene.fog = fog; scene.environment = env; if (photoLight) photoLight(); backdrop.visible = true; avatar.rotation.y = ry; if (sp) sp.visible = true;
   if (!EX || (!look.badgebg && !look.frame)) return pr.domElement.toDataURL('image/png');
   // Her picture's background behind her and frame around her, as she chose them in the shop.
   const c = document.createElement('canvas'); c.width = c.height = 384; const g = c.getContext('2d');
