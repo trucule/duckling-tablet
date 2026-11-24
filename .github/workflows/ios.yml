@@ -53,12 +53,13 @@ jobs:
           # The microphone test needs the simulator's microphone granted to the app, as a parent would on the iPad.
           xcrun simctl boot "$SIM" || true
           xcrun simctl privacy "$SIM" grant microphone com.ducklingtablet.app || true
-          # 25 minutes at most: a hung test host (an XPC call with no daemon in the simulator) otherwise holds the
-          # runner for hours and the log is lost with the cancel.
-          perl -e 'alarm shift; exec @ARGV' 1500 \
+          # Each test gets 2 minutes (XCTest stops a test past its allowance, reports it as failed, and runs the rest);
+          # the whole run gets 15 minutes at most, so a hung test host cannot hold the runner.
+          perl -e 'alarm shift; exec @ARGV' 900 \
             xcodebuild -project DucklingTablet.xcodeproj -scheme DucklingTablet -destination "id=$SIM" \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 180 \
             CODE_SIGNING_ALLOWED=NO -resultBundlePath "$RUNNER_TEMP/tests.xcresult" test > "$RUNNER_TEMP/test.log" 2>&1 \
-            || { grep -E "error:|failed|XCTAssert|MIC-PROBE" "$RUNNER_TEMP/test.log" | sort -u | head -60; tail -n 40 "$RUNNER_TEMP/test.log"; exit 1; }
+            || { grep -E "error:|failed|XCTAssert|MIC-PROBE|Test Case|exceeded" "$RUNNER_TEMP/test.log" | head -60; tail -n 40 "$RUNNER_TEMP/test.log"; exit 1; }
           grep -E "MIC-PROBE" "$RUNNER_TEMP/test.log" | head -3 || true
           grep -E "Test Case .*(passed|failed)|Executed" "$RUNNER_TEMP/test.log" | tail -n 12
       # The whole test log and result bundle, kept for a week, since the step prints only an excerpt.

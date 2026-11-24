@@ -5,9 +5,15 @@ import WebKit
 /// Loads an app package the way the app runner does, through AppSchemeHandler, in a real WKWebView: the page renders,
 /// localStorage keeps a value across loads, the page is a secure context (the microphone and camera need one), its own
 /// files load by fetch, ranges are answered, and nothing outside the packages is served.
+///
+/// Every web view sits in a visible window, as the app runner's page always does: iOS suspends the web content process
+/// of a page that is not on screen, and a script waiting on it then never answers (the test host hung for 25 minutes
+/// in testPackageLoadsWithStorageAndSecureContext). Every load and every script also has its own time limit, so a
+/// stall fails that one test in seconds instead of holding the runner.
 @MainActor
 final class AppSchemeHandlerTests: XCTestCase {
     private var web: WKWebView!
+    private var window: UIWindow!
     private let id = "scheme-test"
 
     override func setUp() async throws {
@@ -23,9 +29,16 @@ final class AppSchemeHandlerTests: XCTestCase {
         let config = WKWebViewConfiguration()
         config.setURLSchemeHandler(AppSchemeHandler(), forURLScheme: AppSchemeHandler.scheme)
         web = WKWebView(frame: CGRect(x: 0, y: 0, width: 800, height: 600), configuration: config)
+        window = UIWindow(frame: UIScreen.main.bounds)
+        let host = UIViewController(); host.view.addSubview(web); window.rootViewController = host; window.makeKeyAndVisible()
     }
 
-    override func tearDown() async throws { Packages.shared.uninstall(id) }
+    override func tearDown() async throws {
+        window?.isHidden = true
+        window = nil
+        web = nil
+        Packages.shared.uninstall(id)
+    }
 
     private func load(_ path: String) async throws {
         let done = expectation(description: "load")
@@ -36,7 +49,28 @@ final class AppSchemeHandlerTests: XCTestCase {
         XCTAssertNil(nav.error, "load failed: \(String(describing: nav.error))")
     }
 
-    private func js(_ code: String) async throws -> Any? { try await web.callAsyncJavaScript(code, contentWorld: .page) }
+    struct ScriptTimeout: Error, CustomStringConvertible { let code: String; var description: String { "no answer in time from: \(code.prefix(80))" } }
+
+    /// Runs a script in the page and gives up after `seconds`. callAsyncJavaScript has no time limit of its own and
+    /// cannot be cancelled, so the answer and a timer race and whichever comes first ends the wait.
+    private func js(_ code: String, seconds: Double = 20) async throws -> Any? {
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Any?, Error>) in
+            var finished = false
+            web.callAsyncJavaScript(code, arguments: [:], in: nil, in: .page) { result in
+                guard !finished else { return }
+                finished = true
+                switch result {
+                case .success(let v): cont.resume(returning: v)
+                case .failure(let e): cont.resume(throwing: e)
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+                guard !finished else { return }
+                finished = true
+                cont.resume(throwing: ScriptTimeout(code: code))
+            }
+        }
+    }
 
     func testPackageLoadsWithStorageAndSecureContext() async throws {
         try await load("index.html")
@@ -76,15 +110,11 @@ extension AppSchemeHandlerTests {
     func testMicrophoneRequestFromAPackage() async throws {
         let ui = Capture()
         web.uiDelegate = ui
-        // WebKit holds capture requests from a page that is not on screen, as the app runner's page always is.
-        let window = UIWindow(frame: UIScreen.main.bounds)
-        let host = UIViewController(); host.view.addSubview(web); window.rootViewController = host; window.makeKeyAndVisible()
-        defer { window.isHidden = true }
         try await load("index.html")
         let result = try await js("""
             try { const s = await Promise.race([navigator.mediaDevices.getUserMedia({ audio: true }), new Promise((_, no) => setTimeout(() => no(Object.assign(new Error('no answer in 10 s'), { name: 'Timeout' })), 10000))]); s.getTracks().forEach(t => t.stop()); return 'ok'; }
             catch (e) { return e.name + ': ' + e.message; }
-            """) as? String
+            """, seconds: 30) as? String
         print("MIC-PROBE getUserMedia=\(result ?? "nil") asked=\(ui.asked)")
         XCTAssertEqual(ui.asked.count, 1, "WebKit did not ask the app about the microphone")
         XCTAssertEqual(ui.asked.first?.scheme, AppSchemeHandler.scheme)
