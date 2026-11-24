@@ -33,12 +33,13 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         web.scrollView.bounces = false
         web.isOpaque = false
         web.backgroundColor = UIColor(red: 1, green: 0.99, blue: 0.96, alpha: 1)
-        // The page fills a plain root view, so a website's sign-in window and the Home pill can sit over it.
-        let root = UIView()
+        // The page fills a plain root view, so a website's sign-in window and the Home pill can sit over it. It is
+        // pinned with constraints: a web view made at zero size with only an autoresizing mask stayed at zero size, and
+        // build 56 showed nothing but the background.
+        let root = UIView(frame: UIScreen.main.bounds)
         root.backgroundColor = web.backgroundColor
-        web.frame = root.bounds
-        web.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         root.addSubview(web)
+        pin(web, to: root)
         view = root
         installScripts()
         web.load(URLRequest(url: Self.webApp))
@@ -323,14 +324,25 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         popup.navigationDelegate = self
         popup.uiDelegate = self
         if let url = url, isSignIn(url) { popup.customUserAgent = Self.browserAgent }
-        popup.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         popup.scrollView.contentInsetAdjustmentBehavior = .never
         view.insertSubview(popup, belowSubview: homePill)
+        pin(popup, to: view)
         popups.append(popup)
         return popup
     }
 
     func webViewDidClose(_ webView: WKWebView) { close(popup: webView) }
+
+    /// Makes `child` fill `parent` at every size and rotation.
+    private func pin(_ child: UIView, to parent: UIView) {
+        child.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            child.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            child.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            child.topAnchor.constraint(equalTo: parent.topAnchor),
+            child.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+        ])
+    }
 
     private func close(popup: WKWebView) {
         guard let i = popups.firstIndex(where: { $0 === popup }) else { return }
