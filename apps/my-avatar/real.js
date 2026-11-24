@@ -18,7 +18,11 @@
   // Choices: design values to model files
   // ------------------------------------------------------------------------------------------------------------
   const A = CAT.assets;
-  const ids = kind => Object.keys(A).filter(k => k.startsWith(kind + '-'));
+  // Models kept in the package but never offered: too short or too revealing for a child's game. The jean shorts stay
+  // because other clothes and the base layer borrow their list of covered skin. A saved design that wore one gets the
+  // default instead (avatar.js migrate()). Look at every new clothing model at full length before offering it.
+  const NOT_OFFERED = ['bottom-jean-shorts', 'bottom-plaid-skirt'];
+  const ids = kind => Object.keys(A).filter(k => k.startsWith(kind + '-') && !NOT_OFFERED.includes(k));
   const list = kind => ids(kind).map(k => [k, A[k].label]);
   const SHADES = ['glasses-3d', 'glasses-goggles'];
   R.SHADES = SHADES;
@@ -43,7 +47,7 @@
             bun: 'hair-bun', curly: 'hair-curls', afro: 'hair-afro', pixie: 'hair-short-side' },
     brows: { natural: 'brows-natural', thin: 'brows-soft', thick: 'brows-thick', arched: 'brows-arched' },
     top: { tee: 'top-tee', long: 'top-sweater', hoodie: 'top-sweater', stripes: 'top-tucked-tee', tank: 'top-tank', dress: 'dress-sundress' },
-    bottom: { jeans: 'bottom-pants', leggings: 'bottom-pants', shorts: 'bottom-jean-shorts', skirt: 'bottom-ruffle-skirt' },
+    bottom: { jeans: 'bottom-pants', leggings: 'bottom-pants', shorts: 'bottom-cargo', skirt: 'bottom-ruffle-skirt' },
     shoes: { sneakers: 'shoes-sneakers', boots: 'shoes-rain-boots', sandals: 'shoes-mary-janes', flats: 'shoes-flats-bows' },
     glasses: { round: 'glasses-round', square: 'glasses-black', cateye: 'glasses-leopard' },
     pose: { cheer: 'peace' },
@@ -51,7 +55,7 @@
 
   // Shop outfits made of real clothes: [top, top colour, bottom, bottom colour, shoes, shoe colour, socks].
   R.OUTFITS = {
-    soccer: ['top-tee', '#FF2D55', 'bottom-jean-shorts', null, 'shoes-sneakers', '#2B2140', 'socks-high'],
+    soccer: ['top-tee', '#FF2D55', 'bottom-cargo', null, 'shoes-sneakers', '#2B2140', 'socks-high'],
     chef: ['top-sweater', '#FFFFFF', 'bottom-pants', '#2B2140', 'shoes-leather', null, 'socks-low'],
     doctor: ['top-polo', '#7FD1E8', 'bottom-pants', '#7FD1E8', 'shoes-sneakers', '#FFFFFF', 'socks-low'],
     ballerina: ['top-tank', null, 'bottom-tiered-skirt', null, 'shoes-flats-bows', null, 'socks-frill'],
