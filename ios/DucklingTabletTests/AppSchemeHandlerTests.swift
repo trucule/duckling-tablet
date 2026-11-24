@@ -7,9 +7,9 @@ import WebKit
 /// load and script has its own time limit, so a stall fails that one test instead of holding the runner.
 ///
 /// Why it is set up this way, from the iOS 27 simulator: a page off screen has its web content process suspended, and
-/// a script waiting on it never answered (the test host hung for 25 minutes); and after a page had used the microphone,
-/// the next load in that test host never finished, so the microphone test has a class and a web view of its own
-/// (MicrophoneTests), which runs after these.
+/// a script waiting on it never answered (the test host hung for 25 minutes); and only the first test method of a run
+/// got its loads to finish (later loads, in the same web view or a new one, timed out at their wait), so all the page
+/// checks run in one test method, the microphone last.
 @MainActor
 class PackagePageTestCase: XCTestCase {
     private static var webs: [String: (WKWebView, UIWindow)] = [:]
@@ -80,9 +80,15 @@ class PackagePageTestCase: XCTestCase {
 
 /// Loads an app package the way the app runner does: the page renders, localStorage keeps a value across loads, the
 /// page is a secure context (the microphone and camera need one), its own files load by fetch, ranges are answered,
-/// and nothing outside the packages is served.
+/// nothing outside the packages is served, and a microphone request reaches the app runner's decision.
 final class AppSchemeHandlerTests: PackagePageTestCase {
-    func testPackageLoadsWithStorageAndSecureContext() async throws {
+    func testPackagePagesInTheAppRunner() async throws {
+        try await checkStorageAndSecureContext()
+        try await checkRangesAndRefusals()
+        try await checkMicrophoneRequest()
+    }
+
+    private func checkStorageAndSecureContext() async throws {
         try await load("index.html")
         let v1 = try await js("await window.ready; return document.getElementById('h').textContent") as? String
         XCTAssertEqual(v1, "Hello from the package")
@@ -101,7 +107,7 @@ final class AppSchemeHandlerTests: PackagePageTestCase {
         XCTAssertEqual(v6, "kept")
     }
 
-    func testRangesAndRefusals() async throws {
+    private func checkRangesAndRefusals() async throws {
         try await load("index.html")
         let range = try await js("const r = await fetch('clip.bin', { headers: { Range: 'bytes=10-19' } }); const b = new Uint8Array(await r.arrayBuffer()); return [r.status, b.length, b[0], r.headers.get('content-range')].join(',')") as? String
         XCTAssertEqual(range, "206,10,10,bytes 10-19/200")
@@ -110,6 +116,23 @@ final class AppSchemeHandlerTests: PackagePageTestCase {
         XCTAssertNil(AppSchemeHandler.file(for: URL(string: "\(AppSchemeHandler.scheme)://elsewhere/apps/\(id)/index.html")!))
         let v7 = try await js("return (await fetch('missing.js')).status") as? Int
         XCTAssertEqual(v7, 404)
+    }
+
+    /// A microphone request from a package page reaches the app runner's decision with the package's own origin, and
+    /// getUserMedia resolves once it is granted. The workflow grants the simulator's microphone to the app first.
+    private func checkMicrophoneRequest() async throws {
+        let ui = Capture()
+        web.uiDelegate = ui
+        try await load("index.html")
+        let result = try await js("""
+            try { const s = await Promise.race([navigator.mediaDevices.getUserMedia({ audio: true }), new Promise((_, no) => setTimeout(() => no(Object.assign(new Error('no answer in 10 s'), { name: 'Timeout' })), 10000))]); s.getTracks().forEach(t => t.stop()); return 'ok'; }
+            catch (e) { return e.name + ': ' + e.message; }
+            """, seconds: 30) as? String
+        print("MIC-PROBE getUserMedia=\(result ?? "nil") asked=\(ui.asked)")
+        XCTAssertEqual(ui.asked.count, 1, "WebKit did not ask the app about the microphone")
+        XCTAssertEqual(ui.asked.first?.scheme, AppSchemeHandler.scheme)
+        XCTAssertEqual(ui.asked.first?.host, AppSchemeHandler.host)
+        XCTAssertEqual(result, "ok")
     }
 }
 
