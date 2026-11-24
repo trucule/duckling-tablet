@@ -266,6 +266,31 @@ def delete_unused_vertices_for_export(obj, keep_group):
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.index not in keep], context='VERTS')
     bm.to_mesh(obj.data); bm.free()
 
+# The base layer: plain briefs cut from the shortest shorts, set a little inside them. The app always puts it on, under
+# every outfit, and hides the skin beneath it, so the avatar is dressed whatever any other piece does. Being the shape
+# of those shorts, it covers the whole seat and never reaches below them; it follows the same shape keys.
+BASE_LIKE = 'bottom-jean-shorts'
+BASE_INSET = 0.003
+
+def make_base_layer(objs):
+    out = []
+    for src in objs:
+        lay = src.copy(); lay.data = src.data.copy(); bpy.context.collection.objects.link(lay); lay.name = 'BaseLayer'
+        nor = np.array([v.normal[:] for v in lay.data.vertices], dtype=np.float32)
+        keys = lay.data.shape_keys.key_blocks if lay.data.shape_keys else []
+        for kb in keys:
+            co = np.empty(len(kb.data) * 3, dtype=np.float32); kb.data.foreach_get('co', co)
+            kb.data.foreach_set('co', (co.reshape(-1, 3) - nor * BASE_INSET).reshape(-1))
+        co = coords(lay) - nor * BASE_INSET
+        lay.data.vertices.foreach_set('co', co.reshape(-1))
+        m = bpy.data.materials.new('base-layer'); m.use_nodes = True
+        bsdf = next(n for n in m.node_tree.nodes if n.bl_idname == 'ShaderNodeBsdfPrincipled')
+        bsdf.inputs['Base Color'].default_value = (0.92, 0.92, 0.94, 1); bsdf.inputs['Roughness'].default_value = 0.85
+        lay.data.materials.clear(); lay.data.materials.append(m)
+        out.append(lay)
+    return out
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------------------------------------------
@@ -383,6 +408,10 @@ def main():
         glb = os.path.join(TMP, aid + '.glb'); export([rig] + new, glb)
         size = write_js(aid, glb)
         meta['assets'][aid] = {'kind': kind, 'label': label, 'tint': tint, 'hides': hides, 'morphs': made, 'bytes': size}
+        if aid == BASE_LIKE:
+            lays = make_base_layer(new); glb = os.path.join(TMP, 'base-layer.glb'); export([rig] + lays, glb)
+            meta['assets']['base-layer'] = {'kind': 'clothes', 'label': 'Base layer', 'tint': False, 'hides': hides, 'morphs': made, 'bytes': write_js('base-layer', glb)}
+            for o in lays: bpy.data.objects.remove(o, do_unlink=True)
         print('ASSET', aid, size, len(hides), made)
         for o in new: bpy.data.objects.remove(o, do_unlink=True)
         # Adding clothes put a hide-under-clothes mask on the body; take it off for the next asset.

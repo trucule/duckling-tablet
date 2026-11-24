@@ -168,15 +168,27 @@
   // Physical materials, so skin, hair and cloth can have sheen.
   function physical(m) {
     if (m.isMeshPhysicalMaterial) return m;
-    const p = new T.MeshPhysicalMaterial(); p.copy(m); p.userData = m.userData; return p;
+    const p = new T.MeshPhysicalMaterial(); T.MeshStandardMaterial.prototype.copy.call(p, m); p.userData = m.userData; return p;   // Physical's own copy() expects physical fields
+  }
+  // Light that enters skin comes back out warmer and softer: a little red is added to the light the skin receives, and
+  // the shadowed side keeps a warm glow instead of going grey.
+  function scatter(p, k) {
+    p.onBeforeCompile = sh => {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' +
+        'reflectedLight.directDiffuse *= vec3(1.0, 0.94, 0.9);\n' +
+        'reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(0.14, 0.045, 0.025) * ' + k.toFixed(3) + ';');
+    };
+    p.customProgramCacheKey = () => 'skin' + k;
   }
   function finish(mesh, kind, id) {
     const one = m => {
       const p = physical(m);
       if (kind === 'body') {
-        p.normalMap = detailMap('pores'); p.normalMap.repeat.set(40, 40); p.normalScale.set(0.07, 0.07);
-        p.roughness = 0.5; p.sheen = 0.25; p.sheenRoughness = 0.5; p.sheenColor = new T.Color('#ffb4a0');
-        p.clearcoat = 0.06; p.clearcoatRoughness = 0.45;
+        const o = Object.assign({ pores: 0.035, rep: 140, sheen: 0.12, sss: 1, env: 0.6, rough: 0.55 }, window.SKIN_TEST || {});
+        if (o.pores) { p.normalMap = detailMap('pores').clone(); p.normalMap.needsUpdate = true; p.normalMap.repeat.set(o.rep, o.rep); p.normalScale.set(o.pores, o.pores); }
+        p.roughness = o.rough; p.sheen = o.sheen; p.sheenRoughness = 0.5; p.sheenColor = new T.Color('#ffb4a0');
+        p.clearcoat = 0.04; p.clearcoatRoughness = 0.45; p.envMapIntensity = o.env;
+        if (o.sss) scatter(p, o.sss);
       } else if (kind === 'eyes') {
         // The iris and pupil glow a little from their own texture and the cornea is wet, so the eyes read from across the room.
         p.emissive = new T.Color('#ffffff'); p.emissiveMap = p.map; p.emissiveIntensity = 0.15; p.roughness = 0.1; p.clearcoat = 0.5; p.clearcoatRoughness = 0.05;
@@ -335,9 +347,17 @@
     if (P.neck === 'necklace') items.push(['jewel-pearls']);
     if (A[P.hat]) items.push([P.hat, HAT_COLOR[P.hat] || '#5C4A3A']);
     if (A[P.realHat]) items.push([P.realHat]);
+    // Always worn, under everything: the avatar is never shown without clothes, whatever the design or any piece does.
+    if (A['base-layer']) items.push(['base-layer']);
     return items.filter(x => x[0]);
   }
   const HAT_COLOR = { 'hat-newsboy': '#6B5444' };
+  // The avatar is only ever shown dressed: a top or dress over the chest, a bottom or dress over the hips, and the base
+  // layer under them. compose() checks this before it shows anything; R.dressed is also the test hook's check.
+  R.dressed = P => {
+    const ids = worn(P).map(x => x[0]), has = re => ids.some(id => re.test(id) && A[id]);
+    return has(/^(top|dress)-/) && (has(/^dress-/) || has(/^bottom-/)) && (!A['base-layer'] || ids.includes('base-layer'));
+  };
   R.need = P => ['body'].concat(worn(P).map(x => x[0])).filter(id => id === 'body' ? !R.ready : !cache[id]);
 
   // Each skin texture stands for one colour of the palette (the colour it looks like on screen); her colour picks the
@@ -390,6 +410,203 @@
     const g = body.mesh.geometry; g.setIndex(out); g.index.needsUpdate = true;
   }
 
+  // Layers of clothing: where an outer piece lies over an inner one (a shirt over the waistband, shoes over socks, a dress
+  // over shorts), the inner triangles it covers are not drawn, so the inner piece cannot poke through the outer one when
+  // the two surfaces come close. A vertex is covered (2) when a short ray along its normal, outward or inward, meets
+  // the outer piece within COVER_REACH, and near it (1) within twice that. Results are kept per pair of pieces.
+  // The base layer is hidden under tops and dresses; under shorts, skirts and trousers it is only trimmed at their
+  // waistband (aboveWaist), so a gap in any of them still shows it.
+  const LAYER = { base: 0.5, socks: 1, bottom: 2, shoes: 3, top: 4, dress: 4 };
+  const layerOf = id => LAYER[id.split('-')[0]] || 0;
+  const COVER_REACH = 0.05;
+  const coverCache = new Map();
+  function slabs(g) {
+    if (g.userData.slabs) return g.userData.slabs;
+    const pos = g.attributes.position.array, idx = g.index ? g.index.array : null, n = idx ? idx.length / 3 : pos.length / 9;
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 1; i < pos.length; i += 3) { lo = Math.min(lo, pos[i]); hi = Math.max(hi, pos[i]); }
+    const S = 64, step = (hi - lo) / S || 1, bins = Array.from({ length: S }, () => []);
+    const vi = (t, k) => (idx ? idx[t * 3 + k] : t * 3 + k);
+    for (let t = 0; t < n; t++) {
+      let a = Infinity, b = -Infinity; for (let k = 0; k < 3; k++) { const y = pos[vi(t, k) * 3 + 1]; a = Math.min(a, y); b = Math.max(b, y); }
+      for (let s = Math.max(0, Math.floor((a - lo) / step)); s <= Math.min(S - 1, Math.floor((b - lo) / step)); s++) bins[s].push(t);
+    }
+    return (g.userData.slabs = { lo, step, S, bins, pos, vi });
+  }
+  // Moller-Trumbore: the distance along the ray to the triangle, or Infinity.
+  function hit(o, d, p, a, b, c) {
+    const e1x = p[b] - p[a], e1y = p[b + 1] - p[a + 1], e1z = p[b + 2] - p[a + 2], e2x = p[c] - p[a], e2y = p[c + 1] - p[a + 1], e2z = p[c + 2] - p[a + 2];
+    const hx = d[1] * e2z - d[2] * e2y, hy = d[2] * e2x - d[0] * e2z, hz = d[0] * e2y - d[1] * e2x, det = e1x * hx + e1y * hy + e1z * hz;
+    if (Math.abs(det) < 1e-12) return Infinity;
+    const f = 1 / det, sx = o[0] - p[a], sy = o[1] - p[a + 1], sz = o[2] - p[a + 2], u = f * (sx * hx + sy * hy + sz * hz);
+    if (u < 0 || u > 1) return Infinity;
+    const qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x, v = f * (d[0] * qx + d[1] * qy + d[2] * qz);
+    if (v < 0 || u + v > 1) return Infinity;
+    const t = f * (e2x * qx + e2y * qy + e2z * qz);
+    return t > 0 ? t : Infinity;
+  }
+  function coveredVerts(inner, outer) {
+    const ig = inner.geometry, pos = ig.attributes.position.array, nor = ig.attributes.normal && ig.attributes.normal.array;
+    const out = new Uint8Array(pos.length / 3); if (!nor) return out;
+    const sl = slabs(outer.geometry), o = [0, 0, 0], d = [0, 0, 0];
+    for (let v = 0; v < out.length; v++) {
+      const y = pos[v * 3 + 1];
+      const s0 = Math.floor((y - 2 * COVER_REACH - sl.lo) / sl.step), s1 = Math.floor((y + 2 * COVER_REACH - sl.lo) / sl.step);
+      if (s1 < 0 || s0 >= sl.S) continue;
+      d[0] = nor[v * 3]; d[1] = nor[v * 3 + 1]; d[2] = nor[v * 3 + 2];
+      // Both ways along the normal: the outer piece usually lies just outside, but where the inner one pokes through it
+      // lies just inside.
+      const seen = new Set(), back = [-d[0], -d[1], -d[2]], ob = [pos[v * 3] + d[0] * 0.002, y + d[1] * 0.002, pos[v * 3 + 2] + d[2] * 0.002];
+      o[0] = pos[v * 3] - d[0] * 0.002; o[1] = y - d[1] * 0.002; o[2] = pos[v * 3 + 2] - d[2] * 0.002;
+      outer: for (let s = Math.max(0, s0); s <= Math.min(sl.S - 1, s1); s++) for (const t of sl.bins[s]) {
+        if (seen.has(t)) continue; seen.add(t);
+        const a = sl.vi(t, 0) * 3, b = sl.vi(t, 1) * 3, c = sl.vi(t, 2) * 3;
+        const dist = Math.min(hit(o, d, sl.pos, a, b, c), hit(ob, back, sl.pos, a, b, c));
+        if (dist < COVER_REACH) { out[v] = 2; break outer; }
+        if (dist < 2 * COVER_REACH) out[v] = 1;
+      }
+    }
+    return out;
+  }
+  // The hem of a top or dress: the lowest open edge loop that goes around her (a sleeve cuff or a collar does not, or sits
+  // higher). Returned as its height at each of HEM_N directions around the body's vertical axis.
+  const HEM_N = 72;
+  // Points joined across texture seams, and each joined point's neighbours.
+  function topology(g) {
+    if (g.userData.topo) return g.userData.topo;
+    const pos = g.userData.basePos || g.attributes.position.array, idx = g.userData.fullIndex || g.index.array, nv = pos.length / 3;
+    const weld = new Int32Array(nv), at = new Map();
+    for (let v = 0; v < nv; v++) { const k = Math.round(pos[v * 3] * 1e4) + ',' + Math.round(pos[v * 3 + 1] * 1e4) + ',' + Math.round(pos[v * 3 + 2] * 1e4); if (!at.has(k)) at.set(k, v); weld[v] = at.get(k); }
+    const nbs = Array.from({ length: nv }, () => new Set());
+    for (let t = 0; t < idx.length; t += 3) for (const [a, b] of [[idx[t], idx[t + 1]], [idx[t + 1], idx[t + 2]], [idx[t + 2], idx[t]]]) { const A = weld[a], B = weld[b]; if (A !== B) { nbs[A].add(B); nbs[B].add(A); } }
+    return (g.userData.topo = { weld, nb: nbs.map(x => [...x]) });
+  }
+  function hemOf(g, top) {
+    const slot = top ? 'waist' : 'hem';
+    if (g.userData[slot] !== undefined) return g.userData[slot];
+    const pos = g.attributes.position.array, idx = g.index ? (g.userData.fullIndex || g.index.array) : null;
+    if (!idx) return (g.userData[slot] = null);
+    let cx = 0, cz = 0; const nv = pos.length / 3; for (let v = 0; v < nv; v++) { cx += pos[v * 3]; cz += pos[v * 3 + 2]; } cx /= nv; cz /= nv;
+    // Vertices split at texture seams are joined by position first, or every seam would look like an open edge.
+    const { weld } = topology(g);
+    const count = new Map(), key = (a, b) => (a < b ? a * nv + b : b * nv + a);
+    for (let t = 0; t < idx.length; t += 3) for (const [a, b] of [[idx[t], idx[t + 1]], [idx[t + 1], idx[t + 2]], [idx[t + 2], idx[t]]]) { const k = key(weld[a], weld[b]); if (weld[a] !== weld[b]) count.set(k, (count.get(k) || 0) + 1); }
+    const next = new Map();
+    for (const [k, c] of count) if (c === 1) { const a = Math.floor(k / nv), b = k % nv; (next.get(a) || next.set(a, []).get(a)).push(b); (next.get(b) || next.set(b, []).get(b)).push(a); }
+    const seen = new Set(), ang = v => Math.atan2(pos[v * 3 + 2] - cz, pos[v * 3] - cx);
+    let best = null;
+    for (const start of next.keys()) {
+      if (seen.has(start)) continue;
+      const loop = [start]; seen.add(start); let prev = -1, cur = start;
+      for (;;) { const nb = (next.get(cur) || []).find(x => x !== prev && !seen.has(x)); if (nb === undefined) break; loop.push(nb); seen.add(nb); prev = cur; cur = nb; }
+      if (loop.length < 8) continue;
+      let wind = 0; for (let i = 0; i < loop.length; i++) { let d = ang(loop[(i + 1) % loop.length]) - ang(loop[i]); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; wind += d; }
+      if (Math.abs(wind) < Math.PI) continue;                      // does not go around her: a cuff
+      const y = loop.reduce((a, v) => a + pos[v * 3 + 1], 0) / loop.length;
+      if (!best || (top ? y > best.y : y < best.y)) best = { y, loop };
+    }
+    if (!best) return (g.userData[slot] = null);
+    const h = new Float32Array(HEM_N).fill(NaN);
+    for (const v of best.loop) { const i = Math.floor((ang(v) + Math.PI) / (2 * Math.PI) * HEM_N) % HEM_N, y = pos[v * 3 + 1]; h[i] = isNaN(h[i]) ? y : top ? Math.min(h[i], y) : Math.max(h[i], y); }
+    for (let i = 0; i < HEM_N; i++) if (isNaN(h[i])) { let a = 1; while (a < HEM_N && isNaN(h[(i + a) % HEM_N]) && isNaN(h[(i - a + HEM_N) % HEM_N])) a++; const l = h[(i - a + HEM_N) % HEM_N], r = h[(i + a) % HEM_N]; h[i] = isNaN(l) ? r : isNaN(r) ? l : Math.max(l, r); }
+    return (g.userData[slot] = { h, cx, cz, top: Math.max(...Array.from({ length: nv }, (_, v) => pos[v * 3 + 1])) });
+  }
+  // The base layer never shows above the waistband of the shorts, skirt or trousers over it.
+  function aboveWaist(inner, outer) {
+    const w = hemOf(outer.geometry, true), pos = inner.geometry.attributes.position.array, out = new Uint8Array(pos.length / 3);
+    if (!w) return out;
+    for (let v = 0; v < out.length; v++) {
+      const i = Math.floor((Math.atan2(pos[v * 3 + 2] - w.cz, pos[v * 3] - w.cx) + Math.PI) / (2 * Math.PI) * HEM_N) % HEM_N;
+      if (pos[v * 3 + 1] > w.h[i] - 0.004) out[v] = 2;
+    }
+    return out;
+  }
+  // Inner vertices above the hem of a top or dress, all the way round, are inside it.
+  function aboveHem(inner, outer) {
+    const hem = hemOf(outer.geometry), pos = inner.geometry.attributes.position.array, out = new Uint8Array(pos.length / 3);
+    if (!hem) return out;
+    for (let v = 0; v < out.length; v++) {
+      const y = pos[v * 3 + 1], i = Math.floor((Math.atan2(pos[v * 3 + 2] - hem.cz, pos[v * 3] - hem.cx) + Math.PI) / (2 * Math.PI) * HEM_N) % HEM_N;
+      if (y > hem.h[i] + 0.012 && y < hem.top) out[v] = 2;
+    }
+    return out;
+  }
+  // A top or dress hangs over the trousers or skirt under it: near its hem, wherever the bottom lies outside it (the seat,
+  // a waistband), it is moved out to just past the bottom, the way cloth drapes over cloth.
+  const DRAPE_BAND = 0.15, DRAPE_REACH = 0.045, DRAPE_GAP = 0.004;
+  const drapeCache = new Map();
+  function drape(top, bottom) {
+    const g = top.geometry, base = g.userData.basePos, nor = g.attributes.normal && g.attributes.normal.array;
+    const out = base.slice(); if (!nor) return out;
+    const hem = hemOf(g), lowest = hem ? Math.min(...hem.h) : -Infinity, sl = slabs(bottom.geometry), o = [0, 0, 0], d = [0, 0, 0], push = new Float32Array(base.length / 3);
+    for (let v = 0; v < base.length / 3; v++) {
+      const y = base[v * 3 + 1]; if (y > lowest + DRAPE_BAND) continue;
+      d[0] = nor[v * 3]; d[1] = nor[v * 3 + 1]; d[2] = nor[v * 3 + 2];
+      if (Math.abs(d[1]) > 0.5) continue;                     // only sideways rays: a folded hem facing down would reach the legs
+      o[0] = base[v * 3] - d[0] * 0.002; o[1] = y - d[1] * 0.002; o[2] = base[v * 3 + 2] - d[2] * 0.002;
+      const s0 = Math.max(0, Math.floor((y - DRAPE_REACH - sl.lo) / sl.step)), s1 = Math.min(sl.S - 1, Math.floor((y + DRAPE_REACH - sl.lo) / sl.step));
+      let best = Infinity;
+      for (let s = s0; s <= s1; s++) for (const t of sl.bins[s]) best = Math.min(best, hit(o, d, sl.pos, sl.vi(t, 0) * 3, sl.vi(t, 1) * 3, sl.vi(t, 2) * 3));
+      if (best < DRAPE_REACH) push[v] = best - 0.002 + DRAPE_GAP;
+    }
+    // Neighbouring points move together: the pushes are spread and evened over the cloth, so the hem lifts as one piece
+    // instead of in spikes. Points split at texture seams share one value.
+    const { weld, nb } = topology(g), n = base.length / 3;
+    for (let v = 0; v < n; v++) if (weld[v] !== v) push[weld[v]] = Math.max(push[weld[v]], push[v]);
+    for (let it = 0; it < 6; it++) {
+      const next = push.slice();
+      for (let v = 0; v < n; v++) { if (weld[v] !== v || !nb[v].length) continue; let sum = 0; for (const u of nb[v]) sum += push[u]; const avg = sum / nb[v].length; next[v] = it < 2 ? Math.max(push[v], avg * 0.9) : push[v] * 0.5 + avg * 0.5; }
+      push.set(next);
+    }
+    for (let v = 0; v < n; v++) { const p = push[weld[v]]; if (!p) continue; const w = weld[v]; out[v * 3] += nor[w * 3] * p; out[v * 3 + 1] += nor[w * 3 + 1] * p; out[v * 3 + 2] += nor[w * 3 + 2] * p; }
+    return out;
+  }
+  function drapeClothes(worn) {
+    const bottoms = worn.filter(id => /^bottom-/.test(id));
+    for (const id of worn.filter(id => /^(top|dress)-/.test(id))) cache[id].meshes.forEach((m, j) => {
+      const g = m.geometry, pa = g.attributes.position;
+      if (!g.userData.basePos) g.userData.basePos = pa.array.slice();
+      const key = id + '/' + j + '|' + bottoms.join(',');
+      if (g.userData.drapeKey === key) return;
+      let pos = drapeCache.get(key);
+      if (!pos) { pos = g.userData.basePos.slice(); for (const b of bottoms) for (const bm of cache[b].meshes) { const d = drape(m, bm); for (let i = 0; i < pos.length; i++) if (Math.abs(d[i] - g.userData.basePos[i]) > Math.abs(pos[i] - g.userData.basePos[i])) pos[i] = d[i]; } drapeCache.set(key, pos); }
+      pa.array.set(pos); pa.needsUpdate = true; g.userData.drapeKey = key; g.userData.slabs = null;
+    });
+  }
+  function layerClothes(items) {
+    const worn = items.map(([id]) => id).filter(id => layerOf(id) && cache[id]);
+    drapeClothes(worn);
+    for (const id of worn) {
+      cache[id].meshes.forEach((m, j) => {
+        const g = m.geometry; if (!g.index) return;
+        if (!g.userData.fullIndex) g.userData.fullIndex = g.index.array.slice();
+        const full = g.userData.fullIndex, hidden = new Uint8Array(full.length / 3);
+        for (const over of worn) {
+          if (layerOf(over) <= layerOf(id) || (id === 'base-layer' && layerOf(over) < 2)) continue;
+          cache[over].meshes.forEach((om, k) => {
+            const key = id + '/' + j + '|' + over + '/' + k + '|' + (cache[over].meshes[k].geometry.userData.drapeKey || '');
+            let cov = coverCache.get(key);
+            if (!cov) {
+              // Under a bottom the base layer stays whole (a gap in the bottom still shows it) and is only trimmed at the waistband.
+              cov = id === 'base-layer' && /^bottom-/.test(over) ? aboveWaist(m, om) : coveredVerts(m, om);
+              if (/^(top|dress)-/.test(over) && /^(bottom|base)-/.test(id)) { const up = aboveHem(m, om); for (let v = 0; v < cov.length; v++) cov[v] = Math.max(cov[v], up[v]); }
+              coverCache.set(key, cov);
+            }
+            // A triangle goes when two corners are covered (2) and the third is at least near the outer piece (1). A corner
+            // past the outer piece's hem meets nothing at all (0), so the hem keeps its edge with no notches.
+            for (let t = 0; t < hidden.length; t++) {
+              const a = cov[full[t * 3]], b = cov[full[t * 3 + 1]], c = cov[full[t * 3 + 2]];
+              if (a && b && c && (a === 2) + (b === 2) + (c === 2) >= 2) hidden[t] = 1;
+            }
+          });
+        }
+        const keep = []; for (let t = 0; t < hidden.length; t++) if (!hidden[t]) keep.push(full[t * 3], full[t * 3 + 1], full[t * 3 + 2]);
+        g.setIndex(keep); g.index.needsUpdate = true;
+      });
+    }
+  }
+  R.coverCount = () => coverCache.size;
+
   // Some clothes come without a list of the skin they cover, so her skin can show through them where the boy shape is
   // fuller. They cover at least what a plain T-shirt or shorts cover.
   const HIDE_LIKE = { 'top-tucked-tee': 'top-tee', 'top-polo': 'top-tee', 'top-sweater': 'top-tee',
@@ -400,9 +617,10 @@
     const missing = R.need(P);
     if (missing.length) {
       const go = () => Promise.all(missing.map(id => id === 'body' ? loadBody() : null)).then(() => Promise.all(R.need(P).map(load)));
-      go().then(() => { if (R.onReady) R.onReady(); }, e => { R.failed = e.message; R.errors.push(e.message); if (R.onReady) R.onReady(); });
+      go().then(() => { if (R.onReady) R.onReady(); }, e => { R.failed = e.message; R.errors.push(e.stack || e.message); if (R.onReady) R.onReady(); });
       return null;
     }
+    if (!R.dressed(P)) { R.errors.push('not dressed: ' + worn(P).map(x => x[0]).join(',')); return null; }
     const sk = skinChoice(P), eye = eyeName(P.eyeColor);
     const texWait = [loadTex('skin', sk.id), loadTex('eye', eye)];
     // Textures are small; show the avatar now with whichever skin it had and swap when ready.
@@ -442,6 +660,7 @@
     if (body.parts.lashes) body.parts.lashes.visible = P.lashes !== false;
     const key = hides.sort().join(',');
     if (key !== lastKey) { hideUnder(hides); lastKey = key; }
+    layerClothes(items);
     const m = morphs(P);
     const topId = items[2] && items[2][0];
     if (!R.isDress(topId) && topId !== 'top-tucked-tee') m.under = 1.6;    // the shirt hangs over the waistband

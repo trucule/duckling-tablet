@@ -60,6 +60,7 @@ top-sweater.js                 | toigo_fisherman_sweater              | shirts01
 top-tank.js                    | toigo_camisole_top                   | shirts01                | MRT              | CC0
 bottom-jean-shorts.js          | cortu_jeans_shorts                   | pants01                 | cortu            | no header; Repo: CC0
 bottom-cargo.js                | cortu_cargo_pants                    | pants01                 | cortu            | no header; Repo: CC0
+base-layer.js                  | made from cortu_jeans_shorts         | pants01                 | Cortu            | CC0; Repo: CC0
 bottom-pants.js                | toigo_wool_pants                     | pants01                 | MRT              | CC0
 bottom-harem.js                | toigo_harem_pants                    | pants01                 | MRT              | CC0
 bottom-ruffle-skirt.js         | toigo_skirt_with_lace_ruffle         | skirts01                | MRT              | CC0
