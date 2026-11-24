@@ -1,7 +1,7 @@
 {
   "id": "chemistry-lab",
   "name": "Chemistry Lab",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Safe experiments followed step by step, each step read aloud, with stars for the ones finished.",
   "subjects": [
     "science"

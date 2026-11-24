@@ -373,6 +373,8 @@ function wantPhoto(id) {
       hemi.intensity = 0; rim.intensity = 0; fill.intensity = 0;
     };
     photoLight();
+    // The portrait shows the place: once its photo is in, the home screen gets a new picture.
+    if (id === S.design.place && portraitPhoto !== id && homeOk !== false) sendHome(true);
   });
 }
 
@@ -903,14 +905,18 @@ function frame() {
 }
 renderer.setAnimationLoop(frame);
 
-// The home screen portrait: head and shoulders on a clear background, 384 pixels square.
-let pr = null, pcam = null;
+// The home screen portrait: head and shoulders, 384 pixels square, in front of the place she chose (its photo once it
+// has downloaded), or on a clear background with her picture background and frame when she chose those, or no place.
+let pr = null, pcam = null, portraitPhoto = null;
 function portrait(look) {
   look = Object.assign({ badgebg: S.design.badgebg, frame: S.design.frame }, look || {});
   if (!pr) { pr = new T.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); pr.setSize(384, 384, false); pr.setPixelRatio(1); pr.outputEncoding = renderer.outputEncoding; pr.toneMapping = renderer.toneMapping; pr.toneMappingExposure = renderer.toneMappingExposure; pcam = new T.PerspectiveCamera(30, 1, 0.05, 50); }
   const H = parts.H || 1, bg = scene.background, fog = scene.fog, ry = avatar.rotation.y, sp = parts.sparkle;
   const env = scene.environment; studioLight();   // the picture keeps the studio light wherever she is
-  scene.background = null; scene.fog = null; backdrop.visible = false; avatar.rotation.y = 0.22; if (sp) sp.visible = false;
+  const inPlace = !!S.design.place && !look.badgebg && placeNow === S.design.place;
+  portraitPhoto = inPlace && photoLight ? placeNow : null;
+  if (!inPlace) { scene.background = null; scene.fog = null; backdrop.visible = false; }
+  avatar.rotation.y = 0.22; if (sp) sp.visible = false;
   // Frame the head and a little of the shoulders; step back for tall hats and big hair.
   const hatNow = S.design.hat || (EXL && (EXL.OUTFIT_ITEMS[S.design.outfit] || {}).hat);
   const low = ['bow', 'flowerclip', 'beret', 'cap', 'beanie', 'bucket', 'headphones', 'bearears', 'mouseears', 'catears', 'foxears', 'hat-newsboy', 'flowers'];
@@ -919,6 +925,7 @@ function portrait(look) {
   const hy = (parts.faceY || 1.375 * H) + floorY, k = parts.headR ? parts.headR / 0.19 : 1;
   const back = parts.real ? 0.04 : 0, drop = parts.real ? 0.035 : 0;   // real heads are smaller; show a little more of her
   pcam.position.set(0, hy + (0.02 + (tall + big) * 0.04) * k, (1.45 + (tall + big) * 0.3) * k + back); pcam.lookAt(0, hy + (-0.06 + (tall + big) * 0.05) * k - drop + 0.03, 0);
+  pcam.aspect = 1; pcam.updateProjectionMatrix();
   pr.setClearColor(0x000000, 0); pr.render(scene, pcam);
   scene.background = bg; scene.fog = fog; scene.environment = env; if (photoLight) photoLight(); backdrop.visible = true; avatar.rotation.y = ry; if (sp) sp.visible = true;
   if (!EX || (!look.badgebg && !look.frame)) return pr.domElement.toDataURL('image/png');
