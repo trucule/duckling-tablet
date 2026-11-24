@@ -156,39 +156,80 @@
     t.magFilter = T.LinearFilter; t.minFilter = T.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = 4; t.needsUpdate = true;
     return (DETAIL[name] = t);
   }
-  // Which detail each piece of clothing gets, and how strong: [pattern, repeat, strength, sheen].
+  // Colour detail for cloth, around 0.5 (no change): the uneven yarn that makes fabric read as fabric from a distance.
+  const CLOTH_SHADE = {
+    // Jersey and plain cotton: heathered yarn, faint lengthwise slubs.
+    heather: (u, v) => 0.5 + 0.22 * (smoothNoise(u * 64, v * 64, 64) - 0.5) + 0.16 * (smoothNoise(u * 8, v * 96, 8) - 0.5) + 0.1 * (smoothNoise(u * 16, v * 16, 16) - 0.5),
+    // Denim: dark diagonal twill ridges with pale weft between them, lengthwise slubs and soft fading.
+    denim: (u, v) => { const tw = Math.sin((u * 24 + v * 24) * Math.PI * 2); return 0.5 + 0.16 * tw + 0.22 * (smoothNoise(u * 6, v * 80, 6) - 0.5) + 0.2 * (smoothNoise(u * 4, v * 4, 4) - 0.5) + (hash(Math.floor(u * 192), Math.floor(v * 192)) > 0.9 ? 0.1 : 0); },
+    // Wool and felt: fuzzy mottling at two sizes.
+    wool: (u, v) => 0.5 + 0.2 * (smoothNoise(u * 32, v * 32, 32) - 0.5) + 0.2 * (smoothNoise(u * 96, v * 96, 96) - 0.5) + 0.12 * (smoothNoise(u * 6, v * 6, 6) - 0.5),
+    // Knit: the shadow between stitch columns.
+    knit: (u, v) => 0.38 + 0.24 * PATTERNS.knit(u, v) + 0.12 * (smoothNoise(u * 24, v * 24, 24) - 0.5),
+    // Leather: darker creases between the cells.
+    leather: (u, v) => 0.36 + 0.22 * PATTERNS.leather(u, v) + 0.1 * (smoothNoise(u * 12, v * 12, 12) - 0.5),
+  };
+  function shadeMap(name) {
+    const key = 'shade-' + name; if (DETAIL[key]) return DETAIL[key];
+    const N = 256, d = new Uint8Array(N * N * 4), f = CLOTH_SHADE[name];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const i = (y * N + x) * 4, g = Math.max(0, Math.min(255, f(x / N, y / N) * 255)); d[i] = d[i + 1] = d[i + 2] = g; d[i + 3] = 255; }
+    const t = new T.DataTexture(d, N, N, T.RGBAFormat); t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.magFilter = T.LinearFilter; t.minFilter = T.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = 4; t.needsUpdate = true;
+    return (DETAIL[key] = t);
+  }
+  // Which detail each piece of clothing gets: { n: weave, rep: weave tiles across the texture, k: weave depth, a: shade,
+  // ak: shade strength, sheen }. Most of the models' own textures are a plain white cut-out to be tinted, so this is
+  // all the cloth detail they have.
   function fabricOf(id) {
-    if (/sweater|warmers/.test(id)) return ['knit', 30, 0.45, 0.5];
-    if (/jean|cargo/.test(id)) return ['denim', 40, 0.2, 0.15];
-    if (/pants|harem/.test(id)) return ['denim', 40, 0.12, 0.3];
-    if (/leather|mary-janes|ankle-boots/.test(id)) return ['leather', 20, 0.35, 0];
-    if (/^(top|dress|bottom|socks)-|sneakers|flats/.test(id)) return ['cotton', 40, 0.15, 0.35];
+    if (/sweater|warmers/.test(id)) return { n: 'knit', rep: 30, k: 0.5, a: 'knit', ak: 0.5, sheen: 0.5 };
+    if (/jean|cargo|overalls/.test(id)) return { n: 'denim', rep: 14, k: 0.6, a: 'denim', ak: 0.9, sheen: 0.12 };
+    if (/pants|harem|newsboy|beret|beanie/.test(id)) return { n: 'cotton', rep: 20, k: 0.45, a: 'wool', ak: 0.8, sheen: 0.25 };
+    if (/leather|mary-janes|ankle-boots/.test(id)) return { n: 'leather', rep: 12, k: 0.4, a: 'leather', ak: 0.5, sheen: 0 };
+    if (/^(top|dress|bottom|socks)-|sneakers|flats/.test(id)) return { n: 'cotton', rep: 22, k: 0.45, a: 'heather', ak: 0.85, sheen: 0.25 };
     return null;
+  }
+  // three.js r149 moves every texture of a material by the colour texture's repeat, so a detail texture cannot tile on its
+  // own through normalMap. This adds the detail in the shader instead, tiled by its own count: a weave that tilts the
+  // surface (and for skin, pores) and a colour shade, on top of the model's own textures. Skin also gets scatter().
+  function detail(p, o) {
+    if (!p.map) return;
+    p.extensions = Object.assign({}, p.extensions, { derivatives: true });
+    const u = { dN: { value: detailMap(o.n) }, dRep: { value: o.rep }, dK: { value: o.k }, dA: { value: o.a ? shadeMap(o.a) : detailMap(o.n) }, dAK: { value: o.a ? o.ak : 0 } };
+    p.onBeforeCompile = sh => {
+      Object.assign(sh.uniforms, u);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\n' +
+          'uniform sampler2D dN; uniform float dRep; uniform float dK; uniform sampler2D dA; uniform float dAK;\n' +
+          'vec3 dTilt(vec3 pos, vec3 n, vec3 t, vec2 uv) {\n' +
+          '  vec3 q0 = dFdx(pos), q1 = dFdy(pos); vec2 s0 = dFdx(uv), s1 = dFdy(uv);\n' +
+          '  vec3 q1p = cross(q1, n), q0p = cross(n, q0); vec3 T = q1p * s0.x + q0p * s1.x, B = q1p * s0.y + q0p * s1.y;\n' +
+          '  float det = max(dot(T, T), dot(B, B)); float sc = det == 0.0 ? 0.0 : inversesqrt(det);\n' +
+          '  return normalize(T * (t.x * sc) + B * (t.y * sc) + n * t.z); }')
+        .replace('#include <map_fragment>', '#include <map_fragment>\n' +
+          'diffuseColor.rgb *= clamp(1.0 + (texture2D(dA, vUv * dRep).r - 0.5) * 2.0 * dAK, 0.0, 2.0);')
+        .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' +
+          '{ vec3 t = texture2D(dN, vUv * dRep).xyz * 2.0 - 1.0; t.xy *= dK; normal = dTilt(-vViewPosition, normal, t, vUv * dRep); }');
+      if (o.sss) sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' +
+        'reflectedLight.directDiffuse *= vec3(1.0, 0.94, 0.9);\n' +
+        'reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(0.14, 0.045, 0.025) * ' + o.sss.toFixed(3) + ';');
+    };
+    p.customProgramCacheKey = () => 'detail|' + o.n + '|' + (o.a || '') + '|' + (o.sss || 0);
   }
   // Physical materials, so skin, hair and cloth can have sheen.
   function physical(m) {
     if (m.isMeshPhysicalMaterial) return m;
     const p = new T.MeshPhysicalMaterial(); T.MeshStandardMaterial.prototype.copy.call(p, m); p.userData = m.userData; return p;   // Physical's own copy() expects physical fields
   }
-  // Light that enters skin comes back out warmer and softer: a little red is added to the light the skin receives, and
-  // the shadowed side keeps a warm glow instead of going grey.
-  function scatter(p, k) {
-    p.onBeforeCompile = sh => {
-      sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' +
-        'reflectedLight.directDiffuse *= vec3(1.0, 0.94, 0.9);\n' +
-        'reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(0.14, 0.045, 0.025) * ' + k.toFixed(3) + ';');
-    };
-    p.customProgramCacheKey = () => 'skin' + k;
-  }
+  // Skin: light that enters it comes back out warmer and softer (detail()'s sss: a little red is added to the light the
+  // skin receives, and the shadowed side keeps a warm glow instead of going grey).
   function finish(mesh, kind, id) {
     const one = m => {
       const p = physical(m);
       if (kind === 'body') {
         const o = Object.assign({ pores: 0.035, rep: 140, sheen: 0.12, sss: 1, env: 0.6, rough: 0.55 }, window.SKIN_TEST || {});
-        if (o.pores) { p.normalMap = detailMap('pores').clone(); p.normalMap.needsUpdate = true; p.normalMap.repeat.set(o.rep, o.rep); p.normalScale.set(o.pores, o.pores); }
+        detail(p, { n: 'pores', rep: o.rep, k: o.pores, sss: o.sss });
         p.roughness = o.rough; p.sheen = o.sheen; p.sheenRoughness = 0.5; p.sheenColor = new T.Color('#ffb4a0');
         p.clearcoat = 0.04; p.clearcoatRoughness = 0.45; p.envMapIntensity = o.env;
-        if (o.sss) scatter(p, o.sss);
       } else if (kind === 'eyes') {
         // The iris and pupil glow a little from their own texture and the cornea is wet, so the eyes read from across the room.
         p.emissive = new T.Color('#ffffff'); p.emissiveMap = p.map; p.emissiveIntensity = 0.15; p.roughness = 0.1; p.clearcoat = 0.5; p.clearcoatRoughness = 0.05;
@@ -197,8 +238,8 @@
       } else if (kind === 'clothes' && id) {
         const f = fabricOf(id);
         p.clearcoat = 0;
-        // A piece that brings its own normal map (the knit sweater, the cargo pants) keeps it; the others get one drawn here.
-        if (f && !p.normalMap) { p.normalMap = detailMap(f[0]).clone(); p.normalMap.needsUpdate = true; p.normalMap.repeat.set(f[1], f[1]); p.normalScale.set(f[2], f[2]); p.sheen = f[3]; p.sheenRoughness = 0.6; p.sheenColor = new T.Color('#ffffff'); p.roughness = Math.max(p.roughness, 0.75); }
+        // A piece with its own normal map (the knit sweater, the cargo pants) keeps it and gets only the colour shade.
+        if (f) { detail(p, p.normalMap ? Object.assign({}, f, { k: 0 }) : f); p.sheen = f.sheen; p.sheenRoughness = 0.6; p.sheenColor = new T.Color('#ffffff'); p.roughness = Math.max(p.roughness, 0.78); }
         if (/glasses|jewel/.test(id)) { p.roughness = 0.2; p.clearcoat = 0.6; }
       }
       p.needsUpdate = true; return p;
