@@ -18,10 +18,10 @@ meta = {}
 old = os.path.join(out, 'backdrops.json')
 if os.path.exists(old): meta = json.load(open(old))['backdrops']
 # A night photo's exposure comes from its sky (median brightness of the top 40%), or the ground rule makes it day.
-DARK = {'qwantani_night': 0.06}
+DARK = {}
 POLY = 'Poly Haven (polyhaven.com), CC0'
-KEEP = {'meadow_2','epping_forest_01','fish_hoek_beach','blouberg_sunrise_1','fouriesburg_mountain_midday','bloem_train_track_clear','air_museum_playground','ballawley_park','lythwood_room','monkstown_castle','farm_field',
-        'qwantani_night','goegap','rainforest_trail','potsdamer_platz','kiara_8_sunset','art_studio','hotel_room','kloofendal_overcast'}
+KEEP = {'meadow_2','epping_forest_01','fish_hoek_beach','blouberg_sunrise_1','bloem_train_track_clear','air_museum_playground','ballawley_park','monkstown_castle','farm_field',
+        'goegap','rainforest_trail','potsdamer_platz','kiara_8_sunset','art_studio','kloofendal_overcast'}
 # The made-up places: 360-degree pictures generated for Duckling with Google Gemini from the prompts in
 # docs/backdrops.md. They are ordinary 8-bit pictures, so the sun is given here: where it is in the picture (x and y
 # as fractions of the width and height; find: look for the brightest spot near there), how strong it is and its colour.
@@ -34,7 +34,6 @@ MADE = {
     'cupcake_town':   dict(x=0.82, y=0.17, find=True,  strength=140, color=[1.0, 0.93, 0.8]),
     'cloud_kingdom':  dict(x=0.79, y=0.45, find=True,  strength=150, color=[1.0, 0.82, 0.6]),
     'ice_palace':     dict(x=0.31, y=0.47, find=True,  strength=120, color=[1.0, 0.95, 0.88]),
-    'volcano_island': dict(x=0.60, y=0.15, find=False, strength=150, color=[1.0, 0.95, 0.85]),
     'big_stage':      dict(x=0.00, y=0.15, find=False, strength=90,  color=[1.0, 0.82, 0.6]),
     'outer_space':    dict(x=0.78, y=0.29, find=True,  strength=200, color=[1.0, 1.0, 1.0]),
     'moon_surface':   dict(x=0.00, y=0.33, find=True,  strength=200, color=[1.0, 1.0, 1.0]),
@@ -124,7 +123,7 @@ for f in sorted(os.listdir(src)):
 build_made()
 # Photos taken indoors: how far the walls are from the camera, in camera heights (backdrops.js lays the photo on a
 # dome that size instead of a wide one).
-ROOM = {'hotel_room': 1.6, 'kids_bedroom': 1.6, 'art_studio': 2.2, 'lythwood_room': 1.6, 'big_stage': 4}
+ROOM = {'kids_bedroom': 1.6, 'art_studio': 2.2, 'big_stage': 4}
 for v in meta.values(): v.setdefault('source', POLY)
 for k, v in ROOM.items():
     if k in meta: meta[k]['room'] = v

@@ -17,7 +17,7 @@ from the API the first time a child goes to that place and is kept on the tablet
 
 1. Get the picture.
    - Real places: a Poly Haven HDRI (polyhaven.com, CC0), the 4K `.hdr` file. Add its id to `KEEP` in
-     `tools/build-backdrops.py`. A night photo also goes in `DARK`, an indoor one in `ROOM`.
+     `tools/build-backdrops.py`. A night photo also goes in `DARK`; an indoor picture of either kind goes in `ROOM`.
    - Made-up places: a generated 360-degree picture saved as `<id>.jpg`. Add it to `MADE` with where its sun is.
 2. Run `python3 tools/build-backdrops.py <folder>` with only the new files in the folder. The other entries stay.
 3. Point the app at it: `PHOTO` in `apps/story-maker/stage.js`, `PHOTO_PLACE` in `apps/my-avatar/avatar.js`,
@@ -28,8 +28,7 @@ from the API the first time a child goes to that place and is kept on the tablet
 
 Things to check in a screenshot: no letters or signs in view, no people, the cast stands on open ground, and the
 picture's horizon meets the drawn ground where the two touch. My Avatar's camera sees only about 15 degrees above
-the horizon, so the prompt asks for the main subject to sit low. A volcano and a rainbow made without that rule did
-not show there.
+the horizon, so the prompt asks for the main subject to sit low.
 
 ## Prompt for the made-up places
 
@@ -52,9 +51,10 @@ letters, no logos, no signs, no watermark, no cartoon characters. Friendly and s
    down from above in visible light rays, with rippled light patterns on the sand. The water fades to soft blue in
    the distance. The water surface is visible overhead with the sun shining through it.
 2. rainbow-hill: Standing on top of a gentle grassy hill covered in short green grass and small wildflowers in red,
-   orange, yellow and purple. Rolling green hills continue to the horizon. A large bright rainbow arcs across the
-   sky on one side. Fluffy white clouds in a blue sky after a light rain. The sun is behind the camera at a medium
-   height.
+   orange, yellow and purple. Rolling green hills continue to the horizon. A bright, wide, low rainbow stands on the
+   hills in front of the camera, both of its ends touching the hills and its top only a little above the horizon, as
+   if seen from far away. Fluffy white clouds in a blue sky after a light rain. The sun is behind the camera, low in
+   the sky.
 3. candy-land: Standing on a flat path of pastel pink and white tiles in a landscape made of candy. Giant lollipops
    and swirled candy canes grow like trees. Hills are covered in colorful gumdrops. A river of chocolate winds in the
    distance. Mountains topped with white frosting on the horizon. Soft pastel blue sky with cotton candy clouds.
@@ -71,10 +71,11 @@ letters, no logos, no signs, no watermark, no cartoon characters. Friendly and s
    towers and arches surround the courtyard at a distance of 15 meters or more. Ice columns glow pale blue where
    sunlight passes through. Snow-covered mountains beyond the walls. Clear cold blue sky, sun low on one side,
    sparkling frost on every surface.
-7. volcano-island: Standing on a flat stretch of dark volcanic sand on a tropical island. A large volcano rises in
-   the distance on one side with a gentle plume of white steam from its top, and no fire or danger. Green palm trees
-   and jungle cover its lower slopes. Turquoise ocean and gentle waves on the other side. Bright midday sun, blue sky
-   with some clouds.
+7. volcano-island: Standing on a flat stretch of dark volcanic sand on a tropical island. A wide, low volcano sits
+   close by on one side, its whole cone visible and squat, its top only a little above the horizon, with a gentle
+   plume of white steam drifting sideways, and no fire or danger. Low green jungle and a few short palm trees at its
+   base, none of them blocking the view of the cone. Turquoise ocean and gentle waves on the other side. Bright midday
+   sun, blue sky with some clouds.
 8. big-stage: Standing in the middle of a large empty theater stage made of polished wooden boards. Deep red velvet
    curtains are pulled back at both sides. Warm spotlights shine down from above. Rows of red theater seats rise
    into a dim auditorium with balconies and soft golden wall lights. Warm, inviting, magical atmosphere.
@@ -91,6 +92,16 @@ letters, no logos, no signs, no watermark, no cartoon characters. Friendly and s
 12. snowy-mountain: Standing on a flat, snowy ledge high on a mountain. Tall snow-capped peaks rise all around, with
     rocky ridges showing through the snow. Valleys with pine forests far below on one side. Clear blue sky, bright
     sun high and to the left, crisp shadows on the snow.
+
+13. kids-bedroom: Standing in the middle of a bright, tidy child's bedroom with a light wooden floor and a soft round
+    rug in the center. A single bed with a colorful quilt and pillows against one wall, a low bookshelf with picture
+    books and stuffed animals, a small desk with crayons, a toy chest, and a big window with daylight and light
+    curtains. Pastel walls with a few framed drawings of animals and stars. No screens, no mirrors, no posters with
+    words. Warm, cozy, cheerful daylight.
+14. night-sky: Standing in the middle of a wide, flat, grassy meadow at night. The Milky Way and a very clear, bright
+    sky full of stars reach all the way down to the horizon, with a big full moon low over the hills on one side
+    lighting the meadow in soft silver light. Dark silhouettes of low rolling hills and a few distant trees on the
+    horizon. No town lights, no buildings. Calm and magical, bright enough to see the grass.
 
 Start with image 1 now.
 ```

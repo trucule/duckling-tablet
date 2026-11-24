@@ -266,28 +266,6 @@
    "exposure": 0.76045,
    "source": "Poly Haven (polyhaven.com), CC0"
   },
-  "fouriesburg_mountain_midday": {
-   "skyColor": [
-    0.946,
-    0.946,
-    0.948
-   ],
-   "groundColor": [
-    0.697,
-    0.573,
-    0.428
-   ],
-   "sunAz": 0.6278,
-   "sunEl": 0.8416,
-   "sunColor": [
-    1.0,
-    0.953,
-    0.882
-   ],
-   "sunStrength": 200,
-   "exposure": 1.05593,
-   "source": "Poly Haven (polyhaven.com), CC0"
-  },
   "goegap": {
    "source": "Poly Haven (polyhaven.com), CC0",
    "skyColor": [
@@ -309,29 +287,6 @@
    ],
    "sunStrength": 200,
    "exposure": 0.88452
-  },
-  "hotel_room": {
-   "source": "Poly Haven (polyhaven.com), CC0",
-   "skyColor": [
-    0.987,
-    0.973,
-    0.937
-   ],
-   "groundColor": [
-    0.695,
-    0.617,
-    0.509
-   ],
-   "sunAz": -1.1855,
-   "sunEl": 0.9332,
-   "sunColor": [
-    1.0,
-    0.677,
-    0.303
-   ],
-   "sunStrength": 200,
-   "exposure": 1.32244,
-   "room": 1.6
   },
   "ice_palace": {
    "source": "Generated for Duckling Tablet with Google Gemini",
@@ -421,29 +376,6 @@
    ],
    "sunStrength": 8.4,
    "exposure": 1.57202
-  },
-  "lythwood_room": {
-   "skyColor": [
-    0.811,
-    0.733,
-    0.573
-   ],
-   "groundColor": [
-    0.765,
-    0.68,
-    0.578
-   ],
-   "sunAz": 0.5878,
-   "sunEl": 0.2374,
-   "sunColor": [
-    0.818,
-    0.909,
-    1.0
-   ],
-   "sunStrength": 68.1,
-   "exposure": 0.45712,
-   "room": 1.6,
-   "source": "Poly Haven (polyhaven.com), CC0"
   },
   "meadow_2": {
    "skyColor": [
@@ -577,28 +509,6 @@
    "sunStrength": 8.0,
    "exposure": 2.14877
   },
-  "qwantani_night": {
-   "source": "Poly Haven (polyhaven.com), CC0",
-   "skyColor": [
-    0.314,
-    0.302,
-    0.306
-   ],
-   "groundColor": [
-    0.081,
-    0.07,
-    0.042
-   ],
-   "sunAz": 0.6182,
-   "sunEl": -0.0796,
-   "sunColor": [
-    0.871,
-    1.0,
-    0.828
-   ],
-   "sunStrength": 6.0,
-   "exposure": 0.12847
-  },
   "rainbow_hill": {
    "source": "Generated for Duckling Tablet with Google Gemini",
    "skyColor": [
@@ -729,28 +639,6 @@
     1.0
    ],
    "sunStrength": 60,
-   "exposure": 1
-  },
-  "volcano_island": {
-   "source": "Generated for Duckling Tablet with Google Gemini",
-   "skyColor": [
-    0.515,
-    0.686,
-    0.835
-   ],
-   "groundColor": [
-    0.386,
-    0.33,
-    0.272
-   ],
-   "sunAz": 0.6283,
-   "sunEl": 1.0996,
-   "sunColor": [
-    1.0,
-    0.95,
-    0.85
-   ],
-   "sunStrength": 150,
    "exposure": 1
   },
   "volcano_island_2": {
