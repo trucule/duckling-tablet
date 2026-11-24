@@ -16,7 +16,7 @@ android {
         targetSdk = 36
         // CI sets the build number (the workflow run number), so every uploaded bundle has a higher version code.
         versionCode = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
-        versionName = "1.0.1"
+        versionName = "1.0.2"
     }
 
     signingConfigs {

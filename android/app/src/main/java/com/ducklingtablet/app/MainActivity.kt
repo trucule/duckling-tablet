@@ -9,7 +9,9 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.os.SystemClock
+import android.graphics.Bitmap
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -42,6 +44,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
     var allowedHosts: Set<String> = emptySet()
     var signInHosts: Set<String> = emptySet()
+    /** The host of the page showing in the main view. DucklingShell answers only while it is Duckling's own page. */
+    @Volatile var pageHost: String = ""
+    /** Windows a website opened (a "Sign in with Google" window), shown over it until they close. */
+    private val popups = mutableListOf<WebView>()
     private lateinit var ducklingAgent: String
     private lateinit var browserAgent: String
     lateinit var billing: Billing
@@ -49,7 +55,7 @@ class MainActivity : AppCompatActivity() {
     // A push (or a new registration token) makes the web app check in now.
     private val pushReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onPush && DucklingWeb.onPush()", null)
+            toWebApp("window.DucklingWeb && DucklingWeb.onPush && DucklingWeb.onPush()")
         }
     }
 
@@ -90,11 +96,14 @@ class MainActivity : AppCompatActivity() {
             userAgentString = ducklingAgent
         }
         billing = Billing(this,
-            { status, message -> runOnUiThread { web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onBilling && DucklingWeb.onBilling(${org.json.JSONObject.quote(status)}, ${org.json.JSONObject.quote(message)})", null) } },
-            { web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()", null) })
+            { status, message -> runOnUiThread { toWebApp("window.DucklingWeb && DucklingWeb.onBilling && DucklingWeb.onBilling(${org.json.JSONObject.quote(status)}, ${org.json.JSONObject.quote(message)})") } },
+            { toWebApp("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()") })
         billing.start()
         web.addJavascriptInterface(Shell(this, web), "DucklingShell")
-        web.webViewClient = object : WebViewClient() {
+        val client = object : WebViewClient() {
+            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                if (view === web) pageHost = url?.let { Uri.parse(it).host?.lowercase() } ?: ""
+            }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val host = request.url.host?.lowercase() ?: return true
                 // Duckling's own hosts and the parent's allowed websites open here; everything else goes nowhere.
@@ -112,34 +121,51 @@ class MainActivity : AppCompatActivity() {
             }
             // A website from a tile opens in this view in place of the home screen; the Home pill shows over it.
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                if (view !== web) return
+                pageHost = url?.let { Uri.parse(it).host?.lowercase() } ?: ""
                 homePill.visibility = if (onWebsite(url)) View.VISIBLE else View.GONE
             }
         }
+        web.webViewClient = client
         web.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) { request.deny() } // apps run in AppActivity
+            // A website's new window (its "Sign in with Google" window) opens over it as a real window, so the
+            // sign-in can report back to the page that opened it and close itself. Loaded in place, as before, the
+            // report had nowhere to go and the sign-in ended on a blank page. The same host rules apply inside it
+            // (the shared client), it has no DucklingShell, and Home or Back closes it.
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
-                // The new window's first request is loaded here (the same rules apply); the window itself is dropped.
-                val catcher = WebView(view.context)
-                catcher.webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean {
-                        val host = request.url.host?.lowercase()
-                        if (host != null && (host in OWN_HOSTS || isAllowed(host))) web.loadUrl(request.url.toString())
-                        catcher.post { catcher.destroy() }
-                        return true
-                    }
+                if (view !== web) return false
+                val popup = WebView(this@MainActivity)
+                with(popup.settings) {
+                    javaScriptEnabled = true
+                    domStorageEnabled = true
+                    databaseEnabled = true
+                    allowFileAccess = false
+                    allowContentAccess = false
+                    setSupportMultipleWindows(false)
+                    userAgentString = browserAgent
                 }
-                (resultMsg.obj as WebView.WebViewTransport).webView = catcher
+                popup.webViewClient = client
+                popup.webChromeClient = object : WebChromeClient() {
+                    override fun onPermissionRequest(request: PermissionRequest) { request.deny() }
+                    override fun onCloseWindow(window: WebView) { closePopup(window) }
+                }
+                val parent = web.parent as ViewGroup
+                parent.addView(popup, parent.indexOfChild(web) + 1, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                popups += popup
+                (resultMsg.obj as WebView.WebViewTransport).webView = popup
                 resultMsg.sendToTarget()
                 return true
             }
         }
-        if (savedInstanceState == null) web.loadUrl(WEB_APP) else web.restoreState(savedInstanceState)
+        if (savedInstanceState == null) web.loadUrl(WEB_APP) else { web.restoreState(savedInstanceState); pageHost = web.url?.let { Uri.parse(it).host?.lowercase() } ?: "" }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 // Back on a website goes to the home screen; inside the web app it goes to its home screen. It never
                 // leaves Duckling.
-                if (onWebsite(web.url)) goHome() else web.evaluateJavascript("location.hash = '#/home'", null)
+                if (popups.isNotEmpty()) closePopup(popups.last())
+                else if (onWebsite(web.url)) goHome() else web.evaluateJavascript("location.hash = '#/home'", null)
             }
         })
     }
@@ -149,7 +175,17 @@ class MainActivity : AppCompatActivity() {
         return host != Uri.parse(WEB_APP).host
     }
 
+    /** Runs code in Duckling's own page only: while a website is showing, nothing is sent to it. */
+    fun toWebApp(code: String) { if (pageHost == Uri.parse(WEB_APP).host) web.evaluateJavascript(code, null) }
+
+    private fun closePopup(popup: WebView) {
+        if (!popups.remove(popup)) return
+        (popup.parent as? ViewGroup)?.removeView(popup)
+        popup.destroy()
+    }
+
     private fun goHome() {
+        popups.toList().forEach { closePopup(it) }
         homePill.visibility = View.GONE
         web.loadUrl(WEB_APP)
     }
@@ -163,7 +199,7 @@ class MainActivity : AppCompatActivity() {
         hideSystemBars()
         if (otherPkg != null) endOtherApp("returned")
         if (prefs.lockdownOn && !isPinned()) pin()
-        web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()", null)
+        toWebApp("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()")
     }
 
     // ---- Another app's turn: unpinned while it runs, back to the front when its time ends.
@@ -184,7 +220,7 @@ class MainActivity : AppCompatActivity() {
         val secs = ((SystemClock.elapsedRealtime() - otherStart) / 1000L).toInt()
         otherPkg = null
         otherTimer.removeCallbacks(comeBack)
-        web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onOtherApp && DucklingWeb.onOtherApp(${org.json.JSONObject.quote(pkg)}, $secs, ${org.json.JSONObject.quote(reason)})", null)
+        toWebApp("window.DucklingWeb && DucklingWeb.onOtherApp && DucklingWeb.onOtherApp(${org.json.JSONObject.quote(pkg)}, $secs, ${org.json.JSONObject.quote(reason)})")
     }
 
     /** From the background this needs "Display over other apps"; the parent area asks for it when other apps are on. */
@@ -226,7 +262,7 @@ class MainActivity : AppCompatActivity() {
         // Android answers at once, with no dialog, for a permission it will no longer ask about: settings is the only way.
         val refused = permissions.filterIndexed { i, _ -> grantResults.getOrNull(i) != android.content.pm.PackageManager.PERMISSION_GRANTED }
         if (refused.any { !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(this, it) }) openAppSettings()
-        web.evaluateJavascript("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()", null)
+        toWebApp("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()")
     }
 
     private fun hideSystemBars() {

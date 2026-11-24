@@ -11,6 +11,8 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     private let prefs = Prefs.shared
     private let homePill = UIButton(configuration: .filled())
     private var urlWatch: NSKeyValueObservation?
+    /// Windows a website opened (a "Sign in with Google" window), shown over it until they close.
+    private var popups: [WKWebView] = []
     private lazy var shellScript: String = {
         guard let u = Bundle.main.url(forResource: "shell", withExtension: "js"), let s = try? String(contentsOf: u) else { return "" }
         return s
@@ -31,7 +33,13 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         web.scrollView.bounces = false
         web.isOpaque = false
         web.backgroundColor = UIColor(red: 1, green: 0.99, blue: 0.96, alpha: 1)
-        view = web
+        // The page fills a plain root view, so a website's sign-in window and the Home pill can sit over it.
+        let root = UIView()
+        root.backgroundColor = web.backgroundColor
+        web.frame = root.bounds
+        web.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        root.addSubview(web)
+        view = root
         installScripts()
         web.load(URLRequest(url: Self.webApp))
         addHomePill()
@@ -72,6 +80,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     }
 
     @objc private func goHome() {
+        closePopups()
         homePill.isHidden = true
         web.load(URLRequest(url: Self.webApp))
     }
@@ -131,7 +140,9 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     private func installScripts() {
         let ucc = web.configuration.userContentController
         ucc.removeAllUserScripts()
-        ucc.addUserScript(WKUserScript(source: "window.__ducklingState = \(stateJSON());\n\(shellScript)", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // Only Duckling's own page gets the bridge and its state (device token, PIN hash); a website gets neither.
+        let own = Self.webApp.host ?? ""
+        ucc.addUserScript(WKUserScript(source: "if (location.protocol === 'https:' && location.host === '\(own)') {\nwindow.__ducklingState = \(stateJSON());\n\(shellScript)\n}", injectionTime: .atDocumentStart, forMainFrameOnly: true))
     }
 
     private func pushState() {
@@ -147,7 +158,8 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         js("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()")
     }
 
-    private func js(_ code: String) { DispatchQueue.main.async { self.web.evaluateJavaScript(code, completionHandler: nil) } }
+    /// Runs code in Duckling's own page only: while a website is showing, nothing is sent to it.
+    private func js(_ code: String) { DispatchQueue.main.async { if self.web.url?.host == Self.webApp.host { self.web.evaluateJavaScript(code, completionHandler: nil) } } }
     private func q(_ s: String) -> String {
         guard let d = try? JSONSerialization.data(withJSONObject: [s]), let a = String(data: d, encoding: .utf8) else { return "''" }
         return String(a.dropFirst().dropLast())
@@ -156,6 +168,9 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     // ---- Messages from the page ----------------------------------------------------------------------------------
 
     func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {
+        // Messages count only from Duckling's own page, never from a website or a window it opened.
+        guard message.webView === web, message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+              message.frameInfo.securityOrigin.host == Self.webApp.host else { return }
         guard let body = message.body as? [String: Any], let cmd = body["cmd"] as? String else { return }
         let a = body["args"] as? [Any] ?? []
         let str = { (i: Int) -> String in a.count > i ? String(describing: a[i]) : "" }
@@ -298,11 +313,33 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         decisionHandler(.allow)
     }
 
+    /// A website's new window (its "Sign in with Google" window) opens over it as a real window, so the sign-in can
+    /// report back to the page that opened it and close itself. Opened in place, as before, the report had nowhere to
+    /// go and the sign-in ended on a blank page. The same host rules apply inside it; the Home pill closes it.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        // Links that ask for a new window open in place when allowed.
-        if let url = action.request.url, allowed(url) { webView.load(action.request) }
-        return nil
+        let url = action.request.url
+        if let url = url, !url.absoluteString.isEmpty, !allowed(url) { return nil }
+        let popup = WKWebView(frame: view.bounds, configuration: configuration)
+        popup.navigationDelegate = self
+        popup.uiDelegate = self
+        if let url = url, isSignIn(url) { popup.customUserAgent = Self.browserAgent }
+        popup.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        popup.scrollView.contentInsetAdjustmentBehavior = .never
+        view.insertSubview(popup, belowSubview: homePill)
+        popups.append(popup)
+        return popup
     }
+
+    func webViewDidClose(_ webView: WKWebView) { close(popup: webView) }
+
+    private func close(popup: WKWebView) {
+        guard let i = popups.firstIndex(where: { $0 === popup }) else { return }
+        popups.remove(at: i)
+        popup.stopLoading()
+        popup.removeFromSuperview()
+    }
+
+    private func closePopups() { for p in popups { close(popup: p) } }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }
 }

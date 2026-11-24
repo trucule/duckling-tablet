@@ -91,8 +91,22 @@ public class MainForm : Form
             if (uri.StartsWith(WebOrigin, StringComparison.OrdinalIgnoreCase) || Hosts.IsAllowedUri(uri, AllowedHosts)) return;
             ev.Response = Env!.CreateWebResourceResponse(null, 403, "Blocked", "Content-Type: text/plain");
         };
-        // A link that opens a new window opens here instead, if the site is allowed.
-        core.NewWindowRequested += (_, ev) => { ev.Handled = true; if (Hosts.IsAllowedUri(ev.Uri, AllowedHosts)) core.Navigate(ev.Uri); };
+        // A website's new window (its "Sign in with Google" window) opens over it as a real window, so the sign-in can
+        // report back to the page that opened it and close itself. Opened in place, as before, the report had nowhere
+        // to go and the sign-in ended on a blank page.
+        core.NewWindowRequested += async (_, ev) =>
+        {
+            if (!Hosts.IsAllowedUri(ev.Uri, AllowedHosts) && ev.Uri != "about:blank") { ev.Handled = true; return; }
+            var deferral = ev.GetDeferral();
+            try
+            {
+                var popup = await OpenPopup(Uri.TryCreate(ev.Uri, UriKind.Absolute, out var pu) && Hosts.IsAllowed(pu.Host, SignInHosts) ? browserAgent : ducklingAgent);
+                ev.NewWindow = popup.CoreWebView2;
+                ev.Handled = true;
+            }
+            catch (Exception e) { ShellLog.Write($"popup failed: {e.Message}"); ev.Handled = true; }
+            finally { deferral.Complete(); }
+        };
         core.PermissionRequested += (_, ev) => ev.State = CoreWebView2PermissionState.Deny;   // apps run in the app runner
         core.DownloadStarting += (_, ev) => ev.Cancel = true;
         core.ProcessFailed += (_, ev) => { ShellLog.Write($"webview process failed: {ev.ProcessFailedKind}"); if (ev.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited) BeginInvoke(() => Application.Restart()); else core.Reload(); };
@@ -100,6 +114,42 @@ public class MainForm : Form
         core.SourceChanged += (_, _) => { onWebsite = !core.Source.StartsWith(WebOrigin, StringComparison.OrdinalIgnoreCase); if (onWebsite) frontTimer.Start(); };
         core.Navigate(WebAppUrl);
         pushTimer.Start();
+    }
+
+    readonly List<WebView2> popups = new();
+
+    /// <summary>A window a website opened, over the home screen view: the same host rules, no DucklingShell, and it
+    /// goes away when the page closes it or the child presses Home.</summary>
+    async Task<WebView2> OpenPopup(string agent)
+    {
+        var popup = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = System.Drawing.Color.White };
+        Controls.Add(popup);
+        popup.BringToFront();
+        popups.Add(popup);
+        await popup.EnsureCoreWebView2Async(Env);
+        var c = popup.CoreWebView2;
+        Lock(c.Settings, childSession: ChildSession);
+        c.Settings.UserAgent = agent;
+        c.NavigationStarting += (_, ev) => { if (!Hosts.IsAllowedUri(ev.Uri, AllowedHosts) && ev.Uri != "about:blank") ev.Cancel = true; };
+        c.FrameNavigationStarting += (_, ev) => { if (!Hosts.IsAllowedUri(ev.Uri, AllowedHosts) && ev.Uri != "about:blank") ev.Cancel = true; };
+        c.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
+        c.WebResourceRequested += (_, ev) =>
+        {
+            if (Hosts.IsAllowedUri(ev.Request.Uri, AllowedHosts)) return;
+            ev.Response = Env!.CreateWebResourceResponse(null, 403, "Blocked", "Content-Type: text/plain");
+        };
+        c.NewWindowRequested += (_, ev) => { ev.Handled = true; if (Hosts.IsAllowedUri(ev.Uri, AllowedHosts)) c.Navigate(ev.Uri); };
+        c.WindowCloseRequested += (_, _) => BeginInvoke(() => ClosePopup(popup));
+        c.PermissionRequested += (_, ev) => ev.State = CoreWebView2PermissionState.Deny;
+        c.DownloadStarting += (_, ev) => ev.Cancel = true;
+        return popup;
+    }
+
+    void ClosePopup(WebView2 popup)
+    {
+        if (!popups.Remove(popup)) return;
+        Controls.Remove(popup);
+        popup.Dispose();
     }
 
     public static void Lock(CoreWebView2Settings s, bool childSession)
@@ -116,11 +166,11 @@ public class MainForm : Form
         s.AreDefaultScriptDialogsEnabled = true;
     }
 
-    /// <summary>Runs script in the home screen from any thread.</summary>
+    /// <summary>Runs script in the home screen from any thread; while a website is showing, nothing is sent to it.</summary>
     public void Js(string code)
     {
         if (IsDisposed) return;
-        void Run() { try { _ = Web.CoreWebView2?.ExecuteScriptAsync(code); } catch (Exception) { } }
+        void Run() { try { if (CallerIsWebApp()) _ = Web.CoreWebView2?.ExecuteScriptAsync(code); } catch (Exception) { } }
         if (InvokeRequired) BeginInvoke(Run); else Run();
     }
     public static string Q(string s) => JsonSerializer.Serialize(s);
@@ -170,6 +220,7 @@ public class MainForm : Form
     {
         if (appForm != null && !appForm.IsDisposed) appForm.Close();
         if (otherId != null) EndOther("returned");
+        foreach (var p in popups.ToArray()) ClosePopup(p);
         if (onWebsite) { onWebsite = false; Web.CoreWebView2?.Navigate(WebAppUrl); }
         pill.Hide();
         ComeToFront();

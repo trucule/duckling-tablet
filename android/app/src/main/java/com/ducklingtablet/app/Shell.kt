@@ -30,18 +30,25 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
 
-    private fun js(code: String) { main.post { web.evaluateJavascript(code, null) } }
+    private fun js(code: String) { main.post { activity.toWebApp(code) } }
+    /**
+     * True only while Duckling's own page is showing. The bridge is on the web view, so an allowed website (and the
+     * sign-in pages it goes to) could otherwise read the device token or change the lockdown and the allowed sites.
+     * Every method but platform() and shellVersion() checks it first; a website gets empty answers and no effect.
+     */
+    private fun ok(): Boolean = activity.pageHost == Uri.parse(MainActivity.WEB_APP).host
     private fun q(s: String) = JSONObject.quote(s)
 
     @JavascriptInterface fun platform(): String = "android"
     @JavascriptInterface fun shellVersion(): String = BuildConfig.VERSION_NAME
-    @JavascriptInterface fun takeLocalBackground(): String = LocalBackground.take()
+    @JavascriptInterface fun takeLocalBackground(): String = if (!ok()) "" else LocalBackground.take()
 
-    @JavascriptInterface fun getDeviceToken(): String = prefs.deviceToken
-    @JavascriptInterface fun pushToken(): String = prefs.pushToken
-    @JavascriptInterface fun setDeviceToken(t: String) { prefs.deviceToken = t }
+    @JavascriptInterface fun getDeviceToken(): String = if (!ok()) "" else prefs.deviceToken
+    @JavascriptInterface fun pushToken(): String = if (!ok()) "" else prefs.pushToken
+    @JavascriptInterface fun setDeviceToken(t: String) { if (!ok()) return; prefs.deviceToken = t }
 
     @JavascriptInterface fun installedApps(): String {
+        if (!ok()) return ""
         val o = JSONObject()
         for ((id, v) in prefs.installed()) if (packages.dir(id).exists()) o.put(id, v)
         return o.toString()
@@ -49,6 +56,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
 
     @JavascriptInterface
     fun installApp(id: String, version: String, url: String, sha256: String, signature: String, permissions: String) {
+        if (!ok()) return
         io.execute {
             try {
                 packages.install(id, url, sha256, signature)
@@ -61,19 +69,21 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
         }
     }
 
-    @JavascriptInterface fun uninstallApp(id: String) { io.execute { packages.uninstall(id); prefs.setInstalled(id, null) } }
+    @JavascriptInterface fun uninstallApp(id: String) { if (!ok()) return; io.execute { packages.uninstall(id); prefs.setInstalled(id, null) } }
 
     @JavascriptInterface fun openApp(id: String) {
+        if (!ok()) return
         if (!packages.dir(id).exists()) return
         main.post { activity.startActivity(Intent(activity, AppActivity::class.java).putExtra("id", id)) }
     }
 
-    @JavascriptInterface fun hasPin(): Boolean = prefs.hasPin()
-    @JavascriptInterface fun setPin(pin: String) { prefs.setPin(pin) }
-    @JavascriptInterface fun verifyPin(pin: String): Boolean = prefs.verifyPin(pin)
-    @JavascriptInterface fun setPinHash(hex: String) { prefs.setPinHash(hex) }
+    @JavascriptInterface fun hasPin(): Boolean = ok() && prefs.hasPin()
+    @JavascriptInterface fun setPin(pin: String) { if (!ok()) return; prefs.setPin(pin) }
+    @JavascriptInterface fun verifyPin(pin: String): Boolean = ok() && prefs.verifyPin(pin)
+    @JavascriptInterface fun setPinHash(hex: String) { if (!ok()) return; prefs.setPinHash(hex) }
 
     @JavascriptInterface fun lockdownStatus(): String {
+        if (!ok()) return ""
         val role = activity.getSystemService(RoleManager::class.java)
         val keyguard = activity.getSystemService(KeyguardManager::class.java)
         return JSONObject()
@@ -85,6 +95,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     }
 
     @JavascriptInterface fun requestHomeRole() {
+        if (!ok()) return
         main.post {
             val role = activity.getSystemService(RoleManager::class.java) ?: return@post
             if (role.isRoleAvailable(RoleManager.ROLE_HOME) && !role.isRoleHeld(RoleManager.ROLE_HOME)) {
@@ -95,20 +106,20 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
         }
     }
 
-    @JavascriptInterface fun openSecuritySettings() { main.post { activity.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) } }
+    @JavascriptInterface fun openSecuritySettings() { if (!ok()) return; main.post { activity.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) } }
 
     /**
      * Android's permission for Duckling to use the microphone and camera, as JSON {microphone, camera}: on, or off
      * (not granted yet, or declined). Apps that listen or take pictures need them.
      */
-    @JavascriptInterface fun mediaAccess(): String = JSONObject()
+    @JavascriptInterface fun mediaAccess(): String = if (!ok()) "" else (JSONObject()
         .put("microphone", if (activity.hasPermission(android.Manifest.permission.RECORD_AUDIO)) "on" else "off")
-        .put("camera", if (activity.hasPermission(android.Manifest.permission.CAMERA)) "on" else "off").toString()
+        .put("camera", if (activity.hasPermission(android.Manifest.permission.CAMERA)) "on" else "off").toString())
 
     /** Asks Android for both; one Android will no longer ask about opens Duckling's page in Android's settings. */
-    @JavascriptInterface fun requestMediaAccess() { main.post { activity.requestMedia() } }
+    @JavascriptInterface fun requestMediaAccess() { if (!ok()) return; main.post { activity.requestMedia() } }
 
-    @JavascriptInterface fun openAppSettings() { main.post { activity.openAppSettings() } }
+    @JavascriptInterface fun openAppSettings() { if (!ok()) return; main.post { activity.openAppSettings() } }
 
     /**
      * Android's Wi-Fi settings, from the parent area: a parent picks a network (and signs in on a captive portal if
@@ -116,6 +127,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
      * onResume. An app cannot join networks itself without device-owner provisioning.
      */
     @JavascriptInterface fun openWifiSettings() {
+        if (!ok()) return
         main.post {
             activity.unpin()
             try { activity.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) {
@@ -131,6 +143,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
      * Built once per process; the web app reports it at check-in.
      */
     @JavascriptInterface fun installedPackages(): String {
+        if (!ok()) return ""
         cachedPackages?.let { return it }
         val pm = activity.packageManager
         val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -154,8 +167,9 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     private var cachedPackages: String? = null
 
     /** Whether Duckling may draw over other apps, which is what lets it come back when another app's time ends. */
-    @JavascriptInterface fun canDrawOverlays(): Boolean = Settings.canDrawOverlays(activity)
+    @JavascriptInterface fun canDrawOverlays(): Boolean = ok() && Settings.canDrawOverlays(activity)
     @JavascriptInterface fun openOverlaySettings() {
+        if (!ok()) return
         main.post { try { activity.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${activity.packageName}"))) } catch (_: Exception) {} }
     }
 
@@ -165,6 +179,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
      * again, and tells the web app how long the app was open.
      */
     @JavascriptInterface fun launchPackage(pkg: String, seconds: Int) {
+        if (!ok()) return
         main.post {
             val intent = activity.packageManager.getLaunchIntentForPackage(pkg) ?: run { js("window.DucklingWeb && DucklingWeb.onOtherApp && DucklingWeb.onOtherApp(${q(pkg)}, 0, 'missing')"); return@post }
             activity.beginOtherApp(pkg, seconds)
@@ -174,6 +189,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
 
     /** "wifi", "cellular", "other" or "none": what the tablet is connected through right now. */
     @JavascriptInterface fun networkStatus(): String {
+        if (!ok()) return ""
         val cm = activity.getSystemService(android.net.ConnectivityManager::class.java) ?: return "none"
         val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return "none"
         return when {
@@ -184,6 +200,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     }
 
     @JavascriptInterface fun setLockdown(on: Boolean) {
+        if (!ok()) return
         prefs.lockdownOn = on
         main.post { if (on) activity.pin() else activity.unpin() }
     }
@@ -194,6 +211,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
      * app stays, released and unlocked, and the home chooser is one tap away in the pairing screen.
      */
     @JavascriptInterface fun release() {
+        if (!ok()) return
         main.post {
             activity.unpin()
             prefs.clearAll()
@@ -207,22 +225,22 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     }
 
     /** Website hosts a parent allowed (from the device config); the WebView lets only these through besides Duckling's own. */
-    @JavascriptInterface fun setAllowedHosts(csv: String) { activity.allowedHosts = csv.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet() }
+    @JavascriptInterface fun setAllowedHosts(csv: String) { if (!ok()) return; activity.allowedHosts = csv.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet() }
 
     /** Sign-in services a website may send a parent to; the WebView presents a standard browser user agent on them. */
-    @JavascriptInterface fun setSignInHosts(csv: String) { activity.signInHosts = csv.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet() }
+    @JavascriptInterface fun setSignInHosts(csv: String) { if (!ok()) return; activity.signInHosts = csv.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet() }
 
     /** The child's first name (for private narrator lines) and the narrator voice, from the device config. */
-    @JavascriptInterface fun setChildInfo(name: String, voice: String) { prefs.childName = name; if (voice.isNotEmpty()) prefs.narratorVoice = voice }
-    @JavascriptInterface fun setChildLevels(json: String) { prefs.childLevels = json }
-    @JavascriptInterface fun setChildId(id: String) { prefs.childId = id }
+    @JavascriptInterface fun setChildInfo(name: String, voice: String) { if (!ok()) return; prefs.childName = name; if (voice.isNotEmpty()) prefs.narratorVoice = voice }
+    @JavascriptInterface fun setChildLevels(json: String) { if (!ok()) return; prefs.childLevels = json }
+    @JavascriptInterface fun setChildId(id: String) { if (!ok()) return; prefs.childId = id }
 
     // ---- The subscription through Google Play. Results arrive at DucklingWeb.onBilling(status, message).
-    @JavascriptInterface fun setAppAccountToken(t: String) { prefs.appAccountToken = t }
-    @JavascriptInterface fun subscriptionPrice(): String = activity.billing.displayPrice
-    @JavascriptInterface fun subscribe() { activity.billing.subscribe() }
-    @JavascriptInterface fun restorePurchases() { activity.billing.restore() }
-    @JavascriptInterface fun manageSubscription() { activity.billing.manage() }
+    @JavascriptInterface fun setAppAccountToken(t: String) { if (!ok()) return; prefs.appAccountToken = t }
+    @JavascriptInterface fun subscriptionPrice(): String = if (!ok()) "" else activity.billing.displayPrice
+    @JavascriptInterface fun subscribe() { if (!ok()) return; activity.billing.subscribe() }
+    @JavascriptInterface fun restorePurchases() { if (!ok()) return; activity.billing.restore() }
+    @JavascriptInterface fun manageSubscription() { if (!ok()) return; activity.billing.manage() }
 
-    @JavascriptInterface fun reload() { main.post { web.reload() } }
+    @JavascriptInterface fun reload() { if (!ok()) return; main.post { web.reload() } }
 }
