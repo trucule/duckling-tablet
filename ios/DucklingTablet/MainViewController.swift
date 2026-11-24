@@ -13,6 +13,9 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     private var urlWatch: NSKeyValueObservation?
     /// Windows a website opened (a "Sign in with Google" window), shown over it until they close.
     private var popups: [WKWebView] = []
+    /// The last request restarted to change the user agent (decidePolicyFor); the same address is never restarted twice
+    /// in a row.
+    private var restartedURL: URL?
     private lazy var shellScript: String = {
         guard let u = Bundle.main.url(forResource: "shell", withExtension: "js"), let s = try? String(contentsOf: u) else { return "" }
         return s
@@ -295,15 +298,21 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         guard let url = action.request.url else { return decisionHandler(.cancel) }
         guard allowed(url) else { return decisionHandler(.cancel) }
         // A standard browser while signing in, Duckling's own view again on the way back to the site.
+        // iOS 27 reads back an unset agent as "" rather than nil, so the two are compared as "no agent"; compared as
+        // they were, "" never equalled nil, every navigation was cancelled and restarted without end, and the home
+        // screen stayed blank. A request is restarted at most once, so no reading of the agent can loop again.
         if action.targetFrame?.isMainFrame != false {
             let agent: String? = isSignIn(url) ? Self.browserAgent : nil
-            if webView.customUserAgent != agent {
+            let current = webView.customUserAgent.flatMap { $0.isEmpty ? nil : $0 }
+            if current != agent, restartedURL != url {
                 webView.customUserAgent = agent
+                restartedURL = url
                 // The agent applies to requests made after it is set; this one is restarted with it.
                 decisionHandler(.cancel)
                 webView.load(action.request)
                 return
             }
+            restartedURL = nil
         }
         decisionHandler(.allow)
     }

@@ -18,7 +18,9 @@ final class MainViewLayoutTests: XCTestCase {
         }
     }
 
-    /// Reports what the home screen shows from the live web app (HOME-PROBE in the test log).
+    /// The home screen loads the live web app with the shell bridge. Every iPad build showed a blank white screen on
+    /// iOS 27 because the user agent check cancelled the first navigation again and again; this caught it as a page
+    /// stuck at about:blank.
     func testHomeScreenShowsTheWebApp() async throws {
         let vc = MainViewController()
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -34,6 +36,6 @@ final class MainViewLayoutTests: XCTestCase {
             if report.contains("\"shell\":true"), !report.contains("\"text\":\"\"") { break }
         }
         print("HOME-PROBE frame=\(web.frame) subviews=\(vc.view.subviews.map { String(describing: type(of: $0)) }) page=\(report)")
-        // A report only: the simulator on CI does not always finish loading a live page, so this cannot fail a build.
+        XCTAssertTrue(report.contains("\"shell\":true"), "the home screen did not load the web app with the shell: \(report)")
     }
 }
