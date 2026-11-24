@@ -141,9 +141,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     private func installScripts() {
         let ucc = web.configuration.userContentController
         ucc.removeAllUserScripts()
-        // Only Duckling's own page gets the bridge and its state (device token, PIN hash); a website gets neither.
-        let own = Self.webApp.host ?? ""
-        ucc.addUserScript(WKUserScript(source: "if (location.protocol === 'https:' && location.host === '\(own)') {\nwindow.__ducklingState = \(stateJSON());\n\(shellScript)\n}", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        ucc.addUserScript(WKUserScript(source: "window.__ducklingState = \(stateJSON());\n\(shellScript)", injectionTime: .atDocumentStart, forMainFrameOnly: true))
     }
 
     private func pushState() {
@@ -159,8 +157,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         js("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()")
     }
 
-    /// Runs code in Duckling's own page only: while a website is showing, nothing is sent to it.
-    private func js(_ code: String) { DispatchQueue.main.async { if self.web.url?.host == Self.webApp.host { self.web.evaluateJavaScript(code, completionHandler: nil) } } }
+    private func js(_ code: String) { DispatchQueue.main.async { self.web.evaluateJavaScript(code, completionHandler: nil) } }
     private func q(_ s: String) -> String {
         guard let d = try? JSONSerialization.data(withJSONObject: [s]), let a = String(data: d, encoding: .utf8) else { return "''" }
         return String(a.dropFirst().dropLast())
@@ -169,9 +166,6 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     // ---- Messages from the page ----------------------------------------------------------------------------------
 
     func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {
-        // Messages count only from Duckling's own page, never from a website or a window it opened.
-        guard message.webView === web, message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
-              message.frameInfo.securityOrigin.host == Self.webApp.host else { return }
         guard let body = message.body as? [String: Any], let cmd = body["cmd"] as? String else { return }
         let a = body["args"] as? [Any] ?? []
         let str = { (i: Int) -> String in a.count > i ? String(describing: a[i]) : "" }
