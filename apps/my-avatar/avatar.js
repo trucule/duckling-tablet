@@ -337,9 +337,15 @@ function buildPlace(id) {
 // Photo places. A place with a photo shows its drawn version first; the photo (backdrops.js) downloads the first time
 // she goes there and is kept on the tablet, so later it comes up at once. The photo replaces everything drawn, lights
 // her from all round the way the place is lit, and its sun casts her shadow on the photo's ground.
-// Each entry: the photo, and where its sun goes round her (radians, atan2(z, x); 0.88 is front right).
-// Indoor photos smear when laid on the ground (the room's furniture is not on the floor plane), so the bedroom stays drawn.
-const PHOTO_PLACE = { park: ['ballawley_park', 0.88], beach: ['fish_hoek_beach', -1.2], castle: ['monkstown_castle', 0.48], farm: ['farm_field', 0.88] };
+// Each entry: the photo, and how it is turned (backdrops.js load): sunAt, where its sun goes round her (radians,
+// atan2(z, x); 0.88 is front right), or face, the part of the photo to show behind her.
+const PHOTO_PLACE = {
+  park: ['ballawley_park', { sunAt: 0.88 }], beach: ['fish_hoek_beach', { sunAt: -1.2 }], castle: ['monkstown_castle', { sunAt: 0.48 }], farm: ['farm_field', { sunAt: 0.88 }],
+  bedroom: ['hotel_room', { face: 0.45 }], desert: ['goegap', { sunAt: 0.88 }], artstudio: ['art_studio', { face: 0.85 }], snow: ['snowy_meadow', { face: 0.5 }],
+  city: ['potsdamer_platz', { face: 0.8 }], jungle: ['rainforest_trail', { sunAt: 0.88 }], nightsky: ['qwantani_night', { sunAt: 0.88 }], space: ['outer_space', { face: 0.3 }],
+  underwater: ['under_the_sea', { face: 0.5 }], sunset: ['kiara_8_sunset', { sunAt: 0.88 }], rainbow: ['rainbow_hill', { face: 0.6 }], volcano: ['volcano_island', { face: 0.3 }],
+  stage: ['big_stage', { face: 0.5 }], candyland: ['candy_land', { face: 0.5 }], clouds: ['cloud_kingdom', { face: 0.7 }], icecastle: ['ice_palace', { face: 0.5 }],
+};
 let placeNow = null, photoLight = null;
 const photoEnv = {};
 function studioLight() {
@@ -349,12 +355,12 @@ function studioLight() {
 }
 function wantPhoto(id) {
   const B = window.DucklingBackdrops, P = PHOTO_PLACE[id]; if (!B || !P) return;
-  B.load(P[0], { sunAt: P[1] }).then(set => {
+  B.load(P[0], P[1]).then(set => {
     if (!set || placeNow !== id) return;
     for (const c of backdrop.children) c.visible = false;
     placeAnims.length = 0; floorY = 0; avatar.position.y = 0;
     backdrop.add(B.ground(set, { height: 1.6, radius: 40 }));
-    const catcher = new T.Mesh(new T.PlaneGeometry(8, 8), new T.ShadowMaterial({ opacity: 0.38 }));
+    const catcher = new T.Mesh(new T.PlaneGeometry(8, 8), new T.ShadowMaterial({ opacity: 0.1 + 0.28 * Math.min(1, set.meta.sunStrength / 80) }));   // soft under a cloudy sky
     catcher.rotation.x = -Math.PI / 2; catcher.position.y = 0.001; catcher.receiveShadow = true; catcher.raycast = () => {};
     backdrop.add(catcher);
     if (scene.background && scene.background.isTexture) scene.background.dispose();

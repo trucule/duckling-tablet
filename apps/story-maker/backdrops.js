@@ -5,16 +5,22 @@
    the photo and its lighting come from the Duckling API (/backdrops, backend/src/routes/backdrops.ts) and are kept in
    this tablet's IndexedDB; after that they load from there, offline too. A place whose photo cannot be had keeps its
    drawn backdrop.
-     DucklingBackdrops.load(id, { linear, sunAt }) -> Promise of { id, meta, map, light, turn } or null
+     DucklingBackdrops.load(id, { linear, sunAt, face }) -> Promise of { id, meta, map, light, turn } or null
        linear: no sRGB decode of the photo, for apps that draw without colour management
        sunAt: the scene's azimuth (radians, atan2(z, x)) to turn the photo's sun to; default 0.88, front right, so
          the camera sees the sunlit side of the cast
+       face: in place of sunAt, the column of the photo (0 at its left edge to 1 at its right) to turn toward -z,
+         straight ahead of a camera on +z; for a place whose best view matters more than where its sun falls
        map: the 360-degree photo as a texture; light: its lighting as a half-float equirect texture, already turned,
          for PMREMGenerator.fromEquirectangular; turn: how far the photo is turned
-       meta: sunAz, sunEl (radians), sunColor, sunStrength, skyColor, groundColor (0 to 1)
+       meta: sunAz, sunEl (radians), sunColor, sunStrength, skyColor, groundColor (0 to 1); room, for a photo taken
+         indoors: how far its walls are, in camera heights
      DucklingBackdrops.ground(set, { height, radius }) -> a mesh that shows the photo all round with its lower half laid
        on the ground, so things standing at y = 0 stand on the photo's ground (height: the camera height of the photo
-       in scene units). Put it in the scene in place of the drawn sky and ground.
+       in scene units). Put it in the scene in place of the drawn sky and ground. To fade it, set material.transparent and
+       material.uniforms.opacity (only while the camera is inside it: a see-through dome would cover the cast).
+       An indoor photo (meta.room) is laid on a room-sized dome instead, so its walls stand at about their real
+       distance; the camera may be outside it, and then sees the far side of the room.
      DucklingBackdrops.sunDirection(set) -> a unit vector toward the turned photo's sun. */
 (function () {
   'use strict';
@@ -45,9 +51,17 @@
       }).then(function (b2) { put(name, b2); return b2; });
     });
   }
+  // The list of photos is asked for again each time the app opens, so places added later reach the tablet; the kept
+  // copy is used when the API cannot be reached. The photos themselves never change under a name.
   var list = null;
   function meta(id) {
-    if (!list) list = file('backdrops.json').then(function (b) { return b.text(); }).then(JSON.parse).catch(function (e) { list = null; throw e; });
+    if (!list) list = fetch(api() + '/backdrops/backdrops.json', { mode: 'cors', credentials: 'omit' }).then(function (r) {
+      if (!r.ok) throw new Error('backdrops.json ' + r.status);
+      return r.blob();
+    }).then(function (b) { put('backdrops.json', b); return b; }, function () { return get('backdrops.json'); }).then(function (b) {
+      if (!b) throw new Error('no backdrops.json');
+      return b.text();
+    }).then(JSON.parse).catch(function (e) { list = null; throw e; });
     return list.then(function (j) { return j.backdrops[id] || null; });
   }
   function lightTexture(bitmap, turn) {
@@ -71,14 +85,15 @@
   var loaded = {};
   function load(id, o) {
     o = o || {};
-    var at = o.sunAt === undefined ? 0.88 : o.sunAt, key = id + '|' + !!o.linear + '|' + at;
+    var at = o.sunAt === undefined ? 0.88 : o.sunAt, key = id + '|' + !!o.linear + '|' + (o.face === undefined ? at : 'f' + o.face);
     if (loaded[key]) return loaded[key];
     loaded[key] = meta(id).then(function (m) {
       if (!m) return null;
       return Promise.all([file(id + '.jpg'), file(id + '-light.png')]).then(function (bs) {
         return Promise.all([createImageBitmap(bs[0], { imageOrientation: 'flipY' }), createImageBitmap(bs[1], { premultiplyAlpha: 'none' })]);
       }).then(function (ims) {
-        var turn = m.sunAz - at, map = new T.Texture(ims[0]); map.mapping = T.EquirectangularReflectionMapping; map.wrapS = T.RepeatWrapping;
+        // A photo column u is at azimuth u * 2pi - pi; -z is azimuth -pi/2.
+        var turn = o.face === undefined ? m.sunAz - at : (o.face * 2 * Math.PI - Math.PI) + Math.PI / 2, map = new T.Texture(ims[0]); map.mapping = T.EquirectangularReflectionMapping; map.wrapS = T.RepeatWrapping;
         map.encoding = o.linear ? T.LinearEncoding : T.sRGBEncoding; map.generateMipmaps = true; map.minFilter = T.LinearMipmapLinearFilter;
         map.anisotropy = 4; map.needsUpdate = true;
         return { id: id, meta: m, map: map, light: lightTexture(ims[1], turn), turn: turn };
@@ -90,10 +105,10 @@
   function ground(set, o) {
     o = o || {};
     var mat = new T.ShaderMaterial({
-      uniforms: { map: { value: set.map }, turn: { value: set.turn / (2 * Math.PI) }, height: { value: o.height || 1.7 }, radius: { value: o.radius || 60 } },
+      uniforms: { opacity: { value: 1 }, map: { value: set.map }, turn: { value: set.turn / (2 * Math.PI) }, height: { value: o.height || 1.7 }, radius: { value: set.meta.room ? set.meta.room * (o.height || 1.7) : o.radius || 60 } },
       side: T.DoubleSide, depthWrite: false, fog: false,
       vertexShader: 'varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
-      fragmentShader: 'varying vec3 vW; uniform float radius; uniform float height; uniform float turn; uniform sampler2D map;\n' +
+      fragmentShader: 'varying vec3 vW; uniform float opacity; uniform float radius; uniform float height; uniform float turn; uniform sampler2D map;\n' +
         'float disk(vec3 ro, vec3 rd, vec3 c, vec3 n, float r) { float d = dot(rd, n); if (d > 0.0) return 1e6; vec3 o = ro - c; float t = -dot(n, o) / d; vec3 q = o + rd * t; return dot(q, q) < r * r ? t : 1e6; }\n' +
         'float sphere(vec3 ro, vec3 rd, float ra) { float b = dot(ro, rd); float c = dot(ro, ro) - ra * ra; float h = b * b - c; if (h < 0.0) return -1.0; return -b + sqrt(h); }\n' +
         '#include <common>\n' +
@@ -101,11 +116,12 @@
         '  float s = sphere(cp, p, radius); vec3 dir = vec3(0.0, 1.0, 0.0);\n' +
         '  if (s > 0.0) { float g = disk(cp, p, vec3(0.0, -height, 0.0), vec3(0.0, 1.0, 0.0), radius); dir = normalize(cp + min(s, g) * p); }\n' +
         '  vec2 uv = equirectUv(dir); uv.x += turn;\n' +
-        '  gl_FragColor = vec4(texture2D(map, uv).rgb, 1.0);\n' +
+        '  gl_FragColor = vec4(texture2D(map, uv).rgb, opacity);\n' +
         '  #include <encodings_fragment>\n}'
     });
     var m = new T.Mesh(new T.IcosahedronGeometry(1, 16), mat);
-    m.scale.setScalar(o.radius || 60); m.renderOrder = -10; m.frustumCulled = false; m.userData.noInk = true; m.raycast = function () {};
+    m.scale.setScalar(mat.uniforms.radius.value); m.position.y = mat.uniforms.height.value;   // on the photo's camera
+    m.renderOrder = -10; m.frustumCulled = false; m.userData.noInk = true; m.raycast = function () {};
     return m;
   }
   function sunDirection(set) {

@@ -1,5 +1,4 @@
 {
- "source": "Poly Haven (polyhaven.com), CC0",
  "backdrops": {
   "air_museum_playground": {
    "skyColor": [
@@ -20,7 +19,31 @@
     0.585
    ],
    "sunStrength": 200,
-   "exposure": 1.70689
+   "exposure": 1.70689,
+   "source": "Poly Haven (polyhaven.com), CC0"
+  },
+  "art_studio": {
+   "source": "Poly Haven (polyhaven.com), CC0",
+   "skyColor": [
+    0.79,
+    0.814,
+    0.809
+   ],
+   "groundColor": [
+    0.59,
+    0.608,
+    0.568
+   ],
+   "sunAz": -1.919,
+   "sunEl": 1.1516,
+   "sunColor": [
+    0.849,
+    0.953,
+    1.0
+   ],
+   "sunStrength": 118.1,
+   "exposure": 0.57996,
+   "room": 2.2
   },
   "ballawley_park": {
    "skyColor": [
@@ -41,7 +64,31 @@
     0.964
    ],
    "sunStrength": 200,
-   "exposure": 6.17658
+   "exposure": 6.17658,
+   "source": "Poly Haven (polyhaven.com), CC0"
+  },
+  "big_stage": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.269,
+    0.177,
+    0.133
+   ],
+   "groundColor": [
+    0.694,
+    0.425,
+    0.243
+   ],
+   "sunAz": -3.1416,
+   "sunEl": 1.0996,
+   "sunColor": [
+    1.0,
+    0.82,
+    0.6
+   ],
+   "sunStrength": 90,
+   "exposure": 1,
+   "room": 4
   },
   "bloem_train_track_clear": {
    "skyColor": [
@@ -62,7 +109,8 @@
     0.673
    ],
    "sunStrength": 200,
-   "exposure": 4.25227
+   "exposure": 4.25227,
+   "source": "Poly Haven (polyhaven.com), CC0"
   },
   "blouberg_sunrise_1": {
    "skyColor": [
@@ -83,7 +131,74 @@
     0.197
    ],
    "sunStrength": 48.3,
-   "exposure": 0.72389
+   "exposure": 0.72389,
+   "source": "Poly Haven (polyhaven.com), CC0"
+  },
+  "candy_land": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.785,
+    0.861,
+    0.923
+   ],
+   "groundColor": [
+    0.888,
+    0.775,
+    0.816
+   ],
+   "sunAz": -2.1991,
+   "sunEl": 0.8796,
+   "sunColor": [
+    1.0,
+    0.95,
+    0.9
+   ],
+   "sunStrength": 90,
+   "exposure": 1
+  },
+  "cloud_kingdom": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.308,
+    0.437,
+    0.641
+   ],
+   "groundColor": [
+    0.765,
+    0.737,
+    0.758
+   ],
+   "sunAz": 1.8401,
+   "sunEl": 0.1586,
+   "sunColor": [
+    1.0,
+    0.82,
+    0.6
+   ],
+   "sunStrength": 150,
+   "exposure": 1
+  },
+  "cupcake_town": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.608,
+    0.747,
+    0.909
+   ],
+   "groundColor": [
+    0.804,
+    0.697,
+    0.609
+   ],
+   "sunAz": 2.066,
+   "sunEl": 0.8094,
+   "sunColor": [
+    1.0,
+    0.93,
+    0.8
+   ],
+   "sunStrength": 140,
+   "exposure": 1
   },
   "epping_forest_01": {
    "skyColor": [
@@ -104,7 +219,8 @@
     0.913
    ],
    "sunStrength": 128.2,
-   "exposure": 2.21095
+   "exposure": 2.21095,
+   "source": "Poly Haven (polyhaven.com), CC0"
   },
   "farm_field": {
    "skyColor": [
@@ -125,7 +241,8 @@
     0.767
    ],
    "sunStrength": 21.6,
-   "exposure": 2.83813
+   "exposure": 2.83813,
+   "source": "Poly Haven (polyhaven.com), CC0"
   },
   "fish_hoek_beach": {
    "skyColor": [
@@ -146,7 +263,8 @@
     0.224
    ],
    "sunStrength": 9.3,
-   "exposure": 0.76045
+   "exposure": 0.76045,
+   "source": "Poly Haven (polyhaven.com), CC0"
   },
   "fouriesburg_mountain_midday": {
    "skyColor": [
@@ -167,7 +285,119 @@
     0.882
    ],
    "sunStrength": 200,
-   "exposure": 1.05593
+   "exposure": 1.05593,
+   "source": "Poly Haven (polyhaven.com), CC0"
+  },
+  "goegap": {
+   "source": "Poly Haven (polyhaven.com), CC0",
+   "skyColor": [
+    0.979,
+    0.979,
+    0.98
+   ],
+   "groundColor": [
+    0.728,
+    0.595,
+    0.394
+   ],
+   "sunAz": 0.6793,
+   "sunEl": 0.8126,
+   "sunColor": [
+    0.949,
+    0.983,
+    1.0
+   ],
+   "sunStrength": 200,
+   "exposure": 0.88452
+  },
+  "hotel_room": {
+   "source": "Poly Haven (polyhaven.com), CC0",
+   "skyColor": [
+    0.987,
+    0.973,
+    0.937
+   ],
+   "groundColor": [
+    0.695,
+    0.617,
+    0.509
+   ],
+   "sunAz": -1.1855,
+   "sunEl": 0.9332,
+   "sunColor": [
+    1.0,
+    0.677,
+    0.303
+   ],
+   "sunStrength": 200,
+   "exposure": 1.32244,
+   "room": 1.6
+  },
+  "ice_palace": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.548,
+    0.665,
+    0.795
+   ],
+   "groundColor": [
+    0.752,
+    0.779,
+    0.836
+   ],
+   "sunAz": -1.0886,
+   "sunEl": 0.2747,
+   "sunColor": [
+    1.0,
+    0.95,
+    0.88
+   ],
+   "sunStrength": 120,
+   "exposure": 1
+  },
+  "kiara_8_sunset": {
+   "source": "Poly Haven (polyhaven.com), CC0",
+   "skyColor": [
+    0.796,
+    0.863,
+    0.931
+   ],
+   "groundColor": [
+    0.737,
+    0.637,
+    0.484
+   ],
+   "sunAz": 0.7314,
+   "sunEl": 0.0623,
+   "sunColor": [
+    1.0,
+    0.702,
+    0.155
+   ],
+   "sunStrength": 200,
+   "exposure": 3.12028
+  },
+  "kloofendal_overcast": {
+   "source": "Poly Haven (polyhaven.com), CC0",
+   "skyColor": [
+    0.954,
+    0.96,
+    0.969
+   ],
+   "groundColor": [
+    0.672,
+    0.588,
+    0.485
+   ],
+   "sunAz": 0.5751,
+   "sunEl": 0.3947,
+   "sunColor": [
+    1.0,
+    0.883,
+    0.751
+   ],
+   "sunStrength": 8.4,
+   "exposure": 1.57202
   },
   "lythwood_room": {
    "skyColor": [
@@ -188,7 +418,9 @@
     1.0
    ],
    "sunStrength": 68.1,
-   "exposure": 0.45712
+   "exposure": 0.45712,
+   "room": 1.6,
+   "source": "Poly Haven (polyhaven.com), CC0"
   },
   "meadow_2": {
    "skyColor": [
@@ -209,7 +441,8 @@
     0.766
    ],
    "sunStrength": 200,
-   "exposure": 2.24904
+   "exposure": 2.24904,
+   "source": "Poly Haven (polyhaven.com), CC0"
   },
   "monkstown_castle": {
    "skyColor": [
@@ -230,7 +463,228 @@
     0.948
    ],
    "sunStrength": 43.5,
-   "exposure": 1.11222
+   "exposure": 1.11222,
+   "source": "Poly Haven (polyhaven.com), CC0"
+  },
+  "moon_surface": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.16,
+    0.168,
+    0.182
+   ],
+   "groundColor": [
+    0.52,
+    0.505,
+    0.492
+   ],
+   "sunAz": 3.0721,
+   "sunEl": 0.2971,
+   "sunColor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "sunStrength": 200,
+   "exposure": 1
+  },
+  "outer_space": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.221,
+    0.211,
+    0.284
+   ],
+   "groundColor": [
+    0.413,
+    0.409,
+    0.41
+   ],
+   "sunAz": 1.7696,
+   "sunEl": 0.4844,
+   "sunColor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "sunStrength": 200,
+   "exposure": 1
+  },
+  "potsdamer_platz": {
+   "source": "Poly Haven (polyhaven.com), CC0",
+   "skyColor": [
+    0.981,
+    0.982,
+    0.988
+   ],
+   "groundColor": [
+    0.708,
+    0.559,
+    0.548
+   ],
+   "sunAz": -0.8935,
+   "sunEl": 0.4232,
+   "sunColor": [
+    1.0,
+    0.922,
+    0.827
+   ],
+   "sunStrength": 8.0,
+   "exposure": 2.14877
+  },
+  "qwantani_night": {
+   "source": "Poly Haven (polyhaven.com), CC0",
+   "skyColor": [
+    0.314,
+    0.302,
+    0.306
+   ],
+   "groundColor": [
+    0.081,
+    0.07,
+    0.042
+   ],
+   "sunAz": 0.6182,
+   "sunEl": -0.0796,
+   "sunColor": [
+    0.871,
+    1.0,
+    0.828
+   ],
+   "sunStrength": 6.0,
+   "exposure": 0.12847
+  },
+  "rainbow_hill": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.546,
+    0.698,
+    0.867
+   ],
+   "groundColor": [
+    0.37,
+    0.4,
+    0.141
+   ],
+   "sunAz": -1.4451,
+   "sunEl": 0.3142,
+   "sunColor": [
+    1.0,
+    0.95,
+    0.85
+   ],
+   "sunStrength": 120,
+   "exposure": 1
+  },
+  "rainforest_trail": {
+   "source": "Poly Haven (polyhaven.com), CC0",
+   "skyColor": [
+    0.969,
+    0.981,
+    0.986
+   ],
+   "groundColor": [
+    0.862,
+    0.831,
+    0.732
+   ],
+   "sunAz": 0.623,
+   "sunEl": 0.59,
+   "sunColor": [
+    0.811,
+    0.859,
+    1.0
+   ],
+   "sunStrength": 62.8,
+   "exposure": 2.31829
+  },
+  "snowy_meadow": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.818,
+    0.856,
+    0.911
+   ],
+   "groundColor": [
+    0.86,
+    0.887,
+    0.936
+   ],
+   "sunAz": 0.0,
+   "sunEl": 0.7854,
+   "sunColor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "sunStrength": 8,
+   "exposure": 1
+  },
+  "snowy_mountain": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.495,
+    0.671,
+    0.852
+   ],
+   "groundColor": [
+    0.826,
+    0.839,
+    0.872
+   ],
+   "sunAz": -3.0381,
+   "sunEl": 1.3382,
+   "sunColor": [
+    1.0,
+    0.97,
+    0.9
+   ],
+   "sunStrength": 160,
+   "exposure": 1
+  },
+  "under_the_sea": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.588,
+    0.733,
+    0.81
+   ],
+   "groundColor": [
+    0.797,
+    0.766,
+    0.714
+   ],
+   "sunAz": -0.0779,
+   "sunEl": 1.2081,
+   "sunColor": [
+    0.85,
+    1.0,
+    1.0
+   ],
+   "sunStrength": 60,
+   "exposure": 1
+  },
+  "volcano_island": {
+   "source": "Generated for Duckling Tablet with Google Gemini",
+   "skyColor": [
+    0.515,
+    0.686,
+    0.835
+   ],
+   "groundColor": [
+    0.386,
+    0.33,
+    0.272
+   ],
+   "sunAz": 0.6283,
+   "sunEl": 1.0996,
+   "sunColor": [
+    1.0,
+    0.95,
+    0.85
+   ],
+   "sunStrength": 150,
+   "exposure": 1
   }
  }
 }

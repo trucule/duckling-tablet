@@ -1,7 +1,7 @@
 {
   "id": "read-it-say-it",
   "name": "Read It Say It Make It",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Read a passage out loud and the tablet listens, marking each word as it is read; then answer about it and make something from it. Speech checking runs on the tablet, offline.",
   "subjects": [
     "reading"

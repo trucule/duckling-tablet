@@ -17,6 +17,7 @@ every change is small, tested, and described by what it does.
 - `docs/ladders.md`: the grade scale, how an app maps grades onto its own levels, and the checks every app passes.
 - `docs/blog.md` and `docs/blog-topics.md`: the blog rules, fact sources, and the topic record.
 - `docs/Windows.md`: the Windows shell, service, installer, signing and release.
+- `docs/backdrops.md`: the 360-degree photo backdrops behind the apps' 3D places, and how to add one.
 - `backend/README.md`: endpoints and the local database setup. The root `README.md` folder table is older than the
   plan; trust the plan.
 

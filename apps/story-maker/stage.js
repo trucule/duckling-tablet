@@ -407,8 +407,8 @@
     moon: { sky: ['#05061a', '#151a3d', '#2b2f5c'], light: ['#cfd8ff', 0.5, 1.1], fog: '#151a3d', build(g, A) {
       island(g, '#c9c9d4', '#8d8d9c');
       for (const [x, z, r] of [[-2.8, 2.6, 0.7], [3.1, 2.2, 0.5], [-4.2, -0.6, 0.9], [4.4, -0.4, 0.8], [1.6, 3.9, 0.4], [-1.2, -2.6, 0.6]]) {
-        add(g, torus(r, r * 0.18), mat('#b1b1bf', 0.95), x, 0.02, z, { r: [Math.PI / 2, 0, 0], s: [1, 1, 0.6] });
-        add(g, cyl(r * 0.95, r * 0.95, 0.02, 24), mat('#a6a6b5', 0.95), x, 0.005, z);
+        add(g, torus(r, r * 0.18), mat('#b1b1bf', 0.95), x, 0.02, z, { r: [Math.PI / 2, 0, 0], s: [1, 1, 0.6] }).userData.drawnBg = true;
+        add(g, cyl(r * 0.95, r * 0.95, 0.02, 24), mat('#a6a6b5', 0.95), x, 0.005, z).userData.drawnBg = true;
       }
       const R = new T.Group(); R.position.set(-2.6, 0, -3.2); R.rotation.z = 0.06; g.add(R);
       add(R, cyl(0.55, 0.62, 2.4, 24), mat('#ffffff', 0.4), 0, 1.5, 0); add(R, cone(0.55, 1.0, 24), mat('#ff4f6b', 0.45), 0, 3.2, 0);
@@ -416,12 +416,12 @@
       for (let i = 0; i < 3; i++) { const f = new T.Group(); f.rotation.y = i * 2.09; R.add(f); add(f, roundBox(0.12, 0.9, 0.6, 0.04), mat('#ff4f6b', 0.45), 0, 0.55, 0.65); }
       add(g, cyl(0.03, 0.03, 1.6, 6), mat('#dddddd'), 2.6, 0.8, -2.6);
       A.push({ o: add(g, new T.PlaneGeometry(0.8, 0.5), mat('#ffd23f', 0.6, { side: T.DoubleSide }), 3.0, 1.35, -2.6), f: (o, t) => { o.rotation.y = Math.sin(t * 1.5) * 0.15; } });
-      const earth = add(g, sph(1.6, 32), mat('#3f8ee8', 0.6, { emissive: '#1d4f9a', emissiveIntensity: 0.35 }), 7, 9, -18, { noShadow: true });
+      const earth = add(g, sph(1.6, 32), mat('#3f8ee8', 0.6, { emissive: '#1d4f9a', emissiveIntensity: 0.35 }), 7, 9, -18, { noShadow: true }); earth.userData.drawnBg = true;
       for (const [x, y, z, s] of [[0.6, 0.6, 1.2, 0.6], [-0.7, -0.2, 1.3, 0.5], [0.1, -0.9, 1.2, 0.45]]) add(earth, sph(s, 16), mat('#58c46c', 0.8), x, y, z, { s: [1, 0.6, 0.5], noShadow: true });
       A.push({ o: earth, f: (o, t) => { o.rotation.y = t * 0.1; } });
       const pts = []; for (let i = 0; i < 500; i++) { const a = Math.random() * Math.PI * 2, e = Math.random() * 1.2 + 0.05, r = 40; pts.push(Math.cos(a) * Math.cos(e) * r, Math.sin(e) * r, Math.sin(a) * Math.cos(e) * r); }
       const sg = new T.BufferGeometry(); sg.setAttribute('position', new T.Float32BufferAttribute(pts, 3));
-      g.add(new T.Points(sg, new T.PointsMaterial({ color: '#ffffff', size: 0.18, sizeAttenuation: true })));
+      const stars = new T.Points(sg, new T.PointsMaterial({ color: '#ffffff', size: 0.18, sizeAttenuation: true })); stars.userData.drawnBg = true; g.add(stars);
     } },
     island: { sky: ['#5ec4ff', '#bdeaff', '#fff4d6'], water: '#2fb4d8', build(g, A) {
       island(g, '#f3d89b', '#d9b26b', 6.4);
@@ -631,19 +631,21 @@
   // A set with a photo shows its drawn sky and ground first. The photo (tools/backdrops.js) downloads the first time
   // the set is used and is kept on the tablet, so later it comes up at once. It replaces the drawn sky, ground, water
   // and clouds; the landmark, props and cast stay in front of it, lit like the photo.
-  // Each set's photo and where its sun goes (radians round the stage, atan2(z, x); 0.88 is behind the camera on the
-  // right, -1.57 straight ahead), chosen so the view behind the cast is the photo's best side.
-  const PHOTO = { castle: ['meadow_2', 0.88], forest: ['epping_forest_01', 0.88], beach: ['fish_hoek_beach', -1.2], island: ['blouberg_sunrise_1', 2.35], mountain: ['fouriesburg_mountain_midday', -0.34], train: ['bloem_train_track_clear', 0.88], fair: ['air_museum_playground', 0.88] };
+  // Each set's photo and how it is turned (backdrops.js load), chosen so the view behind the cast is the photo's best
+  // side: sunAt, where its sun goes (radians round the stage, atan2(z, x); 0.88 is behind the camera on the right,
+  // -1.57 straight ahead), or face, the part of the photo straight ahead. The stage keeps its own sun either way.
+  const PHOTO = { castle: ['meadow_2', { sunAt: 0.88 }], forest: ['epping_forest_01', { sunAt: 0.88 }], beach: ['fish_hoek_beach', { sunAt: -1.2 }], island: ['blouberg_sunrise_1', { sunAt: 2.35 }], mountain: ['snowy_mountain', { face: 0.5 }], train: ['bloem_train_track_clear', { sunAt: 0.88 }], fair: ['air_museum_playground', { sunAt: 0.88 }],
+    moon: ['moon_surface', { face: 0.2 }], sea: ['under_the_sea', { face: 0.5 }], cupcake: ['cupcake_town', { face: 0.5 }] };
   let photo = null;
   function clearPhoto() { if (photo) { scene.remove(photo); photo = null; } }
   function wantPhoto(id) {
     const B = window.DucklingBackdrops; if (!B) return;
-    B.load(PHOTO[id][0], { linear: true, sunAt: PHOTO[id][1] }).then(set => {
+    B.load(PHOTO[id][0], Object.assign({ linear: true }, PHOTO[id][1])).then(set => {
       if (!set || setId !== id || !setGroup) return;
       clearPhoto();
       photo = new T.Group();
       photo.add(B.ground(set, { height: 2.2, radius: 50 }));
-      const catcher = new T.Mesh(new T.PlaneGeometry(18, 18), new T.ShadowMaterial({ opacity: 0.28 }));
+      const catcher = new T.Mesh(new T.PlaneGeometry(18, 18), new T.ShadowMaterial({ opacity: 0.08 + 0.2 * Math.min(1, set.meta.sunStrength / 80) }));
       catcher.rotation.x = -Math.PI / 2; catcher.position.y = 0.002; catcher.receiveShadow = true; catcher.userData.noInk = catcher.userData.inked = true; catcher.raycast = () => {};
       photo.add(catcher); scene.add(photo);
       setGroup.traverse(o => { if (o.userData.drawnBg) o.visible = false; });
