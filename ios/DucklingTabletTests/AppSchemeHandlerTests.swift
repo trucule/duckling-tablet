@@ -6,14 +6,16 @@ import WebKit
 /// localStorage keeps a value across loads, the page is a secure context (the microphone and camera need one), its own
 /// files load by fetch, ranges are answered, and nothing outside the packages is served.
 ///
-/// Every web view sits in a visible window, as the app runner's page always does: iOS suspends the web content process
-/// of a page that is not on screen, and a script waiting on it then never answers (the test host hung for 25 minutes
-/// in testPackageLoadsWithStorageAndSecureContext). Every load and every script also has its own time limit, so a
-/// stall fails that one test in seconds instead of holding the runner.
+/// The tests share one web view in a visible window, as the app runner's page is always on screen. In the iOS 27
+/// simulator a page off screen has its web content process suspended (a script waiting on it never answered and the
+/// test host hung for 25 minutes), and a second web view made in the same test host never finished its first load
+/// (each test after the first timed out at 60 seconds). Every load and every script also has its own time limit, so
+/// a stall fails that one test instead of holding the runner.
 @MainActor
 final class AppSchemeHandlerTests: XCTestCase {
+    private static var sharedWeb: WKWebView?
+    private static var window: UIWindow?
     private var web: WKWebView!
-    private var window: UIWindow!
     private let id = "scheme-test"
 
     override func setUp() async throws {
@@ -26,26 +28,29 @@ final class AppSchemeHandlerTests: XCTestCase {
         """.write(to: dir.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
         try #"{"word":"duck"}"#.write(to: dir.appendingPathComponent("data.json"), atomically: true, encoding: .utf8)
         try Data((0..<200).map { UInt8($0) }).write(to: dir.appendingPathComponent("clip.bin"))
-        let config = WKWebViewConfiguration()
-        config.setURLSchemeHandler(AppSchemeHandler(), forURLScheme: AppSchemeHandler.scheme)
-        web = WKWebView(frame: CGRect(x: 0, y: 0, width: 800, height: 600), configuration: config)
-        window = UIWindow(frame: UIScreen.main.bounds)
-        let host = UIViewController(); host.view.addSubview(web); window.rootViewController = host; window.makeKeyAndVisible()
+        if Self.sharedWeb == nil {
+            let config = WKWebViewConfiguration()
+            config.setURLSchemeHandler(AppSchemeHandler(), forURLScheme: AppSchemeHandler.scheme)
+            let w = WKWebView(frame: CGRect(x: 0, y: 0, width: 800, height: 600), configuration: config)
+            let window = UIWindow(frame: UIScreen.main.bounds)
+            let host = UIViewController(); host.view.addSubview(w); window.rootViewController = host; window.makeKeyAndVisible()
+            Self.sharedWeb = w; Self.window = window
+        }
+        web = Self.sharedWeb
     }
 
     override func tearDown() async throws {
-        window?.isHidden = true
-        window = nil
-        web = nil
+        web.uiDelegate = nil
+        web.navigationDelegate = nil
         Packages.shared.uninstall(id)
     }
 
     private func load(_ path: String) async throws {
-        let done = expectation(description: "load")
+        let done = expectation(description: "load"); done.assertForOverFulfill = false
         let nav = Nav { done.fulfill() }
         web.navigationDelegate = nav
         web.load(URLRequest(url: URL(string: "\(AppSchemeHandler.origin)/apps/\(id)/\(path)")!))
-        await fulfillment(of: [done], timeout: 60)
+        await fulfillment(of: [done], timeout: 30)
         XCTAssertNil(nav.error, "load failed: \(String(describing: nav.error))")
     }
 
@@ -138,4 +143,5 @@ private final class Nav: NSObject, WKNavigationDelegate {
     func webView(_ w: WKWebView, didFinish n: WKNavigation!) { done() }
     func webView(_ w: WKWebView, didFail n: WKNavigation!, withError e: Error) { error = e; done() }
     func webView(_ w: WKWebView, didFailProvisionalNavigation n: WKNavigation!, withError e: Error) { error = e; done() }
+    func webViewWebContentProcessDidTerminate(_ w: WKWebView) { error = NSError(domain: "WebContent", code: 1, userInfo: [NSLocalizedDescriptionKey: "web content process ended"]); done() }
 }
