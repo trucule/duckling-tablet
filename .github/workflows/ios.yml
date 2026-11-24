@@ -54,14 +54,17 @@ jobs:
           xcrun simctl boot "$SIM" || true
           xcrun simctl privacy "$SIM" grant microphone com.ducklingtablet.app || true
           # Each test gets 2 minutes (XCTest stops a test past its allowance, reports it as failed, and runs the rest);
-          # the whole run gets 15 minutes at most, so a hung test host cannot hold the runner.
-          perl -e 'alarm shift; exec @ARGV' 900 \
-            xcodebuild -project DucklingTablet.xcodeproj -scheme DucklingTablet -destination "id=$SIM" \
-            -test-timeouts-enabled YES -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 180 \
-            CODE_SIGNING_ALLOWED=NO -resultBundlePath "$RUNNER_TEMP/tests.xcresult" test > "$RUNNER_TEMP/test.log" 2>&1 \
-            || { grep -E "error:|failed|XCTAssert|MIC-PROBE|Test Case|exceeded" "$RUNNER_TEMP/test.log" | head -60; tail -n 40 "$RUNNER_TEMP/test.log"; exit 1; }
-          grep -E "MIC-PROBE" "$RUNNER_TEMP/test.log" | head -3 || true
-          grep -E "Test Case .*(passed|failed)|Executed" "$RUNNER_TEMP/test.log" | tail -n 12
+          # the whole run gets 15 minutes at most, so a hung test host cannot hold the runner. Test lines are printed as
+          # they happen, so a run that GitHub cancels still shows how far the tests got.
+          ( perl -e 'alarm shift; exec @ARGV' 900 \
+              xcodebuild -project DucklingTablet.xcodeproj -scheme DucklingTablet -destination "id=$SIM" \
+              -test-timeouts-enabled YES -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 180 \
+              CODE_SIGNING_ALLOWED=NO -resultBundlePath "$RUNNER_TEMP/tests.xcresult" test 2>&1
+            echo "XCODEBUILD-EXIT $?" ) | tee "$RUNNER_TEMP/test.log" \
+            | grep --line-buffered -E "Test Suite|Test Case|error:|XCTAssert|MIC-PROBE|Executed|exceeded|XCODEBUILD-EXIT|Testing started|TEST (SUCCEEDED|FAILED)" \
+            | while IFS= read -r line; do echo "$(date -u +%H:%M:%S) $line"; done || true
+          CODE=$(grep -o "XCODEBUILD-EXIT [0-9]*" "$RUNNER_TEMP/test.log" | tail -1 | awk '{print $2}')
+          if [ "${CODE:-1}" != "0" ]; then tail -n 40 "$RUNNER_TEMP/test.log"; exit 1; fi
       # The whole test log and result bundle, kept for a week, since the step prints only an excerpt.
       - name: Keep the test log
         if: ${{ always() && !inputs.skip_tests }}
