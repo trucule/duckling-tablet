@@ -249,7 +249,7 @@
   sentence's own words. Without a microphone she taps each word as she reads it, and a parent can turn on "Trust me"
   (one big "I read it" button). The parent switch is behind the gear button: press and hold it.
   Under the words she is reading runs a finger line with a checkpoint after each word; dragging along it lights the word
-  above her finger so she can sound it out. The 👉 button in the header hides or shows it (saved with her progress).
+  above her finger so she can sound it out. While she reads aloud, the line moves on its own to the next word to read. The 👉 button in the header hides or shows it (saved with her progress).
   Ladder (four right first try in a row moves up, two missed in a row moves down; localStorage key read-it-say-it-v1):
     levels 1 to 8 are sentences made on the spot (pre-K to 2nd grade), levels 9 to 17 are passages from passages.js
     (2nd to 8th grade), read one sentence at a time with questions afterwards. The full list is above LEVELS below.
@@ -1445,7 +1445,7 @@ function paint(cls) {
     el.classList.toggle('heard', !!got[i]); if (cls) el.classList.add(cls);
     if (isPassage()) { const inCur = phase === 'read' && c && i >= c.a && i < c.b; el.classList.toggle('cur', inCur); el.classList.toggle('read', !inCur && (phase !== 'read' || (c && i < c.a))); }
   });
-  guideLayout();
+  guideLayout(); guideFollow();
 }
 // The finger line. It follows the words being read (the sentence, or the yellow part of a passage), one track per row
 // on the screen, with a checkpoint after each word. It only shows the way; it marks nothing as read.
@@ -1476,20 +1476,38 @@ function guideLayout(force) {
     const tr = document.createElement('div'); tr.className = 'gtrack' + (n === 0 ? ' cur' : '');
     tr.style.left = row.l + 'px'; tr.style.width = (row.r - row.l) + 'px'; tr.style.top = (row.btm + (pas ? -2 : 4)) + 'px';
     tr.innerHTML = '<i class="gl"></i><i class="gf"></i>' + row.words.map(w => `<i class="gd" style="left:${w.r + 4 - row.l}px"></i>`).join('') + '<i class="gk" style="left:0"></i>';
-    tr.onpointerdown = e => { e.stopPropagation(); e.preventDefault(); hideGloss(); try { tr.setPointerCapture(e.pointerId); } catch (x) {} gDrag = { id: e.pointerId, word: -1, dots: 0 }; guideMove(e); };
+    tr.onpointerdown = e => { e.stopPropagation(); e.preventDefault(); hideGloss(); try { tr.setPointerCapture(e.pointerId); } catch (x) {} gDrag = { id: e.pointerId, word: -1, dots: 0, row: null }; guideMove(e); };
     tr.onpointermove = e => { if (gDrag && gDrag.id === e.pointerId) guideMove(e); };
     tr.onpointerup = tr.onpointercancel = e => { if (gDrag && gDrag.id === e.pointerId) guideEnd(); };
     row.el = tr; box.appendChild(tr);
   });
 }
-// The finger picks the row nearest to it, so she can slide down to the next row and keep going.
+// The finger stays on its row. It moves to the next row only near the end of this one or once it is well below it, and
+// back up only once it is well above it, so a wobble while sliding along a row does not jump the line to another row.
 function guideMove(e) {
   const box = $('words'), b = box.getBoundingClientRect(), x = e.clientX - b.left + box.scrollLeft, y = e.clientY - b.top + box.scrollTop;
-  let n = 0, best = Infinity;
-  gRows.forEach((row, k) => { const d = Math.abs(y - (row.btm + 10)); if (d < best) { best = d; n = k; } });
+  const line = row => row.btm + 10;
+  let n = gDrag.row;
+  if (n == null) { let best = Infinity; gRows.forEach((row, k) => { const d = Math.abs(y - line(row)); if (d < best) { best = d; n = k; } }); }
+  else {
+    const row = gRows[n], gap = n + 1 < gRows.length ? line(gRows[n + 1]) - line(row) : 60;
+    const atEnd = x >= row.words[row.words.length - 1].l;
+    if (n + 1 < gRows.length && y > line(row) + gap * (atEnd ? 0.45 : 0.85)) n++;
+    else if (n > 0 && y < line(row) - (line(row) - line(gRows[n - 1])) * 0.85) n--;
+  }
   const row = gRows[n]; if (!row) return;
+  gDrag.row = n;
   const px = Math.max(row.l, Math.min(row.r, x));
-  let word = row.words[0].i, dots = 0;
+  let word = row.words[0].i;
+  for (const w of row.words) if (px >= w.l - 8) word = w.i;
+  const dots = guideShow(n, px);
+  if (dots > gDrag.dots && !listening) sfx('tick');
+  gDrag.dots = dots;
+  if (word !== gDrag.word) { gDrag.word = word; guideLight(word); }
+}
+// Draws the line filled up to px on row n (rows above full, rows below empty) and returns the checkpoints passed.
+function guideShow(n, px) {
+  let dots = 0;
   gRows.forEach((rw, k) => {
     const fill = k < n ? rw.r : k === n ? px : rw.l;
     rw.el.classList.toggle('cur', k === n);
@@ -1497,12 +1515,20 @@ function guideMove(e) {
     rw.el.querySelector('.gk').style.left = (k === n ? px - rw.l : 0) + 'px';
     rw.el.querySelectorAll('.gd').forEach((d, j) => { const on = rw.words[j].r + 4 <= fill + 1; d.classList.toggle('on', on); if (on) dots++; });
   });
-  for (const w of row.words) if (px >= w.l - 8) word = w.i;
-  if (dots > gDrag.dots && !listening) sfx('tick');
-  gDrag.dots = dots;
-  if (word !== gDrag.word) { gDrag.word = word; box.querySelectorAll('.w').forEach((el, i) => el.classList.toggle('fg', i === word)); }
+  return dots;
 }
-function guideEnd() { gDrag = null; $('words').querySelectorAll('.w.fg').forEach(w => w.classList.remove('fg')); }
+function guideLight(word) { $('words').querySelectorAll('.w').forEach((el, i) => el.classList.toggle('fg', i === word)); }
+// While she reads aloud, the line follows her voice: the knob moves to the start of the first word not yet heard and
+// that word lights up, so she does not have to drag it. A finger on the line takes over until it lifts.
+function guideFollow() {
+  const r = guideRange(); if (!r || !listening || gDrag || !gRows.length) return;
+  let next = r[0]; while (next < r[1] && got[next]) next++;
+  if (next >= r[1]) { const n = gRows.length - 1; guideShow(n, gRows[n].r); guideLight(-1); return; }
+  const n = gRows.findIndex(row => row.words.some(w => w.i === next)); if (n < 0) return;
+  const w = gRows[n].words.find(w => w.i === next);
+  guideShow(n, Math.max(gRows[n].l, w.l - 6)); guideLight(next);
+}
+function guideEnd() { gDrag = null; guideLight(-1); guideFollow(); }
 function guideToggle() { P.guide = !P.guide; persist(); $('guideBtn').classList.toggle('on', P.guide); guideLayout(true); }
 // How to read the current part, on the levels that teach expression: a question, an exclamation, or someone talking.
 function exprHint() {
@@ -1565,7 +1591,7 @@ async function startListening() {
     listening = false; K.paused = false; K.lowPower = false; $('mic').classList.remove('on'); $('mic').textContent = T('🎤 Read it!');
     status(isPassage() ? T('The microphone is not working, so tap the green button after each part.') : T('The microphone is not working, so tap each word as you read it.')); RISpeech.engine = 'tap'; RISpeech.error = String(e.message || e); controls(); return;
   }
-  chunkT0 = performance.now(); armTimer();
+  chunkT0 = performance.now(); armTimer(); guideFollow();
 }
 function armTimer() { const my = round, c = ci; clearTimeout(listenTimer); listenTimer = setTimeout(() => { if (my === round && c === ci && phase === 'read') timeUp(); }, limitFor() * 1000 * (window.READ_IT_SAY_IT.timeScale || 1)); }
 function stopListening() {
