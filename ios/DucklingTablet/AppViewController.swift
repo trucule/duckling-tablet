@@ -136,6 +136,17 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? { nil }
 
+    // alert(), confirm() and prompt() (WebDialogs.swift); WKWebView shows none of them by itself.
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        WebDialogs.alert(message, from: self, done: completionHandler)
+    }
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        WebDialogs.confirm(message, from: self, done: completionHandler)
+    }
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
+        WebDialogs.prompt(prompt, defaultText: defaultText, from: self, done: completionHandler)
+    }
+
     func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
         let ok = Self.allowsCapture(type, scheme: origin.protocol, host: origin.host, permissions: prefs.permissions[appId] ?? [])
         decisionHandler(ok ? .grant : .deny)

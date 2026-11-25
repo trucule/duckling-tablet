@@ -468,6 +468,17 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
 
     func webViewDidClose(_ webView: WKWebView) { close(popup: webView) }
 
+    // alert(), confirm() and prompt() (WebDialogs.swift); WKWebView shows none of them by itself.
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        WebDialogs.alert(message, from: self, done: completionHandler)
+    }
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        WebDialogs.confirm(message, from: self, done: completionHandler)
+    }
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
+        WebDialogs.prompt(prompt, defaultText: defaultText, from: self, done: completionHandler)
+    }
+
     /// Makes `child` fill `parent` at every size and rotation.
     private func pin(_ child: UIView, to parent: UIView) {
         child.translatesAutoresizingMaskIntoConstraints = false

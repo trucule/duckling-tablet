@@ -38,4 +38,21 @@ final class MainViewLayoutTests: XCTestCase {
         print("HOME-PROBE frame=\(web.frame) subviews=\(vc.view.subviews.map { String(describing: type(of: $0)) }) page=\(report)")
         XCTAssertTrue(report.contains("\"shell\":true"), "the home screen did not load the web app with the shell: \(report)")
     }
+
+    /// A page's confirm() becomes a real question (the home screen's and the app runner's UI delegates call WebDialogs). Without the UI delegate method WKWebView
+    /// answered false at once, so Remove Duckling from this device did nothing on the iPad.
+    func testConfirmAsksAndAnswers() async throws {
+        let vc = MainViewController()
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = vc
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        var answer: Bool?
+        WebDialogs.confirm("Remove?", from: vc) { answer = $0 }
+        let alert = try XCTUnwrap(vc.presentedViewController as? UIAlertController, "no question was shown")
+        XCTAssertEqual(alert.message, "Remove?")
+        XCTAssertEqual(alert.actions.count, 2)
+        XCTAssertNil(answer, "confirm() was answered before the parent chose")
+        alert.dismiss(animated: false)
+    }
 }
