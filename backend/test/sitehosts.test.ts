@@ -38,7 +38,9 @@ describe('hosts that cannot be allowed on their own', () => {
   it('refuses country and shared-service domains, and allows a name under them', () => {
     for (const h of ['co.uk', 'com.au', 'gob.mx', 'uk', '*.co.uk']) expect(sharedHostReason(h), h).toBe(SHARED_COUNTRY);
     for (const h of ['github.io', 'cloudfront.net', 's3.amazonaws.com', 'storage.googleapis.com', 'blogspot.com', 'vercel.app', '*.github.io']) expect(sharedHostReason(h), h).toBe(SHARED_SERVICE);
-    for (const h of ['bbc.co.uk', 'kids.github.io', 'd123.cloudfront.net', 'bucket.s3.amazonaws.com', 'pbskids.org', 'www.getepicapi.com']) expect(sharedHostReason(h), h).toBeNull();
+    // From the Public Suffix List, beyond any hand-kept list.
+    for (const h of ['com.br', 'ac.jp', 'herokuapp.com', 'azurewebsites.net', 'myshopify.com']) expect(sharedHostReason(h), h).not.toBeNull();
+    for (const h of ['bbc.co.uk', 'kids.github.io', 'd123.cloudfront.net', 'bucket.s3.amazonaws.com', 'pbskids.org', 'www.getepicapi.com', 'web.de']) expect(sharedHostReason(h), h).toBeNull();
   });
   it('does not offer Allow for a whole website for browsing, but does for its media hosts', () => {
     for (const h of ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'www.google.com', 'wikipedia.org', 'www.reddit.com']) expect(refusalFor(h), h).toBe(WHOLE_SITE);

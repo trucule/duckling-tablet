@@ -27,6 +27,7 @@
     "nodemailer": "^7.0.0",
     "pg": "^8.23.1",
     "pg-connection-string": "^2.14.1",
+    "tldts": "^7.6.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

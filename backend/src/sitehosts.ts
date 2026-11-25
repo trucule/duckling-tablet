@@ -1,6 +1,9 @@
+import { parse } from 'tldts';
+
 // Hosts outside an allowed website that it needs for its own videos, checked by hand for each site. A tablet allows
 // them only while the site itself is allowed, and opens no tile for them. Nothing else a site loads from elsewhere is
-// allowed (ads, analytics, other sites): a site's videos may fail until its hosts are listed here.
+// allowed (ads, analytics, other sites) unless a parent allows it from the tablet's list of blocked addresses
+// (site_host, routes/devices.ts). This list is the starting set, so known sites work before anyone is asked.
 //
 // To add a site: open it in Chrome, play a video, and list the hosts in DevTools > Network (or
 // performance.getEntriesByType('resource')). Keep only the hosts the video needs; leave out ads and analytics, and
@@ -35,27 +38,19 @@ export const TRACKER_HOSTS: string[] = [
 /** A site as the allowlist names it: lower case, without a leading *. or www. */
 export const bare = (h: string) => h.trim().toLowerCase().replace(/^\*\./, '').replace(/^www\./, '');
 const under = (host: string, list: string[]) => list.some((p) => host === p || host.endsWith(`.${p}`));
-// Domains under which many unrelated people and companies publish: a hosting or storage service's own name, or a
-// country's second level (co.uk). Allowing one would let every site under it through (the shells match subdomains),
-// so neither the allowlist nor a parent's Allow on a blocked address takes one. A name under it is fine
-// (d123.cloudfront.net is one distribution, kids.github.io one person's pages). A curated list: the full Public
-// Suffix List would need a dependency that has not been approved.
-export const SHARED_SUFFIXES: string[] = [
-  'github.io', 'gitlab.io', 'bitbucket.io', 'githubusercontent.com', 'raw.githubusercontent.com',
-  'cloudfront.net', 'amazonaws.com', 's3.amazonaws.com', 'elasticbeanstalk.com', 'awsapprunner.com', 'amplifyapp.com',
-  'googleapis.com', 'storage.googleapis.com', 'googleusercontent.com', 'appspot.com', 'web.app', 'firebaseapp.com',
-  'firebasestorage.app', 'run.app', 'cloudfunctions.net',
-  'azurewebsites.net', 'azureedge.net', 'blob.core.windows.net', 'core.windows.net', 'azurestaticapps.net', 'trafficmanager.net',
-  'herokuapp.com', 'vercel.app', 'netlify.app', 'netlify.com', 'pages.dev', 'workers.dev', 'r2.dev', 'onrender.com', 'fly.dev',
-  'railway.app', 'glitch.me', 'repl.co', 'replit.app', 'replit.dev', 'surge.sh', 'neocities.org', 'ngrok.io', 'ngrok-free.app',
-  'akamaized.net', 'akamaihd.net', 'edgesuite.net', 'edgekey.net', 'fastly.net', 'fastlylb.net', 'b-cdn.net', 'cdn77.org',
-  'digitaloceanspaces.com', 'cdn.digitaloceanspaces.com', 'linodeobjects.com', 'backblazeb2.com', 'wasabisys.com',
-  'blogspot.com', 'wordpress.com', 'wixsite.com', 'weebly.com', 'tumblr.com', 'substack.com', 'carrd.co', 'webflow.io',
-  'squarespace.com', 'myshopify.com', 'framer.website', 'notion.site', 'canva.site', 'sites.google.com', 'dropboxusercontent.com',
-  'jsdelivr.net', 'cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'imgur.com', 'i.imgur.com',
+// Domains under which many unrelated people and companies publish. Allowing one would let every site under it
+// through (the shells match subdomains), so neither the allowlist nor a parent's Allow on a blocked address takes one.
+// The Public Suffix List (through tldts) names thousands: countries' domains (co.uk) and services' own (github.io,
+// cloudfront.net, vercel.app). A name under one is fine (kids.github.io is one person's pages). The list below adds
+// shared hosts the Public Suffix List leaves out, mostly storage and CDNs that serve many owners' files by path
+// (storage.googleapis.com/<anyone's bucket>), where the host itself is everyone's.
+export const SHARED_HOSTS: string[] = [
+  'storage.googleapis.com', 'storage.cloud.google.com', 'commondatastorage.googleapis.com', 'firebasestorage.googleapis.com',
+  'googleusercontent.com', 'sites.google.com', 'drive.google.com', 'docs.google.com',
+  's3.amazonaws.com', 'raw.githubusercontent.com', 'gist.githubusercontent.com', 'objects.githubusercontent.com',
+  'dropboxusercontent.com', 'dl.dropboxusercontent.com', 'onedrive.live.com', '1drv.ms',
+  'cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'i.imgur.com', 'imgur.com',
 ];
-// A country's second level: co.uk, com.au, org.nz, gob.mx and the like.
-const SECOND_LEVEL = /^(co|com|net|org|gov|gob|edu|ac|or|ne|go|mil|nic|ltd|plc|sch|nhs|info|biz|nom|gen|firm|web|int|me|tv|in)\.[a-z]{2}$/;
 
 export const SHARED_COUNTRY = 'That name covers every site in a country. Use the site\'s own name.';
 export const SHARED_SERVICE = 'That address is shared by many unrelated sites. Use the site\'s own address under it.';
@@ -64,9 +59,10 @@ export const WHOLE_SITE = 'That address opens a whole website for browsing. To a
 /** Why a host cannot be allowed on its own (a shared or country domain), or null when it can. */
 export function sharedHostReason(host: string): string | null {
   const h = host.trim().toLowerCase().replace(/^\*\./, '').replace(/\.$/, '');
+  const p = parse(h, { allowPrivateDomains: true });
   // Fixed sentences, so the portal and the tablet show them in Spanish too (their dictionaries carry them).
-  if (!h.includes('.') || SECOND_LEVEL.test(h)) return SHARED_COUNTRY;
-  if (SHARED_SUFFIXES.includes(h)) return SHARED_SERVICE;
+  if (!p.domain) return p.isPrivate ? SHARED_SERVICE : SHARED_COUNTRY;
+  if (SHARED_HOSTS.includes(h)) return SHARED_SERVICE;
   return null;
 }
 
