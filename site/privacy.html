@@ -43,6 +43,7 @@
 <h2>Information we collect</h2>
 <h3>From the parent</h3>
 <p>The email address you sign in with, the time of each sign-in, and the settings you choose: child profiles, device names, allowed websites, time limits, travel mode, hidden apps and app requests. If you attach a file to an app request (a drawing or a photo of a worksheet, for example) we store that file for the request.</p>
+<p>If you sign in with Apple, Google or Microsoft, that company confirms the account to us and sends its account identifier and the email address it holds for you (with Apple, this can be a private relay address). We keep the identifier and that address so the account reaches your family again. We do not receive your password or anything else from that account. You can remove a linked account under Sign-in methods in the parent portal.</p>
 <h3>About the child</h3>
 <p>First name, age (kept as a month and year of birth), a level per subject and a theme (colors and interests). The stars earned in each app, the avatar design and its portrait picture are kept on the server so they follow the child to any tablet in the family and show in the parent portal. So is the home screen background, if the child picks a painting from Paint Studio or Draw With Me. It is private to the family, shown only on the child's tablets, and deleted when it is removed in the tablet's parent area, when another picture replaces it, or with the child or the account. A photo from Camera Fun picked as the background stays on that tablet and is not sent to us. Progress inside each app stays on the device in the app's own storage and is not sent to us.</p>
 <h3>About each device</h3>
@@ -79,6 +80,7 @@
 <tr><td>Google Play, Apple App Store, Stripe</td><td>Subscription payments and their status.</td></tr>
 <tr><td>Google Firebase Cloud Messaging</td><td>Push notification tokens, so a device can be told to refresh its settings.</td></tr>
 <tr><td>SendGrid</td><td>Delivery of sign-in and account emails.</td></tr>
+<tr><td>Apple, Google, Microsoft</td><td>Sign-in, when you choose it: the company confirms your account and sends its identifier and email address.</td></tr>
 <tr><td>Google Analytics</td><td>Visit counts and pages read on this website only, with advertising features off.</td></tr>
 <tr><td>ET Ducky</td><td>Our own support desk, which holds app requests and problem reports as tickets (title, description, the child's grade, your family's identifier, and for a problem report its summary and a link to the full report).</td></tr>
 </table>
@@ -104,7 +106,7 @@
 </ul>
 
 <h2>Security</h2>
-<p>Connections are encrypted. Sign-in uses one-time email links; we store only a hash of each token. Each family's records are isolated in the database with row-level security, so a request for one family cannot read another family's data. Secrets are kept outside the code and never logged.</p>
+<p>Connections are encrypted. Sign-in uses one-time email links or a signed confirmation from Apple, Google or Microsoft that our server checks; we store only a hash of each sign-in token. Each family's records are isolated in the database with row-level security, so a request for one family cannot read another family's data. Secrets are kept outside the code and never logged.</p>
 
 <h2>Children</h2>
 <p>Duckling Tablet is used by children under 13 with their parent's involvement; the parent creates the account, consents to the collection described here when starting the subscription, and controls everything about the child's profile and devices. Details are in the <a href="/children-privacy">children's privacy notice</a>.</p>
