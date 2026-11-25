@@ -141,10 +141,12 @@ describe.skipIf(!ready)('web app on Windows', () => {
     await p.getByRole('button', { name: 'I have a code from the website' }).click();
     await p.getByPlaceholder('000000').fill(code);
     await p.getByRole('button', { name: 'Pair' }).click();
-    // A tablet goes straight on to the PIN.
+    // A tablet goes straight on to the PIN, then lands on its home screen with the not-locked-down banner, which
+    // opens the parent area without asking for the PIN again.
     await p.getByRole('heading', { name: 'Choose a parent PIN' }).waitFor();
     for (const d of '2468') await p.getByRole('button', { name: d, exact: true }).click();
     for (const d of '2468') await p.getByRole('button', { name: d, exact: true }).click();
+    await p.getByText('This tablet is not locked down yet.').click();
     await p.getByRole('heading', { name: 'Set up this device' }).waitFor();
     await p.getByText('Duckling is a window like any other').waitFor();
     await p.getByText('The older Kid Tablet setup on this device is moved aside', { exact: false }).waitFor();
@@ -257,6 +259,7 @@ describe.skipIf(!ready)('web app on Windows', () => {
       await p.getByRole('button', { name: 'Pair' }).click();
       await p.getByRole('heading', { name: 'Choose a parent PIN' }).waitFor();
       for (const d of '24682468') await p.getByRole('button', { name: d, exact: true }).click();
+      await p.getByRole('button', { name: 'Parent', exact: true }).click();
       await p.getByRole('heading', { name: 'Microphone and camera' }).waitFor();
       const labels = await p.locator('button').allInnerTexts();
       expect(labels.filter((l) => /^\s*allow\b/i.test(l))).toEqual([]);

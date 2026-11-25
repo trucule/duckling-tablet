@@ -9,8 +9,10 @@ export function Pin() {
   const [first, setFirst] = useState<string | null>(null);
   const [error, setError] = useState('');
   const setting = !shell.hasPin();
-  // Where the PIN leads: the parent area, or the part of it a shell button asked for (parent-blocked).
-  const after = route.value.startsWith('parent') ? route.value : 'parent';
+  // Where the PIN leads: the parent area, the part of it a shell button asked for (parent-blocked), or, for the PIN
+  // chosen during first setup, the home screen with its not-locked-down banner (the parent area stays unlocked
+  // for its usual minutes, so the banner opens it without the PIN again).
+  const after = route.value.startsWith('parent') ? route.value : route.value === 'setup-pin' ? 'home' : 'parent';
   const title = setting ? (first === null ? tr('Choose a parent PIN') : tr('Type it again')) : tr('Parent PIN');
   const press = async (d: string) => {
     if (pin.length >= 4) return;

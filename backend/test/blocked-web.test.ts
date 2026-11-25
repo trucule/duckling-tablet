@@ -110,6 +110,7 @@ describe.skipIf(!ready)('blocked addresses and diagnostics in the parent area', 
     await p.getByRole('button', { name: 'Pair' }).click();
     await p.getByRole('heading', { name: 'Choose a parent PIN' }).waitFor();
     for (const d of '24682468') await p.getByRole('button', { name: d, exact: true }).click();
+    await p.getByRole('button', { name: 'Parent', exact: true }).click();
     await p.getByRole('heading', { name: 'Parent area' }).waitFor();
     const deviceId = (await (await fetch(`${api}/devices`, { headers: auth })).json()).devices[0].id;
     await post(`/devices/${deviceId}/settings`, { allowlist: [{ host: 'getepic.com', tile: { name: 'Epic', url: 'https://www.getepic.com/app' } }] }, auth, 'PUT');

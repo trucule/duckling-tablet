@@ -587,7 +587,7 @@ function SignInMethods() {
               <span class="grow"><strong>{PROVIDER_NAMES[p.provider]}</strong> <span class="muted">{l ? (l.email ?? tr('linked')) : tr('not linked')}</span></span>
               {l
                 ? <button class="btn quiet" disabled={busy} onClick={() => { if (confirm(tr('Remove this sign-in? Tablets already in the family stay in it.'))) run(() => api.unlinkSignIn(p.provider), tr('Removed.')); }}>{tr('Remove')}</button>
-                : <button class={`btn signin ${p.provider}`} style={{ width: 'auto' }} disabled={busy} onClick={() => link(p)}>{tr('Link')}</button>}
+                : <button class="btn" disabled={busy} onClick={() => link(p)}>{tr('Link')}</button>}
             </li>
           );
         })}

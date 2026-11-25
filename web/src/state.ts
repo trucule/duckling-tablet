@@ -291,7 +291,9 @@ function adopt(r: { deviceToken: string; config: DeviceConfig }) {
   shell.setDeviceToken(r.deviceToken);
   setConfig(r.config); paired.value = true;
   void installMissing(r.config);
-  go(shell.platform === 'web' ? 'home' : 'pin');
+  // A new tablet lands on its home screen, where the banner says it is not locked down yet. A family without a PIN
+  // chooses one first (setup-pin), which then leads home too.
+  go(shell.platform === 'web' || shell.hasPin() ? 'home' : 'setup-pin');
 }
 
 // An unlinked tablet joins a family again with a pairing code from the website. The apps already on it that the new

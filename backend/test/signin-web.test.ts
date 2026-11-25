@@ -53,7 +53,7 @@ const FAKE_SHELL = `(() => {
     getDeviceToken: () => st.token, setDeviceToken: (t) => { st.token = t; localStorage.setItem('b.token', t); }, pushToken: () => '',
     installedApps: () => '{}', installApp: () => {}, uninstallApp: () => {}, openApp: () => {},
     hasPin: () => !!st.pin, setPin: (p) => { st.pin = p; }, verifyPin: (p) => p === st.pin, setPinHash: () => {},
-    lockdownStatus: () => JSON.stringify({ homeRole: true, deviceSecure: true, pinned: true, lockdownOn: true }),
+    lockdownStatus: () => JSON.stringify({ homeRole: false, deviceSecure: false, pinned: false, lockdownOn: false }),
     requestHomeRole: () => {}, openSecuritySettings: () => {}, networkStatus: () => 'wifi',
     setLockdown: () => {}, setAllowedHosts: () => {}, setSignInHosts: () => {}, setChildInfo: () => {}, setChildLevels: () => {}, setChildId: () => {},
     setLanguage: () => {}, release: () => {}, installedPackages: () => '[]', launchPackage: () => {}, canDrawOverlays: () => true, openOverlaySettings: () => {}, setAppAccountToken: () => {},
@@ -123,6 +123,13 @@ describe.skipIf(!ready)('Continue with Google and Sign-in methods', () => {
     await tab.getByRole('button', { name: 'Finish setup' }).click();
     await tab.getByRole('heading', { name: 'Choose a parent PIN' }).waitFor();
     expect(await tab.evaluate(() => localStorage.getItem('b.token'))).toMatch(/\S{20,}/);
+    // After the PIN the tablet lands on its home screen, whose banner says it is not locked down yet.
+    for (const d of '24682468') await tab.getByRole('button', { name: d, exact: true }).click();
+    const banner = tab.getByText('This tablet is not locked down yet.');
+    await banner.waitFor();
+    if (process.env.WEB_SHOTS) await tab.screenshot({ path: join(process.env.WEB_SHOTS, 'signin-home.png') });
+    await banner.click();
+    await tab.getByRole('heading', { name: /^Set up / }).waitFor();
 
     // The portal: the same Google account reaches the family with that tablet.
     const p = await ctx.newPage();
@@ -138,6 +145,8 @@ describe.skipIf(!ready)('Continue with Google and Sign-in methods', () => {
     const card = p.locator('.card', { has: p.getByRole('heading', { name: 'Sign-in methods' }) });
     await card.locator('li', { hasText: 'Google' }).getByText('mom@example.com').waitFor();
     await card.locator('li', { hasText: 'Microsoft' }).getByText('not linked').waitFor();
+    // Every Link button looks the same: plain, whichever company it is for.
+    expect(await card.locator('button.signin').count()).toBe(0);
     await card.locator('li', { hasText: 'Microsoft' }).getByRole('button', { name: 'Link' }).click();
     await card.getByText('Linked. A tablet set up with that account joins this family.').waitFor();
     await card.locator('li', { hasText: 'Microsoft' }).getByText('mom@outlook.example').waitFor();
