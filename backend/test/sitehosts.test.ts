@@ -8,6 +8,8 @@ describe('media hosts for allowed websites', () => {
     expect(mediaHostsFor(['www.pbskids.org', '*.pbskids.org', 'Games.PBSKids.org'])).toEqual(pbs);
     expect(mediaHostsFor(['notpbskids.org', 'pbskids.org.evil.com', 'example.org'])).toEqual([]);
     expect(mediaHostsFor([])).toEqual([]);
+    expect(mediaHostsFor(['getepic.com'])).toEqual(['getepicapi.com', 'www.getepicapi.com']);
+    expect(mediaHostsFor(['www.getepic.com', 'pbskids.org'])).toEqual([...pbs, 'getepicapi.com', 'www.getepicapi.com'].sort());
   });
   it('names sign-in hosts exactly, never a whole service or a site that browses', () => {
     for (const h of SIGN_IN_HOSTS) {

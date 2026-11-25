@@ -11,6 +11,10 @@ export const SITE_MEDIA_HOSTS: Record<string, string[]> = {
   // PBS KIDS Live (urs-anonymous-detect.pbs.org, and proxy.drm.pbs.org for the stream's license; the stream itself is
   // livestream.pbskids.org). Games stay on pbskids.org subdomains. pbs.org as a whole is not allowed.
   'pbskids.org': ['urs.pbs.org', 'urs-anonymous-detect.pbs.org', 'kids.pbs-video.pbs.org', 'proxy.drm.pbs.org'],
+  // Checked 2026-11-25 in Chrome: an Epic video's main playlist is on www.getepic.com and its segments on
+  // cdn-video-gcp-media-v2.getepic.com, but the playlist for each quality level comes from www.getepicapi.com, Epic's
+  // API domain. Without it the player stops with hls:networkError_levelLoadError.
+  'getepic.com': ['www.getepicapi.com', 'getepicapi.com'],
 };
 
 // Sign-in services a website may send the child's parent to ("Log in with Google" on a learning site): the account
