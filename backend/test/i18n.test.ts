@@ -177,4 +177,14 @@ describe('API reasons shown to parents', () => {
     }
     expect(webEs['Too many reports today. Try again tomorrow.']).toBeTruthy();
   });
+
+  it('has Spanish for every reason a sign-in with Apple, Google or Microsoft fails', () => {
+    const src = readFileSync(new URL('../src/routes/auth.ts', import.meta.url), 'utf8');
+    const block = src.slice(src.indexOf('---- Sign in with Apple'), src.indexOf("app.post('/auth/logout'"));
+    // Every sentence thrown in that part, including both sides of a choice: a quoted string that starts with a capital.
+    const lines = [...block.matchAll(/(?:HttpError\(\d+,|\?|:)\s*'([A-Z][^']+[.])'/g)].map((m) => m[1]);
+    expect(lines.length).toBeGreaterThan(5);
+    for (const line of lines) expect(portalEs[line], line).toBeTruthy();
+    for (const line of lines.filter((l) => !l.includes('account is linked') && !l.includes('same company'))) expect(webEs[line], line).toBeTruthy();
+  });
 });

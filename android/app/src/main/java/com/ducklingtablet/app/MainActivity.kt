@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var ducklingAgent: String
     private lateinit var browserAgent: String
     lateinit var billing: Billing
+    val signIn by lazy { SignIn(this) }
 
     // A push (or a new registration token) makes the web app check in now.
     private val pushReceiver = object : BroadcastReceiver() {

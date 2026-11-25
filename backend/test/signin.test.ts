@@ -113,20 +113,20 @@ describe('sign in with Apple, Google and Microsoft', () => {
       const p = opts.provider ?? 'google';
       return (await pair({ provider: p, idToken: token(p, { sub: 's', email: 'k@example.com', email_verified: true, ...(useNonce ? { nonce: p === 'apple' ? sha(n) : n } : {}), ...claims }, opts), nonce: n })).statusCode;
     };
-    expect(await ok({ aud: 'someone-else' })).toBe(401);
-    expect(await ok({ iss: 'https://evil.example' })).toBe(401);
-    expect(await ok({}, { key: other.privateKey })).toBe(401);
-    expect(await ok({}, { kid: 'unknown' })).toBe(401);
-    expect(await ok({ exp: Math.floor(Date.now() / 1000) - 3600 })).toBe(401);
-    expect(await ok({ email_verified: false })).toBe(401);
-    expect(await ok({}, {}, false)).toBe(401);
-    expect(await ok({ nonce: 'made-up' })).toBe(401);
+    expect(await ok({ aud: 'someone-else' })).toBe(400);
+    expect(await ok({ iss: 'https://evil.example' })).toBe(400);
+    expect(await ok({}, { key: other.privateKey })).toBe(400);
+    expect(await ok({}, { kid: 'unknown' })).toBe(400);
+    expect(await ok({ exp: Math.floor(Date.now() / 1000) - 3600 })).toBe(400);
+    expect(await ok({ email_verified: false })).toBe(400);
+    expect(await ok({}, {}, false)).toBe(400);
+    expect(await ok({ nonce: 'made-up' })).toBe(400);
     // A Google nonce given as Apple's hash form, and a nonce used twice.
     const n = await nonce();
     const t = token('google', { sub: 's2', email: 'k2@example.com', email_verified: true, nonce: n });
     expect((await pair({ provider: 'google', idToken: t, nonce: n })).statusCode).toBe(200);
-    expect((await pair({ provider: 'google', idToken: t, nonce: n })).statusCode).toBe(401);
-    expect((await pair({ provider: 'google', idToken: 'not.a.token.at.all.really.no', nonce: await nonce() })).statusCode).toBe(401);
+    expect((await pair({ provider: 'google', idToken: t, nonce: n })).statusCode).toBe(400);
+    expect((await pair({ provider: 'google', idToken: 'not.a.token.at.all.really.no', nonce: await nonce() })).statusCode).toBe(400);
   });
 
   it('says a provider that is not set up is not available', async () => {

@@ -3,7 +3,7 @@
 import { shell } from './shell';
 import { lang, tr } from './i18n';
 import { logEvent } from './diag';
-import type { RefusedHost } from './shell';
+import type { RefusedHost, SignInProvider } from './shell';
 
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
 
@@ -71,6 +71,10 @@ export const api = {
   requestCode: (email: string) => call<{ sent: boolean }>('POST', '/auth/code', { email, language: lang.value }, false),
   pairWithCode: (email: string, code: string, childFirstName: string | undefined, childAge: number | undefined, name: string) => call<{ deviceId: string; deviceToken: string; newFamily: boolean; config: DeviceConfig }>(
     'POST', '/auth/code/pair', { email, code, childFirstName, childAge, platform: shell.platform === 'web' ? 'web' : shell.platform, name, shellVersion: shell.shellVersion(), language: lang.value }, false),
+  signInProviders: () => call<{ providers: { provider: SignInProvider; clientIds: string[] }[] }>('GET', '/auth/providers', undefined, false),
+  signInNonce: () => call<{ nonce: string }>('GET', '/auth/nonce', undefined, false),
+  pairWithProvider: (provider: SignInProvider, idToken: string, nonce: string, childFirstName: string | undefined, childAge: number | undefined, name: string) => call<{ deviceId: string; deviceToken: string; newFamily: boolean; config: DeviceConfig }>(
+    'POST', '/auth/provider/pair', { provider, idToken, nonce, childFirstName, childAge, platform: shell.platform === 'web' ? 'web' : shell.platform, name, shellVersion: shell.shellVersion(), language: lang.value }, false),
   checkin: (battery?: number) => call<DeviceConfig>('POST', '/device/checkin', { shellVersion: shell.shellVersion(), ...(shell.pushToken() ? { pushToken: shell.pushToken() } : {}), ...(battery === undefined ? {} : { battery }) }),
   config: () => call<DeviceConfig>('GET', '/device/config'),
   reportInstalled: (apps: { package: string; label: string; icon?: string; allowed?: boolean; dailyMinutes?: number | null }[]) => call<{ otherApps: OtherApp[] }>('POST', '/device/apps-installed', { apps }),

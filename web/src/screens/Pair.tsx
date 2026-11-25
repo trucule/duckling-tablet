@@ -1,14 +1,30 @@
 import { tr } from '../i18n';
-import { useState } from 'preact/hooks';
-import { pair, pairWithCode } from '../state';
-import { shell } from '../shell';
+import { useEffect, useState } from 'preact/hooks';
+import { pair, pairWithCode, pairWithProvider } from '../state';
+import { shell, type SignInProvider } from '../shell';
 import { api } from '../api';
 
 const DEFAULT_NAME = () => shell.platform === 'web' ? tr('Browser') : tr('Tablet');
+const CONTINUE_WITH: Record<SignInProvider, () => string> = { apple: () => tr('Continue with Apple'), google: () => tr('Continue with Google'), microsoft: () => tr('Continue with Microsoft') };
+
+// The account this device is signed in to (Apple on the iPad, Google on Android, Microsoft on Windows), when the
+// server takes it: one press replaces the email and the code.
+function useDeviceSignIn() {
+  const [offer, setOffer] = useState<{ provider: SignInProvider; clientId: string } | null>(null);
+  useEffect(() => {
+    if (!shell.signInProviders.length) return;
+    api.signInProviders().then((r) => {
+      const p = r.providers.find((x) => shell.signInProviders.includes(x.provider) && x.clientIds.length);
+      if (p) setOffer({ provider: p.provider, clientId: p.clientIds[0] });
+    }).catch(() => {});
+  }, []);
+  return offer;
+}
 
 // First run. Three short screens on this tablet and nothing else: the parent's email, the six-digit code from that
-// email, the child's first name. A parent who already has a family uses the same screens (the tablet joins it) or
-// a pairing code from the website.
+// email, the child's first name. Where the device has an account the server takes, one press on Continue with
+// Apple, Google or Microsoft replaces the first two. A parent who already has a family uses the same screens (the
+// tablet joins it) or a pairing code from the website.
 export function Pair() {
   const [step, setStep] = useState<'email' | 'code' | 'child' | 'website'>('email');
   const [email, setEmail] = useState('');
@@ -18,10 +34,25 @@ export function Pair() {
   const [name, setName] = useState(DEFAULT_NAME());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const offer = useDeviceSignIn();
+  const [signedIn, setSignedIn] = useState<{ provider: SignInProvider; idToken: string; nonce: string } | null>(null);
 
   const run = async (fn: () => Promise<void>) => { setBusy(true); setError(''); try { await fn(); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } };
   const sendCode = (e: Event) => { e.preventDefault(); run(async () => { await api.requestCode(email.trim()); setStep('code'); }); };
-  const finish = (e: Event) => { e.preventDefault(); run(() => pairWithCode(email.trim(), code, child.trim() || undefined, Number(age) || undefined, name.trim() || DEFAULT_NAME())); };
+  const finish = (e: Event) => {
+    e.preventDefault();
+    const kid = child.trim() || undefined, years = Number(age) || undefined, label = name.trim() || DEFAULT_NAME();
+    run(() => signedIn ? pairWithProvider(signedIn.provider, signedIn.idToken, signedIn.nonce, kid, years, label) : pairWithCode(email.trim(), code, kid, years, label));
+  };
+  const deviceSignIn = () => run(async () => {
+    if (!offer) return;
+    const { nonce } = await api.signInNonce();
+    const r = await shell.signIn(offer.provider, nonce, offer.clientId);
+    if (r.status === 'cancelled') return;
+    if (r.status !== 'ok' || !r.idToken) throw new Error(r.message || tr('That sign-in did not finish. Try again, or use your email.'));
+    setSignedIn({ provider: offer.provider, idToken: r.idToken, nonce });
+    setStep('child');
+  });
   const pairCode = (e: Event) => { e.preventDefault(); run(() => pair(code.trim(), name.trim() || DEFAULT_NAME())); };
   const input = { style: { fontSize: 22, padding: '12px 14px', borderRadius: 12, border: '2px solid var(--line)', width: '100%', boxSizing: 'border-box' as const } };
 
@@ -31,6 +62,10 @@ export function Pair() {
         <form class="card" onSubmit={sendCode}>
           <h2>{tr('Set up Duckling')}</h2>
           <p>{tr("Takes about three minutes, all on this tablet. Type a parent's email; we send a six-digit code to it.")}</p>
+          {offer && <>
+            <button type="button" class={`pill primary signin ${offer.provider}`} disabled={busy} onClick={deviceSignIn}>{CONTINUE_WITH[offer.provider]()}</button>
+            <p class="muted">{tr('Or type an email:')}</p>
+          </>}
           <input type="email" required autoFocus placeholder={tr('parent@example.com')} value={email} onInput={(e) => setEmail((e.target as HTMLInputElement).value)} {...input} />
           {error && <div class="error">{error}</div>}
           <div class="row" style={{ marginTop: 14 }}>
@@ -71,7 +106,7 @@ export function Pair() {
           {error && <div class="error">{error}</div>}
           <div class="row" style={{ marginTop: 14 }}>
             <button class="pill primary" disabled={busy || !child.trim()}>{busy ? tr('Setting up') : tr('Finish setup')}</button>
-            <button type="button" class="pill" onClick={() => { setError(''); setStep('code'); }}>{tr('Back')}</button>
+            <button type="button" class="pill" onClick={() => { setError(''); if (signedIn) { setSignedIn(null); setStep('email'); } else setStep('code'); }}>{tr('Back')}</button>
           </div>
         </form>
       )}

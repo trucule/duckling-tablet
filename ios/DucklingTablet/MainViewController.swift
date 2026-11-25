@@ -9,6 +9,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     static let webApp = URL(string: "https://app.ducklingtablet.com/")!
     private var web: WKWebView!
     private let prefs = Prefs.shared
+    private let appleSignIn = AppleSignIn()
     private let homePill = UIButton(configuration: .filled())
     private let videoPill = UIButton(configuration: .filled())
     /// Hosts refused without the Video blocked button: advertising and analytics, and those a parent kept blocked.
@@ -331,6 +332,16 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         case "subscribe": billing { await Billing.shared.subscribe() }
         case "restorePurchases": billing { await Billing.shared.restore() }
         case "manageSubscription": Task { await Billing.shared.manage() }
+        case "signIn":
+            guard str(0) == "apple", !str(1).isEmpty else {
+                js("window.DucklingWeb && DucklingWeb.onSignIn && DucklingWeb.onSignIn('failed', '', '')")
+                break
+            }
+            // The token goes to Duckling's own page only: js() runs only while it shows.
+            appleSignIn.start(nonce: str(1), window: view.window) { [weak self] status, token, message in
+                guard let self else { return }
+                self.js("window.DucklingWeb && DucklingWeb.onSignIn && DucklingWeb.onSignIn(\(self.q(status)), \(self.q(token)), \(self.q(message)))")
+            }
         case "reload": web.reload()
         default: break
         }

@@ -1,6 +1,24 @@
 import { tr, trn } from '../i18n';
 import { useEffect, useState } from 'preact/hooks';
 import { api, session } from '../api';
+import { continueWith, portalClientId, providerToken, SignInCancelled, type Provider } from '../providers';
+
+// The providers set up on the server that the portal can use, with the client id to ask each for.
+export function useProviders() {
+  const [list, setList] = useState<{ provider: Provider; clientId: string }[]>([]);
+  useEffect(() => {
+    api.signInProviders().then((r) => setList(r.providers.flatMap((p) => { const c = portalClientId(p.provider, p.clientIds); return c ? [{ provider: p.provider, clientId: c }] : []; }))).catch(() => {});
+  }, []);
+  return list;
+}
+
+// Opens the provider's sign-in and hands its token and this server's nonce to `use`. A closed window is not an error.
+export async function withProvider(p: { provider: Provider; clientId: string }, use: (idToken: string, nonce: string) => Promise<void>) {
+  const { nonce } = await api.signInNonce();
+  let token: string;
+  try { token = await providerToken(p.provider, p.clientId, nonce); } catch (e) { if (e instanceof SignInCancelled) return; throw e; }
+  await use(token, nonce);
+}
 
 // Email sign-in. In a browser the email has a link; /signin?token=... is redeemed here and the token leaves the URL.
 // As an iPhone or iPad home-screen app (navigator.standalone) the email has a six-digit code typed here instead: iOS
@@ -13,6 +31,12 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [code, setCode] = useState('');
+  const providers = useProviders();
+  const viaProvider = (p: { provider: Provider; clientId: string }) => async () => {
+    setBusy(true); setError('');
+    try { await withProvider(p, async (idToken, nonce) => { const r = await api.providerSignIn(p.provider, idToken, nonce); session.set(r.sessionToken); onSignedIn(); }); }
+    catch (err) { setError((err as Error).message); } finally { setBusy(false); }
+  };
   useEffect(() => {
     const token = new URLSearchParams(location.search).get('token');
     if (!token) return;
@@ -51,6 +75,10 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
           <label class="field"><span>{tr('Email')}</span><input type="email" autoComplete="email" required value={email} onInput={(e) => setEmail((e.target as HTMLInputElement).value)} autoFocus /></label>
           {error && <div class="error">{error}</div>}
           <button class="btn primary" disabled={busy || !email}>{busy ? tr('Working') : iosHomeScreen ? tr('Send me a code') : tr('Send me a link')}</button>
+          {providers.length > 0 && <div class="signin-providers">
+            <p class="muted">{tr('Or sign in with an account you already have. A tablet set up with the same account is in the same family.')}</p>
+            {providers.map((p) => <button type="button" key={p.provider} class={`btn signin ${p.provider}`} disabled={busy} onClick={viaProvider(p)}>{continueWith(p.provider)}</button>)}
+          </div>}
         </form>
       )}
       {!sent && error && <p class="muted">{tr('A link that failed can be replaced by asking for a new one above.')}</p>}

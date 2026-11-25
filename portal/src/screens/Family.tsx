@@ -1,11 +1,13 @@
 import { tr, trn, lang, setLang, LANGUAGE_NAMES, type Lang } from '../i18n';
 import { useEffect, useState } from 'preact/hooks';
-import { api, type Family as FamilyT, type Child, type Device, type CatalogApp, type DeviceDetail, type OtherApp, type SiteHost } from '../api';
+import { api, type Family as FamilyT, type Child, type Device, type CatalogApp, type DeviceDetail, type OtherApp, type SiteHost, type SignIns } from '../api';
 import { Requests, NoMatch } from './Requests';
 import { InstallCard } from '../install';
 import { useAppFilter, ageText, SUBJECTS } from '../appfilter';
 import { appName, appDescription } from '../apps';
 import { siteFromInput, sitesFromList } from '../site';
+import { PROVIDER_NAMES, type Provider } from '../providers';
+import { useProviders, withProvider } from './SignIn';
 
 const COLORS = ['#ffb3c6', '#ffd36b', '#b3e5ff', '#c8f7c5', '#e0c3fc', '#ffcf99'];
 
@@ -191,6 +193,8 @@ export function Family() {
         )}
         {inviteMsg && <p class={inviteMsg.ok ? 'ok' : 'error'} style={{ marginTop: 10 }}>{inviteMsg.text}</p>}
       </div>
+
+      <SignInMethods />
 
       <div class="card" id="account">
         <h2>{tr('Account')}</h2>
@@ -547,5 +551,48 @@ function ChildRow({ c, onChange, onError }: { c: Child; onChange: () => void; on
       <button class="btn quiet" onClick={() => setOpen(!open)}>{open ? tr('Done') : tr('Levels')}</button>
       <button class="btn quiet" onClick={async () => { if (confirm(tr("Remove {name}'s profile?", { name: c.firstName }))) { await api.deleteChild(c.id); onChange(); } }}>{tr('Remove')}</button>
     </li>
+  );
+}
+
+// The ways this parent signs in: their email, and Apple, Google or Microsoft accounts linked to it. Linking one means
+// a tablet set up with that account joins this family, so a family with an Android tablet and an iPad shares one
+// subscription whichever account each was set up with.
+function SignInMethods() {
+  const providers = useProviders();
+  const [data, setData] = useState<SignIns | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => { api.signIns().then(setData).catch(() => {}); }, []);
+  if (!data || !providers.length) return null;
+  const linked = (p: Provider) => data.linked.find((l) => l.provider === p);
+  const run = async (fn: () => Promise<SignIns | void>, done: string) => {
+    setBusy(true); setMsg(null);
+    try { const r = await fn(); if (r) { setData(r); setMsg({ ok: true, text: done }); } } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } finally { setBusy(false); }
+  };
+  const link = (p: { provider: Provider; clientId: string }) => run(async () => {
+    let out: SignIns | undefined;
+    await withProvider(p, async (idToken, nonce) => { out = await api.linkSignIn(p.provider, idToken, nonce); });
+    return out;
+  }, tr('Linked. A tablet set up with that account joins this family.'));
+  return (
+    <div class="card" id="sign-in">
+      <h2>{tr('Sign-in methods')}</h2>
+      <p>{tr('Link the Apple, Google or Microsoft accounts you use on your tablets. A tablet set up with a linked account joins this family and its subscription.')}</p>
+      <ul class="list">
+        <li><span class="grow"><strong>{tr('Email')}</strong> <span class="muted">{data.email}</span></span></li>
+        {providers.map((p) => {
+          const l = linked(p.provider);
+          return (
+            <li key={p.provider}>
+              <span class="grow"><strong>{PROVIDER_NAMES[p.provider]}</strong> <span class="muted">{l ? (l.email ?? tr('linked')) : tr('not linked')}</span></span>
+              {l
+                ? <button class="btn quiet" disabled={busy} onClick={() => { if (confirm(tr('Remove this sign-in? Tablets already in the family stay in it.'))) run(() => api.unlinkSignIn(p.provider), tr('Removed.')); }}>{tr('Remove')}</button>
+                : <button class={`btn signin ${p.provider}`} style={{ width: 'auto' }} disabled={busy} onClick={() => link(p)}>{tr('Link')}</button>}
+            </li>
+          );
+        })}
+      </ul>
+      {msg && <p class={msg.ok ? 'ok' : 'error'} style={{ marginTop: 10 }}>{msg.text}</p>}
+    </div>
   );
 }

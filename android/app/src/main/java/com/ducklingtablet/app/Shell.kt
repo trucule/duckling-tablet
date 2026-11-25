@@ -276,5 +276,15 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     @JavascriptInterface fun restorePurchases() { if (!ok()) return; activity.billing.restore() }
     @JavascriptInterface fun manageSubscription() { if (!ok()) return; activity.billing.manage() }
 
+    // ---- Continue with Google during setup. The result arrives at DucklingWeb.onSignIn(status, idToken, message),
+    // on Duckling's own page only (js() checks), so a website never sees the token.
+    @JavascriptInterface fun signInProviders(): String = if (!ok()) "" else "google"
+    @JavascriptInterface fun signIn(provider: String, nonce: String, clientId: String) {
+        if (!ok()) return
+        val done = { status: String, token: String, message: String -> js("window.DucklingWeb && DucklingWeb.onSignIn && DucklingWeb.onSignIn(${q(status)}, ${q(token)}, ${q(message)})") }
+        if (provider != "google" || nonce.isEmpty() || clientId.isEmpty()) { done("failed", "", ""); return }
+        main.post { activity.signIn.google(nonce, clientId, done) }
+    }
+
     @JavascriptInterface fun reload() { if (!ok()) return; main.post { web.reload() } }
 }

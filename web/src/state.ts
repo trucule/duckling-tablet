@@ -4,7 +4,7 @@ import { signal, computed, effect } from '@preact/signals';
 import { lang, setLang, tr } from './i18n';
 import { adoptTabletBackground, forgetPictures, forgetTabletBackground } from './pictures';
 import { api, ReleasedError, type DeviceConfig, type CatalogApp, type OtherApp, type Entitlement } from './api';
-import { shell, type RefusedHost } from './shell';
+import { shell, type RefusedHost, type SignInProvider } from './shell';
 import { logEvent } from './diag';
 
 // The last config the server sent is kept on the tablet, so the home screen has its tiles at once on the next start,
@@ -303,6 +303,10 @@ export async function relink(code: string, name: string) {
   const listed = new Set(r.config.apps.map((a) => a.id));
   for (const id of Object.keys(installed.value)) if (!listed.has(id) && !r.config.hidden.includes(id)) { try { await api.install(id); } catch { /* the family is locked out, or the app is gone from the catalog */ } }
   await checkin();
+}
+
+export async function pairWithProvider(provider: SignInProvider, idToken: string, nonce: string, childFirstName: string | undefined, childAge: number | undefined, name: string) {
+  adopt(await api.pairWithProvider(provider, idToken, nonce, childFirstName, childAge, name));
 }
 
 export async function pairWithCode(email: string, code: string, childFirstName: string | undefined, childAge: number | undefined, name: string) {

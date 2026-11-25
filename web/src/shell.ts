@@ -95,8 +95,16 @@ export interface Shell {
   restorePurchases(): Promise<BillingResult>;
   manageSubscription(): void;
   setAppAccountToken(token: string): void;
+  // Sign in with the account the device already knows (Apple on the iPad, Google on Android, Microsoft on Windows).
+  // Empty where the shell has none.
+  readonly signInProviders: SignInProvider[];
+  signIn(provider: SignInProvider, nonce: string, clientId: string): Promise<SignInResult>;
   readonly windows: WindowsShell | null;
 }
+
+export type SignInProvider = 'apple' | 'google' | 'microsoft';
+// status: "ok" with the provider's ID token, "cancelled", or "failed" with a message from the shell.
+export interface SignInResult { status: 'ok' | 'cancelled' | 'failed' | string; idToken: string; message: string }
 
 // on: allowed; off: not allowed (declined, switched off, or not asked yet on Android); blocked: a restriction set
 // elsewhere (iPad Screen Time); ask: the iPad has not asked yet.
@@ -155,6 +163,9 @@ interface NativeShell {
   manageSubscription?(): void;
   subscriptionPrice?(): string;
   setAppAccountToken?(token: string): void;
+  // Results arrive at DucklingWeb.onSignIn(status, idToken, message).
+  signInProviders?(): string;
+  signIn?(provider: string, nonce: string, clientId: string): void;
   // Windows only (results arrive at DucklingWeb.onWindows(kind, ok, message))
   setChildAccount?(name: string, fullName: string): void;
   restartDevice?(): void;
@@ -169,7 +180,7 @@ interface NativeShell {
 }
 
 declare global {
-  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void; onOtherApps(): void; onBilling(status: string, message: string): void; onWindows(kind: string, ok: boolean, message: string): void } }
+  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void; onOtherApps(): void; onBilling(status: string, message: string): void; onSignIn(status: string, idToken: string, message: string): void; onWindows(kind: string, ok: boolean, message: string): void } }
 }
 
 // Messages the Android, iPad and Windows shells send in English, shown in the tablet's language. The dictionary is
@@ -198,6 +209,8 @@ window.DucklingWeb = {
   onOtherApps() { window.dispatchEvent(new Event('duckling:otherapps')); },
   // A store purchase, restore or its failure: one at a time, so the waiting promise is the only one.
   onBilling(status, message) { const w = billingWait; billingWait = null; w?.({ status, message: nativeText(message) }); },
+  // The end of a sign-in with the device's account: one at a time, like billing.
+  onSignIn(status, idToken, message) { const w = signInWait; signInWait = null; w?.({ status, idToken, message: nativeText(message) }); },
   // Windows: the end of a lockdown step, a Wi-Fi scan or join, the parent browser closing.
   onWindows(kind, ok, message) {
     const w = windowsWaits.get(kind); windowsWaits.delete(kind);
@@ -228,6 +241,13 @@ function windowsShell(n: NativeShell): WindowsShell {
 }
 let billingWait: ((r: BillingResult) => void) | null = null;
 const billingCall = (start: () => void) => new Promise<BillingResult>((resolve) => { billingWait = resolve; start(); });
+let signInWait: ((r: SignInResult) => void) | null = null;
+const signInCall = (start: () => void) => new Promise<SignInResult>((resolve) => {
+  signInWait?.({ status: 'cancelled', idToken: '', message: '' });
+  signInWait = resolve;
+  try { start(); } catch (e) { signInWait = null; resolve({ status: 'failed', idToken: '', message: (e as Error).message }); }
+});
+const PROVIDERS: SignInProvider[] = ['apple', 'google', 'microsoft'];
 
 function native(n: NativeShell): Shell {
   return {
@@ -279,6 +299,8 @@ function native(n: NativeShell): Shell {
     restorePurchases: () => billingCall(() => n.restorePurchases?.()),
     manageSubscription: () => n.manageSubscription?.(),
     setAppAccountToken: (t) => { try { n.setAppAccountToken?.(t); } catch { /* older shell */ } },
+    signInProviders: (() => { try { return (n.signInProviders?.() || '').split(',').filter((p): p is SignInProvider => PROVIDERS.includes(p as SignInProvider)); } catch { return []; } })(),
+    signIn: (provider, nonce, clientId) => signInCall(() => n.signIn!(provider, nonce, clientId)),
     windows: n.platform() === 'windows' ? windowsShell(n) : null,
   };
 }
@@ -336,6 +358,9 @@ function browser(): Shell {
     restorePurchases: async () => ({ status: 'unavailable', message: '' }),
     manageSubscription() {},
     setAppAccountToken() {},
+    // Tests put {"provider", "idToken"} under this key to stand in for a shell with a signed-in account.
+    signInProviders: (() => { try { const f = JSON.parse(get('signInFake') || 'null'); return f && PROVIDERS.includes(f.provider) ? [f.provider as SignInProvider] : []; } catch { return []; } })(),
+    async signIn() { try { const f = JSON.parse(get('signInFake') || 'null'); return f ? { status: 'ok', idToken: String(f.idToken), message: '' } : { status: 'failed', idToken: '', message: '' }; } catch { return { status: 'failed', idToken: '', message: '' }; } },
     windows: null,
   };
 }

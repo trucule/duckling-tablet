@@ -371,4 +371,13 @@ export const es: Record<string, string> = {
   "That address is shared by many unrelated sites. Use the site's own address under it.": 'Esa dirección la comparten muchos sitios que no tienen relación entre sí. Usa la dirección propia del sitio dentro de ella.',
   'That address opens a whole website for browsing. To allow it, add the website under Websites.': 'Esa dirección abre un sitio web completo para navegar. Para permitirlo, agrega el sitio web en Sitios web.',
   'Too many reports today. Try again tomorrow.': 'Demasiados informes hoy. Inténtalo de nuevo mañana.',
+  'That sign-in is not available yet.': 'Ese inicio de sesión todavía no está disponible.',
+  'That sign-in could not be checked. Try again.': 'No se pudo comprobar ese inicio de sesión. Inténtalo de nuevo.',
+  'That sign-in has expired. Try again.': 'Ese inicio de sesión venció. Inténtalo de nuevo.',
+  'That account did not share a verified email address. Sign in with your email instead.': 'Esa cuenta no compartió un correo electrónico verificado. Inicia sesión con tu correo electrónico.',
+  'Continue with Apple': 'Continuar con Apple',
+  'Continue with Google': 'Continuar con Google',
+  'Continue with Microsoft': 'Continuar con Microsoft',
+  'Or type an email:': 'O escribe un correo electrónico:',
+  'That sign-in did not finish. Try again, or use your email.': 'Ese inicio de sesión no terminó. Inténtalo de nuevo o usa tu correo electrónico.',
 };

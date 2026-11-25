@@ -25,12 +25,15 @@ targets:
       - sdk: ManagedSettings.framework
       - sdk: DeviceActivity.framework
       - sdk: StoreKit.framework
+      - sdk: AuthenticationServices.framework
       - target: DucklingMonitor
         embed: true
     entitlements:
       path: DucklingTablet/DucklingTablet.entitlements
       properties:
         com.apple.developer.family-controls: true
+        com.apple.developer.applesignin:
+          - Default
         com.apple.security.application-groups:
           - group.com.ducklingtablet.app
     info:

@@ -98,6 +98,9 @@
     subscriptionPrice: function () { return S.price || ''; },
     manageSubscription: function () { post('manageSubscription'); },
     restorePurchases: function () { post('restorePurchases'); },
+    // Continue with Apple during setup. The result arrives at DucklingWeb.onSignIn(status, idToken, message).
+    signInProviders: function () { return 'apple'; },
+    signIn: function (provider, nonce, clientId) { post('signIn', [String(provider || ''), String(nonce || ''), String(clientId || '')]); },
     reload: function () { post('reload'); },
     __sha256: sha256hex,
   };

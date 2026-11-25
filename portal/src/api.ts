@@ -1,6 +1,7 @@
 // Parent calls to the API with the session token from the email link (kept in localStorage; the API also sets a
 // cookie, but the portal and the API are on different hosts so the bearer header is what counts).
 import { tr, lang, type Lang } from './i18n';
+import type { Provider } from './providers';
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
 
 export interface Child { id: string; firstName: string; grade: string | null; age?: number | null; levels: Record<string, number>; theme: { colors?: string[]; interests?: string[] }; stars?: { earned: number; spent: number; balance: number }; portraitUrl?: string | null; language?: Lang | null }
@@ -74,12 +75,21 @@ export interface Stats {
   otherApps: { label: string; families: number; minutes30: number }[];
 }
 
+// A parent's ways to sign in: their email, and the Apple, Google or Microsoft accounts linked to them.
+export interface SignIns { email: string | null; linked: { provider: Provider; email: string | null; linkedAt: string }[]; available: Provider[] }
+
 export const api = {
   stats: () => call<Stats>('GET', '/stats'),
   statsAccounts: () => call<{ at: string; accounts: Account[] }>('GET', '/stats/accounts'),
   emailLink: (email: string, delivery: 'link' | 'code' = 'link') => call<{ sent: boolean; delivery: 'link' | 'code' }>('POST', '/auth/email-link', { email, delivery, language: lang.value }),
   verifyCode: (email: string, code: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/code/verify', { email, code, language: lang.value }),
   verify: (token: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/verify', { token, language: lang.value }),
+  signInProviders: () => call<{ providers: { provider: Provider; clientIds: string[] }[] }>('GET', '/auth/providers'),
+  signInNonce: () => call<{ nonce: string }>('GET', '/auth/nonce'),
+  providerSignIn: (provider: Provider, idToken: string, nonce: string) => call<{ sessionToken: string; newFamily: boolean }>('POST', '/auth/provider', { provider, idToken, nonce, language: lang.value }),
+  signIns: () => call<SignIns>('GET', '/family/sign-ins'),
+  linkSignIn: (provider: Provider, idToken: string, nonce: string) => call<SignIns>('POST', '/family/sign-ins', { provider, idToken, nonce }),
+  unlinkSignIn: (provider: Provider) => call<SignIns>('DELETE', `/family/sign-ins/${provider}`),
   logout: () => call('POST', '/auth/logout', {}),
   family: () => call<Family>('GET', '/family'),
   // The family's language: emails, the portal, and every tablet whose child has no language of their own.

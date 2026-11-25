@@ -181,7 +181,6 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
   // new family with its trial. A tablet that signs in this way joins that family, whatever tablets it already has.
   const audiences = (p: Provider) => (p === 'apple' ? ctx.cfg.APPLE_SIGNIN_CLIENT_IDS : p === 'google' ? ctx.cfg.GOOGLE_SIGNIN_CLIENT_IDS : ctx.cfg.MICROSOFT_SIGNIN_CLIENT_IDS);
   const providerBody = z.object({ provider: z.enum(['apple', 'google', 'microsoft']), idToken: z.string().min(20).max(8000), nonce: z.string().max(200).optional() });
-  const NAMES: Record<Provider, string> = { apple: 'Apple', google: 'Google', microsoft: 'Microsoft' };
 
   // Which providers are set up here, with the client ids the portal and the shells ask the provider for.
   app.get('/auth/providers', async () => ({ providers: PROVIDERS.filter((p) => audiences(p).length).map((p) => ({ provider: p, clientIds: audiences(p) })) }));
@@ -192,13 +191,14 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
     return { nonce: ctx.nonces.issue() };
   });
 
+  // A token that fails is 400, not 401: the portal signs a parent out on a 401, and a failed link must not.
   async function checked(b: z.infer<typeof providerBody>): Promise<IdClaims> {
-    if (!audiences(b.provider).length) throw new HttpError(503, `Sign in with ${NAMES[b.provider]} is not available yet.`);
+    if (!audiences(b.provider).length) throw new HttpError(503, 'That sign-in is not available yet.');
     let c: IdClaims;
     try { c = await ctx.verifyIdToken(b.provider, b.idToken, audiences(b.provider)); }
-    catch (e) { if (e instanceof TokenError) throw new HttpError(401, 'That sign-in could not be checked. Try again.'); throw e; }
+    catch (e) { if (e instanceof TokenError) throw new HttpError(400, 'That sign-in could not be checked. Try again.'); throw e; }
     // Apple and Google tokens carry a nonce this server issued, once; Microsoft's sign-in library sets its own.
-    if (b.provider !== 'microsoft' && !(b.nonce && ctx.nonces.redeem(b.nonce, c.nonce))) throw new HttpError(401, 'That sign-in has expired. Try again.');
+    if (b.provider !== 'microsoft' && !(b.nonce && ctx.nonces.redeem(b.nonce, c.nonce))) throw new HttpError(400, 'That sign-in has expired. Try again.');
     return c;
   }
 
@@ -206,7 +206,7 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
   async function parentFor(q: Q, c: IdClaims): Promise<Parent> {
     const found = await q.one<{ parent_id: string; family_id: string }>('SELECT parent_id, family_id FROM find_identity($1, $2)', [c.provider, c.subject]);
     if (found) return { ...found, created: false };
-    if (!c.email || !c.emailVerified) throw new HttpError(401, 'That account did not share a verified email address. Sign in with your email instead.');
+    if (!c.email || !c.emailVerified) throw new HttpError(400, 'That account did not share a verified email address. Sign in with your email instead.');
     const parent = (await q.one<Parent>('SELECT parent_id, family_id, created FROM find_or_create_parent($1, $2, $3)', [c.email, newId('fam'), newId('par')]))!;
     if (parent.created) await q.run('SELECT start_trial($1, $2)', [parent.family_id, ctx.cfg.TRIAL_DAYS]);
     await q.setFamily(parent.family_id);
@@ -253,12 +253,12 @@ export default async function authRoutes(app: FastifyInstance, { ctx }: { ctx: C
       const found = await q.one<{ parent_id: string; family_id: string }>('SELECT parent_id, family_id FROM find_identity($1, $2)', [c.provider, c.subject]);
       if (found && found.parent_id !== a.parentId) {
         throw new HttpError(409, found.family_id === a.familyId
-          ? `That ${NAMES[c.provider]} account is linked to the other parent in your family.`
-          : `That ${NAMES[c.provider]} account is linked to another Duckling family. Sign in with it there and remove it first.`);
+          ? 'That account is linked to the other parent in your family.'
+          : 'That account is linked to another Duckling family. Sign in with it there and remove it first.');
       }
       if (!found) {
         const has = await q.one('SELECT 1 FROM parent_identity WHERE parent_id = $1 AND provider = $2', [a.parentId, c.provider]);
-        if (has) throw new HttpError(409, `Another ${NAMES[c.provider]} account is linked already. Remove it first.`);
+        if (has) throw new HttpError(409, 'Another account from the same company is linked already. Remove it first.');
         await q.run('INSERT INTO parent_identity (provider, subject, parent_id, family_id, email) VALUES ($1, $2, $3, $4, $5)', [c.provider, c.subject, a.parentId, a.familyId, c.email]);
         await audit(q, a.familyId, `parent:${a.parentId}`, 'sign_in.linked', { provider: c.provider });
       }

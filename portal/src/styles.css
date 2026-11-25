@@ -92,3 +92,9 @@ table.stats.narrow td:first-child { white-space: normal; }
 table.stats th { white-space: normal; vertical-align: bottom; font-size: 13px; color: var(--ink-soft); font-weight: 700; }
 h3 { font-size: 17px; margin: 16px 0 6px; }
 .row > .grow { flex: 1; }
+
+/* Continue with Apple, Google or Microsoft. Apple asks for a black or white button. */
+.signin-providers { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+.btn.signin { width: 100%; }
+.btn.signin.apple { background: #000; color: #fff; border-color: #000; }
+.btn.signin.google, .btn.signin.microsoft { background: #fff; color: #1f1f1f; }
