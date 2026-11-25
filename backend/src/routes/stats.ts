@@ -41,11 +41,42 @@ export default async function statsRoutes(app: FastifyInstance, { ctx }: { ctx: 
       const shells = await q.all<{ platform: string; shell_version: string | null; n: string }>(`SELECT platform, shell_version, count(*) n FROM device
           WHERE state = 'active' AND last_seen_at > now() - interval '30 days' GROUP BY platform, shell_version ORDER BY platform, count(*) DESC`);
 
-      // Subscriptions. A family's trial has run its course once it is older than the trial; of those, how many pay.
+      // Subscriptions. The entitlement row holds the trial (or a complimentary license); store subscriptions are in
+      // purchase, one row per store subscription, with active, grace or ended.
       const subs = await q.all<{ status: string; source: string | null; n: string }>(`SELECT status, source, count(*) n FROM entitlement GROUP BY status, source ORDER BY status, source`);
-      const conv = await one(`SELECT count(*) eligible, count(*) FILTER (WHERE e.status IN ('active', 'grace')) paying
-          FROM family f JOIN entitlement e ON e.family_id = f.id WHERE f.created_at < now() - make_interval(days => $1)`, [ctx.cfg.TRIAL_DAYS]);
       const trialsEnding = await one(`SELECT count(*) n FROM entitlement WHERE status = 'trial' AND current_period_end BETWEEN now() AND now() + interval '7 days'`);
+
+      // Trial to paid. Every family that had a store trial, leaving out complimentary licenses and the store review
+      // family (a trial of more than 60 days). A family subscribed when it has any store purchase, even one made
+      // during the trial; it pays now when one of them is active or in grace. A trial is over when its end has passed
+      // or the family subscribed. Grouped by the month the family was made and by the platform of its first tablet.
+      const funnel = await q.all<Record<string, unknown>>(`WITH fam AS (
+          SELECT f.id, f.created_at,
+            e.current_period_end <= now() AS ended,
+            EXISTS (SELECT 1 FROM purchase p WHERE p.family_id = f.id) AS subscribed,
+            EXISTS (SELECT 1 FROM purchase p WHERE p.family_id = f.id AND p.status IN ('active', 'grace')
+              AND (p.period_end IS NULL OR p.period_end > now() OR p.status = 'grace')) AS paying,
+            (SELECT p.source FROM purchase p WHERE p.family_id = f.id ORDER BY p.updated_at LIMIT 1) AS store,
+            (SELECT d.platform FROM device d WHERE d.family_id = f.id ORDER BY d.created_at LIMIT 1) AS platform
+          FROM family f JOIN entitlement e ON e.family_id = f.id
+          WHERE e.status = 'trial' OR (e.source IS DISTINCT FROM 'complimentary' AND EXISTS (SELECT 1 FROM purchase p WHERE p.family_id = f.id)))
+        SELECT 'all' AS kind, '' AS key, count(*) trials, count(*) FILTER (WHERE ended OR subscribed) done,
+          count(*) FILTER (WHERE subscribed) subscribed, count(*) FILTER (WHERE paying) paying FROM fam
+          WHERE NOT EXISTS (SELECT 1 FROM entitlement e2 WHERE e2.family_id = fam.id AND e2.status = 'trial' AND e2.current_period_end > fam.created_at + interval '60 days')
+        UNION ALL
+        SELECT 'month', to_char(date_trunc('month', created_at), 'YYYY-MM'), count(*), count(*) FILTER (WHERE ended OR subscribed),
+          count(*) FILTER (WHERE subscribed), count(*) FILTER (WHERE paying) FROM fam
+          WHERE NOT EXISTS (SELECT 1 FROM entitlement e2 WHERE e2.family_id = fam.id AND e2.status = 'trial' AND e2.current_period_end > fam.created_at + interval '60 days')
+          GROUP BY 2
+        UNION ALL
+        SELECT 'platform', coalesce(platform, ''), count(*), count(*) FILTER (WHERE ended OR subscribed),
+          count(*) FILTER (WHERE subscribed), count(*) FILTER (WHERE paying) FROM fam
+          WHERE NOT EXISTS (SELECT 1 FROM entitlement e2 WHERE e2.family_id = fam.id AND e2.status = 'trial' AND e2.current_period_end > fam.created_at + interval '60 days')
+          GROUP BY 2
+        UNION ALL
+        SELECT 'store', store, 0, 0, count(*), count(*) FILTER (WHERE paying) FROM fam WHERE subscribed GROUP BY 2`);
+      const row = (r: Record<string, unknown>) => ({ key: String(r.key), trials: n(r.trials), over: n(r.done), subscribed: n(r.subscribed), paying: n(r.paying) });
+      const all = funnel.find((r) => r.kind === 'all') ?? {};
 
       // Apps: installs on active tablets, use in the last 7 and 30 days, stars earned, AI calls.
       const apps = await q.all<Record<string, unknown>>(`SELECT a.id, a.name,
@@ -95,7 +126,17 @@ export default async function statsRoutes(app: FastifyInstance, { ctx }: { ctx: 
         tablets: { total: n(dev.total), seen1: n(dev.seen1), seen7: n(dev.seen7), seen30: n(dev.seen30), new7: n(dev.new7), new30: n(dev.new30),
           platforms: platforms.map((p) => ({ platform: p.platform, total: n(p.total), seen7: n(p.seen7) })),
           shells: shells.map((s) => ({ platform: s.platform, version: s.shell_version ?? '', n: n(s.n) })) },
-        subscriptions: { byStatus: subs.map((s) => ({ status: s.status, source: s.source ?? '', n: n(s.n) })), trialEnded: n(conv.eligible), paying: n(conv.paying), trialsEnding7: n(trialsEnding.n) },
+        subscriptions: {
+          byStatus: subs.map((s) => ({ status: s.status, source: s.source ?? '', n: n(s.n) })), trialsEnding7: n(trialsEnding.n),
+          // Kept for older portals: families whose trial is over, and those paying now.
+          trialEnded: n(all.over), paying: n(all.paying),
+          conversion: {
+            ...row({ key: '', ...all }),
+            byMonth: funnel.filter((r) => r.kind === 'month').map(row).sort((a, b) => b.key.localeCompare(a.key)).slice(0, 12),
+            byPlatform: funnel.filter((r) => r.kind === 'platform').map(row).sort((a, b) => b.trials - a.trials),
+            byStore: funnel.filter((r) => r.kind === 'store').map(row).sort((a, b) => b.subscribed - a.subscribed),
+          },
+        },
         apps: apps.map((a) => ({ id: String(a.id), name: String(a.name), installs: n(a.installs), opens7: n(a.opens7), minutes7: Math.round(n(a.seconds7) / 60), tablets7: n(a.tablets7),
           opens30: n(a.opens30), minutes30: Math.round(n(a.seconds30) / 60), stars: n(a.stars), ai30: n(a.ai30) })),
         days: days.map((d) => ({ day: String(d.day instanceof Date ? d.day.toISOString().slice(0, 10) : d.day).slice(0, 10), families: n(d.families), tablets: n(d.tablets), active: n(d.active), minutes: Math.round(n(d.seconds) / 60) })),

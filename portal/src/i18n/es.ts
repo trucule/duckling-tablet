@@ -337,4 +337,18 @@ export const es: Record<string, string> = {
   "That name covers every site in a country. Use the site's own name.": 'Ese nombre abarca todos los sitios de un país. Usa el nombre propio del sitio.',
   "That address is shared by many unrelated sites. Use the site's own address under it.": 'Esa dirección la comparten muchos sitios que no tienen relación entre sí. Usa la dirección propia del sitio dentro de ella.',
   'That address opens a whole website for browsing. To allow it, add the website under Websites.': 'Esa dirección abre un sitio web completo para navegar. Para permitirlo, agrega el sitio web en Sitios web.',
+  // Stats: trial to paid
+  'Trials that subscribed': 'Pruebas que se suscribieron',
+  '{n} of {total} finished trials; {paying} paying now': '{n} de {total} pruebas terminadas; {paying} pagan ahora',
+  'Trial to paid': 'De prueba a pago',
+  'Families that started a free trial, leaving out complimentary licenses and the store review family. A trial is finished when it has ended or the family subscribed. Subscribed counts any store subscription, even one cancelled later; paying now counts those still active.': 'Familias que empezaron una prueba gratis, sin contar las licencias de cortesía ni la familia de revisión de las tiendas. Una prueba está terminada cuando venció o la familia se suscribió. Suscritas cuenta cualquier suscripción en una tienda, aunque se haya cancelado después; pagan ahora cuenta las que siguen activas.',
+  'Month the family joined': 'Mes en que llegó la familia',
+  'First tablet': 'Primera tableta',
+  'No tablet yet': 'Todavía sin tableta',
+  'Store': 'Tienda',
+  'Subscribed': 'Suscritas',
+  'Paying now': 'Pagan ahora',
+  'Still paying': 'Siguen pagando',
+  'Trials': 'Pruebas',
+  'Rate': 'Tasa',
 };

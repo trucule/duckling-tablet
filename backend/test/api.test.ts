@@ -1178,6 +1178,43 @@ describe('owner stats', () => {
     expect(acc.body).not.toContain('Ada');
     expect(acc.body).not.toMatch(/child/i);
   });
+
+  it('counts trial to paid from store purchases, by month, first tablet and store', async () => {
+    // Six families: two still in their trial (one subscribed during it), three past it (one paying, one cancelled,
+    // one never subscribed), a complimentary license and the store review family, which are left out.
+    const fams: Record<string, { familyId: string }> = {};
+    await db.system(async (q) => {
+      for (const k of ['trial', 'early', 'paying', 'cancelled', 'lapsed', 'comp', 'review']) {
+        fams[k] = { familyId: `fam_${k}` };
+        await q.run('INSERT INTO family (id) VALUES ($1)', [`fam_${k}`]);
+        await q.run('SELECT start_trial($1, 7)', [`fam_${k}`]);
+      }
+      await q.run("INSERT INTO device (id, family_id, platform, name, token_hash) VALUES ('dev_p', 'fam_paying', 'android', 'T', 'h1'), ('dev_c', 'fam_cancelled', 'ios', 'T', 'h2')");
+    });
+    await db.system(async (q) => {
+      for (const k of ['paying', 'cancelled', 'lapsed']) await q.run("UPDATE entitlement SET current_period_end = now() - interval '1 day' WHERE family_id = $1", [fams[k].familyId]);
+      await q.run("UPDATE entitlement SET status = 'active', source = 'complimentary', current_period_end = NULL WHERE family_id = $1", [fams.comp.familyId]);
+      await q.run("UPDATE entitlement SET current_period_end = now() + interval '3650 days' WHERE family_id = $1", [fams.review.familyId]);
+      const buy = (k: string, source: string, status: string, days: number) => q.run(`INSERT INTO purchase (id, family_id, source, external_id, product_id, status, period_end)
+        VALUES ($1, $2, $3, $1, 'duckling_monthly', $4, now() + make_interval(days => $5))`, [`pur_${k}`, fams[k].familyId, source, status, days]);
+      await buy('early', 'stripe', 'active', 30);
+      await buy('paying', 'google', 'active', 20);
+      await buy('cancelled', 'apple', 'ended', -3);
+    });
+    const c = (await app.inject({ method: 'GET', url: '/stats', headers: { authorization: `Bearer ${ADMIN}` } })).json().subscriptions.conversion;
+    expect(c).toMatchObject({ trials: 5, over: 4, subscribed: 3, paying: 2 });
+    expect(c.byMonth).toEqual([{ key: expect.stringMatching(/^\d{4}-\d\d$/), trials: 5, over: 4, subscribed: 3, paying: 2 }]);
+    expect(c.byPlatform).toEqual(expect.arrayContaining([
+      { key: 'android', trials: 1, over: 1, subscribed: 1, paying: 1 },
+      { key: 'ios', trials: 1, over: 1, subscribed: 1, paying: 0 },
+      { key: '', trials: 3, over: 2, subscribed: 1, paying: 1 },
+    ]));
+    expect(c.byStore).toEqual(expect.arrayContaining([
+      { key: 'google', trials: 0, over: 0, subscribed: 1, paying: 1 },
+      { key: 'apple', trials: 0, over: 0, subscribed: 1, paying: 0 },
+      { key: 'stripe', trials: 0, over: 0, subscribed: 1, paying: 1 },
+    ]));
+  });
 });
 
 describe('hosts an allowed website was refused', () => {

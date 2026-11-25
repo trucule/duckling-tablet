@@ -55,13 +55,16 @@ export interface Account {
 }
 
 // The owner's stats (GET /stats): counts across every family, no names.
+// Trial to paid: families whose trial is over, those that subscribed in a store, and those paying now.
+export interface Funnel { trials: number; over: number; subscribed: number; paying: number }
 export interface Stats {
   at: string; trialDays: number;
   families: { total: number; new7: number; new30: number; withTablet: number; spanish: number };
   children: { total: number; spanish: number; portraits: number };
   tablets: { total: number; seen1: number; seen7: number; seen30: number; new7: number; new30: number;
     platforms: { platform: string; total: number; seen7: number }[]; shells: { platform: string; version: string; n: number }[] };
-  subscriptions: { byStatus: { status: string; source: string; n: number }[]; trialEnded: number; paying: number; trialsEnding7: number };
+  subscriptions: { byStatus: { status: string; source: string; n: number }[]; trialEnded: number; paying: number; trialsEnding7: number;
+    conversion?: Funnel & { byMonth: (Funnel & { key: string })[]; byPlatform: (Funnel & { key: string })[]; byStore: (Funnel & { key: string })[] } };
   apps: { id: string; name: string; installs: number; opens7: number; minutes7: number; tablets7: number; opens30: number; minutes30: number; stars: number; ai30: number }[];
   days: { day: string; families: number; tablets: number; active: number; minutes: number }[];
   levels: { subject: string; grade: number; n: number }[];

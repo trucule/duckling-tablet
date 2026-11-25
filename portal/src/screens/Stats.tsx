@@ -1,6 +1,6 @@
 import { tr, lang, LANGUAGE_NAMES, type Lang } from '../i18n';
 import { useEffect, useState } from 'preact/hooks';
-import { api, type Account, type Stats as StatsT } from '../api';
+import { api, type Account, type Funnel, type Stats as StatsT } from '../api';
 
 // The owner's view across every family: counts and sums, and the accounts list (parents, subscription, tablets; no
 // children). Offered to the parents named in STATS_EMAILS.
@@ -22,6 +22,7 @@ export function Stats({ onBack }: { onBack: () => void }) {
   const grade = (g: number) => (g < 0 ? tr('Pre-K') : g === 0 ? tr('K') : String(g));
 
   const minutes7 = s.apps.reduce((t, a) => t + a.minutes7, 0);
+  const conv = s.subscriptions.conversion;
   const plays = s.voice.clips + s.voice.hits;
   const subjects = [...new Set(s.levels.map((l) => l.subject))];
 
@@ -35,7 +36,9 @@ export function Stats({ onBack }: { onBack: () => void }) {
         <div class="kpis">
           <Kpi value={num(s.families.total)} label={tr('Families')} note={tr('{n} new this week', { n: num(s.families.new7) })} />
           <Kpi value={num(s.tablets.seen7)} label={tr('Tablets used this week')} note={tr('of {n} paired', { n: num(s.tablets.total) })} />
-          <Kpi value={num(s.subscriptions.paying)} label={tr('Paying after the trial')} note={tr('{pct} of {n} families past {days} days', { pct: pct(s.subscriptions.paying, s.subscriptions.trialEnded), n: num(s.subscriptions.trialEnded), days: s.trialDays })} />
+          {conv
+            ? <Kpi value={pct(conv.subscribed, conv.over)} label={tr('Trials that subscribed')} note={tr('{n} of {total} finished trials; {paying} paying now', { n: num(conv.subscribed), total: num(conv.over), paying: num(conv.paying) })} />
+            : <Kpi value={num(s.subscriptions.paying)} label={tr('Paying after the trial')} note={tr('{pct} of {n} families past {days} days', { pct: pct(s.subscriptions.paying, s.subscriptions.trialEnded), n: num(s.subscriptions.trialEnded), days: s.trialDays })} />}
           <Kpi value={num(minutes7)} label={tr('Minutes in apps this week')} note={tr('{n} a tablet', { n: num(s.tablets.seen7 ? Math.round(minutes7 / s.tablets.seen7) : 0) })} />
         </div>
       </div>
@@ -117,6 +120,19 @@ export function Stats({ onBack }: { onBack: () => void }) {
         <p class="muted" style={{ marginTop: 8 }}>{tr('{n} trials end in the next 7 days.', { n: num(s.subscriptions.trialsEnding7) })}</p>
       </div>
 
+      {conv && (
+        <div class="card">
+          <h2>{tr('Trial to paid')}</h2>
+          <p class="muted">{tr('Families that started a free trial, leaving out complimentary licenses and the store review family. A trial is finished when it has ended or the family subscribed. Subscribed counts any store subscription, even one cancelled later; paying now counts those still active.')}</p>
+          <FunnelTable title={tr('Month the family joined')} rows={conv.byMonth} label={(k) => new Date(`${k}-01T12:00:00Z`).toLocaleDateString(lang.value, { month: 'long', year: 'numeric' })} num={num} pct={pct} />
+          <FunnelTable title={tr('First tablet')} rows={conv.byPlatform} label={(k) => PLATFORM[k] ?? (k || tr('No tablet yet'))} num={num} pct={pct} />
+          <table class="stats narrow">
+            <thead><tr><th>{tr('Store')}</th><th>{tr('Subscribed')}</th><th>{tr('Paying now')}</th><th>{tr('Still paying')}</th></tr></thead>
+            <tbody>{conv.byStore.map((r) => <tr key={r.key}><td>{SOURCE[r.key] ?? r.key}</td><td>{num(r.subscribed)}</td><td>{num(r.paying)}</td><td>{pct(r.paying, r.subscribed)}</td></tr>)}</tbody>
+          </table>
+        </div>
+      )}
+
       <div class="card">
         <h2>{tr('Narrator and AI')}</h2>
         <table class="stats narrow"><tbody>
@@ -146,6 +162,15 @@ export function Stats({ onBack }: { onBack: () => void }) {
         )}
       </div>
     </>
+  );
+}
+
+function FunnelTable({ title, rows, label, num, pct }: { title: string; rows: (Funnel & { key: string })[]; label: (k: string) => string; num: (v: number) => string; pct: (a: number, b: number) => string }) {
+  return (
+    <table class="stats">
+      <thead><tr><th>{title}</th><th>{tr('Trials')}</th><th>{tr('Finished')}</th><th>{tr('Subscribed')}</th><th>{tr('Rate')}</th><th>{tr('Paying now')}</th></tr></thead>
+      <tbody>{rows.map((r) => <tr key={r.key}><td>{label(r.key)}</td><td>{num(r.trials)}</td><td>{num(r.over)}</td><td>{num(r.subscribed)}</td><td>{pct(r.subscribed, r.over)}</td><td>{num(r.paying)}</td></tr>)}</tbody>
+    </table>
   );
 }
 

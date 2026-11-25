@@ -473,8 +473,19 @@ describe.skipIf(!ready)('parent portal', () => {
       expect((await fetch(`${api}/device/app-usage`, { method: 'POST', headers: dev, body: JSON.stringify({ app, seconds: minutes * 60, day: ago(n) }) })).status).toBe(200);
     }
 
+    // The owner's family subscribed through the App Store after its trial.
+    await db.system(async (q) => {
+      const fam = (await q.one<{ family_id: string }>("SELECT family_id FROM parent WHERE email = 'owner@example.com'"))!.family_id;
+      await q.run("UPDATE entitlement SET current_period_end = now() - interval '1 day' WHERE family_id = $1", [fam]);
+      await q.run("INSERT INTO purchase (id, family_id, source, external_id, product_id, status, period_end) VALUES ('pur_owner', $1, 'apple', 'apple:owner', 'duckling_monthly', 'active', now() + interval '20 days')", [fam]);
+    });
+
     await p.locator('#account').getByRole('link', { name: 'Stats' }).click();
     await p.getByRole('heading', { name: 'Stats' }).waitFor();
+    const funnel = p.locator('.card', { has: p.getByRole('heading', { name: 'Trial to paid' }) });
+    await funnel.locator('tr', { hasText: 'iPad' }).waitFor();
+    expect(await funnel.locator('tr', { hasText: 'App Store' }).locator('td').allTextContents()).toEqual(['App Store', '1', '1', '100%']);
+    if (process.env.WEB_SHOTS) await funnel.screenshot({ path: join(process.env.WEB_SHOTS, 'stats-funnel.png') });
     await p.getByText('Minutes in apps this week').waitFor();
     const row = p.locator('table.stats tr', { hasText: 'Word Wizard' });
     // Installs count the tablets the earlier tests paired too; the use is this tablet's alone.
