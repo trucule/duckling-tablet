@@ -167,17 +167,19 @@ export function Parent({ focus }: { focus?: 'refused' } = {}) {
           <p>{tr('Do the steps in order. Each one gets a check mark when it is done.')}</p>
           <ul class="steps">
             <li><span class={`dot ${status.deviceSecure ? 'done' : ''}`}>{status.deviceSecure ? '✓' : '1'}</span>
-              <span><span class="what">{tr('Set an iPad passcode')}</span><br /><span class="why">{tr('In Settings, tap Face ID & Passcode (or Touch ID & Passcode) and turn the passcode on. Use one the child does not know.')}</span></span></li>
+              <span><span class="what">{tr('Set an iPad passcode')}</span><br /><span class="why">{tr('Tap Open Settings, then Face ID & Passcode (or Touch ID & Passcode) in the list on the left, and turn the passcode on. Use one the child does not know.')}</span></span>
+              <button class="pill quiet" onClick={() => shell.openSecuritySettings()}>{tr('Open Settings')}</button></li>
             <li><span class={`dot ${status.homeRole ? 'done' : ''}`}>{status.homeRole ? '✓' : '2'}</span>
               <span><span class="what">{tr('Screen Time')}</span><br /><span class="why">{tr("Duckling uses Screen Time to limit this iPad to Duckling and the websites you choose. Tap Continue to see the iPad's request; it asks for the passcode or Face ID.")}</span></span>
               <button class="pill quiet" onClick={() => { shell.requestHomeRole(); setTimeout(refresh, 2500); }}>{tr('Continue')}</button></li>
             <li><span class={`dot ${status.lockdownOn ? 'done' : ''}`}>{status.lockdownOn ? '✓' : '3'}</span>
               <span><span class="what">{tr('Close other apps and websites')}</span><br /><span class="why">{tr('Tap Turn on. Only Duckling and the websites you allow will open.')}</span></span>
               <button class="pill quiet" disabled={!status.homeRole} onClick={() => { shell.setLockdown(!status.lockdownOn); setTimeout(refresh, 800); }}>{status.lockdownOn ? tr('Turn off') : tr('Turn on')}</button></li>
-            {/* No Open Settings button on the iPad steps: iOS lets an app open only its own page in Settings, not
-                Passcode or Accessibility, so the steps give the Settings path in words. */}
+            {/* iOS lets an app open only its own page in Settings, so Open Settings lands on Duckling's page; on an
+                iPad the list of every section is beside it, which is where these steps send the parent. */}
             <li><span class={`dot ${status.pinned ? 'done' : ''}`}>{status.pinned ? '✓' : '4'}</span>
-              <span><span class="what">{tr('Keep the child in Duckling')}</span><br /><span class="why">{tr('In Settings, tap Accessibility, then Guided Access. Turn it on and set a passcode under Passcode Settings. Come back here, triple-click the top button (or the Home button) and tap Start. To leave, triple-click and enter that passcode.')}</span></span></li>
+              <span><span class="what">{tr('Keep the child in Duckling')}</span><br /><span class="why">{tr('Tap Open Settings, then Accessibility in the list on the left, then Guided Access. Turn it on and set a passcode under Passcode Settings. Come back to Duckling, triple-click the top button (or the Home button) and tap Start. To leave, triple-click and enter that passcode.')}</span></span>
+              <button class="pill quiet" onClick={() => shell.openSecuritySettings()}>{tr('Open Settings')}</button></li>
           </ul>
         </div>
       )}

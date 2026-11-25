@@ -261,6 +261,7 @@ describe.skipIf(!ready)('web app on Windows', () => {
       for (const d of '24682468') await p.getByRole('button', { name: d, exact: true }).click();
       await p.getByRole('button', { name: 'Parent', exact: true }).click();
       await p.getByRole('heading', { name: 'Microphone and camera' }).waitFor();
+      if (process.env.WEB_SHOTS) await p.locator('.card', { has: p.getByRole('heading', { name: 'Lockdown' }) }).screenshot({ path: join(process.env.WEB_SHOTS, `lockdown-${platform}.png`) });
       const labels = await p.locator('button').allInnerTexts();
       expect(labels.filter((l) => /^\s*allow\b/i.test(l))).toEqual([]);
       const media = p.locator('.card', { has: p.getByRole('heading', { name: 'Microphone and camera' }) });

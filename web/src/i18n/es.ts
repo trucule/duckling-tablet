@@ -168,7 +168,7 @@ export const es: Record<string, string> = {
   'Lockdown': 'Bloqueo',
   'Do the steps in order. Each one gets a check mark when it is done.': 'Haz los pasos en orden. Cada uno muestra una marca cuando está hecho.',
   'Set an iPad passcode': 'Pon un código al iPad',
-  'In Settings, tap Face ID & Passcode (or Touch ID & Passcode) and turn the passcode on. Use one the child does not know.': 'En Ajustes, toca Face ID y código (o Touch ID y código) y activa el código. Usa uno que el niño no conozca.',
+  'Tap Open Settings, then Face ID & Passcode (or Touch ID & Passcode) in the list on the left, and turn the passcode on. Use one the child does not know.': 'Toca Abrir Ajustes, luego Face ID y código (o Touch ID y código) en la lista de la izquierda, y activa el código. Usa uno que el niño no conozca.',
   'Open Settings': 'Abrir Ajustes',
   'Screen Time': 'Tiempo en pantalla',
   "Duckling uses Screen Time to limit this iPad to Duckling and the websites you choose. Tap Continue to see the iPad's request; it asks for the passcode or Face ID.": 'Duckling usa Tiempo en pantalla para limitar este iPad a Duckling y a los sitios web que elijas. Toca Continuar para ver la solicitud del iPad; pide el código o Face ID.',
@@ -178,8 +178,8 @@ export const es: Record<string, string> = {
   'Turn off': 'Desactivar',
   'Turn on': 'Activar',
   'Keep the child in Duckling': 'Mantener al niño en Duckling',
-  'In Settings, tap Accessibility, then Guided Access. Turn it on and set a passcode under Passcode Settings. Come back here, triple-click the top button (or the Home button) and tap Start. To leave, triple-click and enter that passcode.':
-    'En Ajustes, toca Accesibilidad y luego Acceso guiado. Actívalo y pon un código en Configuración de código. Vuelve aquí, haz triple clic en el botón superior (o en el botón de inicio) y toca Iniciar. Para salir, haz triple clic y escribe ese código.',
+  'Tap Open Settings, then Accessibility in the list on the left, then Guided Access. Turn it on and set a passcode under Passcode Settings. Come back to Duckling, triple-click the top button (or the Home button) and tap Start. To leave, triple-click and enter that passcode.':
+    'Toca Abrir Ajustes, luego Accesibilidad en la lista de la izquierda y después Acceso guiado. Actívalo y pon un código en Configuración de código. Vuelve a Duckling, haz triple clic en el botón superior (o en el botón de inicio) y toca Iniciar. Para salir, haz triple clic y escribe ese código.',
   'Programs and Store apps already on this device can appear on the home screen with a daily allowance, chosen in the parent portal.': 'Los programas y las apps de la Store que ya están en este dispositivo pueden aparecer en la pantalla de inicio con un tiempo diario, elegido en el portal para padres.',
   '{n} allowed now.': 'Permitidas ahora: {n}.',
   'None allowed yet.': 'Ninguna permitida todavía.',
