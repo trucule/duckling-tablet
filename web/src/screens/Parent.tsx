@@ -155,6 +155,9 @@ export function Parent() {
 
       {!unlinked.value && <AskForApp />}
 
+      {/* Before the lockdown: once the lockdown is on, the system's permission prompt and settings can no longer be reached. */}
+      <MediaAccessCard device={device} />
+
       {ios && (
         <div class="card">
           <h2>{tr('Lockdown')}</h2>
@@ -220,8 +223,6 @@ export function Parent() {
           {!shell.canDrawOverlays() && <div class="row"><button class="pill" onClick={() => shell.openOverlaySettings()}>{tr('Open settings')}</button></div>}
         </div>
       )}
-
-      <MediaAccessCard device={device} />
 
       <div class="card">
         <h2>{tr('Wi-Fi')}</h2>
