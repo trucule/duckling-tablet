@@ -19,7 +19,7 @@ public class ShellBridge(MainForm main)
         "hasPin", "setPin", "verifyPin", "setPinHash", "lockdownStatus", "requestHomeRole", "openSecuritySettings", "openWifiSettings", "networkStatus",
         "setLockdown", "setAllowedHosts", "setSignInHosts", "setChildInfo", "setChildLevels", "setChildId", "setLanguage", "release", "installedPackages", "launchPackage",
         "canDrawOverlays", "openOverlaySettings", "setAppAccountToken", "takeLocalBackground", "clearWebsiteData",
-        "takeBlockedHosts", "setQuietHosts", "shellLog",
+        "takeBlockedHosts", "setQuietHosts", "shellLog", "signInProviders", "signIn",
         // Windows only
         "setChildAccount", "restartDevice", "restartSession", "wifiNetworks", "connectWifi", "openParentPage", "setOtherApps", "endParent", "exitShell", "isChildSession",
     };
@@ -44,6 +44,17 @@ public class ShellBridge(MainForm main)
     });
 
     string? token;
+
+    // Continue with Microsoft during setup; the result arrives at DucklingWeb.onSignIn(status, idToken, message),
+    // on the web app's own page only (main.Js checks).
+    public string signInProviders() { Guard(); return "microsoft"; }
+    public void signIn(string provider, string nonce, string clientId)
+    {
+        Guard();
+        void Done(string status, string idToken) => main.Js($"window.DucklingWeb && DucklingWeb.onSignIn && DucklingWeb.onSignIn({MainForm.Q(status)}, {MainForm.Q(idToken)}, '')");
+        if (provider != "microsoft" || !Guid.TryParse(clientId, out _)) { Done("failed", ""); return; }
+        main.BeginInvoke(async () => { var (status, idToken) = await MicrosoftSignIn.Run(main.Handle, clientId); Done(status, idToken); });
+    }
 
     public string platform() => "windows";
     public string shellVersion() => MainForm.Version;
