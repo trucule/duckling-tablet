@@ -1,4 +1,4 @@
-// App requests become tickets in ET Ducky. Status changes come back through POST /hooks/etducky.
+// App requests and diagnostics reports become tickets in ET Ducky. Status changes come back through POST /hooks/etducky.
 // The ticket API contract is small on purpose: ET Ducky needs one create endpoint that accepts this JSON and returns
 // { id }, an attachments endpoint, and an outgoing webhook sending { ticketId, status, eventId? } with the shared
 // secret as a bearer token (or an HMAC-SHA256 signature in x-etducky-signature). The full contract is in
@@ -6,9 +6,10 @@
 import type { Config } from './config.js';
 import { redactText } from './logging.js';
 
-export interface TicketInput {
-  requestId: string; familyId: string; title: string; description: string; childGrade: string | null;
-}
+// An app request from a parent, or a diagnostics report sent from a tablet's parent area.
+export type TicketInput =
+  | { kind?: 'request'; requestId: string; familyId: string; title: string; description: string; childGrade: string | null }
+  | { kind: 'diagnostics'; reportId: string; familyId: string; title: string; body: string };
 export type CreateTicket = (t: TicketInput) => Promise<string | null>;
 // A picture the parent attached after the ticket was made: POST /tickets/:id/attachments { url, contentType }.
 // The url is a signed Duckling link that works for 30 days. Nothing is retried; the picture stays visible in the portal.
@@ -35,11 +36,13 @@ export function makeEtDucky(cfg: Config, log: (msg: string) => void): CreateTick
       const r = await fetch(`${cfg.ETDUCKY_API_URL.replace(/\/$/, '')}/tickets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ETDUCKY_API_KEY}` },
-        body: JSON.stringify({
-          type: 'App request', source: 'duckling-tablet', externalId: t.requestId,
-          title: `App request: ${t.title}`,
-          body: `${t.description}\n\nGrade: ${t.childGrade ?? 'not given'}\nFamily: ${t.familyId}\nRequest: ${t.requestId}`,
-        }),
+        body: JSON.stringify(t.kind === 'diagnostics'
+          ? { type: 'Diagnostics', source: 'duckling-tablet', externalId: t.reportId, title: t.title.slice(0, 200), body: t.body.slice(0, 10_000) }
+          : {
+            type: 'App request', source: 'duckling-tablet', externalId: t.requestId,
+            title: `App request: ${t.title}`,
+            body: `${t.description}\n\nGrade: ${t.childGrade ?? 'not given'}\nFamily: ${t.familyId}\nRequest: ${t.requestId}`,
+          }),
         signal: AbortSignal.timeout(10_000),
       });
       if (!r.ok) { log(`ET Ducky ticket create failed: ${r.status}`); return null; }

@@ -11,6 +11,8 @@ export interface Entitlement { status: 'trial' | 'active' | 'grace' | 'ended' | 
 export interface Family { familyId: string; you: string; language?: Lang; pinSet: boolean; subscription: Entitlement; cardPayments?: boolean; cardCustomer?: boolean; stats?: boolean; parents: { id: string; email: string; role: string }[]; children: Child[]; devices: Device[] }
 export interface OtherApp { package: string; label: string; icon: string | null; allowed: boolean; dailyMinutes: number | null; window: { start: string; end: string } | null; hosts: string[]; usedSecondsToday: number }
 export interface DeviceDetail { deviceId: string; state: string; child: Child | null; apps: { id: string; name: string; version: string; tileUrl: string | null }[]; hidden: string[]; allowlist: { host: string; tile?: { name: string; url: string } }[]; travel: { active: boolean; until: string | null }; otherApps: OtherApp[] }
+// A host an allowed website asked for and the tablet refused, filed under that website, with a parent's decision.
+export interface SiteHost { site: string; host: string; media: boolean; hits: number; tracker: boolean; decision: 'allowed' | 'blocked' | null; firstSeenAt: string; lastSeenAt: string }
 export interface AppAbout { concept: string; progression: string; lifeSkills: string[] }
 // The name, description and About text in another language, by language code, from the app's manifest (apps.ts reads them).
 export type AppI18n = Partial<Record<'en' | 'es', { name: string; description?: string; about?: AppAbout | null }>>;
@@ -92,6 +94,8 @@ export const api = {
   removeDevice: (id: string) => call('DELETE', `/devices/${id}`),
   hideApp: (id: string, app: string, hidden: boolean) => call(hidden ? 'PUT' : 'DELETE', `/devices/${id}/hidden/${app}`, hidden ? {} : undefined),
   installApp: (id: string, app: string) => call('PUT', `/devices/${id}/apps/${app}`, {}),
+  siteHosts: (id: string) => call<{ siteHosts: SiteHost[] }>('GET', `/devices/${id}/site-hosts`),
+  decideSiteHost: (id: string, site: string, host: string, decision: SiteHost['decision']) => call<{ siteHosts: SiteHost[] }>('PUT', `/devices/${id}/site-hosts`, { site, host, decision }),
   settings: (id: string, b: { allowlist?: { host: string; tile?: { name: string; url: string } }[] }) => call<DeviceDetail>('PUT', `/devices/${id}/settings`, b),
   travel: (id: string, minutes: number) => call('POST', `/devices/${id}/travel`, { minutes }),
   otherApp: (id: string, pkg: string, b: { allowed?: boolean; dailyMinutes?: number | null; window?: { start: string; end: string } | null; hosts?: string[] }) => call('PUT', `/devices/${id}/other-apps/${encodeURIComponent(pkg)}`, b),

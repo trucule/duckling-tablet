@@ -10,13 +10,18 @@ public class HomePill : Form
 {
     /// <summary>The pill's word in the tablet's language (ShellBridge.setLanguage).</summary>
     public static string Label { get; set; } = "Home";
+    /// <summary>The Video blocked button's words, beside Home while a website's video was refused.</summary>
+    public static string VideoLabel { get; set; } = "Video blocked";
     readonly Action onHome;
+    readonly bool video;
     bool down, pointerDown;
     float scale = 1f;
 
-    public HomePill(Action onHome)
+    /// <summary>video: the Video blocked button, to the left of Home, with no house.</summary>
+    public HomePill(Action onHome, bool video = false)
     {
         this.onHome = onHome;
+        this.video = video;
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         TopMost = true;
@@ -24,7 +29,7 @@ public class HomePill : Form
         BackColor = Color.FromArgb(36, 36, 56);
         DoubleBuffered = true;
         Cursor = Cursors.Hand;
-        AccessibleName = Label;
+        AccessibleName = video ? VideoLabel : Label;
         AccessibleRole = AccessibleRole.PushButton;
     }
 
@@ -39,8 +44,8 @@ public class HomePill : Form
     void Place(Rectangle screen)
     {
         scale = DeviceDpi / 96f;
-        int w = S(176), h = S(56);
-        var want = new Rectangle(screen.Right - w - S(8), screen.Top + S(6), w, h);
+        int w = S(video ? 230 : 176), h = S(56);
+        var want = new Rectangle(screen.Right - w - S(8) - (video ? S(176 + 12) : 0), screen.Top + S(6), w, h);
         if (Bounds == want && Region != null) return;
         Bounds = want;
         using var path = Rounded(new Rectangle(0, 0, w, h), h / 2);
@@ -100,13 +105,19 @@ public class HomePill : Form
         using (var path = Rounded(new Rectangle(S(1), S(1), Width - S(3), Height - S(3)), (Height - S(3)) / 2))
         using (var edge = new Pen(Color.FromArgb(200, 255, 255, 255), S(2)))
             g.DrawPath(edge, path);
+        using var f = new Font("Segoe UI", 15f, FontStyle.Bold);
+        if (video)
+        {
+            AccessibleName = VideoLabel;
+            TextRenderer.DrawText(g, VideoLabel, f, new Rectangle(0, 0, Width, Height), Color.FromArgb(255, 214, 160), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+            return;
+        }
         int cx = S(34), cy = Height / 2, r = S(12);
         using (var pen = new Pen(Color.White, S(3)) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round })
         {
             g.DrawLines(pen, new[] { new Point(cx - r, cy), new Point(cx, cy - r), new Point(cx + r, cy) });
             g.DrawRectangle(pen, cx - r + S(4), cy, 2 * r - S(8), r);
         }
-        using var f = new Font("Segoe UI", 15f, FontStyle.Bold);
         AccessibleName = Label;
         TextRenderer.DrawText(g, Label, f, new Rectangle(S(58), 0, Width - S(58), Height), Color.White, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
     }

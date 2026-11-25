@@ -33,6 +33,8 @@ final class Prefs {
     }
     /// The Home pill's words in the tablet's language.
     var homeTitle: String { language == "es" ? "\u{2302} Inicio" : "\u{2302} Home" }
+    /// The Video blocked button's words, beside Home while a website's video was refused.
+    var videoBlockedTitle: String { language == "es" ? "Video bloqueado" : "Video blocked" }
     var childId: String { get { d.string(forKey: "childId") ?? "" } set { d.set(newValue, forKey: "childId") } }
     var childName: String { get { d.string(forKey: "childName") ?? "" } set { d.set(newValue, forKey: "childName") } }
     var childLevels: String { get { d.string(forKey: "childLevels") ?? "{}" } set { d.set(newValue, forKey: "childLevels") } }

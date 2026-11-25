@@ -19,6 +19,7 @@ public class ShellBridge(MainForm main)
         "hasPin", "setPin", "verifyPin", "setPinHash", "lockdownStatus", "requestHomeRole", "openSecuritySettings", "openWifiSettings", "networkStatus",
         "setLockdown", "setAllowedHosts", "setSignInHosts", "setChildInfo", "setChildLevels", "setChildId", "setLanguage", "release", "installedPackages", "launchPackage",
         "canDrawOverlays", "openOverlaySettings", "setAppAccountToken", "takeLocalBackground", "clearWebsiteData",
+        "takeBlockedHosts", "setQuietHosts", "shellLog",
         // Windows only
         "setChildAccount", "restartDevice", "restartSession", "wifiNetworks", "connectWifi", "openParentPage", "setOtherApps", "endParent", "exitShell", "isChildSession",
     };
@@ -184,7 +185,14 @@ public class ShellBridge(MainForm main)
     public void setChildInfo(string name, string voice) { Guard(); Task.Run(() => { try { Call("setChild", new { name, voice }); } catch (Exception) { } }); }
     public void setChildLevels(string json) { Guard(); Task.Run(() => { try { Call("setChild", new { levels = json }); } catch (Exception) { } }); }
     /// <summary>The tablet's language, for the Home pill's words.</summary>
-    public void setLanguage(string lang) { Guard(); HomePill.Label = lang == "es" ? "Inicio" : "Home"; }
+    public void setLanguage(string lang) { Guard(); HomePill.Label = lang == "es" ? "Inicio" : "Home"; HomePill.VideoLabel = lang == "es" ? "Video bloqueado" : "Video blocked"; }
+
+    /// <summary>Hosts the allowed websites were refused since the last call (JSON [{page, host, media, hits}]).</summary>
+    public string takeBlockedHosts() { Guard(); return main.TakeRefused(); }
+    /// <summary>Hosts refused without the Video blocked button: advertising and analytics, and those a parent kept blocked.</summary>
+    public void setQuietHosts(string csv) { Guard(); main.QuietHosts = Hosts.Normalize(csv.Split(',')); }
+    /// <summary>The end of shell.log, for a diagnostics report.</summary>
+    public string shellLog() { Guard(); return ShellLog.Tail(); }
     public void setChildId(string id) { Guard(); Task.Run(() => { try { Call("setChild", new { id }); } catch (Exception) { } }); }
     public void setAppAccountToken(string t) { Guard(); Task.Run(() => { try { Call("setAppAccountToken", new { token = t }); } catch (Exception) { } }); }
 

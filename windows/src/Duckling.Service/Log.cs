@@ -22,7 +22,7 @@ public static class Log
                 var fi = new FileInfo(file);
                 if (fi.Exists && fi.Length > 1024 * 1024) File.Copy(file, file + ".old", true);
                 if (fi.Exists && fi.Length > 1024 * 1024) File.WriteAllText(file, "");
-                File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {level} {message}{Environment.NewLine}");
+                File.AppendAllText(file, $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}Z {level} {message}{Environment.NewLine}");
             }
         }
         catch (Exception) { }

@@ -7,6 +7,7 @@ import { notifyDevices } from '../notify.js';
 import { audit, type Ctx } from '../context.js';
 import { adminAuth } from '../auth.js';
 import { sendMissingTickets } from './requests.js';
+import { sendMissingDiagnostics } from './diagnostics.js';
 import { compareVersions } from '../catalog.js';
 import { requestRow } from './requests.js';
 import type { makeVoiceCache } from './tts.js';
@@ -133,7 +134,7 @@ export default async function adminRoutes(app: FastifyInstance, { ctx, voice }: 
 
   // Pre-generate every fixed line of an app (its phrases.json) into the shared voice cache.
   // Sends the ET Ducky tickets still missing (normally done every 10 minutes) and says how many wait.
-  app.post('/admin/requests/tickets', async () => sendMissingTickets(ctx));
+  app.post('/admin/requests/tickets', async () => ({ ...(await sendMissingTickets(ctx)), diagnostics: await sendMissingDiagnostics(ctx) }));
 
   app.post('/admin/voice/pregenerate', async (req) => {
     const b = z.object({

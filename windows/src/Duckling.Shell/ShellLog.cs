@@ -5,6 +5,24 @@ namespace Duckling.Shell;
 public static class ShellLog
 {
     static readonly object gate = new();
+    static string FilePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Duckling", "shell.log");
+
+    /// <summary>The end of the log, at most this many characters, for a diagnostics report from the parent area.</summary>
+    public static string Tail(int chars = 60_000)
+    {
+        try
+        {
+            lock (gate)
+            {
+                if (!File.Exists(FilePath)) return "";
+                var text = File.ReadAllText(FilePath);
+                if (text.Length < chars && File.Exists(FilePath + ".old")) text = File.ReadAllText(FilePath + ".old") + text;
+                return text.Length > chars ? text[^chars..] : text;
+            }
+        }
+        catch (Exception) { return ""; }
+    }
+
     public static void Write(string message)
     {
         try
@@ -16,7 +34,7 @@ public static class ShellLog
                 var file = Path.Combine(dir, "shell.log");
                 var fi = new FileInfo(file);
                 if (fi.Exists && fi.Length > 512 * 1024) { File.Copy(file, file + ".old", true); File.WriteAllText(file, ""); }
-                File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
+                File.AppendAllText(file, $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}Z {message}{Environment.NewLine}");
             }
         }
         catch (Exception) { }

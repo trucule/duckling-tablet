@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'preact/hooks';
-import { config, checkin, clearSavedData, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink, entitlement } from '../state';
+import { config, checkin, clearSavedData, releaseDevice, go, lastError, unlockParent, setupNeeded, refreshSetup, instantUpdates, unlinked, relink, entitlement, reportRefused } from '../state';
+import { collectReport } from '../report';
 import { forgetTabletBackground, tabletBackground, useHomeBackground, usePicture } from '../pictures';
 import { shell, type LockdownStatus, type BillingResult, type WifiNetwork, type MediaAccess, type MediaState } from '../shell';
-import { api, type AppRequest } from '../api';
+import { api, type AppRequest, type SiteHost } from '../api';
 import { lang, setLang, tr, trn, type Lang } from '../i18n';
 
 // Behind the PIN: lockdown steps for this platform, a check-in button, and Remove from this device.
-export function Parent() {
+export function Parent({ focus }: { focus?: 'refused' } = {}) {
   const [status, setStatus] = useState<LockdownStatus>(shell.lockdownStatus());
   const [busy, setBusy] = useState(false);
   const refresh = () => { setStatus(shell.lockdownStatus()); refreshSetup(); };
@@ -70,6 +71,8 @@ export function Parent() {
         <h1>{locks && setupNeeded.value ? tr('Set up {device}', { device: thisDevice }) : tr('Parent area')}</h1>
         <button class="pill" onClick={() => { unlockParent(false); go('home'); }}>{tr('Done')}</button>
       </div>
+
+      {focus === 'refused' && !unlinked.value && <RefusedHosts focus />}
 
       {android && setupNeeded.value && (
         <div class="card">
@@ -249,6 +252,10 @@ export function Parent() {
         <p>{tr('A website that stops loading or keeps showing an old version, or a Duckling screen that stays blank, can be fixed by clearing what is saved for them on this device. Websites may ask the child to sign in again. Apps, progress, pictures and settings stay.')}</p>
         <div class="row"><button class="pill quiet" disabled={busy} onClick={() => { if (confirm(tr('Clear saved website data and reload Duckling?'))) { setBusy(true); void clearSavedData(c); } }}>{tr('Clear saved website data')}</button></div>
       </div>
+
+      {focus !== 'refused' && !unlinked.value && <RefusedHosts />}
+
+      {!unlinked.value && <SendDiagnostics />}
 
       <div class="card">
         <h2>{tr('Remove from this device')}</h2>
@@ -522,6 +529,87 @@ function LanguageCard() {
           <button key={l} lang={l} class={`pill ${family === l ? 'primary' : 'quiet'}`} disabled={busy || family === l} onClick={() => choose(l)}>{LANGUAGE_NAMES[l]}</button>
         ))}
       </div>
+      {error && <div class="error">{error}</div>}
+    </div>
+  );
+}
+
+// Hosts the allowed websites asked for and this tablet refused: a video's playlist on another domain, a picture
+// server. A parent allows one for its website (it then opens only while that website is allowed, with no tile) or
+// keeps it blocked. Advertising and analytics hosts are folded away. The Video blocked button opens the parent area
+// here (focus); otherwise the card shows only when there is something to decide.
+function RefusedHosts({ focus = false }: { focus?: boolean }) {
+  const [list, setList] = useState<SiteHost[] | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState('');
+  const [showTrackers, setShowTrackers] = useState(false);
+  useEffect(() => {
+    (async () => {
+      await reportRefused();
+      try { setList((await api.siteHosts()).siteHosts); } catch (e) { setError((e as Error).message); setList([]); }
+    })();
+  }, []);
+  const decide = async (h: SiteHost, decision: SiteHost['decision']) => {
+    setBusy(`${h.site} ${h.host}`); setError('');
+    try { setList((await api.decideSiteHost(h.site, h.host, decision)).siteHosts); await checkin(); }
+    catch (e) { setError((e as Error).message); }
+    finally { setBusy(''); }
+  };
+  if (list === null) return focus ? <div class="card" id="refused"><h2>{tr('Blocked on websites')}</h2><p>{tr('Loading')}</p></div> : null;
+  const open = list.filter((h) => !h.tracker || showTrackers || h.decision === 'allowed');
+  const trackers = list.filter((h) => h.tracker && h.decision !== 'allowed').length;
+  if (!focus && !list.some((h) => !h.tracker && h.decision === null) && !list.some((h) => h.decision)) return null;
+  const sites = [...new Set(open.map((h) => h.site))];
+  return (
+    <div class="card" id="refused">
+      <h2>{tr('Blocked on websites')}</h2>
+      <p>{tr('Websites often load their videos and pictures from another address. Duckling blocks every address you have not allowed, so a video may not play. These are the addresses each website asked for. Allow one only if it belongs to the website or a service you trust: it opens only while that website is allowed, and never gets a tile of its own.')}</p>
+      {!list.length && <p>{tr('Nothing has been blocked on the allowed websites yet. If a video did not play, open it again and come back here.')}</p>}
+      {sites.map((site) => (
+        <div class="refused-site" key={site}>
+          <h3>{site}</h3>
+          <ul class="refused">
+            {open.filter((h) => h.site === site).map((h) => (
+              <li key={h.host}>
+                <span><strong>{h.host}</strong><br /><span class="why">{[h.media ? tr('Video') : '', h.tracker ? tr('Advertising or analytics') : '', trn(h.hits, 'Asked once', 'Asked {n} times')].filter(Boolean).join(' · ')}</span></span>
+                {h.decision === 'allowed' && <><span class="state ok">{tr('Allowed')}</span><button class="pill quiet" disabled={!!busy} onClick={() => decide(h, 'blocked')}>{tr('Block')}</button></>}
+                {h.decision === 'blocked' && <><span class="state">{tr('Kept blocked')}</span><button class="pill quiet" disabled={!!busy} onClick={() => decide(h, 'allowed')}>{tr('Allow')}</button></>}
+                {h.decision === null && <><button class="pill" disabled={!!busy} onClick={() => decide(h, 'allowed')}>{tr('Allow')}</button><button class="pill quiet" disabled={!!busy} onClick={() => decide(h, 'blocked')}>{tr('Keep blocked')}</button></>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      {trackers > 0 && <div class="row"><button class="pill quiet" onClick={() => setShowTrackers(!showTrackers)}>{showTrackers ? tr('Hide advertising and analytics') : trn(trackers, 'Show {n} advertising or analytics address', 'Show {n} advertising and analytics addresses')}</button></div>}
+      {error && <div class="error">{error}</div>}
+    </div>
+  );
+}
+
+// Send diagnostics: a report to the Duckling team (an ET Ducky ticket) with an optional note from the parent.
+function SendDiagnostics() {
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<{ id: string; sent: boolean } | null>(null);
+  const [error, setError] = useState('');
+  const send = async () => {
+    setBusy(true); setError(''); setDone(null);
+    try {
+      // A check-in first, so the report carries the newest settings and the clock comparison is current.
+      await checkin();
+      await reportRefused();
+      setDone(await api.sendDiagnostics(note.trim(), await collectReport()));
+      setNote('');
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div class="card">
+      <h2>{tr('Report a problem')}</h2>
+      <p>{tr('Sends a report to the Duckling team: the versions on this tablet, its settings and lockdown steps, recent errors, and the addresses websites were blocked from, with your note. Your child\'s name, the PIN and pictures are not included.')}</p>
+      <div class="field"><textarea rows={3} maxLength={2000} placeholder={tr('What happened? (optional)')} aria-label={tr('What happened? (optional)')} value={note} onInput={(e) => setNote((e.target as HTMLTextAreaElement).value)} /></div>
+      <div class="row"><button class="pill" disabled={busy} onClick={send}>{busy ? tr('Sending') : tr('Send diagnostics')}</button></div>
+      {done && <p>{done.sent ? tr('Sent. The reference is {id}.', { id: done.id }) : tr('Saved. It reaches the team as soon as their system answers. The reference is {id}.', { id: done.id })}</p>}
       {error && <div class="error">{error}</div>}
     </div>
   );

@@ -43,6 +43,11 @@ the web server already there (nginx or Caddy). Memory is capped at 300 MB becaus
 | `PUT/DELETE /device/apps/:app` | device | The child installs and uninstalls freely; hidden apps are refused |
 | `POST /device/released` | device | The device has released the lockdown |
 | `POST /device/apps-installed` `{apps: [{package, label, icon?, allowed?, dailyMinutes?}]}` | device | The tablet's own apps, for the Other apps section; `allowed` and `dailyMinutes` are applied when sent (the iPad, where the parent picks apps on the device) and left to the portal when absent |
+| `POST /device/site-hosts` `{items: [{page, host, media, hits}]}` | device | Hosts an allowed website was refused, filed under the allowlist entry the page belongs to |
+| `GET /device/site-hosts`, `GET /devices/:id/site-hosts` | device, parent | Those hosts with a parent's decision; video hosts first |
+| `PUT /device/site-hosts`, `PUT /devices/:id/site-hosts` `{site, host, decision}` | device (behind the PIN), parent | `allowed` adds the host to the tablet's `mediaHosts` while its site is allowed; `blocked` adds it to `quietHosts` (no Video blocked button); only a host the tablet reported |
+| `POST /device/diagnostics` `{note, report}` | device (behind the PIN) | Stores the report with the server's view of the tablet, child names removed, and opens an ET Ducky ticket (type `Diagnostics`) with a summary and a 30-day signed link |
+| `GET /diagnostics/:id?exp=&sig=` | the signed link | The full report as JSON |
 | `GET /catalog` | anyone | Every published app with its newest version |
 | `GET /tts?text=&voice=&rate=&private=` | device | Shared voice cache: 302 to the CDN clip; `private=1` returns audio without storing it |
 | `GET/POST /requests` | parent | App requests; one open per family; each becomes an ET Ducky ticket |
@@ -51,6 +56,7 @@ the web server already there (nginx or Caddy). Memory is capped at 300 MB becaus
 | `POST /admin/apps/:id/versions?version=&signature=&request=` | admin | Upload a signed package zip; `request` marks it shipped and installs it for that family |
 | `POST /admin/voice/pregenerate` `{lines}` | admin | Fill the voice cache with an app's fixed lines |
 | `GET /admin/requests`, `GET /admin/stats` | admin | Your view |
+| `POST /admin/requests/tickets` | admin | Sends the ET Ducky tickets still missing for app requests and diagnostics reports (also every 10 minutes) |
 | `GET /stats`, `GET /stats/accounts` | admin, or a parent in `STATS_EMAILS` | The portal's Stats page: counts across families, and each family's parents (emails, last sign-in), subscription and tablets. Nothing about children |
 | `GET /health` | anyone | Liveness |
 
@@ -60,7 +66,8 @@ HTTP 410 `{"error":"release"}` and must release.
 ## ET Ducky contract
 
 - Create: `POST {ETDUCKY_API_URL}/tickets` with `Authorization: Bearer {ETDUCKY_API_KEY}` and
-  `{type:"App request", source:"duckling-tablet", externalId, title, body}`; respond `{id}`.
+  `{type:"App request", source:"duckling-tablet", externalId, title, body}`; respond `{id}`. A diagnostics report
+  uses the same call with `type:"Diagnostics"` and the report id as `externalId`.
 - Status: ET Ducky posts `{ticketId, status}` to `https://api.ducklingtablet.com/hooks/etducky` with header
   `x-etducky-signature` = hex HMAC-SHA256 of the raw body using `ETDUCKY_WEBHOOK_SECRET`. Statuses New, Planned,
   In Progress, Declined map to requested, planned, building, declined. Shipping happens through publishing.

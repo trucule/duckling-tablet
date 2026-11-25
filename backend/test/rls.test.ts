@@ -9,7 +9,7 @@ let cluster: Cluster, t: TestDb, db: Db;
 const A = 'fam_A', B = 'fam_B';
 
 const FAMILY_TABLES = ['family', 'parent', 'session', 'child', 'pairing_code', 'device', 'device_app', 'device_hidden_app',
-  'setting', 'app_request', 'request_attachment', 'entitlement', 'purchase', 'tts_usage', 'audit'];
+  'setting', 'app_request', 'request_attachment', 'entitlement', 'purchase', 'tts_usage', 'audit', 'site_host', 'diagnostic_report'];
 const CLOSED_TABLES = ['login_token', 'device_tombstone', 'webhook_event'];
 const READ_ONLY_TABLES = ['app', 'app_version', 'voice_clip', 'entitlement', 'purchase'];
 
@@ -27,6 +27,8 @@ beforeEach(async () => {
       await q.run("INSERT INTO device (id, family_id, platform, name, token_hash) VALUES ($1, $2, 'android', 'Tablet', $3)", [`dev_${f}`, f, `hash_${f}`]);
       await q.run("INSERT INTO app_request (id, family_id, title, description) VALUES ($1, $2, 'T', 'D')", [`req_${f}`, f]);
       await q.run("INSERT INTO audit (family_id, actor, action) VALUES ($1, 'test', 'seeded')", [f]);
+      await q.run("INSERT INTO site_host (family_id, device_id, site, host) VALUES ($1, $2, 'example.org', 'cdn.example.net')", [f, `dev_${f}`]);
+      await q.run("INSERT INTO diagnostic_report (id, family_id, device_id, storage_key, size) VALUES ($1, $2, $3, 'k', 1)", [`diag_${f}`, f, `dev_${f}`]);
     }
     await q.run("INSERT INTO login_token (token_hash, email, expires_at) VALUES ('lt', 'x@example.com', now() + interval '1 hour')");
     await q.run("INSERT INTO device_tombstone (token_hash) VALUES ('tomb')");
@@ -67,6 +69,9 @@ describe('row-level security', () => {
       expect((await q.all('SELECT id FROM app_request')).map((r) => r.id)).toEqual([`req_${A}`]);
       expect((await q.all('SELECT id FROM parent')).map((r) => r.id)).toEqual([`par_${A}`]);
       expect((await q.all('SELECT family_id FROM audit')).map((r) => r.family_id)).toEqual([A]);
+      expect((await q.all('SELECT family_id FROM site_host')).map((r) => r.family_id)).toEqual([A]);
+      expect((await q.all('SELECT id FROM diagnostic_report')).map((r) => r.id)).toEqual([`diag_${A}`]);
+      expect(await q.run("UPDATE site_host SET decision = 'allowed' WHERE device_id = $1", [`dev_${B}`])).toBe(0);
       // B's rows are invisible even when asked for by id, and updates and deletes aimed at them touch nothing.
       expect(await q.one('SELECT 1 FROM child WHERE id = $1', [`chd_${B}`])).toBeUndefined();
       expect(await q.run("UPDATE child SET first_name = 'X' WHERE id = $1", [`chd_${B}`])).toBe(0);
@@ -84,6 +89,8 @@ describe('row-level security', () => {
       `INSERT INTO setting (family_id, device_id, key, value) VALUES ('${B}', 'dev_${B}', 'k', '1'::jsonb)`,
       `INSERT INTO app_request (id, family_id, title, description) VALUES ('req_new', '${B}', 'T', 'D')`,
       `INSERT INTO session (token_hash, parent_id, family_id, expires_at) VALUES ('s', 'par_${B}', '${B}', now() + interval '1 day')`,
+      `INSERT INTO site_host (family_id, device_id, site, host) VALUES ('${B}', 'dev_${B}', 'example.org', 'cdn.example.net')`,
+      `INSERT INTO diagnostic_report (id, family_id, device_id, storage_key, size) VALUES ('diag_new', '${B}', 'dev_${B}', 'k', 1)`,
       `INSERT INTO audit (family_id, actor, action) VALUES ('${B}', 'a', 'b')`,
       `INSERT INTO audit (family_id, actor, action) VALUES (NULL, 'a', 'b')`,
       `UPDATE child SET family_id = '${B}' WHERE id = 'chd_${A}'`,

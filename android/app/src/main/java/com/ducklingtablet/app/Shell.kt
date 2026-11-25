@@ -255,6 +255,12 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     /** Website hosts a parent allowed (from the device config); the WebView lets only these through besides Duckling's own. */
     @JavascriptInterface fun setAllowedHosts(csv: String) { if (!ok()) return; activity.allowedHosts = csv.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet() }
 
+    /** Hosts the allowed websites were refused since the last call (JSON [{page, host, media, hits}]); the list starts again. */
+    @JavascriptInterface fun takeBlockedHosts(): String = if (!ok()) "[]" else activity.takeRefused()
+
+    /** Hosts refused without showing the Video blocked button: advertising and analytics, and those a parent kept blocked. */
+    @JavascriptInterface fun setQuietHosts(csv: String) { if (!ok()) return; activity.quietHosts = csv.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet() }
+
     /** Sign-in services a website may send a parent to; the WebView presents a standard browser user agent on them. */
     @JavascriptInterface fun setSignInHosts(csv: String) { if (!ok()) return; activity.signInHosts = csv.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet() }
 

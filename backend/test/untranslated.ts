@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 
 const QUIET_ATTRS = new Set(['class', 'style', 'key', 'href', 'type', 'value', 'id', 'role', 'src', 'rel', 'target', 'autoComplete', 'inputMode', 'pattern', 'lang', 'name', 'for', 'loading', 'accept', 'capture', 'd', 'viewBox', 'fill', 'stroke']);
-const QUIET_CALLS = /(\.(startsWith|includes|replace|split|join|getItem|setItem|removeItem|get|set|has|test|match|endsWith|find|indexOf|querySelector|getElementById|addEventListener|postMessage|log|warn|error)|^(fetch|call|req|matchMedia|window\.matchMedia|encodeURIComponent|useState|signal|Promise\.\w+|new URL))$/;
+// logEvent: lines for the diagnostics report (web/src/diag.ts), read by the support team in English, never shown.
+const QUIET_CALLS = /(\.(startsWith|includes|replace|split|join|getItem|setItem|removeItem|get|set|has|test|match|endsWith|find|indexOf|querySelector|getElementById|addEventListener|postMessage|log|warn|error)|^(fetch|call|req|logEvent|matchMedia|window\.matchMedia|encodeURIComponent|useState|signal|Promise\.\w+|new URL))$/;
 
 const words = (t: string) => /[A-Za-z]{2,}/.test(t);
 

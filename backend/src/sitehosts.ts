@@ -17,6 +17,35 @@ export const SITE_MEDIA_HOSTS: Record<string, string[]> = {
   'getepic.com': ['www.getepicapi.com', 'getepicapi.com'],
 };
 
+// Advertising, analytics and crash-reporting services that learning sites load alongside their own pages. A tablet
+// refuses them like any other host, but does not offer them to a parent as something a video may need, and its
+// "Video blocked" button does not appear for them. A parent can still allow one from the full list.
+export const TRACKER_HOSTS: string[] = [
+  'doubleclick.net', 'googlesyndication.com', 'googleadservices.com', 'google-analytics.com', 'googletagmanager.com',
+  'googletagservices.com', 'adservice.google.com', 'imasdk.googleapis.com', 'facebook.net', 'connect.facebook.net',
+  'facebook.com', 'newrelic.com', 'nr-data.net', 'osano.com', 'iterable.com', 'hotjar.com', 'segment.io', 'segment.com',
+  'mixpanel.com', 'amplitude.com', 'sentry.io', 'bugsnag.com', 'branch.io', 'app.link', 'appsflyer.com',
+  'adsafeprotected.com', 'moatads.com', 'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com', 'scorecardresearch.com',
+  'quantserve.com', 'adnxs.com', 'rubiconproject.com', 'pubmatic.com', 'casalemedia.com', 'amazon-adsystem.com',
+  'clarity.ms', 'bing.com', 'tiktok.com', 'snapchat.com', 'pinterest.com', 'twitter.com', 'ads-twitter.com',
+  'optimizely.com', 'fullstory.com', 'onetrust.com', 'cookielaw.org', 'cookiebot.com', 'trustarc.com',
+  'intercom.io', 'zendesk.com', 'zdassets.com', 'datadoghq.com', 'browser-intake-datadoghq.com',
+];
+
+/** A site as the allowlist names it: lower case, without a leading *. or www. */
+export const bare = (h: string) => h.trim().toLowerCase().replace(/^\*\./, '').replace(/^www\./, '');
+const under = (host: string, list: string[]) => list.some((p) => host === p || host.endsWith(`.${p}`));
+/** True for an advertising, analytics or crash-reporting host (TRACKER_HOSTS). */
+export const isTracker = (host: string) => under(host.toLowerCase(), TRACKER_HOSTS);
+
+/** The allowlist entry a page belongs to (getepic.com for www.getepic.com), or null when it belongs to none. */
+export function siteFor(page: string, allowed: string[]): string | null {
+  const p = page.trim().toLowerCase().replace(/\.$/, '');
+  let best: string | null = null;
+  for (const a of allowed.map(bare)) if (a && (p === a || p.endsWith(`.${a}`)) && (!best || a.length > best.length)) best = a;
+  return best;
+}
+
 // Sign-in services a website may send the child's parent to ("Log in with Google" on a learning site): the account
 // pages and the files they load, nothing that browses. A tablet allows them only while it has an allowed website,
 // and the shells present a standard browser user agent on them, since Google refuses to sign in inside what it
@@ -35,7 +64,6 @@ export const SIGN_IN_HOSTS: string[] = [
   'clever.com', 'launchpad.classlink.com', 'login.classlink.com', 'myapps.classlink.com', 'cdn.classlink.com',
 ];
 
-const bare = (h: string) => h.trim().toLowerCase().replace(/^\*\./, '').replace(/^www\./, '');
 
 /** The media hosts for a list of allowed website hosts: a host gets a site's list when it is that site or under it. */
 export function mediaHostsFor(allowed: string[]): string[] {

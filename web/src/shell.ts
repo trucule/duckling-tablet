@@ -61,6 +61,13 @@ export interface Shell {
   // Clears what these websites saved on the device (storage, offline files, service workers, cookies); Duckling's own
   // pages and the apps keep theirs. False when the shell is too old to do it.
   clearWebsiteData(hosts: string[]): boolean;
+  // Hosts the allowed websites asked for and were refused since the last call; the shell's list starts again. Each
+  // names the page's host, the refused host, whether it looked like video, and how many times. [] from older shells.
+  takeBlockedHosts(): RefusedHost[];
+  // Hosts refused without the shell's Video blocked button: advertising and analytics, and those a parent kept blocked.
+  setQuietHosts(hosts: string[]): void;
+  // The end of the shell's own log, for a diagnostics report; '' where the shell keeps none.
+  shellLog(): string;
   setLockdown(on: boolean): void;
   setAllowedHosts(hosts: string[]): void;
   // Hosts a website opened from a tile may sign in through: the shell presents a standard browser user agent there
@@ -96,6 +103,8 @@ export interface Shell {
 export type MediaState = 'on' | 'off' | 'blocked' | 'ask';
 export interface MediaAccess { microphone: MediaState; camera: MediaState }
 
+export interface RefusedHost { page: string; host: string; media: boolean; hits: number }
+
 export interface InstalledPackage { package: string; label: string; icon?: string; allowed?: boolean; dailyMinutes?: number | null }
 
 export interface BillingResult { status: 'purchased' | 'pending' | 'cancelled' | 'unavailable' | 'failed' | 'none' | string; message: string }
@@ -125,6 +134,9 @@ interface NativeShell {
   openAppSettings?(): void;
   takeLocalBackground?(): string;
   clearWebsiteData?(hostsJson: string): void;
+  takeBlockedHosts?(): string;
+  setQuietHosts?(csv: string): void;
+  shellLog?(): string;
   setLockdown(on: boolean): void;
   setAllowedHosts(csv: string): void;
   setSignInHosts?(csv: string): void;
@@ -244,6 +256,9 @@ function native(n: NativeShell): Shell {
     openAppSettings: () => { try { n.openAppSettings?.(); } catch { /* older shell */ } },
     takeLocalBackground: () => { try { return n.takeLocalBackground?.() || ''; } catch { return ''; } },
     clearWebsiteData: (hosts) => { if (typeof n.clearWebsiteData !== 'function') return false; try { n.clearWebsiteData(JSON.stringify(hosts)); return true; } catch { return false; } },
+    takeBlockedHosts: () => { try { const a = JSON.parse(n.takeBlockedHosts?.() || '[]'); return Array.isArray(a) ? a as RefusedHost[] : []; } catch { return []; } },
+    setQuietHosts: (hosts) => { try { n.setQuietHosts?.(hosts.join(',')); } catch { /* older shell */ } },
+    shellLog: () => { try { return n.shellLog?.() || ''; } catch { return ''; } },
     networkStatus: () => { try { return (n.networkStatus?.() as ReturnType<Shell['networkStatus']>) || (navigator.onLine ? 'other' : 'none'); } catch { return navigator.onLine ? 'other' : 'none'; } },
     setLockdown: (on) => n.setLockdown(on),
     setAllowedHosts: (hosts) => n.setAllowedHosts(hosts.join(',')),
@@ -297,6 +312,10 @@ function browser(): Shell {
     // Tests put a picture under this key to stand in for an app on the tablet.
     takeLocalBackground() { const d = get('localBackground') || ''; if (d) set('localBackground', null); return d; },
     clearWebsiteData: () => false,
+    // Tests put a list under this key to stand in for a shell that refused hosts.
+    takeBlockedHosts() { const d = get('refused'); set('refused', null); try { return d ? JSON.parse(d) as RefusedHost[] : []; } catch { return []; } },
+    setQuietHosts() {},
+    shellLog: () => '',
     networkStatus: () => (navigator.onLine ? 'other' : 'none'),
     setLockdown() {},
     setAllowedHosts() {},

@@ -47,6 +47,7 @@ class Prefs(context: Context) {
         get() = p.getString("language", "en") ?: "en"
         set(v) = p.edit().putString("language", if (v == "es") "es" else "en").apply()
     fun homeLabel(): String = if (language == "es") "Inicio" else "Home"
+    fun videoBlockedLabel(): String = if (language == "es") "Video bloqueado" else "Video blocked"
     var lockdownOn: Boolean
         get() = p.getBoolean("lockdownOn", false)
         set(v) { p.edit().putBoolean("lockdownOn", v).apply() }

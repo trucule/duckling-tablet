@@ -1,6 +1,6 @@
 import { tr, trn, lang, setLang, LANGUAGE_NAMES, type Lang } from '../i18n';
 import { useEffect, useState } from 'preact/hooks';
-import { api, type Family as FamilyT, type Child, type Device, type CatalogApp, type DeviceDetail, type OtherApp } from '../api';
+import { api, type Family as FamilyT, type Child, type Device, type CatalogApp, type DeviceDetail, type OtherApp, type SiteHost } from '../api';
 import { Requests, NoMatch } from './Requests';
 import { InstallCard } from '../install';
 import { useAppFilter, ageText, SUBJECTS } from '../appfilter';
@@ -326,6 +326,7 @@ function SitesCard({ devices, details, onAct }: { devices: Device[]; details: Re
         <button class="btn" disabled={!host.trim() || chosen.length === 0}>{tr('Allow site')}</button>
       </form>
       {bad && <p class="error" role="alert">{bad}</p>}
+      <BlockedAddresses devices={chosen} />
       <div style={{ marginTop: 14 }}>
         <strong>{tr('Allow every site for a while')}</strong>
         <p class="muted" style={{ margin: '4px 0 8px' }}>{tr('For a flight, a hotel, a school project.')} {travelling.length ? travelling.map((d) => chosen.length > 1 ? tr('On until {when} on {device}.', { when: new Date(details[d.id].travel.until!).toLocaleString(lang.value), device: d.name }) : tr('On until {when}.', { when: new Date(details[d.id].travel.until!).toLocaleString(lang.value) })).join(' ') : tr('Off.')}</p>
@@ -340,6 +341,49 @@ function SitesCard({ devices, details, onAct }: { devices: Device[]; details: Re
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Addresses an allowed website asked for and a tablet blocked (a video's playlist on another domain, a picture server),
+// reported by the tablets. Allowing one lets it through on that tablet while its website is allowed, with no tile.
+// Advertising and analytics addresses are folded away.
+function BlockedAddresses({ devices }: { devices: Device[] }) {
+  const [lists, setLists] = useState<Record<string, SiteHost[]>>({});
+  const [showTrackers, setShowTrackers] = useState(false);
+  const [error, setError] = useState('');
+  const ids = devices.map((d) => d.id).join(',');
+  useEffect(() => {
+    let live = true;
+    Promise.all(devices.map(async (d) => [d.id, (await api.siteHosts(d.id)).siteHosts] as const))
+      .then((all) => { if (live) setLists(Object.fromEntries(all)); })
+      .catch((e) => { if (live) setError((e as Error).message); });
+    return () => { live = false; };
+  }, [ids]);
+  const decide = async (d: Device, h: SiteHost, decision: SiteHost['decision']) => {
+    setError('');
+    try { const r = await api.decideSiteHost(d.id, h.site, h.host, decision); setLists({ ...lists, [d.id]: r.siteHosts }); }
+    catch (e) { setError((e as Error).message); }
+  };
+  const rows = devices.flatMap((d) => (lists[d.id] ?? []).map((h) => ({ d, h })));
+  const shown = rows.filter(({ h }) => !h.tracker || showTrackers || h.decision === 'allowed');
+  const trackers = rows.filter(({ h }) => h.tracker && h.decision !== 'allowed').length;
+  if (!rows.length && !error) return null;
+  return (
+    <div style={{ marginTop: 14 }}>
+      <strong>{tr('Blocked addresses')}</strong>
+      <p class="muted" style={{ margin: '4px 0 8px' }}>{tr('Addresses the allowed sites asked for and the tablet blocked. A video that does not play often needs one of them. Allow one only if it belongs to the site or a service you trust.')}</p>
+      <ul class="list">
+        {shown.map(({ d, h }) => (
+          <li key={`${d.id} ${h.site} ${h.host}`}>
+            <span class="grow"><strong>{h.host}</strong> <span class="muted">{[tr('for {site}', { site: h.site }), h.media ? tr('video') : '', h.tracker ? tr('advertising or analytics') : '', devices.length > 1 ? d.name : '', h.decision === 'allowed' ? tr('allowed') : h.decision === 'blocked' ? tr('kept blocked') : ''].filter(Boolean).join(' · ')}</span></span>
+            {h.decision !== 'allowed' && <button class="btn" onClick={() => decide(d, h, 'allowed')}>{tr('Allow')}</button>}
+            {h.decision !== 'blocked' && <button class="btn quiet" onClick={() => decide(d, h, 'blocked')}>{h.decision === 'allowed' ? tr('Block') : tr('Keep blocked')}</button>}
+          </li>
+        ))}
+      </ul>
+      {trackers > 0 && <p><button class="btn quiet" onClick={() => setShowTrackers(!showTrackers)}>{showTrackers ? tr('Hide advertising and analytics') : trn(trackers, 'Show {n} advertising or analytics address', 'Show {n} advertising and analytics addresses')}</button></p>}
+      {error && <p class="error" role="alert">{error}</p>}
     </div>
   );
 }

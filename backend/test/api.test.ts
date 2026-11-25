@@ -380,14 +380,14 @@ describe('app requests', () => {
     expect((await app.inject({ method: 'POST', url: `/requests/${rid}/attachments`, headers: { ...p.auth, 'content-type': 'image/png' }, payload: png })).statusCode).toBe(200);
     expect(tickets).toHaveLength(0); expect(attached).toHaveLength(0);
     const admin = { authorization: `Bearer ${ADMIN}` };
-    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: admin })).json()).toEqual({ configured: false, waiting: 1, created: 0 });
+    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: admin })).json()).toEqual({ configured: false, waiting: 1, created: 0, diagnostics: { waiting: 0, created: 0 } });
     etduckyUp = true;
-    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: admin })).json()).toEqual({ configured: false, waiting: 0, created: 1 });
+    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: admin })).json()).toEqual({ configured: false, waiting: 0, created: 1, diagnostics: { waiting: 0, created: 0 } });
     expect(tickets[0]).toMatchObject({ requestId: rid, title: 'Bird songs' });
     expect(attached).toEqual([expect.objectContaining({ ticketId: 'T-1', contentType: 'image/png' })]);
     expect(attached[0].url).toMatch(new RegExp(`^https://api.test/requests/${rid}/attachments/att_`));
     // Nothing waits now; the ticket's status reaches the request as usual.
-    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: admin })).json()).toEqual({ configured: false, waiting: 0, created: 0 });
+    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: admin })).json()).toEqual({ configured: false, waiting: 0, created: 0, diagnostics: { waiting: 0, created: 0 } });
     const hook = await app.inject({ method: 'POST', url: '/hooks/etducky', headers: { 'content-type': 'application/json', authorization: `Bearer ${HOOK}` }, payload: { ticketId: 'T-1', status: 'Planned' } });
     expect(hook.json().updated).toBe(1);
     expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets' })).statusCode).toBe(401);
@@ -1177,5 +1177,120 @@ describe('owner stats', () => {
     expect(list[1]).toMatchObject({ language: 'en', minutes30: 10, parents: [{ email: 'a@example.com' }] });
     expect(acc.body).not.toContain('Ada');
     expect(acc.body).not.toMatch(/child/i);
+  });
+});
+
+describe('hosts an allowed website was refused', () => {
+  it('files reports under the allowed site, lets a parent allow or keep blocked, and sends allowed hosts as media hosts', async () => {
+    const p = await signIn('sites@example.com');
+    const d = await pair(p.auth);
+    await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth, payload: { allowlist: [{ host: 'getepic.com' }, { host: 'example.org' }] } });
+    let cfg = (await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json();
+    expect(cfg.mediaHosts).toEqual(['getepicapi.com', 'www.getepicapi.com']);
+    expect(cfg.quietHosts).toContain('googletagmanager.com');
+
+    const report = await app.inject({ method: 'POST', url: '/device/site-hosts', headers: d.dev, payload: { items: [
+      { page: 'www.getepic.com', host: 'cdn.videohost.net', media: true, hits: 3 },
+      { page: 'www.getepic.com', host: 'www.googletagmanager.com', hits: 2 },
+      { page: 'kids.example.org', host: 'img.example-cdn.com' },
+      // Skipped: a page outside the allowlist, and a host the site already covers.
+      { page: 'elsewhere.com', host: 'cdn.videohost.net', media: true },
+      { page: 'www.getepic.com', host: 'cdn.getepic.com' },
+    ] } });
+    expect(report.statusCode).toBe(200);
+    // A second report adds to the counts; media stays true once seen.
+    await app.inject({ method: 'POST', url: '/device/site-hosts', headers: d.dev, payload: { items: [{ page: 'www.getepic.com', host: 'cdn.videohost.net', hits: 2 }] } });
+    const list = (await app.inject({ method: 'GET', url: `/devices/${d.deviceId}/site-hosts`, headers: p.auth })).json().siteHosts;
+    // Video hosts first, then the most recent (one report shares a time, so by name).
+    expect(list.map((h: any) => [h.site, h.host, h.media, h.hits, h.tracker, h.decision])).toEqual([
+      ['getepic.com', 'cdn.videohost.net', true, 5, false, null],
+      ['example.org', 'img.example-cdn.com', false, 1, false, null],
+      ['getepic.com', 'www.googletagmanager.com', false, 2, true, null],
+    ]);
+
+    // The parent allows the video host from the portal: the tablet gets it as a media host, for that site only.
+    const allow = await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/site-hosts`, headers: p.auth, payload: { site: 'getepic.com', host: 'cdn.videohost.net', decision: 'allowed' } });
+    expect(allow.statusCode).toBe(200);
+    cfg = (await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json();
+    expect(cfg.mediaHosts).toContain('cdn.videohost.net');
+    // From the tablet's parent area, a host is kept blocked: it joins the quiet hosts and stays out of the media hosts.
+    const keep = await app.inject({ method: 'PUT', url: '/device/site-hosts', headers: d.dev, payload: { site: 'example.org', host: 'img.example-cdn.com', decision: 'blocked' } });
+    expect(keep.statusCode).toBe(200);
+    expect(keep.json().config.quietHosts).toContain('img.example-cdn.com');
+    expect(keep.json().config.mediaHosts).not.toContain('img.example-cdn.com');
+    // Only a host the tablet reported for that site can be decided on.
+    expect((await app.inject({ method: 'PUT', url: '/device/site-hosts', headers: d.dev, payload: { site: 'getepic.com', host: 'anything.com', decision: 'allowed' } })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'PUT', url: '/device/site-hosts', headers: d.dev, payload: { site: 'example.org', host: 'cdn.videohost.net', decision: 'allowed' } })).statusCode).toBe(404);
+
+    // The site leaves the allowlist: its allowed host goes with it, and comes back with it.
+    await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth, payload: { allowlist: [{ host: 'example.org' }] } });
+    cfg = (await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json();
+    expect(cfg.mediaHosts).not.toContain('cdn.videohost.net');
+    expect((await app.inject({ method: 'GET', url: '/device/site-hosts', headers: d.dev })).json().siteHosts.map((h: any) => h.host)).toEqual(['img.example-cdn.com']);
+    await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth, payload: { allowlist: [{ host: 'example.org' }, { host: 'getepic.com' }] } });
+    cfg = (await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json();
+    expect(cfg.mediaHosts).toContain('cdn.videohost.net');
+
+    // Another family cannot see or decide on this tablet's hosts.
+    const o = await signIn('other-sites@example.com');
+    expect((await app.inject({ method: 'GET', url: `/devices/${d.deviceId}/site-hosts`, headers: o.auth })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/site-hosts`, headers: o.auth, payload: { site: 'getepic.com', host: 'cdn.videohost.net', decision: 'blocked' } })).statusCode).toBe(404);
+    // Bad host names are refused.
+    expect((await app.inject({ method: 'POST', url: '/device/site-hosts', headers: d.dev, payload: { items: [{ page: 'www.getepic.com', host: 'http://x.com/a' }] } })).statusCode).toBe(400);
+  });
+});
+
+describe('diagnostics', () => {
+  it('stores the report without the child\'s name, opens a ticket with a summary and a signed link, and retries when ET Ducky is down', async () => {
+    const p = await signIn('diag@example.com');
+    const child = (await app.inject({ method: 'POST', url: '/children', headers: p.auth, payload: { firstName: 'Ada', grade: '2' } })).json();
+    const d = await pair(p.auth, child.id);
+    await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth, payload: { allowlist: [{ host: 'getepic.com' }] } });
+    await app.inject({ method: 'POST', url: '/device/site-hosts', headers: d.dev, payload: { items: [{ page: 'www.getepic.com', host: 'cdn.videohost.net', media: true }] } });
+    const report = {
+      app: { build: 'abc123', userAgent: 'Mozilla/5.0 test', language: 'es', online: true, screen: '1280x800@2', time: '2026-11-25T10:00:00Z', timeZone: 'America/Los_Angeles', clockOffsetSeconds: 2 },
+      shell: { platform: 'android', version: '1.1.0', network: 'wifi', lockdown: { lockdownOn: true, pinned: true, homeRole: true, deviceSecure: true }, installedApps: { 'word-wizard': '1.0.3' } },
+      config: { allowlist: [{ host: 'getepic.com' }], entitlement: { status: 'trial', daysLeft: 3 }, travel: { active: false } },
+      log: [{ at: '2026-11-25T09:59:00Z', kind: 'error', message: 'TypeError: Ada pressed a button that failed' }],
+    };
+    const r = await app.inject({ method: 'POST', url: '/device/diagnostics', headers: d.dev, payload: { note: 'Videos on Epic do not play for Ada.', report } });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().sent).toBe(true);
+    const t = tickets.at(-1);
+    expect(t.kind).toBe('diagnostics');
+    expect(t.reportId).toBe(r.json().id);
+    expect(t.title).toBe('Diagnostics: android 1.1.0: Videos on Epic do not play for [name].');
+    expect(t.body).toContain('Platform: android, shell 1.1.0, web app abc123');
+    expect(t.body).toContain('getepic.com > cdn.videohost.net (video) x1');
+    expect(t.body).toContain('Subscription: trial, 3 days left');
+    expect(t.body).not.toMatch(/\bAda\b/);
+    // The link in the ticket opens the full report, with the server's view added and no child name anywhere.
+    const url = t.body.match(/https:\/\/api\.test(\/diagnostics\/\S+)/)![1];
+    const full = await app.inject({ method: 'GET', url });
+    expect(full.statusCode).toBe(200);
+    expect(full.body).not.toMatch(/\bAda\b/);
+    const j = full.json();
+    expect(j.client.shell.installedApps).toEqual({ 'word-wizard': '1.0.3' });
+    expect(j.server.config.child).toMatchObject({ grade: '2' });
+    expect(j.server.siteHosts[0].host).toBe('cdn.videohost.net');
+    // Without a valid signature there is no way in, not even for the family.
+    expect((await app.inject({ method: 'GET', url: `/diagnostics/${r.json().id}` })).statusCode).toBe(403);
+    expect((await app.inject({ method: 'GET', url: url.replace(/sig=\w+/, 'sig=' + '0'.repeat(32)) })).statusCode).toBe(403);
+
+    // ET Ducky down: the report is kept and its ticket opened by the retry, once.
+    etduckyUp = false;
+    const r2 = await app.inject({ method: 'POST', url: '/device/diagnostics', headers: d.dev, payload: { report: { shell: { platform: 'android', version: '1.1.0' } } } });
+    expect(r2.json().sent).toBe(false);
+    etduckyUp = true;
+    const retry = await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: { authorization: `Bearer ${ADMIN}` } });
+    expect(retry.json().diagnostics).toEqual({ waiting: 0, created: 1 });
+    expect(tickets.at(-1)).toMatchObject({ kind: 'diagnostics', reportId: r2.json().id, title: 'Diagnostics: android 1.1.0' });
+    expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: { authorization: `Bearer ${ADMIN}` } })).json().diagnostics).toEqual({ waiting: 0, created: 0 });
+
+    // Deleting the family deletes the stored reports.
+    const files = () => { try { return readdirSync(join(dir, 'files', 'diagnostics')); } catch { return []; } };
+    expect(files()).toHaveLength(2);
+    expect((await app.inject({ method: 'DELETE', url: '/family', headers: p.auth, payload: { confirm: 'DELETE' } })).statusCode).toBe(200);
+    expect(files()).toHaveLength(0);
   });
 });

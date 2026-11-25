@@ -1,6 +1,6 @@
 // Devices: pairing, parent controls per device, and the device's own check-in, config and installs.
 // Every handler runs inside one family-scoped transaction, so a query that forgets a WHERE still sees one family.
-import { SIGN_IN_HOSTS, mediaHostsFor, siteHost } from '../sitehosts.js';
+import { SIGN_IN_HOSTS, TRACKER_HOSTS, bare, isTracker, mediaHostsFor, siteFor, siteHost } from '../sitehosts.js';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
@@ -62,6 +62,11 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
   const language = languageOf(childRaw?.language ?? fam?.language);
   const ent = await entitlementOf(q, d.family_id);
   const allowlist = await getSetting(q, deviceId, 'allowlist', [] as { host: string }[]);
+  // Hosts a parent allowed or kept blocked for one of the allowed sites (site_host). An allowed one counts only while
+  // its site is still on the allowlist.
+  const sites = new Set(allowlist.map((w) => bare(w.host)));
+  const decided = await q.all<{ site: string; host: string; decision: string }>('SELECT site, host, decision FROM site_host WHERE device_id = $1 AND decision IS NOT NULL', [deviceId]);
+  const extraHosts = decided.filter((r) => r.decision === 'allowed' && sites.has(r.site)).map((r) => r.host);
   return {
     deviceId, state: d.state, child,
     // SHA-256 of "duckling:<pin>", the form the shells keep; null until a parent sets a PIN.
@@ -76,8 +81,12 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
     apps: catalog.filter((a) => installed.has(a.id)).map((a) => ({ id: a.id, name: a.name, i18n: a.i18n, tileUrl: a.tileUrl, permissions: a.latest!.permissions, ...a.latest })),
     hidden: [...hidden],
     allowlist,
-    // Hosts the allowed websites need for their videos (sitehosts.ts); the tablet allows them with no tile.
-    mediaHosts: mediaHostsFor(allowlist.map((w) => w.host)),
+    // Hosts the allowed websites need for their videos (sitehosts.ts) and the ones a parent allowed for one of those
+    // sites (site_host). The tablet allows them with no tile.
+    mediaHosts: [...new Set([...mediaHostsFor(allowlist.map((w) => w.host)), ...extraHosts])].sort(),
+    // Hosts the tablet refuses without offering them to a parent: advertising and analytics (sitehosts.ts) and the
+    // ones a parent kept blocked. No "Video blocked" button appears for them.
+    quietHosts: [...TRACKER_HOSTS, ...decided.filter((r) => r.decision === 'blocked').map((r) => r.host)],
     // Sign-in services (sitehosts.ts): allowed, with a standard browser user agent, while the tablet has a website.
     signInHosts: allowlist.length ? SIGN_IN_HOSTS : [],
     travel: { active: !!travelUntil && travelUntil > now(), until: travelUntil },
@@ -88,6 +97,28 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
     narratorVoice: narratorFor(ctx.cfg, language),
     serverTime: now(),
   };
+}
+
+// A host name as a tablet reports it: example.org, cdn.example.org. No wildcard, no port, no address.
+const hostName = z.string().trim().toLowerCase().max(253).regex(/^([a-z0-9-]+\.)+[a-z]{2,}$/);
+const siteDecision = z.object({ site: hostName, host: hostName, decision: z.enum(['allowed', 'blocked']).nullable() });
+
+/** The hosts each allowed site of a tablet tried to reach and was refused, with a parent's decision. Video hosts first,
+ * then the most recent. Rows for a site no longer on the allowlist are kept (they come back with it) but not listed. */
+export async function siteHostsOf(q: Q, deviceId: string) {
+  const allowlist = await getSetting(q, deviceId, 'allowlist', [] as { host: string }[]);
+  const sites = new Set(allowlist.map((w) => bare(w.host)));
+  const rows = await q.all('SELECT * FROM site_host WHERE device_id = $1 ORDER BY media DESC, last_seen_at DESC, host', [deviceId]);
+  return rows.filter((r) => sites.has(r.site)).map((r) => ({
+    site: r.site as string, host: r.host as string, media: r.media as boolean, hits: r.hits as number, tracker: isTracker(r.host),
+    decision: (r.decision ?? null) as 'allowed' | 'blocked' | null, firstSeenAt: r.first_seen_at, lastSeenAt: r.last_seen_at,
+  }));
+}
+
+/** A parent's decision on a host a site was refused: only for a host the tablet reported for that site. */
+async function decideSiteHost(q: Q, deviceId: string, b: z.infer<typeof siteDecision>): Promise<void> {
+  const n = await q.run('UPDATE site_host SET decision = $4, decided_at = now() WHERE device_id = $1 AND site = $2 AND host = $3', [deviceId, b.site, b.host, b.decision]);
+  if (!n) throw notFound('This tablet has not reported that host for that site');
 }
 
 export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx: Ctx }) {
@@ -234,6 +265,22 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
     }));
   });
 
+  app.get<{ Params: { id: string } }>('/devices/:id/site-hosts', async (req) => {
+    const a = await parentAuth(ctx, req);
+    return ctx.db.family(a.familyId, async (q) => { const d = await myDevice(q, req.params.id); return { siteHosts: await siteHostsOf(q, d.id) }; });
+  });
+
+  app.put<{ Params: { id: string } }>('/devices/:id/site-hosts', async (req) => {
+    const a = await parentAuth(ctx, req);
+    const b = siteDecision.parse(req.body);
+    return after(ctx, a.familyId, req.params.id, ctx.db.family(a.familyId, async (q) => {
+      const d = await myDevice(q, req.params.id);
+      await decideSiteHost(q, d.id, b);
+      await audit(q, a.familyId, `parent:${a.parentId}`, 'site_host.decided', { device: d.id, ...b });
+      return { siteHosts: await siteHostsOf(q, d.id) };
+    }));
+  });
+
   // Other apps: a parent allows an app the tablet already has, with a daily allowance, a time window and the websites
   // that open only while the app has time.
   app.put<{ Params: { id: string; pkg: string } }>('/devices/:id/other-apps/:pkg', async (req) => {
@@ -326,6 +373,44 @@ export default async function deviceRoutes(app: FastifyInstance, { ctx }: { ctx:
         ON CONFLICT (device_id, package, day) DO UPDATE SET seconds = other_app_usage.seconds + excluded.seconds, updated_at = now()`, [dv.familyId, dv.deviceId, b.package, b.day, b.seconds]);
       return { otherApps: await otherAppsFor(q, dv.deviceId, dv.familyId, true, b.day) };
     });
+  });
+
+  // Hosts an allowed website tried to reach and the tablet refused, counted since its last report. Each is filed under
+  // the allowlist entry its page belongs to; a page outside the allowlist, or a host the site already covers, is
+  // skipped. Undecided hosts not seen for 30 days are forgotten, and a tablet keeps at most 300.
+  app.post('/device/site-hosts', { config: { rateLimit: { max: 60, timeWindow: '10 minutes' } } }, async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const b = z.object({ items: z.array(z.object({ page: hostName, host: hostName, media: z.boolean().default(false), hits: z.number().int().min(1).max(100_000).default(1) })).max(200) }).parse(req.body);
+    return ctx.db.family(dv.familyId, async (q) => {
+      const allowlist = (await getSetting(q, dv.deviceId, 'allowlist', [] as { host: string }[])).map((w) => w.host);
+      for (const it of b.items) {
+        const site = siteFor(it.page, allowlist);
+        if (!site || it.host === site || it.host.endsWith(`.${site}`)) continue;
+        await q.run(`INSERT INTO site_host (family_id, device_id, site, host, media, hits) VALUES ($1, $2, $3, $4, $5, $6)
+          ON CONFLICT (device_id, site, host) DO UPDATE SET hits = LEAST(site_host.hits + excluded.hits, 1000000000), media = site_host.media OR excluded.media, last_seen_at = now()`,
+          [dv.familyId, dv.deviceId, site, it.host, it.media, it.hits]);
+      }
+      await q.run("DELETE FROM site_host WHERE device_id = $1 AND decision IS NULL AND last_seen_at < now() - interval '30 days'", [dv.deviceId]);
+      await q.run(`DELETE FROM site_host WHERE device_id = $1 AND decision IS NULL AND (site, host) IN (
+        SELECT site, host FROM site_host WHERE device_id = $1 AND decision IS NULL ORDER BY last_seen_at DESC OFFSET 300)`, [dv.deviceId]);
+      return { siteHosts: await siteHostsOf(q, dv.deviceId) };
+    });
+  });
+
+  app.get('/device/site-hosts', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    return ctx.db.family(dv.familyId, async (q) => ({ siteHosts: await siteHostsOf(q, dv.deviceId) }));
+  });
+
+  // From the tablet's parent area, behind the PIN (the "Video blocked" button leads there).
+  app.put('/device/site-hosts', async (req) => {
+    const dv = await deviceAuth(ctx, req);
+    const b = siteDecision.parse(req.body);
+    return after(ctx, dv.familyId, dv.deviceId, ctx.db.family(dv.familyId, async (q) => {
+      await decideSiteHost(q, dv.deviceId, b);
+      await audit(q, dv.familyId, `device:${dv.deviceId}`, 'site_host.decided', b);
+      return { siteHosts: await siteHostsOf(q, dv.deviceId), config: await deviceConfig(ctx, q, dv.deviceId) };
+    }));
   });
 
   app.get('/device/config', async (req) => {

@@ -220,6 +220,19 @@ describe.skipIf(!ready)('parent portal', () => {
     await p.getByRole('button', { name: 'End now' }).click();
     await p.getByText('Off.', { exact: false }).waitFor();
 
+    // Addresses a site was blocked from, reported by the tablet: listed under Websites, the analytics one folded away.
+    await fetch(`${api}/device/site-hosts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Device ${paired.deviceToken}` },
+      body: JSON.stringify({ items: [{ page: 'pbskids.org', host: 'video.example-cdn.net', media: true, hits: 3 }, { page: 'kleki.com', host: 'www.google-analytics.com' }] }) });
+    await p.reload();
+    const blocked = p.locator('#websites li', { hasText: 'video.example-cdn.net' });
+    await blocked.getByText('for pbskids.org · video', { exact: false }).waitFor();
+    expect(await p.locator('#websites').getByText('www.google-analytics.com').count()).toBe(0);
+    if (process.env.WEB_SHOTS) await p.locator('#websites').screenshot({ path: join(process.env.WEB_SHOTS, 'portal-blocked.png') });
+    await blocked.getByRole('button', { name: 'Allow' }).click();
+    await blocked.getByText('allowed', { exact: false }).waitFor();
+    cfg = await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${paired.deviceToken}` } })).json();
+    expect(cfg.mediaHosts).toContain('video.example-cdn.net');
+
     // The tablet's own apps: reported by the tablet, allowed here with minutes, hours and sites.
     await fetch(`${api}/device/apps-installed`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Device ${paired.deviceToken}` },
       body: JSON.stringify({ apps: [{ package: 'com.google.android.apps.youtube.kids', label: 'YouTube Kids' }, { package: 'com.example.puzzles', label: 'Puzzle Pals' }] }) });

@@ -72,6 +72,10 @@
     clearWebsiteData: function (hosts) { post('clearWebsiteData', [String(hosts || '[]')]); },
     // A Camera Fun photo for this tablet's background, once: the snapshot carries it until the page says it took it.
     takeLocalBackground: function () { var d = S.localBackground || ''; if (d) { S.localBackground = ''; post('tookLocalBackground'); } return d; },
+    // Hosts the allowed websites could not reach since the last call, once: the snapshot carries them until the page
+    // says it took them.
+    takeBlockedHosts: function () { var r = S.refused || []; if (r.length) { S.refused = []; post('tookRefused'); } return JSON.stringify(r); },
+    setQuietHosts: function (csv) { post('setQuietHosts', [String(csv || '')]); },
     networkStatus: function () { return S.network || (navigator.onLine ? 'other' : 'none'); },
     setLockdown: function (on) { if (S.lockdown) S.lockdown.lockdownOn = !!on; post('setLockdown', [!!on]); },
     setAllowedHosts: function (csv) { post('setAllowedHosts', [String(csv || '')]); },

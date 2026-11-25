@@ -321,4 +321,17 @@ export const es: Record<string, string> = {
   "Family id": "Id de familia",
   "(invited)": "(invitado)",
   "until {date}": "hasta el {date}",
+  // Blocked addresses and diagnostics
+  'Blocked addresses': 'Direcciones bloqueadas',
+  'Addresses the allowed sites asked for and the tablet blocked. A video that does not play often needs one of them. Allow one only if it belongs to the site or a service you trust.': 'Direcciones que pidieron los sitios permitidos y que la tableta bloqueó. Un video que no se reproduce suele necesitar una de ellas. Permite una solo si pertenece al sitio o a un servicio de tu confianza.',
+  'for {site}': 'para {site}',
+  'video': 'video',
+  'advertising or analytics': 'publicidad o análisis',
+  'allowed': 'permitida',
+  'kept blocked': 'sigue bloqueada',
+  'Block': 'Bloquear',
+  'Keep blocked': 'Mantener bloqueada',
+  'Hide advertising and analytics': 'Ocultar publicidad y análisis',
+  'Show {n} advertising or analytics address': 'Mostrar {n} dirección de publicidad o análisis',
+  'Show {n} advertising and analytics addresses': 'Mostrar {n} direcciones de publicidad y análisis',
 };

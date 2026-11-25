@@ -18,9 +18,13 @@ public class MainForm : Form
     public readonly string WebOrigin;
     public volatile IReadOnlyCollection<string> AllowedHosts = Array.Empty<string>();
     public volatile IReadOnlyCollection<string> SignInHosts = Array.Empty<string>();
+    /// <summary>Hosts refused without the Video blocked button (ShellBridge.setQuietHosts).</summary>
+    public volatile IReadOnlyCollection<string> QuietHosts = Array.Empty<string>();
     public readonly bool ChildSession;
     public readonly AppCloser Closer;
     readonly HomePill pill;
+    readonly HomePill videoPill;
+    bool videoRefused;
     readonly System.Windows.Forms.Timer pushTimer = new() { Interval = 5 * 60 * 1000 };
     readonly System.Windows.Forms.Timer frontTimer = new() { Interval = 400 };
     AppForm? appForm;
@@ -39,8 +43,9 @@ public class MainForm : Form
         Controls.Add(Web);
         if (childSession) { FormBorderStyle = FormBorderStyle.None; WindowState = FormWindowState.Maximized; ShowInTaskbar = true; }
         else { WindowState = FormWindowState.Maximized; MinimumSize = new System.Drawing.Size(900, 640); }
-        Closer = new AppCloser(() => new[] { Handle, pill?.Handle ?? IntPtr.Zero, appForm?.Handle ?? IntPtr.Zero, parentBrowser?.Handle ?? IntPtr.Zero });
-        pill = new HomePill(GoHome);
+        Closer = new AppCloser(() => new[] { Handle, pill?.Handle ?? IntPtr.Zero, videoPill?.Handle ?? IntPtr.Zero, appForm?.Handle ?? IntPtr.Zero, parentBrowser?.Handle ?? IntPtr.Zero });
+        pill = new HomePill(() => GoHome());
+        videoPill = new HomePill(() => GoHome(WebAppUrl + "#/parent-blocked"), video: true);
         pushTimer.Tick += (_, _) => Js("window.DucklingWeb && DucklingWeb.onPush && DucklingWeb.onPush()");
         frontTimer.Tick += (_, _) => WatchFront();
     }
@@ -89,6 +94,7 @@ public class MainForm : Form
         {
             var uri = ev.Request.Uri;
             if (uri.StartsWith(WebOrigin, StringComparison.OrdinalIgnoreCase) || Hosts.IsAllowedUri(uri, AllowedHosts)) return;
+            NoteRefused(uri, ev.ResourceContext == CoreWebView2WebResourceContext.Media);
             ev.Response = Env!.CreateWebResourceResponse(null, 403, "Blocked", "Content-Type: text/plain");
         };
         // A website's new window (its "Sign in with Google" window) opens over it as a real window, so the sign-in can
@@ -136,6 +142,7 @@ public class MainForm : Form
         c.WebResourceRequested += (_, ev) =>
         {
             if (Hosts.IsAllowedUri(ev.Request.Uri, AllowedHosts)) return;
+            NoteRefused(ev.Request.Uri, ev.ResourceContext == CoreWebView2WebResourceContext.Media);
             ev.Response = Env!.CreateWebResourceResponse(null, 403, "Blocked", "Content-Type: text/plain");
         };
         c.NewWindowRequested += (_, ev) => { ev.Handled = true; if (Hosts.IsAllowedUri(ev.Uri, AllowedHosts)) c.Navigate(ev.Uri); };
@@ -215,21 +222,56 @@ public class MainForm : Form
         Js($"window.DucklingWeb && DucklingWeb.onOtherApp && DucklingWeb.onOtherApp({Q(id)}, {secs}, {Q(reason)})");
     }
 
-    /// <summary>The Home pill, or the screen turning off: leave whatever is in front.</summary>
-    public void GoHome()
+    /// <summary>The Home pill, or the screen turning off: leave whatever is in front. The Video blocked button comes
+    /// here too, with the parent area's list of refused hosts as the page to open.</summary>
+    public void GoHome(string? to = null)
     {
         if (appForm != null && !appForm.IsDisposed) appForm.Close();
         if (otherId != null) EndOther("returned");
         foreach (var p in popups.ToArray()) ClosePopup(p);
-        if (onWebsite) { onWebsite = false; Web.CoreWebView2?.Navigate(WebAppUrl); }
+        if (onWebsite || to != null) { onWebsite = false; Web.CoreWebView2?.Navigate(to ?? WebAppUrl); }
+        videoRefused = false;
         pill.Hide();
+        videoPill.Hide();
         ComeToFront();
+    }
+
+    // ---- Hosts a website was refused, for the parent area (ShellBridge.takeBlockedHosts) and the Video blocked button.
+    record Refused(string Page, string Host) { public bool Media; public int Hits; }
+    readonly Dictionary<string, Refused> refused = new();
+    /// <summary>A video playlist, segment or media file, by its address. Same list in the Android and iPad shells.</summary>
+    static readonly System.Text.RegularExpressions.Regex MediaPath = new(@"\.(m3u8|mpd|ts|m4s|mp4|m4v|m4a|mp3|aac|webm|ogg|ogv|cmfv|cmfa|vtt)$|/(hls|dash)/|\.ism/", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    void NoteRefused(string uri, bool mediaContext)
+    {
+        if (!onWebsite || !Uri.TryCreate(uri, UriKind.Absolute, out var u) || string.IsNullOrEmpty(u.Host)) return;
+        var page = Uri.TryCreate(Web.CoreWebView2?.Source, UriKind.Absolute, out var p) ? p.Host.ToLowerInvariant() : "";
+        if (page.Length == 0) return;
+        var host = u.Host.ToLowerInvariant();
+        var media = mediaContext || MediaPath.IsMatch(u.AbsolutePath) || u.Query.Contains(".m3u8", StringComparison.OrdinalIgnoreCase);
+        lock (refused)
+        {
+            if (refused.TryGetValue(page + " " + host, out var r)) { r.Hits++; r.Media |= media; }
+            else if (refused.Count < 200) refused[page + " " + host] = new Refused(page, host) { Media = media, Hits = 1 };
+        }
+        if (media && !Hosts.IsAllowed(host, QuietHosts)) { videoRefused = true; frontTimer.Start(); }
+    }
+
+    /// <summary>The refused hosts since the last call, as JSON [{page, host, media, hits}], and the list starts again.</summary>
+    public string TakeRefused()
+    {
+        lock (refused)
+        {
+            var list = refused.Values.Select(r => new { page = r.Page, host = r.Host, media = r.Media, hits = r.Hits }).ToList();
+            refused.Clear();
+            return JsonSerializer.Serialize(list);
+        }
     }
 
     void WatchFront()
     {
         if (otherId != null && DateTime.UtcNow >= otherEnd) { EndOther("timeup"); return; }
-        if (otherId == null && (appForm == null || appForm.IsDisposed) && !onWebsite) { pill.Hide(); frontTimer.Stop(); return; }
+        if (otherId == null && (appForm == null || appForm.IsDisposed) && !onWebsite) { pill.Hide(); videoPill.Hide(); videoRefused = false; frontTimer.Stop(); return; }
         var fg = Native.GetForegroundWindow();
         Native.GetWindowThreadProcessId(fg, out var pid);
         var ours = pid == (uint)Environment.ProcessId;
@@ -240,6 +282,8 @@ public class MainForm : Form
         if (cls is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "Progman" or "WorkerW") showOver = false;
         if (showOver) pill.Pin(Screen.FromHandle(fg == IntPtr.Zero ? Handle : fg).Bounds);
         else pill.Hide();
+        if (showOver && onWebsite && videoRefused && otherId == null) videoPill.Pin(Screen.FromHandle(fg == IntPtr.Zero ? Handle : fg).Bounds);
+        else videoPill.Hide();
         // New windows of another app open maximized, like the Surface home screen did.
         if (otherId != null && !ours) MaximizeIfNew(fg);
     }

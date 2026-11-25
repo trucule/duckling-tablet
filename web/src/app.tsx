@@ -20,7 +20,8 @@ export function App() {
   const r = route.value;
   if (r === 'pair') { go('home'); return null; }
   // The parent area is reachable only through the PIN screen, whatever the URL says.
-  const screen = r === 'store' ? <Store /> : r === 'pin' ? <Pin /> : r === 'parent' ? (parentUnlocked.value ? <Parent /> : <Pin />) : <Home />;
+  // parent-blocked: the shell's Video blocked button, opening the parent area at the hosts a website was refused.
+  const screen = r === 'store' ? <Store /> : r === 'pin' ? <Pin /> : r === 'parent' || r === 'parent-blocked' ? (parentUnlocked.value ? <Parent focus={r === 'parent-blocked' ? 'refused' : undefined} /> : <Pin />) : <Home />;
   return (
     <>
       <Guard>{screen}</Guard>

@@ -10,6 +10,11 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     private var web: WKWebView!
     private let prefs = Prefs.shared
     private let homePill = UIButton(configuration: .filled())
+    private let videoPill = UIButton(configuration: .filled())
+    /// Hosts refused without the Video blocked button: advertising and analytics, and those a parent kept blocked.
+    private var quietHosts: [String] = []
+    /// Hosts the allowed websites could not reach since the home screen last took the list (takeBlockedHosts).
+    private var refused: [String: [String: Any]] = [:]
     private var urlWatch: NSKeyValueObservation?
     /// Windows a website opened (a "Sign in with Google" window), shown over it until they close.
     private var popups: [WKWebView] = []
@@ -29,6 +34,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
         config.userContentController.add(WeakHandler(self), name: "duckling")
+        config.userContentController.add(WeakHandler(self), name: "ducklingRefused")
         web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = self
         web.uiDelegate = self
@@ -69,12 +75,26 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         homePill.isHidden = true
         homePill.addTarget(self, action: #selector(goHome), for: .touchUpInside)
         view.addSubview(homePill)
+        var warn = look
+        warn.title = prefs.videoBlockedTitle
+        warn.baseBackgroundColor = UIColor(red: 0.55, green: 0.17, blue: 0.07, alpha: 0.85)
+        videoPill.configuration = warn
+        videoPill.translatesAutoresizingMaskIntoConstraints = false
+        videoPill.isHidden = true
+        videoPill.addTarget(self, action: #selector(openRefused), for: .touchUpInside)
+        view.addSubview(videoPill)
         NSLayoutConstraint.activate([
             homePill.topAnchor.constraint(equalTo: view.topAnchor, constant: 14),
             homePill.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            videoPill.topAnchor.constraint(equalTo: view.topAnchor, constant: 14),
+            videoPill.trailingAnchor.constraint(equalTo: homePill.leadingAnchor, constant: -10),
         ])
         urlWatch = web.observe(\.url, options: [.initial, .new]) { [weak self] w, _ in
-            DispatchQueue.main.async { self?.homePill.isHidden = !Self.isWebsite(w.url) }
+            DispatchQueue.main.async {
+                let site = Self.isWebsite(w.url)
+                self?.homePill.isHidden = !site
+                if !site { self?.videoPill.isHidden = true }
+            }
         }
     }
 
@@ -83,11 +103,73 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         return host != webApp.host
     }
 
-    @objc private func goHome() {
+    @objc private func goHome() { leave(to: Self.webApp) }
+
+    /// The Video blocked button: the parent area (behind the PIN) at the list of refused hosts.
+    @objc private func openRefused() { leave(to: URL(string: Self.webApp.absoluteString + "#/parent-blocked")!) }
+
+    private func leave(to url: URL) {
         closePopups()
         homePill.isHidden = true
-        web.load(URLRequest(url: Self.webApp))
+        videoPill.isHidden = true
+        // The home screen reads the refused hosts from the state snapshot as it starts.
+        installScripts()
+        web.load(URLRequest(url: url))
     }
+
+    /// A website's request that failed (from refusedScript). On a locked-down iPad, Screen Time refuses every host
+    /// that is not allowed; such a host is kept for the parent area, and a video one shows the Video blocked button.
+    private func noteRefused(_ address: String) {
+        guard prefs.lockdownOn, let page = web.url, Self.isWebsite(page), let pageHost = page.host?.lowercased(),
+              let u = URL(string: address), let host = u.host?.lowercased(), !allowed(u) else { return }
+        let media = Self.isMedia(u)
+        let key = pageHost + " " + host
+        if var r = refused[key] {
+            r["hits"] = (r["hits"] as? Int ?? 0) + 1
+            if media { r["media"] = true }
+            refused[key] = r
+        } else if refused.count < 200 {
+            refused[key] = ["page": pageHost, "host": host, "media": media, "hits": 1]
+        }
+        if media && !quietHosts.contains(where: { host == $0 || host.hasSuffix(".\($0)") }) { videoPill.isHidden = false }
+    }
+
+    /// A video playlist, segment or media file, by its address. Same list in the Android and Windows shells.
+    static func isMedia(_ u: URL) -> Bool {
+        let path = u.path.lowercased()
+        if path.range(of: #"\.(m3u8|mpd|ts|m4s|mp4|m4v|m4a|mp3|aac|webm|ogg|ogv|cmfv|cmfa|vtt)$|/(hls|dash)/|\.ism/"#, options: .regularExpression) != nil { return true }
+        return (u.query ?? "").lowercased().contains(".m3u8")
+    }
+
+    /// Runs in every frame of a website (never in Duckling's own page) and reports the address of each request that
+    /// fails: Screen Time refuses a host that is not allowed without telling the app, so this is how the iPad learns of
+    /// one. It reports addresses only, at most 20 times for each, and changes nothing on the page.
+    static let refusedScript = """
+    (function () {
+      if (location.host === 'app.ducklingtablet.com' || window.__ducklingRefused) return;
+      window.__ducklingRefused = true;
+      var seen = {};
+      function report(u) {
+        try {
+          var a = new URL(String(u), location.href);
+          if ((a.protocol !== 'https:' && a.protocol !== 'http:') || a.host === location.host) return;
+          var k = a.host + a.pathname.slice(-16);
+          seen[k] = (seen[k] || 0) + 1;
+          if (seen[k] > 20) return;
+          window.webkit.messageHandlers.ducklingRefused.postMessage({ u: a.href.slice(0, 600) });
+        } catch (e) {}
+      }
+      var f = window.fetch;
+      if (f) window.fetch = function (input) {
+        var u = typeof input === 'string' ? input : (input && input.url) || String(input);
+        return f.apply(this, arguments).catch(function (e) { report(u); throw e; });
+      };
+      var open = XMLHttpRequest.prototype.open, send = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function (m, u) { this.__ducklingUrl = u; return open.apply(this, arguments); };
+      XMLHttpRequest.prototype.send = function () { var x = this; x.addEventListener('error', function () { report(x.__ducklingUrl); }); return send.apply(this, arguments); };
+      window.addEventListener('error', function (e) { var t = e.target; if (t && t !== window && (t.currentSrc || t.src || t.href)) report(t.currentSrc || t.src || t.href); }, true);
+    })();
+    """
 
     // ---- State the page reads synchronously ----------------------------------------------------------------------
 
@@ -106,6 +188,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         ]
         if let h = prefs.pinHash { s["pinHash"] = h }
         if let d = AppViewController.pendingLocalBackground { s["localBackground"] = d }
+        s["refused"] = Array(refused.values)
         return s
     }
 
@@ -158,16 +241,23 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     }
 
     /// The snapshot is part of the script that runs before the page on every load, and is pushed into a running page.
+    /// Only Duckling's own page gets them: the snapshot holds the device token, and an allowed website loads in this
+    /// same view. Websites get refusedScript instead.
     private func installScripts() {
         let ucc = web.configuration.userContentController
         ucc.removeAllUserScripts()
-        ucc.addUserScript(WKUserScript(source: "window.__ducklingState = \(stateJSON());\n\(shellScript)", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        let own = Self.webApp.host ?? "app.ducklingtablet.com"
+        ucc.addUserScript(WKUserScript(source: "if (location.protocol === 'https:' && location.host === \(q(own))) {\nwindow.__ducklingState = \(stateJSON());\n\(shellScript)\n}", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        ucc.addUserScript(WKUserScript(source: Self.refusedScript, injectionTime: .atDocumentStart, forMainFrameOnly: false))
     }
 
     private func pushState() {
         installScripts()
         js("window.__ducklingSetState && __ducklingSetState(\(stateJSON()))")
     }
+
+    /// True while Duckling's own page is showing in the main view.
+    private var onOwnPage: Bool { web.url?.scheme == "https" && web.url?.host?.lowercased() == Self.webApp.host }
 
     @objc private func stateChanged() { pushState() }
 
@@ -177,7 +267,9 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         js("window.DucklingWeb && DucklingWeb.onResume && DucklingWeb.onResume()")
     }
 
-    private func js(_ code: String) { DispatchQueue.main.async { self.web.evaluateJavaScript(code, completionHandler: nil) } }
+    /// Runs code in Duckling's own page only: while a website is showing, nothing is sent to it (the state holds the
+    /// device token).
+    private func js(_ code: String) { DispatchQueue.main.async { if self.onOwnPage { self.web.evaluateJavaScript(code, completionHandler: nil) } } }
     private func q(_ s: String) -> String {
         guard let d = try? JSONSerialization.data(withJSONObject: [s]), let a = String(data: d, encoding: .utf8) else { return "''" }
         return String(a.dropFirst().dropLast())
@@ -186,7 +278,14 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     // ---- Messages from the page ----------------------------------------------------------------------------------
 
     func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any], let cmd = body["cmd"] as? String else { return }
+        if message.name == "ducklingRefused" {
+            if let body = message.body as? [String: Any], let u = body["u"] as? String { noteRefused(u) }
+            return
+        }
+        // Commands come only from Duckling's own page in the main view, never from a website or a frame in one.
+        guard message.webView === web, message.frameInfo.isMainFrame, onOwnPage,
+              message.frameInfo.securityOrigin.host.lowercased() == Self.webApp.host,
+              let body = message.body as? [String: Any], let cmd = body["cmd"] as? String else { return }
         let a = body["args"] as? [Any] ?? []
         let str = { (i: Int) -> String in a.count > i ? String(describing: a[i]) : "" }
         switch cmd {
@@ -209,6 +308,10 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
         case "setLanguage":
             prefs.language = str(0)
             homePill.configuration?.title = prefs.homeTitle
+            videoPill.configuration?.title = prefs.videoBlockedTitle
+        case "tookRefused": refused = [:]; installScripts()
+        case "setQuietHosts":
+            quietHosts = str(0).split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
         case "setLockdown":
             prefs.lockdownOn = (a.first as? Bool) ?? (str(0) == "true")
             Lockdown.shared.apply(on: prefs.lockdownOn, allowedHosts: prefs.allowedHosts)

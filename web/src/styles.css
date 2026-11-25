@@ -100,6 +100,12 @@ button { font: inherit; color: inherit; }
 .topbar .stars { font-size: 24px; font-weight: 800; background: #fff8dc; color: #6b4e00; padding: 8px 16px; border-radius: 999px; box-shadow: 0 2px 0 rgba(0,0,0,.06); white-space: nowrap; }
 
 .included { margin: 8px 0 0; padding-left: 20px; }
+.refused-site h3 { margin: 14px 0 4px; font-size: 17px; }
+.refused { list-style: none; padding: 0; margin: 0; }
+.refused li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.refused .why { color: var(--ink-soft); font-size: 14px; }
+.refused .state { font-weight: 700; color: var(--ink-soft); }
+.refused .state.ok { color: var(--pond); }
 .included li { margin: 6px 0; }
 
 /* Other apps: the tablet's own apps a parent allowed, with today's time */

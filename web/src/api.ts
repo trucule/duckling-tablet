@@ -2,6 +2,8 @@
 // website: the tablet keeps running as it is and its parent area asks for a new pairing code (state.ts).
 import { shell } from './shell';
 import { lang, tr } from './i18n';
+import { logEvent } from './diag';
+import type { RefusedHost } from './shell';
 
 export const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://api.ducklingtablet.com';
 
@@ -22,7 +24,7 @@ export interface DeviceConfig {
   deviceId: string; state: 'active' | 'release' | 'released';
   // The language this tablet speaks (the child's own, else the family's) and the family's.
   language?: 'en' | 'es'; familyLanguage?: 'en' | 'es'; child: Child | null; apps: InstalledApp[]; hidden: string[];
-  allowlist: AllowEntry[]; mediaHosts?: string[]; signInHosts?: string[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string; appAccountToken?: string | null;
+  allowlist: AllowEntry[]; mediaHosts?: string[]; signInHosts?: string[]; quietHosts?: string[]; travel: { active: boolean; until: string | null }; limits: Record<string, unknown>; narratorVoice: string; pinHash: string | null; serverTime: string; appAccountToken?: string | null;
   // Card payments through Stripe are offered (how a Windows tablet subscribes).
   cardPayments?: boolean;
 }
@@ -30,6 +32,9 @@ export interface CatalogApp {
   id: string; name: string; description: string; i18n?: AppI18n | null; subjects: string[]; ageMin: number | null; ageMax: number | null; starter: boolean; tileUrl: string | null;
   latest: { version: string; url: string; sha256: string; signature: string; size: number; minShell: string | null; permissions: string[] };
 }
+
+// A host an allowed website asked for and the tablet refused, filed under that website, with a parent's decision.
+export interface SiteHost { site: string; host: string; media: boolean; hits: number; tracker: boolean; decision: 'allowed' | 'blocked' | null; firstSeenAt: string; lastSeenAt: string }
 
 export interface AppRequest { id: string; title: string; description: string; status: 'requested' | 'planned' | 'building' | 'declined' | 'shipped' | 'withdrawn' | 'done'; appId: string | null; createdAt: string }
 
@@ -44,10 +49,14 @@ async function call<T>(method: string, path: string, body?: unknown, auth = true
     if (!token) throw new ApiError(401, tr('Not paired'));
     headers.authorization = `Device ${token}`;
   }
-  const r = await fetch(`${API}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  let r: Response;
+  try { r = await fetch(`${API}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
+  catch (e) { logEvent('api', `${method} ${path.split('?')[0]}: ${(e as Error).message}`); throw e; }
   if (r.status === 410) throw new ReleasedError('released');
   const text = await r.text();
-  const json = text ? JSON.parse(text) : {};
+  let json: any = {};
+  try { json = text ? JSON.parse(text) : {}; } catch { logEvent('api', `${method} ${path.split('?')[0]}: ${r.status}, not JSON`); throw new ApiError(r.status, tr('Something went wrong')); }
+  if (!r.ok) logEvent('api', `${method} ${path.split('?')[0]}: ${r.status} ${json.error ?? r.statusText}`);
   // The API answers in English; the message is shown in the tablet's language when the dictionary has it.
   if (!r.ok) throw new ApiError(r.status, tr(json.error ?? r.statusText));
   return json as T;
@@ -77,6 +86,11 @@ export const api = {
   setPin: (pin: string) => call<{ set: boolean }>('PUT', '/device/pin', { pin }),
   // The family's language, from the parent area.
   setLanguage: (language: 'en' | 'es') => call<{ language: string }>('PUT', '/device/language', { language }),
+  reportSiteHosts: (items: RefusedHost[]) => call<{ siteHosts: SiteHost[] }>('POST', '/device/site-hosts', { items }),
+  siteHosts: () => call<{ siteHosts: SiteHost[] }>('GET', '/device/site-hosts'),
+  // From the parent area, behind the PIN: allow a refused host for its website, keep it blocked, or undecide.
+  decideSiteHost: (site: string, host: string, decision: SiteHost['decision']) => call<{ siteHosts: SiteHost[]; config: DeviceConfig }>('PUT', '/device/site-hosts', { site, host, decision }),
+  sendDiagnostics: (note: string, report: Record<string, unknown>) => call<{ id: string; sent: boolean }>('POST', '/device/diagnostics', { note, report }),
   // App requests from the parent area: the same queue as the portal's, one in progress per family.
   requests: () => call<{ requests: AppRequest[] }>('GET', '/device/requests'),
   createRequest: (title: string, description: string) => call<AppRequest>('POST', '/device/requests', { title, description }),

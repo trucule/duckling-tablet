@@ -36,14 +36,19 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val WEB_APP = "https://app.ducklingtablet.com/"
         const val MEDIA_REQUEST = 3
+        /** Same list in the iPad and Windows shells. */
+        val MEDIA_PATH = Regex("""\.(m3u8|mpd|ts|m4s|mp4|m4v|m4a|mp3|aac|webm|ogg|ogv|cmfv|cmfa|vtt)$|/(hls|dash)/|\.ism/""")
         val OWN_HOSTS = setOf("app.ducklingtablet.com", "api.ducklingtablet.com", "duckling.nyc3.cdn.digitaloceanspaces.com", "appassets.androidplatform.net")
     }
 
     lateinit var web: WebView
     private lateinit var homePill: View
+    private lateinit var videoPill: View
     private lateinit var prefs: Prefs
     var allowedHosts: Set<String> = emptySet()
     var signInHosts: Set<String> = emptySet()
+    /** Hosts refused without the Video blocked button: advertising and analytics, and those a parent kept blocked. */
+    @Volatile var quietHosts: Set<String> = emptySet()
     /** The host of the page showing in the main view. DucklingShell answers only while it is Duckling's own page. */
     @Volatile var pageHost: String = ""
     /** Windows a website opened (a "Sign in with Google" window), shown over it until they close. */
@@ -74,8 +79,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         web = findViewById(R.id.web)
         homePill = findViewById(R.id.home)
+        videoPill = findViewById(R.id.video_blocked)
         showLanguage()
         homePill.setOnClickListener { goHome() }
+        videoPill.setOnClickListener { goHome(WEB_APP + "#/parent-blocked") }
         hideSystemBars()
         LocalBroadcastManager.getInstance(this).registerReceiver(pushReceiver, IntentFilter().apply { addAction(PushService.ACTION_PUSH); addAction(PushService.ACTION_TOKEN) })
         fetchPushToken()
@@ -118,13 +125,16 @@ class MainActivity : AppCompatActivity() {
             }
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val host = request.url.host?.lowercase() ?: return blocked()
-                return if (host in OWN_HOSTS || isAllowed(host)) null else blocked()
+                if (host in OWN_HOSTS || isAllowed(host)) return null
+                noteRefused(request.url, host)
+                return blocked()
             }
             // A website from a tile opens in this view in place of the home screen; the Home pill shows over it.
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
                 if (view !== web) return
                 pageHost = url?.let { Uri.parse(it).host?.lowercase() } ?: ""
                 homePill.visibility = if (onWebsite(url)) View.VISIBLE else View.GONE
+                if (!onWebsite(url)) videoPill.visibility = View.GONE
             }
         }
         web.webViewClient = client
@@ -186,16 +196,53 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** The Home pill in the family's language (Prefs.language, set by the web app through the bridge). */
-    fun showLanguage() { (homePill as? android.widget.TextView)?.text = Prefs(this).homeLabel() }
+    fun showLanguage() {
+        val p = Prefs(this)
+        (homePill as? android.widget.TextView)?.text = p.homeLabel()
+        (videoPill as? android.widget.TextView)?.text = p.videoBlockedLabel()
+    }
 
-    private fun goHome() {
+    private fun goHome(to: String = WEB_APP) {
         popups.toList().forEach { closePopup(it) }
         homePill.visibility = View.GONE
-        web.loadUrl(WEB_APP)
+        videoPill.visibility = View.GONE
+        web.loadUrl(to)
+    }
+
+    // ---- Hosts a website was refused, for the parent area (DucklingShell.takeBlockedHosts) and the Video blocked button.
+    private class Refused(val page: String, val host: String, var media: Boolean, var hits: Int)
+    private val refused = LinkedHashMap<String, Refused>()
+
+    /** Called on WebView's network thread for every refused request. Duckling's own page is not a website. */
+    private fun noteRefused(url: Uri, host: String) {
+        val page = pageHost
+        if (page.isEmpty() || page == Uri.parse(WEB_APP).host) return
+        val media = isMedia(url)
+        synchronized(refused) {
+            val r = refused["$page $host"]
+            if (r != null) { r.hits++; if (media) r.media = true }
+            else if (refused.size < 200) refused["$page $host"] = Refused(page, host, media, 1)
+        }
+        if (media && !quietHosts.any { host == it || host.endsWith(".$it") }) runOnUiThread { if (onWebsite(web.url)) videoPill.visibility = View.VISIBLE }
+    }
+
+    /** The refused hosts since the last call, as JSON [{page, host, media, hits}], and the list starts again. */
+    fun takeRefused(): String {
+        val a = org.json.JSONArray()
+        synchronized(refused) {
+            for (r in refused.values) a.put(org.json.JSONObject().put("page", r.page).put("host", r.host).put("media", r.media).put("hits", r.hits))
+            refused.clear()
+        }
+        return a.toString()
     }
 
     private fun isAllowed(host: String): Boolean = "*" in allowedHosts || allowedHosts.any { host == it || host.endsWith(".$it") }
     private fun isSignIn(host: String): Boolean = signInHosts.any { host == it || host.endsWith(".$it") }
+    /** A video playlist, segment or media file, by its address (players fetch these as plain requests). */
+    private fun isMedia(url: Uri): Boolean {
+        val path = (url.path ?: "").lowercase()
+        return MEDIA_PATH.containsMatchIn(path) || (url.query ?: "").lowercase().contains(".m3u8")
+    }
     private fun blocked() = WebResourceResponse("text/plain", "utf-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
     override fun onResume() {

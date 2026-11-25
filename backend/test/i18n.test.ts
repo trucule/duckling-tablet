@@ -114,7 +114,7 @@ for (const tree of TREES) {
     });
 
     it('has no Spanish line left in English', () => {
-      const same = Object.entries(tree.es).filter(([en, t]) => en === t && !/^(Wi-Fi|Google Play|Stripe|PIN|(\{n\} )?[Aa]pps?)$/.test(en));
+      const same = Object.entries(tree.es).filter(([en, t]) => en === t && !/^(Wi-Fi|Google Play|Stripe|PIN|[Vv]ideo|(\{n\} )?[Aa]pps?)$/.test(en));
       expect(same).toEqual([]);
     });
 

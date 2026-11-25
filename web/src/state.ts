@@ -4,7 +4,8 @@ import { signal, computed, effect } from '@preact/signals';
 import { lang, setLang, tr } from './i18n';
 import { adoptTabletBackground, forgetPictures, forgetTabletBackground } from './pictures';
 import { api, ReleasedError, type DeviceConfig, type CatalogApp, type OtherApp, type Entitlement } from './api';
-import { shell } from './shell';
+import { shell, type RefusedHost } from './shell';
+import { logEvent } from './diag';
 
 // The last config the server sent is kept on the tablet, so the home screen has its tiles at once on the next start,
 // offline, and after the tablet was removed from its family on the website.
@@ -73,6 +74,7 @@ export async function checkin(): Promise<void> {
     if (c.state === 'release') { await releaseDevice(true); return; }
     void installMissing(c);
     void reportInstalled();
+    void reportRefused();
   } catch (e) {
     if (e instanceof ReleasedError) { setUnlinked(true); return; }
     lastError.value = (e as Error).message;
@@ -137,10 +139,23 @@ export async function clearSavedData(c: DeviceConfig | null) {
   setTimeout(() => location.reload(), 600);
 }
 
+// Hosts the websites were refused, taken from the shell and sent to the server, which files them under the allowed
+// site they came from for the parent area and the portal. A report that fails is kept for the next check-in.
+let unsentRefused: RefusedHost[] = [];
+export async function reportRefused(): Promise<void> {
+  const fresh = shell.takeBlockedHosts();
+  if (!fresh.length && !unsentRefused.length) return;
+  const items = [...unsentRefused, ...fresh].slice(-200);
+  unsentRefused = [];
+  try { await api.reportSiteHosts(items); } catch { unsentRefused = items; }
+}
+
 function applyHosts(c: DeviceConfig) {
   // Sign-in services a website may send a parent to (Log in with Google); the shell shows them a standard browser
   // user agent, since they refuse an embedded web view (backend/src/sitehosts.ts).
   shell.setSignInHosts(c.signInHosts ?? []);
+  // Refused without the Video blocked button: advertising, analytics, and hosts a parent kept blocked.
+  shell.setQuietHosts(c.quietHosts ?? []);
   if (travelActive(c)) { shell.setAllowedHosts(['*']); return; }
   const hosts = new Set(c.allowlist.map((w) => w.host.replace(/^\*\./, '')));
   // What the allowed websites need for their own videos, from the server's checked list (backend/src/sitehosts.ts).
@@ -230,6 +245,7 @@ export async function installPackage(id: string, version: string, url: string, s
     return true;
   } catch (e) {
     lastError.value = `${id}: ${(e as Error).message}`;
+    logEvent('install', `${id} ${version}: ${(e as Error).message}`);
     return false;
   } finally {
     const { [id]: _, ...rest } = installing.value; installing.value = rest;

@@ -1,7 +1,7 @@
 import { tr } from '../i18n';
 import { useState } from 'preact/hooks';
 import { shell } from '../shell';
-import { go, unlockParent, setFirstPin } from '../state';
+import { go, unlockParent, setFirstPin, route } from '../state';
 
 // The parent PIN: set on first use (typed twice), then asked for before the parent area.
 export function Pin() {
@@ -9,6 +9,8 @@ export function Pin() {
   const [first, setFirst] = useState<string | null>(null);
   const [error, setError] = useState('');
   const setting = !shell.hasPin();
+  // Where the PIN leads: the parent area, or the part of it a shell button asked for (parent-blocked).
+  const after = route.value.startsWith('parent') ? route.value : 'parent';
   const title = setting ? (first === null ? tr('Choose a parent PIN') : tr('Type it again')) : tr('Parent PIN');
   const press = async (d: string) => {
     if (pin.length >= 4) return;
@@ -18,9 +20,9 @@ export function Pin() {
     if (setting) {
       if (first === null) { setFirst(next); setPin(''); return; }
       if (first !== next) { setError(tr('The two PINs were different. Start again.')); setFirst(null); setPin(''); return; }
-      await setFirstPin(next); unlockParent(true); go('parent'); return;
+      await setFirstPin(next); unlockParent(true); go(after); return;
     }
-    if (await shell.verifyPin(next)) { unlockParent(true); go('parent'); }
+    if (await shell.verifyPin(next)) { unlockParent(true); go(after); }
     else { setError(tr('That is not the PIN.')); setPin(''); }
   };
   return (

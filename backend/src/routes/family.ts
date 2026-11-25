@@ -55,12 +55,13 @@ export const childImageUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string 
 export const portraitUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, key: string | null) => childImageUrl(cfg, childId, 'portrait', key);
 export const backgroundUrl = (cfg: { PUBLIC_URL: string; SESSION_SECRET: string }, childId: string, key: string | null) => childImageUrl(cfg, childId, 'background', key);
 
-/** Every stored file that belongs to the family or one child: pictures and request attachments, for deletion. */
+/** Every stored file that belongs to the family or one child: pictures, request attachments and diagnostics reports, for deletion. */
 export async function storedFilesOf(q: Q, where: { familyId?: string; childId?: string }): Promise<string[]> {
   const rows = where.childId
     ? await q.all<{ k: string | null }>('SELECT unnest(ARRAY[portrait_key, background_key]) AS k FROM child WHERE id = $1', [where.childId])
     : await q.all<{ k: string | null }>(`SELECT unnest(ARRAY[portrait_key, background_key]) AS k FROM child WHERE family_id = $1
-        UNION ALL SELECT storage_key FROM request_attachment WHERE family_id = $1`, [where.familyId]);
+        UNION ALL SELECT storage_key FROM request_attachment WHERE family_id = $1
+        UNION ALL SELECT storage_key FROM diagnostic_report WHERE family_id = $1`, [where.familyId]);
   return rows.map((r) => r.k).filter((k): k is string => !!k);
 }
 async function removeStored(ctx: Ctx, keys: string[]) {
