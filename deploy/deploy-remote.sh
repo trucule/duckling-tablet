@@ -49,10 +49,16 @@ for u in certificateauthority/AppleRootCA-G3.cer certificateauthority/AppleRootC
   [ -s "/opt/duckling/apple-root-certs/$c" ] || curl -fsSL "https://www.apple.com/$u" -o "/opt/duckling/apple-root-certs/$c" || echo "could not fetch $c"
 done
 
+# English and Spanish stay paired: an app, manifest or shell line with no Spanish stops the deploy before anything is
+# built or published (tools/lang-check.mjs needs only Node). The web app and the portal are checked once the backend's
+# test tools are installed, below.
+node "$SRC/tools/lang-check.mjs"
+
 cd "$SRC/backend"
 # The droplet has 1 GB shared with Pitch Jam: keep npm and tsc small.
 export NODE_OPTIONS=--max-old-space-size=384
 npm ci --no-audit --no-fund --loglevel=error
+npx vitest run test/i18n.test.ts --reporter=dot
 npm run build
 npm prune --omit=dev --no-audit --no-fund --loglevel=error
 chown -R root:root "$SRC"

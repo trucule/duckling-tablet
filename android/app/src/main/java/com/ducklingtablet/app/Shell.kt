@@ -81,6 +81,7 @@ class Shell(private val activity: MainActivity, private val web: WebView) {
     @JavascriptInterface fun setPin(pin: String) { if (!ok()) return; prefs.setPin(pin) }
     @JavascriptInterface fun verifyPin(pin: String): Boolean = ok() && prefs.verifyPin(pin)
     @JavascriptInterface fun setPinHash(hex: String) { if (!ok()) return; prefs.setPinHash(hex) }
+    @JavascriptInterface fun setLanguage(lang: String) { if (!ok()) return; prefs.language = lang; main.post { activity.showLanguage() } }
 
     @JavascriptInterface fun lockdownStatus(): String {
         if (!ok()) return ""

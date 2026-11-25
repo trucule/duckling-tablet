@@ -39,6 +39,7 @@ class AppActivity : AppCompatActivity() {
         hideSystemBars()
         web = findViewById(R.id.web)
         findViewById<View>(R.id.home).setOnClickListener { finish() }
+        (findViewById<View>(R.id.home) as? android.widget.TextView)?.text = Prefs(this).homeLabel()
 
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/apps/", WebViewAssetLoader.InternalStoragePathHandler(this, File(filesDir, "apps")))

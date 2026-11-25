@@ -50,7 +50,9 @@ every change is small, tested, and described by what it does.
 - Buttons that lead to a system permission request say Continue or Open settings, never Allow (App Review 5.1.1(iv)).
   `backend/test/windows-web.test.ts` fails on one in the iPad and Android parent areas.
 - Every line a person reads in `web/` or `portal/` goes through `tr()` and has a Spanish entry; `backend/test/i18n.test.ts`
-  fails otherwise. Spanish is neutral Latin American, tú to the parent.
+  fails otherwise. Apps, manifests, emails and the shells are checked the same way (`node tools/lang-check.mjs`, also
+  in that test). The deploy runs both before it builds and stops when English and Spanish are not paired. Spanish is
+  neutral Latin American, tú to the parent.
 - Apps never read the grade directly; they call `KidTablet.rungFor` or `KidTablet.levelFor` (`docs/ladders.md`). No
   app control within 210 by 72 px of the top right, where the Home pill sits (`tools/pill-check.mjs`).
 - AI apps are described as finding and suggesting, never deciding. Prompts and replies are never stored or logged.
@@ -92,7 +94,7 @@ npx playwright install chromium              # once per machine, for the browser
 ```
 
 Apps: after changing `apps/<id>/`, bump `version` in its manifest, run `node tools/ladder-check.mjs --drive <id>`
-(all grades) and `node tools/pill-check.mjs`, then `node tools/phrases.mjs <id>`, which rewrites `phrases.json`
+(all grades), `node tools/pill-check.mjs` and `node tools/lang-check.mjs`, then `node tools/phrases.mjs <id>`, which rewrites `phrases.json`
 and records the source hash the publish tool checks. `node tools/demos.mjs <id>` re-records the demo GIF. A changed
 app with no version bump is refused at deploy ("already published (DIFFERENT bytes)") and tablets keep the old one.
 

@@ -42,6 +42,11 @@ class Prefs(context: Context) {
         get() = p.getString("narratorVoice", "en-US-AnaNeural") ?: "en-US-AnaNeural"
         set(v) { p.edit().putString("narratorVoice", v).apply() }
 
+    /** The family's language, en or es, from the web app; the shell's own words (the Home pill) follow it. */
+    var language: String
+        get() = p.getString("language", "en") ?: "en"
+        set(v) = p.edit().putString("language", if (v == "es") "es" else "en").apply()
+    fun homeLabel(): String = if (language == "es") "Inicio" else "Home"
     var lockdownOn: Boolean
         get() = p.getBoolean("lockdownOn", false)
         set(v) { p.edit().putBoolean("lockdownOn", v).apply() }

@@ -74,6 +74,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         web = findViewById(R.id.web)
         homePill = findViewById(R.id.home)
+        showLanguage()
         homePill.setOnClickListener { goHome() }
         hideSystemBars()
         LocalBroadcastManager.getInstance(this).registerReceiver(pushReceiver, IntentFilter().apply { addAction(PushService.ACTION_PUSH); addAction(PushService.ACTION_TOKEN) })
@@ -183,6 +184,9 @@ class MainActivity : AppCompatActivity() {
         (popup.parent as? ViewGroup)?.removeView(popup)
         popup.destroy()
     }
+
+    /** The Home pill in the family's language (Prefs.language, set by the web app through the bridge). */
+    fun showLanguage() { (homePill as? android.widget.TextView)?.text = Prefs(this).homeLabel() }
 
     private fun goHome() {
         popups.toList().forEach { closePopup(it) }

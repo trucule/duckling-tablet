@@ -124,3 +124,45 @@ for (const tree of TREES) {
     });
   });
 }
+
+// The apps, their manifests and the shells: tools/lang-check.mjs, the same check the deploy runs before it builds.
+describe('apps and shells translations', async () => {
+  // @ts-expect-error a plain .mjs tool without types
+  const lc = await import('../../tools/lang-check.mjs');
+  const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+
+  it('pairs every app, manifest and shell', () => {
+    const { apps, shells } = lc.checkAll();
+    expect(apps.length).toBeGreaterThan(20);
+    expect(apps.filter((a: { errors: string[] }) => a.errors.length).map((a: { id: string; errors: string[] }) => `${a.id}: ${a.errors.join('; ')}`)).toEqual([]);
+    expect(shells).toEqual([]);
+  });
+
+  it('catches a line with no Spanish, a missing manifest translation and a missing hook', () => {
+    const root = mkdtempSync(join(tmpdir(), 'langcheck-')), dir = join(root, 'apps', 'x');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'manifest.json'), JSON.stringify({ id: 'x', name: 'X', description: 'Plays.', about: { concept: 'A' }, i18n: { es: { name: 'X', description: 'Juega.' } } }));
+    writeFileSync(join(dir, 'index.html'), `<script>const ES = { 'Well done!': '¡Muy bien!' }; T('Well done!'); T('Try again');</script>`);
+    const r = lc.checkApp('x', root);
+    expect(r.errors).toEqual(['manifest i18n.es.about.concept is missing or a different length', 'no Spanish for "Try again"', 'no window.DucklingLang hook']);
+  });
+});
+
+// The emails: each one has its own Spanish subject and body.
+describe('email translations', async () => {
+  const emails = await import('../src/emails');
+  for (const [name, fn] of Object.entries(emails)) {
+    if (typeof fn !== 'function') continue;
+    it(`${name} has Spanish`, () => {
+      for (const source of ['portal', 'tablet']) {
+        const args = (l: string) => [l, ...Array.from({ length: fn.length - 1 }, (_, i) => (i === 0 && name === 'signInLinkEmail' ? source : '123456'))];
+        const en = (fn as (...a: string[]) => { subject: string; body: string })(...args('en'));
+        const es = (fn as (...a: string[]) => { subject: string; body: string })(...args('es'));
+        expect(es.subject && es.body).toBeTruthy();
+        expect(es.subject).not.toBe(en.subject);
+        expect(es.body).not.toBe(en.body);
+      }
+    });
+  }
+});
