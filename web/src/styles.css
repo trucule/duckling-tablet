@@ -131,3 +131,5 @@ button.link:disabled { text-decoration: none; cursor: default; }
 .pill.signin { display: block; width: 100%; font-size: 20px; padding: 14px; margin: 6px 0 4px; }
 .pill.signin.apple { background: #000; color: #fff; border-color: #000; }
 .pill.signin.google, .pill.signin.microsoft { background: #fff; color: #1f1f1f; border: 2px solid var(--line); }
+.steps .bullets { margin: 4px 0 0; padding-left: 18px; }
+.steps .bullets li { display: list-item; border: 0; padding: 1px 0; }
