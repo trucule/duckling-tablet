@@ -1,7 +1,12 @@
 <!--
   Duckling Tablet for Windows. Per-machine, into Program Files\Duckling Tablet: Duckling.exe (the home screen), the
   DucklingTablet service (LocalSystem, automatic, restarted on failure) and lockdown\DucklingLockdown.ps1. A Start menu
-  tile opens Duckling. Every version replaces the one before (major upgrade); the UpgradeCode never changes.
+  tile opens Duckling. Every version replaces the one before (major upgrade); the UpgradeCode never changes. The new
+  version is installed over the old one before the old one is removed (afterInstallExecute), so the service is updated
+  in place and never deleted and created again: an update that fails rolls back to the old version, which keeps
+  running. Deleting the service during an update left it marked for deletion while its process was still stopping,
+  creating it again failed with error 1923, and the rollback could not restore the old version, so the tablet was
+  left with nothing installed.
   Uninstalling (not upgrading) first runs DucklingService.exe uninstall-cleanup, which turns the kiosk and automatic
   sign-in off and removes the device state and apps. The child's Windows account stays.
 -->
@@ -9,7 +14,7 @@
   <Package Name="Duckling Tablet" Manufacturer="ET Ducky LLC" Version="$(var.Version)"
            UpgradeCode="{A0324420-E3C7-4391-9582-9A86FC4796C0}" Scope="perMachine" Compressed="yes" Language="1033">
     <SummaryInformation Description="Duckling Tablet: a locked-down learning device for a child" Manufacturer="ET Ducky LLC" />
-    <MajorUpgrade DowngradeErrorMessage="A newer version of Duckling Tablet is already installed." Schedule="afterInstallInitialize" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Duckling Tablet is already installed." Schedule="afterInstallExecute" />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <Icon Id="duckling.ico" SourceFile="$(var.Root)\src\Duckling.Shell\duckling.ico" />

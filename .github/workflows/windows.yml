@@ -19,6 +19,11 @@ jobs:
       - name: Build the MSIs (unit tests first)
         shell: pwsh
         run: windows/Build-Release.ps1 -Version 0.0.${{ github.run_number }} -SkipSigning
+      - name: Build a higher x64 version and upgrade to it
+        shell: pwsh
+        run: |
+          windows/Build-Release.ps1 -Version 0.1.${{ github.run_number }} -Arch x64 -SkipSigning
+          windows/tests/ci/Run-UpgradeTest.ps1 -Old windows/out/DucklingTablet-0.0.${{ github.run_number }}-x64.msi -New windows/out/DucklingTablet-0.1.${{ github.run_number }}-x64.msi
       - name: Install, drive and remove the x64 MSI
         shell: pwsh
         run: windows/tests/ci/Run-InstallTest.ps1 -Msi windows/out/DucklingTablet-0.0.${{ github.run_number }}-x64.msi
