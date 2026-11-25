@@ -21,6 +21,7 @@ import deviceRoutes from './routes/devices.js';
 import catalogRoutes from './routes/catalog.js';
 import ttsRoutes, { makeVoiceCache } from './routes/tts.js';
 import requestRoutes, { sendMissingTickets } from './routes/requests.js';
+import { makeNonces, makeVerifier, type FetchJson } from './idtoken.js';
 import diagnosticsRoutes, { sendMissingDiagnostics } from './routes/diagnostics.js';
 import adminRoutes from './routes/admin.js';
 import aiRoutes from './routes/ai.js';
@@ -38,7 +39,7 @@ import backdropRoutes from './routes/backdrops.js';
 import modelRoutes from './routes/models.js';
 import statsRoutes from './routes/stats.js';
 
-export interface BuildOptions { stripe?: Stripe | null; apple?: AppleVerifier | null; google?: GooglePlay | null; googlePushAuth?: PushAuth; db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; push?: Push; fetchUrl?: FetchUrl; logger?: boolean | Record<string, unknown> }
+export interface BuildOptions { stripe?: Stripe | null; apple?: AppleVerifier | null; google?: GooglePlay | null; googlePushAuth?: PushAuth; db?: Db; storage?: Storage; mailer?: Mailer; synth?: Synth; createTicket?: CreateTicket; attachToTicket?: AttachToTicket; complete?: Complete; push?: Push; fetchUrl?: FetchUrl; fetchJwks?: FetchJson; logger?: boolean | Record<string, unknown> }
 
 export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise<{ app: FastifyInstance; ctx: Ctx }> {
   const wantLog = opts.logger ?? cfg.NODE_ENV !== 'test';
@@ -56,6 +57,8 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
     complete: opts.complete ?? makeAnthropic(cfg),
     push: opts.push ?? makeFcm(cfg, log),
     stripe: opts.stripe === undefined ? makeStripe(cfg, log) : opts.stripe,
+    verifyIdToken: makeVerifier(opts.fetchJwks),
+    nonces: makeNonces(cfg.SESSION_SECRET),
     log,
   };
   const voice = makeVoiceCache(ctx);

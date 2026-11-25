@@ -7,6 +7,7 @@ import type { CreateTicket, AttachToTicket } from './etducky.js';
 import type { Complete } from './anthropic.js';
 import type { Push } from './push.js';
 import type { Stripe } from './stripe.js';
+import type { VerifyIdToken } from './idtoken.js';
 
 export interface Ctx {
   cfg: Config;
@@ -20,6 +21,9 @@ export interface Ctx {
   push: Push;
   // Stripe, when STRIPE_SECRET_KEY is set (billing routes, and account deletion cancels the family's subscription).
   stripe: Stripe | null;
+  // Sign in with Apple, Google and Microsoft (idtoken.ts).
+  verifyIdToken: VerifyIdToken;
+  nonces: { issue(): string; redeem(nonce: string, claim: string | null): boolean };
   log: (msg: string) => void;
 }
 

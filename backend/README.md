@@ -27,6 +27,10 @@ the web server already there (nginx or Caddy). Memory is capped at 300 MB becaus
 | `POST /auth/email-link` `{email}` | anyone | Emails a one-time sign-in link (15 minutes) |
 | `POST /auth/verify` `{token}` | anyone | Signs in; creates the family on first sign-in; returns `sessionToken` and sets the cookie |
 | `POST /auth/logout` | parent | Ends the session |
+| `GET /auth/providers`, `GET /auth/nonce` | anyone | The sign-in providers set up here with their client ids; a single-use nonce for the next sign-in (Apple takes its SHA-256) |
+| `POST /auth/provider` `{provider, idToken, nonce, language?}` | anyone | Sign in with Apple, Google or Microsoft: the linked parent, else the parent with that verified email, else a new family with its trial; returns a session |
+| `POST /auth/provider/pair` `{provider, idToken, nonce, childFirstName?, childAge?, platform, name, shellVersion?, language?}` | the new device | The same sign-in from a tablet, which is paired to that family in the same call (as `/auth/code/pair`) |
+| `GET/POST /family/sign-ins`, `DELETE /family/sign-ins/:provider` | parent | The parent's email and linked Apple, Google and Microsoft accounts; link one (refused when it belongs to another parent or the parent has one of that provider), or remove one |
 | `GET /family` | parent | Parents, children, devices |
 | `DELETE /family` `{confirm:"DELETE"}` | parent | Deletes the account and all data; devices are told to release |
 | `POST /children`, `PUT /children/:id`, `DELETE /children/:id` | parent | Child profile: firstName, grade, levels (per subject 1 to 10), theme |

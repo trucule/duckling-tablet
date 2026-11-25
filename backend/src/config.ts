@@ -2,6 +2,8 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
+const csv = (v: string) => v.split(',').map((x) => x.trim()).filter(Boolean);
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().default('127.0.0.1'),
@@ -108,6 +110,13 @@ const schema = z.object({
   ETDUCKY_API_URL: z.string().default(''),
   ETDUCKY_API_KEY: z.string().default(''),
   ETDUCKY_WEBHOOK_SECRET: z.string().default(''),
+
+  // Sign in with Apple, Google and Microsoft: our own client ids, comma separated, that an ID token may be issued to.
+  // Apple: the app's bundle id and the portal's Services ID. Google: the web client id (Android's Credential Manager
+  // asks for tokens issued to it too). Microsoft: the app registration's client id. Empty: that provider is off.
+  APPLE_SIGNIN_CLIENT_IDS: z.string().default('').transform(csv),
+  GOOGLE_SIGNIN_CLIENT_IDS: z.string().default('').transform(csv),
+  MICROSOFT_SIGNIN_CLIENT_IDS: z.string().default('').transform(csv),
 
   // Admin calls (publishing apps) use this bearer token.
   ADMIN_TOKEN: z.string().default(''),
