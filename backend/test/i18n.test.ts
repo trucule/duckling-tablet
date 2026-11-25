@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { es as webEs } from '../../web/src/i18n/es';
 import { es as portalEs } from '../../portal/src/i18n/es';
 import { untranslated } from './untranslated';
+import { SHARED_COUNTRY, SHARED_SERVICE, WHOLE_SITE } from '../src/sitehosts';
 
 const files = (dir: string): string[] => readdirSync(dir).flatMap((n) => {
   const p = join(dir, n);
@@ -165,4 +166,15 @@ describe('email translations', async () => {
       }
     });
   }
+});
+
+// Reasons the API gives for a website or address it will not allow; the tablet and the portal show them with tr().
+describe('API reasons shown to parents', () => {
+  it('has Spanish for every refusal of a website or address', () => {
+    for (const line of [SHARED_COUNTRY, SHARED_SERVICE, WHOLE_SITE]) {
+      expect(webEs[line], line).toBeTruthy();
+      expect(portalEs[line], line).toBeTruthy();
+    }
+    expect(webEs['Too many reports today. Try again tomorrow.']).toBeTruthy();
+  });
 });

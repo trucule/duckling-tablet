@@ -377,7 +377,8 @@ function BlockedAddresses({ devices }: { devices: Device[] }) {
         {shown.map(({ d, h }) => (
           <li key={`${d.id} ${h.site} ${h.host}`}>
             <span class="grow"><strong>{h.host}</strong> <span class="muted">{[tr('for {site}', { site: h.site }), h.media ? tr('video') : '', h.tracker ? tr('advertising or analytics') : '', devices.length > 1 ? d.name : '', h.decision === 'allowed' ? tr('allowed') : h.decision === 'blocked' ? tr('kept blocked') : ''].filter(Boolean).join(' · ')}</span></span>
-            {h.decision !== 'allowed' && <button class="btn" onClick={() => decide(d, h, 'allowed')}>{tr('Allow')}</button>}
+            {h.refusal && <span class="muted" style={{ flexBasis: '100%', order: 3 }}>{tr(h.refusal)}</span>}
+            {h.decision !== 'allowed' && !h.refusal && <button class="btn" onClick={() => decide(d, h, 'allowed')}>{tr('Allow')}</button>}
             {h.decision !== 'blocked' && <button class="btn quiet" onClick={() => decide(d, h, 'blocked')}>{h.decision === 'allowed' ? tr('Block') : tr('Keep blocked')}</button>}
           </li>
         ))}

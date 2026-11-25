@@ -367,4 +367,8 @@ export const es: Record<string, string> = {
   'Send diagnostics': 'Enviar diagnóstico',
   'Sent. The reference is {id}.': 'Enviado. La referencia es {id}.',
   'Saved. It reaches the team as soon as their system answers. The reference is {id}.': 'Guardado. Llega al equipo en cuanto su sistema responda. La referencia es {id}.',
+  "That name covers every site in a country. Use the site's own name.": 'Ese nombre abarca todos los sitios de un país. Usa el nombre propio del sitio.',
+  "That address is shared by many unrelated sites. Use the site's own address under it.": 'Esa dirección la comparten muchos sitios que no tienen relación entre sí. Usa la dirección propia del sitio dentro de ella.',
+  'That address opens a whole website for browsing. To allow it, add the website under Websites.': 'Esa dirección abre un sitio web completo para navegar. Para permitirlo, agrega el sitio web en Sitios web.',
+  'Too many reports today. Try again tomorrow.': 'Demasiados informes hoy. Inténtalo de nuevo mañana.',
 };

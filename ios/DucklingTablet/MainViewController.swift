@@ -162,7 +162,7 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
       var f = window.fetch;
       if (f) window.fetch = function (input) {
         var u = typeof input === 'string' ? input : (input && input.url) || String(input);
-        return f.apply(this, arguments).catch(function (e) { report(u); throw e; });
+        return f.apply(window, arguments).catch(function (e) { report(u); throw e; });
       };
       var open = XMLHttpRequest.prototype.open, send = XMLHttpRequest.prototype.send;
       XMLHttpRequest.prototype.open = function (m, u) { this.__ducklingUrl = u; return open.apply(this, arguments); };

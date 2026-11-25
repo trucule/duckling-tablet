@@ -12,7 +12,7 @@ export interface Family { familyId: string; you: string; language?: Lang; pinSet
 export interface OtherApp { package: string; label: string; icon: string | null; allowed: boolean; dailyMinutes: number | null; window: { start: string; end: string } | null; hosts: string[]; usedSecondsToday: number }
 export interface DeviceDetail { deviceId: string; state: string; child: Child | null; apps: { id: string; name: string; version: string; tileUrl: string | null }[]; hidden: string[]; allowlist: { host: string; tile?: { name: string; url: string } }[]; travel: { active: boolean; until: string | null }; otherApps: OtherApp[] }
 // A host an allowed website asked for and the tablet refused, filed under that website, with a parent's decision.
-export interface SiteHost { site: string; host: string; media: boolean; hits: number; tracker: boolean; decision: 'allowed' | 'blocked' | null; firstSeenAt: string; lastSeenAt: string }
+export interface SiteHost { site: string; host: string; media: boolean; hits: number; tracker: boolean; refusal: string | null; decision: 'allowed' | 'blocked' | null; firstSeenAt: string; lastSeenAt: string }
 export interface AppAbout { concept: string; progression: string; lifeSkills: string[] }
 // The name, description and About text in another language, by language code, from the app's manifest (apps.ts reads them).
 export type AppI18n = Partial<Record<'en' | 'es', { name: string; description?: string; about?: AppAbout | null }>>;

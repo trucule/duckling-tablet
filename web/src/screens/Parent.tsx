@@ -571,10 +571,10 @@ function RefusedHosts({ focus = false }: { focus?: boolean }) {
           <ul class="refused">
             {open.filter((h) => h.site === site).map((h) => (
               <li key={h.host}>
-                <span><strong>{h.host}</strong><br /><span class="why">{[h.media ? tr('Video') : '', h.tracker ? tr('Advertising or analytics') : '', trn(h.hits, 'Asked once', 'Asked {n} times')].filter(Boolean).join(' · ')}</span></span>
+                <span><strong>{h.host}</strong><br /><span class="why">{[h.media ? tr('Video') : '', h.tracker ? tr('Advertising or analytics') : '', trn(h.hits, 'Asked once', 'Asked {n} times')].filter(Boolean).join(' · ')}</span>{h.refusal && <><br /><span class="why">{tr(h.refusal)}</span></>}</span>
                 {h.decision === 'allowed' && <><span class="state ok">{tr('Allowed')}</span><button class="pill quiet" disabled={!!busy} onClick={() => decide(h, 'blocked')}>{tr('Block')}</button></>}
-                {h.decision === 'blocked' && <><span class="state">{tr('Kept blocked')}</span><button class="pill quiet" disabled={!!busy} onClick={() => decide(h, 'allowed')}>{tr('Allow')}</button></>}
-                {h.decision === null && <><button class="pill" disabled={!!busy} onClick={() => decide(h, 'allowed')}>{tr('Allow')}</button><button class="pill quiet" disabled={!!busy} onClick={() => decide(h, 'blocked')}>{tr('Keep blocked')}</button></>}
+                {h.decision === 'blocked' && <><span class="state">{tr('Kept blocked')}</span>{h.refusal ? <span /> : <button class="pill quiet" disabled={!!busy} onClick={() => decide(h, 'allowed')}>{tr('Allow')}</button>}</>}
+                {h.decision === null && <>{h.refusal ? <span /> : <button class="pill" disabled={!!busy} onClick={() => decide(h, 'allowed')}>{tr('Allow')}</button>}<button class="pill quiet" disabled={!!busy} onClick={() => decide(h, 'blocked')}>{tr('Keep blocked')}</button></>}
               </li>
             ))}
           </ul>

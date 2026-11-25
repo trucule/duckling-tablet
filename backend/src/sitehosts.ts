@@ -35,6 +35,59 @@ export const TRACKER_HOSTS: string[] = [
 /** A site as the allowlist names it: lower case, without a leading *. or www. */
 export const bare = (h: string) => h.trim().toLowerCase().replace(/^\*\./, '').replace(/^www\./, '');
 const under = (host: string, list: string[]) => list.some((p) => host === p || host.endsWith(`.${p}`));
+// Domains under which many unrelated people and companies publish: a hosting or storage service's own name, or a
+// country's second level (co.uk). Allowing one would let every site under it through (the shells match subdomains),
+// so neither the allowlist nor a parent's Allow on a blocked address takes one. A name under it is fine
+// (d123.cloudfront.net is one distribution, kids.github.io one person's pages). A curated list: the full Public
+// Suffix List would need a dependency that has not been approved.
+export const SHARED_SUFFIXES: string[] = [
+  'github.io', 'gitlab.io', 'bitbucket.io', 'githubusercontent.com', 'raw.githubusercontent.com',
+  'cloudfront.net', 'amazonaws.com', 's3.amazonaws.com', 'elasticbeanstalk.com', 'awsapprunner.com', 'amplifyapp.com',
+  'googleapis.com', 'storage.googleapis.com', 'googleusercontent.com', 'appspot.com', 'web.app', 'firebaseapp.com',
+  'firebasestorage.app', 'run.app', 'cloudfunctions.net',
+  'azurewebsites.net', 'azureedge.net', 'blob.core.windows.net', 'core.windows.net', 'azurestaticapps.net', 'trafficmanager.net',
+  'herokuapp.com', 'vercel.app', 'netlify.app', 'netlify.com', 'pages.dev', 'workers.dev', 'r2.dev', 'onrender.com', 'fly.dev',
+  'railway.app', 'glitch.me', 'repl.co', 'replit.app', 'replit.dev', 'surge.sh', 'neocities.org', 'ngrok.io', 'ngrok-free.app',
+  'akamaized.net', 'akamaihd.net', 'edgesuite.net', 'edgekey.net', 'fastly.net', 'fastlylb.net', 'b-cdn.net', 'cdn77.org',
+  'digitaloceanspaces.com', 'cdn.digitaloceanspaces.com', 'linodeobjects.com', 'backblazeb2.com', 'wasabisys.com',
+  'blogspot.com', 'wordpress.com', 'wixsite.com', 'weebly.com', 'tumblr.com', 'substack.com', 'carrd.co', 'webflow.io',
+  'squarespace.com', 'myshopify.com', 'framer.website', 'notion.site', 'canva.site', 'sites.google.com', 'dropboxusercontent.com',
+  'jsdelivr.net', 'cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'imgur.com', 'i.imgur.com',
+];
+// A country's second level: co.uk, com.au, org.nz, gob.mx and the like.
+const SECOND_LEVEL = /^(co|com|net|org|gov|gob|edu|ac|or|ne|go|mil|nic|ltd|plc|sch|nhs|info|biz|nom|gen|firm|web|int|me|tv|in)\.[a-z]{2}$/;
+
+export const SHARED_COUNTRY = 'That name covers every site in a country. Use the site\'s own name.';
+export const SHARED_SERVICE = 'That address is shared by many unrelated sites. Use the site\'s own address under it.';
+export const WHOLE_SITE = 'That address opens a whole website for browsing. To allow it, add the website under Websites.';
+
+/** Why a host cannot be allowed on its own (a shared or country domain), or null when it can. */
+export function sharedHostReason(host: string): string | null {
+  const h = host.trim().toLowerCase().replace(/^\*\./, '').replace(/\.$/, '');
+  // Fixed sentences, so the portal and the tablet show them in Spanish too (their dictionaries carry them).
+  if (!h.includes('.') || SECOND_LEVEL.test(h)) return SHARED_COUNTRY;
+  if (SHARED_SUFFIXES.includes(h)) return SHARED_SERVICE;
+  return null;
+}
+
+// Whole websites for browsing and social media. A blocked address on one of them is not offered with Allow, because
+// allowing it would open the whole site, not one website's videos; a parent who wants that adds it under Websites.
+// Their media hosts (i.ytimg.com, player.vimeo.com) are not on this list.
+export const BROWSING_HOSTS: string[] = [
+  'google.com', 'youtube.com', 'bing.com', 'duckduckgo.com', 'yahoo.com', 'baidu.com', 'yandex.com', 'ask.com',
+  'wikipedia.org', 'reddit.com', 'facebook.com', 'instagram.com', 'tiktok.com', 'x.com', 'twitter.com', 'threads.net',
+  'snapchat.com', 'pinterest.com', 'tumblr.com', 'discord.com', 'twitch.tv', 'kick.com', 'amazon.com', 'ebay.com',
+  'roblox.com', 'vimeo.com', 'dailymotion.com', 'archive.org', 'telegram.org', 'whatsapp.com', 'linkedin.com', 'quora.com',
+];
+
+/** Why a blocked address is not offered with Allow, or null when it is. */
+export function refusalFor(host: string): string | null {
+  const shared = sharedHostReason(host);
+  if (shared) return shared;
+  const h = host.toLowerCase();
+  return BROWSING_HOSTS.some((b) => h === b || h === `www.${b}` || h === `m.${b}`) ? WHOLE_SITE : null;
+}
+
 /** True for an advertising, analytics or crash-reporting host (TRACKER_HOSTS). */
 export const isTracker = (host: string) => under(host.toLowerCase(), TRACKER_HOSTS);
 

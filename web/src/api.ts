@@ -34,7 +34,7 @@ export interface CatalogApp {
 }
 
 // A host an allowed website asked for and the tablet refused, filed under that website, with a parent's decision.
-export interface SiteHost { site: string; host: string; media: boolean; hits: number; tracker: boolean; decision: 'allowed' | 'blocked' | null; firstSeenAt: string; lastSeenAt: string }
+export interface SiteHost { site: string; host: string; media: boolean; hits: number; tracker: boolean; refusal: string | null; decision: 'allowed' | 'blocked' | null; firstSeenAt: string; lastSeenAt: string }
 
 export interface AppRequest { id: string; title: string; description: string; status: 'requested' | 'planned' | 'building' | 'declined' | 'shipped' | 'withdrawn' | 'done'; appId: string | null; createdAt: string }
 

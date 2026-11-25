@@ -1237,6 +1237,34 @@ describe('hosts an allowed website was refused', () => {
     expect((await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/site-hosts`, headers: o.auth, payload: { site: 'getepic.com', host: 'cdn.videohost.net', decision: 'blocked' } })).statusCode).toBe(404);
     // Bad host names are refused.
     expect((await app.inject({ method: 'POST', url: '/device/site-hosts', headers: d.dev, payload: { items: [{ page: 'www.getepic.com', host: 'http://x.com/a' }] } })).statusCode).toBe(400);
+
+    // A shared domain or a whole website for browsing is listed with its reason and cannot be allowed, from either side.
+    await app.inject({ method: 'POST', url: '/device/site-hosts', headers: d.dev, payload: { items: [
+      { page: 'www.getepic.com', host: 'storage.googleapis.com', media: true }, { page: 'www.getepic.com', host: 'www.youtube.com' }] } });
+    const refused = (await app.inject({ method: 'GET', url: '/device/site-hosts', headers: d.dev })).json().siteHosts;
+    expect(refused.find((h: any) => h.host === 'storage.googleapis.com').refusal).toMatch(/shared by many unrelated sites/);
+    expect(refused.find((h: any) => h.host === 'www.youtube.com').refusal).toMatch(/whole website/);
+    expect(refused.find((h: any) => h.host === 'cdn.videohost.net').refusal).toBeNull();
+    for (const host of ['storage.googleapis.com', 'www.youtube.com']) {
+      const r1 = await app.inject({ method: 'PUT', url: '/device/site-hosts', headers: d.dev, payload: { site: 'getepic.com', host, decision: 'allowed' } });
+      expect(r1.statusCode, host).toBe(409);
+      expect((await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/site-hosts`, headers: p.auth, payload: { site: 'getepic.com', host, decision: 'allowed' } })).statusCode).toBe(409);
+      // Keeping it blocked is fine.
+      expect((await app.inject({ method: 'PUT', url: '/device/site-hosts', headers: d.dev, payload: { site: 'getepic.com', host, decision: 'blocked' } })).statusCode).toBe(200);
+    }
+    // A row allowed before a rule existed is not sent to the tablet.
+    await db.system((q) => q.run("UPDATE site_host SET decision = 'allowed' WHERE host = 'storage.googleapis.com'"));
+    expect((await app.inject({ method: 'GET', url: '/device/config', headers: d.dev })).json().mediaHosts).not.toContain('storage.googleapis.com');
+
+    // The allowlist and other apps' sites refuse shared and country domains, with the reason.
+    for (const host of ['github.io', 'co.uk', '*.cloudfront.net']) {
+      const r2 = await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth, payload: { allowlist: [{ host }] } });
+      expect(r2.statusCode, host).toBe(400);
+      expect(r2.json().issues[0]).toMatch(/shared by many|every site in a country/);
+    }
+    expect((await app.inject({ method: 'PUT', url: `/devices/${d.deviceId}/settings`, headers: p.auth, payload: { allowlist: [{ host: 'kids.github.io' }] } })).statusCode).toBe(200);
+    // Every answer says its type is not to be guessed.
+    expect(report.headers['x-content-type-options']).toBe('nosniff');
   });
 });
 
@@ -1287,9 +1315,21 @@ describe('diagnostics', () => {
     expect(tickets.at(-1)).toMatchObject({ kind: 'diagnostics', reportId: r2.json().id, title: 'Diagnostics: android 1.1.0' });
     expect((await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: { authorization: `Bearer ${ADMIN}` } })).json().diagnostics).toEqual({ waiting: 0, created: 0 });
 
+    // At most 20 reports a family a day.
+    await db.system((q) => q.run("INSERT INTO diagnostic_report (id, family_id, device_id, storage_key, size) SELECT 'diag_fill' || g, $1, $2, 'none', 1 FROM generate_series(1, 20) g", [p.familyId, d.deviceId]));
+    const many = await app.inject({ method: 'POST', url: '/device/diagnostics', headers: d.dev, payload: { report: {} } });
+    expect(many.statusCode).toBe(429);
+    await db.system((q) => q.run("DELETE FROM diagnostic_report WHERE id LIKE 'diag_fill%'"));
+    // The full report is served with no way to run as a page.
+    expect(full.headers['content-security-policy']).toContain('sandbox');
+
     // Deleting the family deletes the stored reports.
     const files = () => { try { return readdirSync(join(dir, 'files', 'diagnostics')); } catch { return []; } };
     expect(files()).toHaveLength(2);
+    // Reports older than 90 days are deleted with their files by the retry job.
+    await db.system((q) => q.run("UPDATE diagnostic_report SET created_at = now() - interval '91 days' WHERE id = $1", [r2.json().id]));
+    await app.inject({ method: 'POST', url: '/admin/requests/tickets', headers: { authorization: `Bearer ${ADMIN}` } });
+    expect(files()).toHaveLength(1);
     expect((await app.inject({ method: 'DELETE', url: '/family', headers: p.auth, payload: { confirm: 'DELETE' } })).statusCode).toBe(200);
     expect(files()).toHaveLength(0);
   });

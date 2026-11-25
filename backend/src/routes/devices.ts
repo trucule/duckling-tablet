@@ -1,6 +1,6 @@
 // Devices: pairing, parent controls per device, and the device's own check-in, config and installs.
 // Every handler runs inside one family-scoped transaction, so a query that forgets a WHERE still sees one family.
-import { SIGN_IN_HOSTS, TRACKER_HOSTS, bare, isTracker, mediaHostsFor, siteFor, siteHost } from '../sitehosts.js';
+import { SIGN_IN_HOSTS, TRACKER_HOSTS, bare, isTracker, mediaHostsFor, refusalFor, sharedHostReason, siteFor, siteHost } from '../sitehosts.js';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit, type Ctx } from '../context.js';
@@ -16,7 +16,9 @@ import { HttpError, badRequest, forbidden, hashToken, inMinutes, newId, newToken
 
 // A host pattern: example.org (subdomains included) or *.example.org.
 // A pasted address (https://www.kleki.com/) is taken as its site name (kleki.com) before the check.
-const host = z.preprocess(siteHost, z.string().regex(/^(\*\.)?([a-z0-9-]+\.)+[a-z]{2,}$/, 'Use a site name like pbskids.org'));
+// A shared or country domain (github.io, co.uk) is refused: the shells allow every subdomain of an entry.
+const host = z.preprocess(siteHost, z.string().regex(/^(\*\.)?([a-z0-9-]+\.)+[a-z]{2,}$/, 'Use a site name like pbskids.org')
+  .superRefine((h, c) => { const why = sharedHostReason(h); if (why) c.addIssue({ code: 'custom', message: why }); }));
 const allowEntry = z.object({ host, tile: z.object({ name: z.string().max(40), url: z.string().url().refine((u) => /^https?:\/\//i.test(u), 'A website link starts with https://'), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional() }).optional() });
 const limits = z.object({ dailyMinutes: z.number().int().min(0).max(1440).nullable(), bedtime: z.object({ start: z.string().regex(/^\d\d:\d\d$/), end: z.string().regex(/^\d\d:\d\d$/) }).nullable() }).partial();
 
@@ -66,7 +68,8 @@ export async function deviceConfig(ctx: Ctx, q: Q, deviceId: string, forParent =
   // its site is still on the allowlist.
   const sites = new Set(allowlist.map((w) => bare(w.host)));
   const decided = await q.all<{ site: string; host: string; decision: string }>('SELECT site, host, decision FROM site_host WHERE device_id = $1 AND decision IS NOT NULL', [deviceId]);
-  const extraHosts = decided.filter((r) => r.decision === 'allowed' && sites.has(r.site)).map((r) => r.host);
+  // A host the rules now refuse (refusalFor) is dropped even if it was allowed before the rule.
+  const extraHosts = decided.filter((r) => r.decision === 'allowed' && sites.has(r.site) && !refusalFor(r.host)).map((r) => r.host);
   return {
     deviceId, state: d.state, child,
     // SHA-256 of "duckling:<pin>", the form the shells keep; null until a parent sets a PIN.
@@ -111,12 +114,16 @@ export async function siteHostsOf(q: Q, deviceId: string) {
   const rows = await q.all('SELECT * FROM site_host WHERE device_id = $1 ORDER BY media DESC, last_seen_at DESC, host', [deviceId]);
   return rows.filter((r) => sites.has(r.site)).map((r) => ({
     site: r.site as string, host: r.host as string, media: r.media as boolean, hits: r.hits as number, tracker: isTracker(r.host),
+    // Why Allow is not offered for it (a shared domain, or a whole website for browsing), or null.
+    refusal: refusalFor(r.host),
     decision: (r.decision ?? null) as 'allowed' | 'blocked' | null, firstSeenAt: r.first_seen_at, lastSeenAt: r.last_seen_at,
   }));
 }
 
 /** A parent's decision on a host a site was refused: only for a host the tablet reported for that site. */
 async function decideSiteHost(q: Q, deviceId: string, b: z.infer<typeof siteDecision>): Promise<void> {
+  const refusal = b.decision === 'allowed' ? refusalFor(b.host) : null;
+  if (refusal) throw new HttpError(409, refusal);
   const n = await q.run('UPDATE site_host SET decision = $4, decided_at = now() WHERE device_id = $1 AND site = $2 AND host = $3', [deviceId, b.site, b.host, b.decision]);
   if (!n) throw notFound('This tablet has not reported that host for that site');
 }

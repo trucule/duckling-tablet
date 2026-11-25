@@ -10,7 +10,9 @@ import { HttpError, hashToken, linkExpiry, newId, notFound, safeEqual } from '..
 import { deviceConfig, siteHostsOf } from './devices.js';
 
 const MAX_REPORT = 1_000_000;          // bytes of the tablet's part, as JSON
+const MAX_PER_DAY = 20;                // reports per family in 24 hours, on top of the per-address rate limit
 const RETRY_DAYS = 30;
+const KEEP_DAYS = 90;                  // a report and its file are deleted after this (the privacy policy says so)
 
 const reportPath = (id: string) => `/diagnostics/${id}`;
 const signFor = (ctx: Ctx, id: string, exp: number) => hashToken(`diagnostics/${id}/${exp}`, ctx.cfg.SESSION_SECRET).slice(0, 32);
@@ -77,7 +79,16 @@ const titleOf = (platform: string, version: string, note: string) => `Diagnostic
 
 /** Reports from the last 30 days that have no ticket yet (ET Ducky was down or not configured). ET Ducky returns the
  * existing ticket for a repeated report id, so a retry never makes a second one. */
+/** Deletes reports older than KEEP_DAYS with their files. Runs with the ticket retry. */
+export async function pruneDiagnostics(ctx: Ctx): Promise<number> {
+  const old = await ctx.db.system((q) => q.all<{ id: string; storage_key: string }>(
+    `DELETE FROM diagnostic_report WHERE created_at < now() - interval '${KEEP_DAYS} days' RETURNING id, storage_key`));
+  for (const r of old) { try { await ctx.storage.delete(r.storage_key); } catch { /* the row is gone; a stray file costs little */ } }
+  return old.length;
+}
+
 export async function sendMissingDiagnostics(ctx: Ctx): Promise<{ waiting: number; created: number }> {
+  await pruneDiagnostics(ctx);
   const rows = await ctx.db.system((q) => q.all<{ id: string; family_id: string; summary: string; title: string }>(
     `SELECT id, family_id, summary, title FROM diagnostic_report
      WHERE etducky_ticket_id IS NULL AND created_at > now() - interval '${RETRY_DAYS} days' ORDER BY created_at LIMIT 20`));
@@ -92,6 +103,8 @@ export default async function diagnosticsRoutes(app: FastifyInstance, { ctx }: {
     const b = z.object({ note: z.string().max(2000).default(''), report: z.record(z.string(), z.unknown()) }).parse(req.body);
     if (JSON.stringify(b.report).length > MAX_REPORT) throw new HttpError(413, 'The report is too large');
     const id = newId('diag');
+    const today = await ctx.db.family(dv.familyId, (q) => q.one<{ n: number }>("SELECT count(*)::int AS n FROM diagnostic_report WHERE created_at > now() - interval '1 day'"));
+    if ((today?.n ?? 0) >= MAX_PER_DAY) throw new HttpError(429, 'Too many reports today. Try again tomorrow.');
     const { full, summary, title, note } = await ctx.db.family(dv.familyId, async (q) => {
       // What the server knows about this tablet, beside what it reported about itself.
       const d = await q.one('SELECT platform, state, shell_version, battery, last_seen_at, created_at FROM device WHERE id = $1', [dv.deviceId]);
@@ -132,7 +145,8 @@ export default async function diagnosticsRoutes(app: FastifyInstance, { ctx }: {
     const row = await ctx.db.system((q) => q.one<{ storage_key: string }>('SELECT storage_key FROM diagnostic_report WHERE id = $1', [id]));
     const bytes = row ? await ctx.storage.get(row.storage_key) : null;
     if (!bytes) throw notFound('No such report');
-    reply.header('Cache-Control', 'private, no-store').header('Content-Disposition', `inline; filename="${id}.json"`).type('application/json');
+    reply.header('Cache-Control', 'private, no-store').header('Content-Disposition', `inline; filename="${id}.json"`)
+      .header('Content-Security-Policy', "default-src 'none'; sandbox").type('application/json');
     return reply.send(bytes);
   });
 }

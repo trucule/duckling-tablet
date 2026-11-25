@@ -43,6 +43,7 @@ const FAKE_SHELL = `(() => {
   window.__refuse = () => localStorage.setItem('b.refused', JSON.stringify([
     { page: 'www.getepic.com', host: 'www.getepicapi.example', media: true, hits: 4 },
     { page: 'www.getepic.com', host: 'www.googletagmanager.com', media: false, hits: 2 },
+    { page: 'www.getepic.com', host: 'www.youtube.com', media: false, hits: 1 },
   ]));
   window.DucklingShell = {
     platform: () => 'android', shellVersion: () => '1.1.0',
@@ -126,6 +127,10 @@ describe.skipIf(!ready)('blocked addresses and diagnostics in the parent area', 
     // The analytics host is folded away until asked for.
     expect(await card.getByText('www.googletagmanager.com').count()).toBe(0);
     await card.getByRole('button', { name: 'Show 1 advertising or analytics address' }).waitFor();
+    // A whole website for browsing is listed with its reason and no Allow.
+    const yt = card.locator('li', { hasText: 'www.youtube.com' });
+    await yt.getByText('opens a whole website for browsing', { exact: false }).waitFor();
+    expect(await yt.getByRole('button', { name: 'Allow' }).count()).toBe(0);
     if (process.env.WEB_SHOTS) await card.screenshot({ path: join(process.env.WEB_SHOTS, 'blocked-card.png') });
     await card.locator('li', { hasText: 'www.getepicapi.example' }).getByRole('button', { name: 'Allow' }).click();
     await card.getByText('Allowed', { exact: true }).waitFor();

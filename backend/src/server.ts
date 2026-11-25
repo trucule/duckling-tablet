@@ -67,6 +67,10 @@ export async function buildServer(cfg: Config, opts: BuildOptions = {}): Promise
   await app.register(cors, { origin: [cfg.PORTAL_URL, cfg.APP_URL, cfg.SITE_URL, 'https://appassets.androidplatform.net', 'duckling-app://local', 'https://apps.duckling.example'], credentials: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
   await app.register(rateLimit, { global: true, max: cfg.RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute' });
 
+  // No response is ever read as another type than it says: stored files (request pictures, diagnostics reports)
+  // carry text that others wrote, and a browser that guessed HTML would run it on the API's origin.
+  app.addHook('onSend', async (_req, reply, payload) => { reply.header('x-content-type-options', 'nosniff'); return payload; });
+
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof ZodError) return reply.code(400).send({ error: 'Invalid request', issues: err.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });
     if (err instanceof HttpError) return reply.code(err.statusCode).send({ error: err.message });

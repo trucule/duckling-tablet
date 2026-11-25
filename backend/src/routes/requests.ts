@@ -94,7 +94,7 @@ export default async function requestRoutes(app: FastifyInstance, { ctx }: { ctx
     if (!row) throw notFound('No such picture');
     const bytes = await ctx.storage.get(row.storage_key);
     if (!bytes) throw notFound('No such picture');
-    reply.header('Cache-Control', 'private, no-store').header('Content-Disposition', 'inline').type(row.content_type);
+    reply.header('Cache-Control', 'private, no-store').header('Content-Disposition', 'inline').header('Content-Security-Policy', "default-src 'none'; img-src 'self'; sandbox").type(row.content_type);
     return reply.send(bytes);
   });
 

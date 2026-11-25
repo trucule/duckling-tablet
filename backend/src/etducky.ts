@@ -29,6 +29,12 @@ export function makeEtDuckyAttach(cfg: Config, log: (msg: string) => void): Atta
   };
 }
 
+// Text that leaves for ET Ducky's dashboard, written by parents and tablets: no control characters (a newline stays in
+// a body), and a title without double quotes or angle brackets, since the dashboard puts titles inside double-quoted
+// HTML attributes.
+export const ticketTitle = (s: string) => s.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').replace(/["<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 200);
+export const ticketBody = (s: string) => s.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '').slice(0, 10_000);
+
 export function makeEtDucky(cfg: Config, log: (msg: string) => void): CreateTicket {
   return async (t) => {
     if (!cfg.ETDUCKY_API_URL) return null;
@@ -37,11 +43,11 @@ export function makeEtDucky(cfg: Config, log: (msg: string) => void): CreateTick
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.ETDUCKY_API_KEY}` },
         body: JSON.stringify(t.kind === 'diagnostics'
-          ? { type: 'Diagnostics', source: 'duckling-tablet', externalId: t.reportId, title: t.title.slice(0, 200), body: t.body.slice(0, 10_000) }
+          ? { type: 'Diagnostics', source: 'duckling-tablet', externalId: t.reportId, title: ticketTitle(t.title), body: ticketBody(t.body) }
           : {
             type: 'App request', source: 'duckling-tablet', externalId: t.requestId,
-            title: `App request: ${t.title}`,
-            body: `${t.description}\n\nGrade: ${t.childGrade ?? 'not given'}\nFamily: ${t.familyId}\nRequest: ${t.requestId}`,
+            title: ticketTitle(`App request: ${t.title}`),
+            body: ticketBody(`${t.description}\n\nGrade: ${t.childGrade ?? 'not given'}\nFamily: ${t.familyId}\nRequest: ${t.requestId}`),
           }),
         signal: AbortSignal.timeout(10_000),
       });

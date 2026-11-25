@@ -334,4 +334,7 @@ export const es: Record<string, string> = {
   'Hide advertising and analytics': 'Ocultar publicidad y análisis',
   'Show {n} advertising or analytics address': 'Mostrar {n} dirección de publicidad o análisis',
   'Show {n} advertising and analytics addresses': 'Mostrar {n} direcciones de publicidad y análisis',
+  "That name covers every site in a country. Use the site's own name.": 'Ese nombre abarca todos los sitios de un país. Usa el nombre propio del sitio.',
+  "That address is shared by many unrelated sites. Use the site's own address under it.": 'Esa dirección la comparten muchos sitios que no tienen relación entre sí. Usa la dirección propia del sitio dentro de ella.',
+  'That address opens a whole website for browsing. To allow it, add the website under Websites.': 'Esa dirección abre un sitio web completo para navegar. Para permitirlo, agrega el sitio web en Sitios web.',
 };

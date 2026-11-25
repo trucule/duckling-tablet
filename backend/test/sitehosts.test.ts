@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SIGN_IN_HOSTS, mediaHostsFor } from '../src/sitehosts.js';
+import { SIGN_IN_HOSTS, SHARED_COUNTRY, SHARED_SERVICE, WHOLE_SITE, mediaHostsFor, refusalFor, sharedHostReason } from '../src/sitehosts.js';
+import { ticketBody, ticketTitle } from '../src/etducky.js';
 
 describe('media hosts for allowed websites', () => {
   it('lists a site\'s hosts for the site, its www name and its subdomains only', () => {
@@ -30,5 +31,25 @@ describe('linkExpiry', () => {
       expect(e - now).toBeLessThanOrEqual(45 * day);
     }
     expect(linkExpiry(t)).toBe(linkExpiry(t + 1000));
+  });
+});
+
+describe('hosts that cannot be allowed on their own', () => {
+  it('refuses country and shared-service domains, and allows a name under them', () => {
+    for (const h of ['co.uk', 'com.au', 'gob.mx', 'uk', '*.co.uk']) expect(sharedHostReason(h), h).toBe(SHARED_COUNTRY);
+    for (const h of ['github.io', 'cloudfront.net', 's3.amazonaws.com', 'storage.googleapis.com', 'blogspot.com', 'vercel.app', '*.github.io']) expect(sharedHostReason(h), h).toBe(SHARED_SERVICE);
+    for (const h of ['bbc.co.uk', 'kids.github.io', 'd123.cloudfront.net', 'bucket.s3.amazonaws.com', 'pbskids.org', 'www.getepicapi.com']) expect(sharedHostReason(h), h).toBeNull();
+  });
+  it('does not offer Allow for a whole website for browsing, but does for its media hosts', () => {
+    for (const h of ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'www.google.com', 'wikipedia.org', 'www.reddit.com']) expect(refusalFor(h), h).toBe(WHOLE_SITE);
+    for (const h of ['i.ytimg.com', 'player.vimeo.com', 'www.youtube-nocookie.com', 'fonts.googleapis.com']) expect(refusalFor(h), h).toBeNull();
+    expect(refusalFor('github.io')).toBe(SHARED_SERVICE);
+  });
+});
+
+describe('text sent to ET Ducky', () => {
+  it('keeps titles out of HTML attributes and strips control characters', () => {
+    expect(ticketTitle('App request: "x" onmouseover="alert(1)" <b>\u0007 Ada\'s\nzoo')).toBe("App request: x onmouseover=alert(1) b Ada's zoo");
+    expect(ticketBody('line one\nline\ttwo\u0000\u001b[31m')).toBe('line one\nline\ttwo[31m');
   });
 });
