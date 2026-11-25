@@ -76,7 +76,13 @@ export async function checkin(): Promise<void> {
     void reportInstalled();
     void reportRefused();
   } catch (e) {
-    if (e instanceof ReleasedError) { setUnlinked(true); return; }
+    if (e instanceof ReleasedError) {
+      // Removed from the family with nothing on it to keep (a reinstalled app that still had the old credential, or a
+      // tablet removed before anything was installed): start setup again. Otherwise keep the apps and show the
+      // unlinked banner.
+      if (!Object.keys(shell.installedApps()).length && !storedConfig()) { await releaseDevice(false); return; }
+      setUnlinked(true); return;
+    }
     lastError.value = (e as Error).message;
   }
 }

@@ -7,6 +7,16 @@ final class Prefs {
     static let shared = Prefs()
     private let d = UserDefaults.standard
 
+    /// The Keychain outlives the app: a token from before an uninstall came back with the reinstalled app, which then
+    /// started as a tablet the family had already removed (an empty home screen, and installs answered "released").
+    /// Settings are deleted with the app, so a missing marker means this is a new install: forget the old token.
+    private init() {
+        if !d.bool(forKey: "installedBefore") {
+            Keychain.delete("deviceToken")
+            d.set(true, forKey: "installedBefore")
+        }
+    }
+
     var deviceToken: String {
         get { Keychain.get("deviceToken") ?? "" }
         set { if newValue.isEmpty { Keychain.delete("deviceToken") } else { Keychain.set("deviceToken", newValue) } }

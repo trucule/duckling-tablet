@@ -165,6 +165,17 @@ describe.skipIf(!ready)('Continue with Google and Sign-in methods', () => {
     await p.reload();
     await card.waitFor();
     expect(await card.locator('li', { hasText: 'Google' }).getByText('mom@example.com').count()).toBe(1);
+    // The parent removes the tablet on the website, then reinstalls the app, which still has the old credential (the
+    // iPad's Keychain outlives the app) but no saved config and no apps: it starts setup again instead of an empty
+    // home screen whose installs fail.
+    const session = await p.evaluate(() => localStorage.getItem('duckling.session'));
+    const fam = await (await fetch(`${api}/family`, { headers: { authorization: `Bearer ${session}` } })).json();
+    const androidTablet = fam.devices.find((d: { platform: string }) => d.platform === 'android');
+    expect((await fetch(`${api}/devices/${androidTablet.id}`, { method: 'DELETE', headers: { authorization: `Bearer ${session}` } })).status).toBe(200);
+    await tab.evaluate(() => { for (const k of Object.keys(localStorage)) if (k !== 'b.token') localStorage.removeItem(k); });
+    await tab.goto(web);
+    await tab.getByRole('button', { name: 'Continue with Google' }).waitFor();
+    expect(await tab.evaluate(() => localStorage.getItem('b.token'))).toBe('');
     expect(errors).toEqual([]);
     await browser.close();
   }, 120_000);

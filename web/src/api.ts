@@ -52,7 +52,8 @@ async function call<T>(method: string, path: string, body?: unknown, auth = true
   let r: Response;
   try { r = await fetch(`${API}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
   catch (e) { logEvent('api', `${method} ${path.split('?')[0]}: ${(e as Error).message}`); throw e; }
-  if (r.status === 410) throw new ReleasedError('released');
+  // Shown wherever the call's error is shown (an install, a request): the same words as the unlinked banner.
+  if (r.status === 410) throw new ReleasedError(tr('This tablet is not linked to a family.'));
   const text = await r.text();
   let json: any = {};
   try { json = text ? JSON.parse(text) : {}; } catch { logEvent('api', `${method} ${path.split('?')[0]}: ${r.status}, not JSON`); throw new ApiError(r.status, tr('Something went wrong')); }
