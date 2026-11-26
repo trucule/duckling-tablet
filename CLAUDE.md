@@ -103,7 +103,10 @@ rendered files. A weekly scheduled task drafts posts as pull requests on `blog/<
 
 Windows: `windows\Build-Release.ps1` on Chris's PC (EV signing); CI builds an unsigned MSI and installs it on a
 Windows runner. iPad: run `ios.yml` by hand (`gh workflow run ios.yml --ref main`); the build number comes from the run
-number, the version from `ios/project.yml`. Android: `android.yml` the same way.
+number, the version from `ios/project.yml`. Android: `android.yml` the same way; the version code comes from the run
+number, the version from `versionName` in `android/app/build.gradle.kts`. Bump the version for each store release.
+Store listings, custom product pages and custom store listings live in App Store Connect and Play Console; what each
+one says and targets is recorded in the plan (section 2 and the accounts table in section 3).
 
 ## Deploy model (Chris runs it)
 
