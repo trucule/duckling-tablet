@@ -95,7 +95,9 @@ npx playwright install chromium              # once per machine, for the browser
 
 Apps: after changing `apps/<id>/`, bump `version` in its manifest, run `node tools/ladder-check.mjs --drive <id>`
 (all grades), `node tools/pill-check.mjs` and `node tools/lang-check.mjs`, then `node tools/phrases.mjs <id>`, which rewrites `phrases.json`
-and records the source hash the publish tool checks. `node tools/demos.mjs <id>` re-records the demo GIF. A changed
+and records the source hash the publish tool checks. `node tools/demos.mjs <id>` re-records the demo GIF.
+`node tools/load-time.mjs <id>` prints what loads when on a first and a later opening; run it before and after a change
+to how an app loads its pictures, models or textures. A changed
 app with no version bump is refused at deploy ("already published (DIFFERENT bytes)") and tablets keep the old one.
 
 Blog: write `site/blog/posts/<slug>.md`, `node tools/blog.mjs check`, then `node tools/blog.mjs build` and commit the
