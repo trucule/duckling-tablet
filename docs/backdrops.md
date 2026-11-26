@@ -2,7 +2,23 @@
 
 The 3D places in the apps (Story Maker's sets, My Avatar's places, Read It Say It Make It's skies) can show a
 360-degree photo in place of their drawn sky and ground. Each app ships with its drawn version. The photo downloads
-from the API the first time a child goes to that place and is kept on the tablet (`tools/backdrops.js`).
+from the API and is kept on the tablet (`tools/backdrops.js`).
+
+## How a photo loads
+
+- A photo on the tablet is read from the tablet with no request to the API. The list (`backdrops.json`) is read from
+  the tablet's copy first and refreshed in the background, so a slow or missing connection never holds a photo up.
+- The loader remembers which place each app showed first and starts reading and decoding that photo as soon as the
+  loader's script runs, while the rest of the app is still starting.
+- `DucklingBackdrops.kept(id)` says the photo is on the tablet. The app then keeps its drawn version hidden and shows
+  the photo first. Without it, the drawn version shows until the download is done.
+- `DucklingBackdrops.warm(ids)` downloads photos the tablet does not have, one at a time, a few seconds after the app
+  opens: every set in Story Maker, every sky in Read It Say It Make It, and the places the child owns in My Avatar.
+  It does nothing when the device asks apps to save data.
+- Three decoded photos stay in memory at most. An older one is read from the tablet's copy again when needed.
+
+`node tools/load-time.mjs <app-id>` opens an app several times in one browser profile and prints when each photo was
+asked for and shown, so a change to the loader can be compared before and after.
 
 ## Files
 

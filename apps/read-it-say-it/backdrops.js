@@ -3,8 +3,14 @@
    each app that uses it, between the BACKDROPS markers, right after three.js; edit it here and run that tool again.
    An app keeps its drawn backdrops and asks for a photo when a child goes to a place that has one. The first time,
    the photo and its lighting come from the Duckling API (/backdrops, backend/src/routes/backdrops.ts) and are kept in
-   this tablet's IndexedDB; after that they load from there, offline too. A place whose photo cannot be had keeps its
-   drawn backdrop.
+   this tablet's IndexedDB; after that they load from there with no request to the API, offline too. A place whose
+   photo cannot be had keeps its drawn backdrop.
+     DucklingBackdrops.kept(id) -> true when this app has shown the photo before, so it is on the tablet and comes up
+       in well under a second. The app then holds its drawn backdrop back and shows the photo first; load() answering
+       null means the copy is gone, and the app shows the drawn one after all.
+     DucklingBackdrops.warm(ids) -> downloads the photos of those places that the tablet does not have yet, one at a
+       time, starting a few seconds after the app opened, so a first visit to a place also shows its photo at once.
+       Nothing is decoded. Skipped when the device asks apps to save data.
      DucklingBackdrops.load(id, { linear, sunAt, face }) -> Promise of { id, meta, map, light, turn } or null
        linear: no sRGB decode of the photo, for apps that draw without colour management
        sunAt: the scene's azimuth (radians, atan2(z, x)) to turn the photo's sun to; default 0.88, front right, so
@@ -21,7 +27,9 @@
        material.uniforms.opacity (only while the camera is inside it: a see-through dome would cover the cast).
        An indoor photo (meta.room) is laid on a room-sized dome instead, so its walls stand at about their real
        distance; the camera may be outside it, and then sees the far side of the room.
-     DucklingBackdrops.sunDirection(set) -> a unit vector toward the turned photo's sun. */
+     DucklingBackdrops.sunDirection(set) -> a unit vector toward the turned photo's sun.
+   Only the three places used last stay in memory (a photo is 32 MB once decoded); an older one is read from the
+   tablet's copy again when the child goes back to it. */
 (function () {
   'use strict';
   var T = window.THREE;
@@ -41,28 +49,83 @@
   }
   function get(k) { return db().then(function (d) { return new Promise(function (res) { if (!d) return res(null); try { var q = d.transaction('files').objectStore('files').get(k); q.onsuccess = function () { res(q.result || null); }; q.onerror = function () { res(null); }; } catch (e) { res(null); } }); }); }
   function put(k, v) { return db().then(function (d) { if (!d) return; try { d.transaction('files', 'readwrite').objectStore('files').put(v, k); } catch (e) {} }); }
-  // A file from the tablet's copy, or the first time from the API (then kept).
+  // A file from the tablet's copy, or the first time from the API (then kept). One request per file at a time.
+  var asked = {};
   function file(name) {
-    return get(name).then(function (b) {
+    if (asked[name]) return asked[name];
+    var p = asked[name] = get(name).then(function (b) {
       if (b) return b;
       return fetch(api() + '/backdrops/' + name, { mode: 'cors', credentials: 'omit' }).then(function (r) {
         if (!r.ok) throw new Error('backdrop ' + name + ' ' + r.status);
         return r.blob();
       }).then(function (b2) { put(name, b2); return b2; });
     });
+    var done = function () { delete asked[name]; }; p.then(done, done);
+    return p;
   }
-  // The list of photos is asked for again each time the app opens, so places added later reach the tablet; the kept
-  // copy is used when the API cannot be reached. The photos themselves never change under a name.
-  var list = null;
-  function meta(id) {
-    if (!list) list = fetch(api() + '/backdrops/backdrops.json', { mode: 'cors', credentials: 'omit' }).then(function (r) {
+  // The list of photos. The tablet's copy answers at once, so a kept photo never waits for the network; the list is
+  // also asked for again each time the app opens, so places added later reach the tablet, and that fresh copy answers
+  // for a place the kept list does not have. The photos themselves never change under a name.
+  var fresh = null, keptList = null;
+  var parse = function (b) { if (!b) throw new Error('no backdrops.json'); return b.text().then(JSON.parse); };
+  function freshList() {
+    if (!fresh) fresh = fetch(api() + '/backdrops/backdrops.json', { mode: 'cors', credentials: 'omit' }).then(function (r) {
       if (!r.ok) throw new Error('backdrops.json ' + r.status);
       return r.blob();
-    }).then(function (b) { put('backdrops.json', b); return b; }, function () { return get('backdrops.json'); }).then(function (b) {
-      if (!b) throw new Error('no backdrops.json');
-      return b.text();
-    }).then(JSON.parse).catch(function (e) { list = null; throw e; });
-    return list.then(function (j) { return j.backdrops[id] || null; });
+    }).then(function (b) { put('backdrops.json', b); return parse(b); });
+    fresh.catch(function () { fresh = null; });
+    return fresh;
+  }
+  function meta(id) {
+    if (!keptList) keptList = get('backdrops.json').then(parse).catch(function () { return null; });
+    var net = freshList(); net.catch(function () {});
+    return keptList.then(function (j) {
+      if (j && j.backdrops[id]) return j.backdrops[id];
+      return net.then(function (n) { return n.backdrops[id] || null; });
+    });
+  }
+  // Which photos this app has shown before (the app's own storage, read without waiting).
+  var FLAG = 'duckling-backdrop:';
+  function kept(id) { try { return localStorage.getItem(FLAG + id) === '1'; } catch (e) { return false; } }
+  function mark(id, on) { try { if (on) localStorage.setItem(FLAG + id, '1'); else localStorage.removeItem(FLAG + id); } catch (e) {} }
+  // The two pictures of a place, decoded (off the main thread). Asked for once; load() takes them.
+  var pics = {};
+  function pictures(id) {
+    if (!pics[id]) {
+      pics[id] = Promise.all([file(id + '.jpg'), file(id + '-light.png')]).then(function (bs) {
+        return Promise.all([createImageBitmap(bs[0], { imageOrientation: 'flipY' }), createImageBitmap(bs[1], { premultiplyAlpha: 'none' })]);
+      });
+      pics[id].catch(function () { delete pics[id]; });
+    }
+    return pics[id];
+  }
+  // The place this app showed first the last time it was open is read and decoded as soon as this file runs, while the
+  // rest of the app is still starting, so its photo is ready by the time the app asks for it.
+  var FIRST = 'duckling-backdrop-first', firstSeen = false;
+  try {
+    var early = localStorage.getItem(FIRST);
+    if (early && kept(early)) {
+      meta(early).catch(function () {}); pictures(early).catch(function () {});
+      // Not asked for this time (the child went somewhere else, or nowhere yet): the decoded pictures are let go.
+      setTimeout(function () {
+        var p = pics[early]; if (!p) return;
+        delete pics[early]; p.then(function (ims) { ims.forEach(function (im) { if (im.close) im.close(); }); }, function () {});
+      }, 20000);
+    }
+  } catch (e) {}
+  var warming = Promise.resolve();
+  function warm(ids) {
+    var c = navigator.connection;
+    if (c && c.saveData) return;
+    ids = (ids || []).filter(function (id, i, a) { return id && a.indexOf(id) === i; });
+    warming = warming.then(function () { return new Promise(function (res) { setTimeout(res, 4000); }); }).then(function () {
+      return ids.reduce(function (p, id) {
+        return p.then(function () {
+          if (kept(id)) return;
+          return meta(id).then(function (m) { if (m) return file(id + '.jpg').then(function () { return file(id + '-light.png'); }).then(function () { mark(id, true); }); });
+        }).catch(function () {});
+      }, Promise.resolve());
+    });
   }
   function lightTexture(bitmap, turn) {
     var w = bitmap.width, h = bitmap.height / 2, c = document.createElement('canvas'); c.width = w; c.height = h * 2;
@@ -82,23 +145,36 @@
     t.mapping = T.EquirectangularReflectionMapping; t.magFilter = t.minFilter = T.LinearFilter; t.needsUpdate = true;
     return t;
   }
-  var loaded = {};
+  var loaded = {}, sets = {}, recent = [], KEEP = 3;
+  function used(key) {
+    var i = recent.indexOf(key); if (i >= 0) recent.splice(i, 1);
+    recent.push(key);
+    while (recent.length > KEEP) {
+      var old = recent.shift(), set = sets[old];
+      delete loaded[old]; delete sets[old];
+      if (set) { set.map.dispose(); set.light.dispose(); }   // an app still showing it gets it back from the picture it holds
+    }
+  }
   function load(id, o) {
     o = o || {};
     var at = o.sunAt === undefined ? 0.88 : o.sunAt, key = id + '|' + !!o.linear + '|' + (o.face === undefined ? at : 'f' + o.face);
-    if (loaded[key]) return loaded[key];
+    if (!firstSeen) { firstSeen = true; try { localStorage.setItem(FIRST, id); } catch (e) {} }
+    if (loaded[key]) { used(key); return loaded[key]; }
     loaded[key] = meta(id).then(function (m) {
       if (!m) return null;
-      return Promise.all([file(id + '.jpg'), file(id + '-light.png')]).then(function (bs) {
-        return Promise.all([createImageBitmap(bs[0], { imageOrientation: 'flipY' }), createImageBitmap(bs[1], { premultiplyAlpha: 'none' })]);
-      }).then(function (ims) {
+      return pictures(id).then(function (ims) {
+        delete pics[id];
         // A photo column u is at azimuth u * 2pi - pi; -z is azimuth -pi/2.
         var turn = o.face === undefined ? m.sunAz - at : (o.face * 2 * Math.PI - Math.PI) + Math.PI / 2, map = new T.Texture(ims[0]); map.mapping = T.EquirectangularReflectionMapping; map.wrapS = T.RepeatWrapping;
         map.encoding = o.linear ? T.LinearEncoding : T.sRGBEncoding; map.generateMipmaps = true; map.minFilter = T.LinearMipmapLinearFilter;
         map.anisotropy = 4; map.needsUpdate = true;
-        return { id: id, meta: m, map: map, light: lightTexture(ims[1], turn), turn: turn };
+        var set = { id: id, meta: m, map: map, light: lightTexture(ims[1], turn), turn: turn };
+        if (ims[1].close) ims[1].close();
+        mark(id, true);
+        if (loaded[key]) { sets[key] = set; used(key); }
+        return set;
       });
-    }).catch(function () { delete loaded[key]; return null; });
+    }).catch(function () { delete loaded[key]; mark(id, false); return null; });
     return loaded[key];
   }
   // The photo all round, its lower half projected onto a ground disc (after three.js's GroundProjectedEnv, MIT).
@@ -129,6 +205,6 @@
     var az = set.meta.sunAz - set.turn, ce = Math.cos(set.meta.sunEl);
     return new T.Vector3(Math.cos(az) * ce, Math.sin(set.meta.sunEl), Math.sin(az) * ce).normalize();
   }
-  window.DucklingBackdrops = { load: load, ground: ground, sunDirection: sunDirection };
+  window.DucklingBackdrops = { load: load, ground: ground, sunDirection: sunDirection, kept: kept, warm: warm };
 })();
 /* BACKDROPS END */

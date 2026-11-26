@@ -112,14 +112,19 @@
   // Bones by their MakeHuman name (three.js drops the dots from node names: wrist.L is wristL).
   const bone = n => body && (body.bones[n] || body.bones[T.PropertyBinding.sanitizeNodeName(n)]);
 
+  // A piece is read and decoded while the body is, and joins the body's skeleton once both are in.
   function load(id) {
     if (cache[id] || loading[id]) return loading[id] || Promise.resolve();
-    return (loading[id] = loadScript(id).then(() => parseGlb(takeBytes(id))).then(g => { cache[id] = adopt(id, g); delete loading[id]; }));
+    const done = () => { delete loading[id]; };
+    const p = loading[id] = Promise.all([loadScript(id).then(() => parseGlb(takeBytes(id))), loadBody()]).then(([g]) => { cache[id] = adopt(id, g); });
+    p.then(done, done);
+    return p;
   }
+  const texReady = { skin: {}, eye: {} };   // the textures that are in, by name
   function loadTex(kind, name) {
     const id = kind + '-' + name, box = tex[kind];
     if (box[name]) return box[name];
-    return (box[name] = loadScript(id).then(() => bitmapTexture(takeBytes(id), 'image/webp')).then(t => { t.flipY = false; t.encoding = T.sRGBEncoding; return t; }));
+    return (box[name] = loadScript(id).then(() => bitmapTexture(takeBytes(id), 'image/webp')).then(t => { t.flipY = false; t.encoding = T.sRGBEncoding; texReady[kind][name] = t; return t; }));
   }
 
   // ------------------------------------------------------------------------------------------------------------
@@ -403,7 +408,11 @@
     const ids = worn(P).map(x => x[0]), has = re => ids.some(id => re.test(id) && A[id]);
     return has(/^(top|dress)-/) && (has(/^dress-/) || has(/^bottom-/)) && (!A['base-layer'] || ids.includes('base-layer'));
   };
-  R.need = P => ['body'].concat(worn(P).map(x => x[0])).filter(id => id === 'body' ? !R.ready : !cache[id]);
+  // Everything design P is made of that is not in yet: the body, each piece she wears, and her skin and eye textures.
+  // The avatar is shown only once all of it is in, so it never appears with one skin and changes to another.
+  const texOf = P => [['skin', skinChoice(P).id], ['eye', eyeName(P.eyeColor)]];
+  R.need = P => ['body'].concat(worn(P).map(x => x[0])).filter(id => id === 'body' ? !R.ready : !cache[id])
+    .concat(texOf(P).filter(([k, n]) => !texReady[k][n]).map(([k, n]) => k + '-' + n));
 
   // Each skin texture stands for one colour of the palette (the colour it looks like on screen); her colour picks the
   // nearest texture, and the texture is tinted by her colour over that one, so the palette's own steps stay even.
@@ -661,19 +670,16 @@
   R.compose = function (group, P) {
     const missing = R.need(P);
     if (missing.length) {
-      const go = () => Promise.all(missing.map(id => id === 'body' ? loadBody() : null)).then(() => Promise.all(R.need(P).map(load)));
+      // Every missing file is asked for at once; the frame that shows her is the first one with all of them.
+      const go = () => Promise.all([loadBody()].concat(worn(P).map(x => load(x[0])), texOf(P).map(([k, n]) => loadTex(k, n))));
       go().then(() => { if (R.onReady) R.onReady(); }, e => { R.failed = e.message; R.errors.push(e.stack || e.message); if (R.onReady) R.onReady(); });
       return null;
     }
     if (!R.dressed(P)) { R.errors.push('not dressed: ' + worn(P).map(x => x[0]).join(',')); return null; }
-    const sk = skinChoice(P), eye = eyeName(P.eyeColor);
-    const texWait = [loadTex('skin', sk.id), loadTex('eye', eye)];
-    // Textures are small; show the avatar now with whichever skin it had and swap when ready.
-    R.texturesReady = false;
-    Promise.all(texWait).then(([st, et]) => { R.texturesReady = true;
-      const bm = body.parts.body.material; if (bm.map !== st) { bm.map = st; bm.needsUpdate = true; }
-      if (body.parts.eyes) { const em = body.parts.eyes.material; if (em.map !== et) { em.map = et; if (em.emissiveMap) em.emissiveMap = et; em.needsUpdate = true; } }
-    }).catch(e => R.errors.push('texture: ' + e.message));
+    const sk = skinChoice(P), eye = eyeName(P.eyeColor), st = texReady.skin[sk.id], et = texReady.eye[eye];
+    R.texturesReady = true;
+    { const bm = body.parts.body.material; if (bm.map !== st) { bm.map = st; bm.needsUpdate = true; } }
+    if (body.parts.eyes) { const em = body.parts.eyes.material; if (em.map !== et) { em.map = et; if (em.emissiveMap) em.emissiveMap = et; em.needsUpdate = true; } }
     body.parts.body.material.color.copy(sk.tint);
 
     const holder = new T.Group(); holder.name = 'real';

@@ -174,16 +174,28 @@ function sendHome(quiet) {
   const body = JSON.stringify({ design: S.design, owned: S.owned, spent: S.spent, savedAt: S.savedAt, earned: earned() });
   // The portrait waits until the avatar on screen is the whole saved design (the realistic one loads its files first);
   // a picture taken earlier would be empty or out of date. The frame loop sends it as soon as it is ready.
-  let png = '';
+  // The picture is made again only when it would differ from the one the home screen already has: making one draws
+  // her a second time at full quality, which held up every opening of the app when nothing had changed.
+  let png = '', sig = '';
   if (!showingDesign()) portraitDue = true;
-  else { portraitDue = false; try { png = portrait(); } catch (e) { window.MY_AVATAR.errors.push('portrait: ' + e.message); } }
+  else {
+    portraitDue = false; sig = portraitSig();
+    if (sig === sentPortrait()) portraitPhoto = photoInPicture() ? placeNow : null;
+    else try { png = portrait(); } catch (e) { window.MY_AVATAR.errors.push('portrait: ' + e.message); }
+  }
   const post = (path, b) => fetch(HOME + path, { method: 'POST', body: b });
-  return Promise.all([post('/avatar', body), png ? post('/portrait', png) : null, window.KID_STARS ? window.KID_STARS.report(true) : null])
+  return Promise.all([post('/avatar', body), png ? post('/portrait', png).then(r => { if (r && r.ok) try { localStorage.setItem(PORTRAIT_KEY, sig); } catch (e) {} }) : null, window.KID_STARS ? window.KID_STARS.report(true) : null])
     .then(() => { homeOk = true; if (!quiet) flashSaved(); }, () => { homeOk = false; });
 }
+// What the last picture sent home showed: the design, and whether her place was its photo or its drawn version.
+const PORTRAIT_KEY = 'kid-avatar-portrait-v1';
+const photoInPicture = () => !!S.design.place && !S.design.badgebg && placeNow === S.design.place && !!photoLight;
+const portraitSig = () => JSON.stringify([S.design, photoInPicture()]);
+const sentPortrait = () => { try { return localStorage.getItem(PORTRAIT_KEY); } catch (e) { return null; } };
 let portraitDue = false;
 function showingDesign() {
   if (!parts.H || trying || lastPreview) return false;
+  if (photoWait && photoWait === S.design.place) return false;   // her place's photo is a moment away
   if (!parts.real) return !REAL || !!REAL.failed;
   return !REAL.need(S.design).length && !!REAL.texturesReady;
 }
@@ -334,8 +346,9 @@ function buildPlace(id) {
   wantPhoto(id);
 }
 
-// Photo places. A place with a photo shows its drawn version first; the photo (backdrops.js) downloads the first time
-// she goes there and is kept on the tablet, so later it comes up at once. The photo replaces everything drawn, lights
+// Photo places. The photo (backdrops.js) is kept on the tablet: the photos of the places she owns download in the
+// background, and any other the first time she goes there, with the drawn version showing until it is in. A photo that
+// is on the tablet shows from the start, with no drawn version before it. The photo replaces everything drawn, lights
 // her from all round the way the place is lit, and its sun casts her shadow on the photo's ground.
 // Each entry: the photo, and how it is turned (backdrops.js load): sunAt, where its sun goes round her (radians,
 // atan2(z, x); 0.88 is front right), or face, the part of the photo to show behind her.
@@ -353,10 +366,18 @@ function studioLight() {
   hemi.intensity = STUDIO.hemi; key.intensity = STUDIO.key; rim.intensity = STUDIO.rim; fill.intensity = STUDIO.fill;
   key.color.copy(STUDIO.keyColor); key.position.copy(STUDIO.keyPos);
 }
+let photoWait = null;      // the place whose photo is on the tablet and about to show
 function wantPhoto(id) {
+  photoWait = null;
   const B = window.DucklingBackdrops, P = PHOTO_PLACE[id]; if (!B || !P) return;
+  // A photo already on the tablet comes up in a moment: the drawn place stays hidden so the place does not change
+  // under her. A photo that still has to download shows the drawn place first.
+  const drawn = backdrop.children.slice(), bg = scene.background, fog = scene.fog;
+  if (B.kept(P[0])) { photoWait = id; for (const c of drawn) c.visible = false; scene.fog = null; }
   B.load(P[0], P[1]).then(set => {
-    if (!set || placeNow !== id) return;
+    if (placeNow !== id) return;
+    photoWait = null;
+    if (!set) { for (const c of drawn) c.visible = true; if (scene.background === bg) scene.fog = fog; return; }
     for (const c of backdrop.children) c.visible = false;
     placeAnims.length = 0; floorY = 0; avatar.position.y = 0;
     backdrop.add(B.ground(set, { height: 1.6, radius: 40 }));
@@ -1106,3 +1127,6 @@ function translateMarkup() {
 }
 translateMarkup(); applyTheme(S.design.theme); buildPlace(S.design.place); rebuild(); nav(); render(); setView('body'); resize();
 restoreFromHome().then(() => { if (!S.savedAt) persist(true); else sendHome(true); });
+// The photos of the places she owns that this tablet does not have yet download in the background, so going to one
+// shows its photo at once.
+if (window.DucklingBackdrops) window.DucklingBackdrops.warm(S.owned.filter(id => PHOTO_PLACE[id]).map(id => PHOTO_PLACE[id][0]));

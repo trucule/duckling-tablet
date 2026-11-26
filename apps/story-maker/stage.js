@@ -628,8 +628,8 @@
   }
 
   // ---- photo backdrops ----------------------------------------------------------------------------------------
-  // A set with a photo shows its drawn sky and ground first. The photo (tools/backdrops.js) downloads the first time
-  // the set is used and is kept on the tablet, so later it comes up at once. It replaces the drawn sky, ground, water
+  // The photo of a set (tools/backdrops.js) is kept on the tablet. The photos download in the background while the app
+  // is open; a set whose photo is not in yet shows its drawn sky and ground until it is. It replaces the drawn sky, ground, water
   // and clouds; the landmark, props and cast stay in front of it, lit like the photo.
   // Each set's photo and how it is turned (backdrops.js load), chosen so the view behind the cast is the photo's best
   // side: sunAt, where its sun goes (radians round the stage, atan2(z, x); 0.88 is behind the camera on the right,
@@ -638,10 +638,19 @@
     moon: ['moon_surface', { face: 0.2 }], sea: ['under_the_sea', { face: 0.5 }], cupcake: ['cupcake_town', { face: 0.5 }] };
   let photo = null;
   function clearPhoto() { if (photo) { scene.remove(photo); photo = null; } }
+  // The photos this tablet does not have yet download in the background, so a story's first visit to a set shows its
+  // photo at once.
+  if (window.DucklingBackdrops) window.DucklingBackdrops.warm(Object.keys(PHOTO).map(k => PHOTO[k][0]));
   function wantPhoto(id) {
     const B = window.DucklingBackdrops; if (!B) return;
+    // A photo already on the tablet comes up in a moment, so the drawn ground, water and clouds stay hidden and the
+    // set does not change under the cast. A photo that still has to download shows the drawn set first.
+    const group = setGroup, held = B.kept(PHOTO[id][0]), fog = scene.fog;
+    const drawn = on => group.traverse(o => { if (o.userData.drawnBg) o.visible = on; });
+    if (held) { drawn(false); scene.fog = null; }
     B.load(PHOTO[id][0], Object.assign({ linear: true }, PHOTO[id][1])).then(set => {
-      if (!set || setId !== id || !setGroup) return;
+      if (setId !== id || setGroup !== group) return;
+      if (!set) { if (held) { drawn(true); scene.fog = fog; if (!running) render(); } return; }
       clearPhoto();
       photo = new T.Group();
       photo.add(B.ground(set, { height: 2.2, radius: 50 }));

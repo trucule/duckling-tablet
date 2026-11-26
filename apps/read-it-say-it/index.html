@@ -720,12 +720,18 @@ window.Kit = (function () {
   const drawn = () => [skyMat && K.scene.children.find(o => o.material === skyMat), ground, ...K.scene.children.filter(o => o.userData.hill)];
   function photoSky(name) {
     const B = window.DucklingBackdrops, P = PHOTO_SKY[name]; if (!B || !P) return;
+    // A photo already on the tablet comes up in a moment, so the drawn ground and hills stay hidden under the first sky
+    // and the place does not change under the stage. A photo that still has to download shows the drawn place first.
+    const held = !photoNow && B.kept(P[0]);
+    if (held) for (const o of drawn().slice(1)) if (o) o.visible = false;
     B.load(P[0], P[1]).then(set => {
       if (skyNow !== name) return;
-      if (!set) { drawnSky(); return; }
+      if (!set) { if (held && !photoNow) for (const o of drawn()) if (o) o.visible = true; drawnSky(); return; }
       if (!catcher) { catcher = new T.Mesh(new T.PlaneGeometry(30, 30), new T.ShadowMaterial()); catcher.rotation.x = -Math.PI / 2; catcher.position.y = 0.002; catcher.receiveShadow = true; catcher.raycast = () => {}; }
       catcher.material.opacity = 0.08 + 0.22 * Math.min(1, set.meta.sunStrength / 80);   // soft under a cloudy sky
+      if (photoNow && photoNow.userData.photoId === P[0]) return;   // this sky's photo is already up
       const old = photoNow, bg = B.ground(set, { height: 1.7, radius: 40 }), u = bg.material.uniforms.opacity; bg.material.transparent = true;
+      bg.userData.photoId = P[0];
       photoNow = bg; K.scene.add(bg); K.scene.add(catcher);
       for (const o of drawn()) if (o) o.visible = false;
       const m = set.meta, sunTo = new T.Color().setRGB(m.sunColor[0], m.sunColor[1], m.sunColor[2]).lerp(new T.Color('#ffffff'), 0.4);
@@ -744,6 +750,8 @@ window.Kit = (function () {
     K.scene.remove(photoNow); photoNow.material.dispose(); photoNow = null; if (catcher) K.scene.remove(catcher);
     hemi.color.set('#ffffff'); hemi.groundColor.set('#7fdc9a'); sunLight.color.set('#fff3d6');
   }
+  // The photos this tablet does not have yet download in the background, so a sky's first use shows its photo at once.
+  if (window.DucklingBackdrops) window.DucklingBackdrops.warm(Object.keys(PHOTO_SKY).map(k => PHOTO_SKY[k][0]));
   const skyDrawn = K.sky;
   K.sky = function (name, dur) {
     const r = skyDrawn(name, dur);
