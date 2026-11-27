@@ -387,4 +387,8 @@ export const es: Record<string, string> = {
   'Go back to Duckling.': 'Vuelve a Duckling.',
   'Triple-press the top button of your iPad (or the Home button), then tap Start.': 'Presiona tres veces el botón superior del iPad (o el botón de inicio) y toca Iniciar.',
   'To leave, triple-press again and enter the passcode.': 'Para salir, presiona tres veces otra vez y escribe el código.',
+  'Guided Access is on. End it before you remove Duckling:': 'Acceso guiado está activado. Termínalo antes de quitar Duckling:',
+  'Triple-press the top button of your iPad (or the Home button).': 'Presiona tres veces el botón superior del iPad (o el botón de inicio).',
+  'Enter the Guided Access passcode.': 'Escribe el código de Acceso guiado.',
+  'Tap End at the top left.': 'Toca Finalizar arriba a la izquierda.',
 };

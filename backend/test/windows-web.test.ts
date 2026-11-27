@@ -50,6 +50,7 @@ const FAKE_SHELL = `(() => {
   const st = { token: localStorage.getItem('w.token') || '', pin: localStorage.getItem('w.pin') || '', installed: JSON.parse(localStorage.getItem('w.inst') || '{}'),
     childAccount: '', lockdownOn: false, pinned: false, mic: window.__platform ? 'ask' : 'off' };
   window.__setMic = (v) => { st.mic = v; };
+  window.__setPinned = (v) => { st.pinned = v; };
   const save = () => { localStorage.setItem('w.token', st.token); localStorage.setItem('w.pin', st.pin); localStorage.setItem('w.inst', JSON.stringify(st.installed)); };
   const later = (f, ms = 60) => setTimeout(f, ms);
   const cb = (kind, ok, msg) => later(() => window.DucklingWeb.onWindows(kind, ok, msg));
@@ -279,6 +280,19 @@ describe.skipIf(!ready)('web app on Windows', () => {
         await expect.poll(async () => (await (await fetch(`${api}/device/config`, { headers: { authorization: `Device ${deviceToken}` } })).json()).otherApps).toEqual([
           expect.objectContaining({ package: 'ios.app.h0000000000000000', label: 'App chosen on the iPad', allowed: true, dailyMinutes: 30 })]);
         if (process.env.WEB_SHOTS) await other.screenshot({ path: join(process.env.WEB_SHOTS, 'ios-other-apps.png') });
+        // Remove from this device waits for a Guided Access session to end, and says how to end it.
+        const remove = p.locator('.card', { has: p.getByRole('heading', { name: 'Remove from this device' }) });
+        const removeButton = remove.getByRole('button', { name: 'Remove Duckling from this device' });
+        expect(await removeButton.isEnabled()).toBe(true);
+        await p.evaluate(() => (window as any).__setPinned(true));
+        await remove.getByText('Guided Access is on. End it before you remove Duckling:').waitFor();
+        expect(await removeButton.isDisabled()).toBe(true);
+        expect(await remove.getByText('Tap End at the top left.').count()).toBe(1);
+        if (process.env.WEB_SHOTS) await remove.screenshot({ path: join(process.env.WEB_SHOTS, 'ios-remove-guided.png') });
+        await p.evaluate(() => (window as any).__setPinned(false));
+        await expect.poll(() => removeButton.isEnabled(), { timeout: 5000 }).toBe(true);
+        expect(await remove.getByText('Guided Access is on.', { exact: false }).count()).toBe(0);
+        expect(await p.evaluate(() => (window as any).__calls.filter((c: unknown[]) => c[0] === 'release').length)).toBe(0);
         // The home screen shows no tiles for them: the child opens them from the iPad's own home screen.
         await p.getByRole('button', { name: 'Done' }).click();
         await p.getByRole('button', { name: 'Parent', exact: true }).waitFor();

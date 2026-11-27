@@ -134,3 +134,5 @@ button.link:disabled { text-decoration: none; cursor: default; }
 .pill.signin.google, .pill.signin.microsoft { background: #fff; color: #1f1f1f; border: 2px solid var(--line); }
 .steps .bullets { margin: 4px 0 0; padding-left: 18px; }
 .steps .bullets li { display: list-item; border: 0; padding: 1px 0; }
+.note { background: #fff6d6; border: 2px solid #f0d48a; border-radius: 12px; padding: 10px 14px; margin: 8px 0; }
+.note .bullets { margin: 4px 0 0; padding-left: 18px; }

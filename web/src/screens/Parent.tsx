@@ -32,7 +32,11 @@ export function Parent({ focus }: { focus?: 'refused' } = {}) {
     e.preventDefault(); setBusy(true); setLinkError('');
     try { await relink(linkCode, linkName.trim() || tr('Tablet')); setLinkCode(''); } catch (err) { setLinkError((err as Error).message); } finally { setBusy(false); refresh(); }
   };
+  // Removing Duckling while a Guided Access session holds the iPad in it would leave the parent in an empty app they
+  // cannot leave without the Guided Access passcode, so the session ends first.
+  const guided = ios && status.pinned;
   const release = async () => {
+    if (ios && shell.lockdownStatus().pinned) { refresh(); return; }
     if (!confirm(ios
       ? tr('Remove Duckling from this iPad? The lockdown is lifted and the apps and data are removed. Then delete Duckling Tablet from the home screen. The family account keeps its settings.')
       : win
@@ -275,7 +279,12 @@ export function Parent({ focus }: { focus?: 'refused' } = {}) {
       <div class="card">
         <h2>{tr('Remove from this device')}</h2>
         <p>{ios ? tr('Lifts the lockdown, tells the website and clears the apps and data. Then delete Duckling Tablet from the home screen. You can pair the iPad again later.') : win ? tr('Turns the lockdown and automatic sign-in off, tells the website, clears the apps and data, signs the child out and uninstalls Duckling. The child\'s Windows account stays. You can install Duckling and pair the device again later.') : tr('Lifts the lockdown, tells the website, clears the apps and data, and then Android asks whether to uninstall Duckling. You can pair the tablet again later.')}</p>
-        <div class="row"><button class="pill danger" disabled={busy} onClick={release}>{tr('Remove Duckling from this device')}</button></div>
+        {guided && <div class="note" role="status"><span class="what">{tr('Guided Access is on. End it before you remove Duckling:')}</span><ul class="why bullets">
+          <li>{tr('Triple-press the top button of your iPad (or the Home button).')}</li>
+          <li>{tr('Enter the Guided Access passcode.')}</li>
+          <li>{tr('Tap End at the top left.')}</li>
+        </ul></div>}
+        <div class="row"><button class="pill danger" disabled={busy || guided} onClick={release}>{tr('Remove Duckling from this device')}</button></div>
       </div>
     </div>
   );
