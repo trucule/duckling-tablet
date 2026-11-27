@@ -120,16 +120,26 @@ posted by a task, and no account other than Chris's own is ever used. The task r
 Chrome on Chris's computer and only reads there; `docs/thread-finder-task.md` lists the sources. Reddit is not a
 source. Facebook groups are behind a login, so the task never reads them. Chris finds those threads himself.
 
-What a reply is:
+What a reply is (the voice comes from the replies Chris posts himself, set 2026-11-27, and the queue's `brief`
+holds the same rules):
 
-- An answer to the question the parent asked, first and in full, that stands on its own without Duckling. The
-  reader should get the same help if the product sentence were deleted.
-- One sentence, after the answer, that says what Duckling does for that question, and the disclosure in plain
-  words: "I make Duckling Tablet". Never a reply whose only content is the product.
-- At most one link, to ducklingtablet.com or a page on it, and only when the page answers something the thread
-  asked. Duckling named at most twice. Under 250 words.
-- The same prose rules as a post. `node tools/blog.mjs reply <file>` checks a draft (prose rules, the disclosure,
-  the link, the length) and the task runs it on every draft before writing the card.
+- 50 to 100 words, one paragraph, four or five sentences. No headings, no lists, no numbered choices, no
+  restating the question.
+- The first sentence is advice that takes a side on the parent's decision, in plain words. "If you're going to
+  get a tablet it is best to lock it down." Not a framework.
+- The second sentence points to the product the way a parent recommends an app, by its store name. "Check out
+  Duckling Tablet: Kids Learning in the app store." No URL unless the thread asks for one. The website link is
+  the exception, at most one, to ducklingtablet.com or a page on it, only when that page answers something asked.
+- Then two or three concrete things it does, in parent words, chosen for the thread. It walks you through locking
+  the tablet down, it adds apps designed for learning, there are no ads, websites you allow show up as apps the
+  child can open, or you leave it with the base set of apps.
+- Written like a forum post. Contractions, "you", "check out", "walks you through", "or just leave it". Filler
+  words a parent would use are fine.
+- No maker disclosure in Duckling replies. Chris decided this on 2026-11-27 after posting the first reply without
+  it. The card records `disclosure: false`. The ET Ducky queue and its brief are separate and keep their own rules.
+- Duckling named at most twice.
+- The prose rules of a post, except the filler-adverb and Oxford-comma rules. `node tools/blog.mjs reply <file>`
+  checks a draft (prose rules, the link, the length) and the task runs it on every draft before writing the card.
 - Facts about Duckling come from the same sources as a post (manifests, `docs/ladders.md`, `site/`, the parent
   screens, the portal). A fact none of them backs is left out. Facts about Android, iPadOS, Windows, or another
   product come from a page fetched in the run, linked only when the one link is not needed for Duckling.
@@ -142,7 +152,7 @@ What a reply is:
 Spanish threads get Spanish replies. The finder also searches Spanish terms (tableta para niños, control parental,
 tiempo de pantalla, apps educativas, bloquear la tablet) in the Spanish forums it can open, and answers in
 the thread's language. A Spanish reply is neutral Latin American Spanish with tú to the parent, checked with
-`node tools/blog.mjs reply <file> --es`, and its disclosure is "Soy el creador de Duckling Tablet". What it may say
+`node tools/blog.mjs reply <file> --es`, in the same voice. What it may say
 about Spanish comes from the repo: the tablet's screens, the parent area, the parent portal, and the emails are in
 Spanish (`web/src/i18n/es.ts`, `portal/src/i18n/es.ts`, `backend/src/emails.ts`), every learning app plays in
 Spanish with a Spanish narrator (each app's `ES` dictionary and `manifest.json` `i18n.es`; Story Maker writes its
@@ -152,7 +162,7 @@ added to the queue's community list with its rules read before any draft.
 
 The card: `channel` (forum), `language` (en, es), `community` (Mumsnet), `target_title`, `target_url`, `thread_excerpt`
 (the question in the poster's words, under 300 characters), `why` (one sentence on the fit, and the community's
-rule on self-promotion as read in the run), `draft`, `disclosure: true`, `voice: "Chris (maker, disclosed)"`,
+rule on self-promotion as read in the run), `draft`, `disclosure: false`, `voice: "Chris (parent voice, store name)"`,
 `status: "draft"`, `created_at`, `run`. Chris sets `posted` (with `posted_url`), `blocked` (locked, removed, or
 needs an account he lacks), or `rejected` with `reject_reason`, which the task reads on later runs to learn what
 not to draft.

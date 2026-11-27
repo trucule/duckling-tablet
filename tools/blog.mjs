@@ -8,7 +8,7 @@
 //   node tools/blog.mjs build                  renders every post, the index, the feed and the sitemap
 //   node tools/blog.mjs check                  the build's checks without writing (exit 1 on a problem)
 //   node tools/blog.mjs reply <file> [--es]    checks a forum reply in a plain text file against the same prose rules,
-//                                              plus a disclosure line, one link at most, and 250 words at most;
+//                                              minus filler adverbs and the Oxford comma, as one paragraph of 50 to 100 words with one link at most;
 //                                              --es checks a Spanish reply with the Spanish word lists
 import fs from 'node:fs';
 import path from 'node:path';
@@ -143,37 +143,39 @@ const WORDS_ES = [
   [/\b(ya tienes|ya tiene|ya tienen|como ya sabes|como sabes|ni que decir tiene|por supuesto|no hace falta|sin necesidad de|no tienes que|no necesitas)\b/i, 'a statement of the obvious'],
 ];
 
-function lintProse(text, prose, problems, lang = 'en') {
+function lintProse(text, prose, problems, lang = 'en', reply = false) {
   if (/\[[^\]]+\](?!\()/.test(text.replace(/!\[[^\]]*\]/g, ''))) problems.push('a [placeholder]');
   if (/\u2014/.test(text)) problems.push('an em dash');
   if (/\u2013/.test(text)) problems.push('an en dash');
   if (/ - /.test(prose)) problems.push('a spaced hyphen used as an aside');
   if (/;/.test(prose)) problems.push('a semicolon');
   if (/[\u2600-\u27bf\u{1f300}-\u{1faff}\u2190-\u21ff\u2022]/u.test(text)) problems.push('an emoji or decorative symbol');
-  for (const [re, what] of (lang === 'es' ? WORDS_ES : WORDS)) { const m = prose.match(re); if (m) problems.push(`${what} ("${m[0]}")`); }
+  // A forum reply is written the way a parent writes, so the filler-adverb and Oxford-comma checks do not apply to it.
+  for (const [re, what] of (lang === 'es' ? WORDS_ES : WORDS)) { if (reply && what === 'a filler adverb') continue; const m = prose.match(re); if (m) problems.push(`${what} ("${m[0]}")`); }
   // A colon inside a sentence that goes on introduces a list or an explanation (brief rule 2). A colon that ends
   // the line, before steps or a code block, is allowed.
   for (const m of prose.matchAll(/[A-Za-z][^\n:]*: +[a-z][^\n]*/g)) { problems.push(`a colon inside a sentence ("${m[0].slice(0, 60)}")`); break; }
   // Oxford comma: "a, b and c" without the comma before and (rule 51). Spanish lists take no comma before y or o.
-  const ox = lang === 'en' && prose.match(/\b\w+, \w+(?: \w+)? (?:and|or) \w+/);
+  const ox = lang === 'en' && !reply && prose.match(/\b\w+, \w+(?: \w+)? (?:and|or) \w+/);
   if (ox && !/, (?:and|or) /.test(ox[0])) problems.push(`a list without the Oxford comma ("${ox[0]}")`);
   for (const m of prose.matchAll(/[^.!?\n]{220,}[.!?]/g)) { problems.push(`a sentence over 220 characters ("${m[0].slice(0, 50)}...")`); break; }
 }
 
-// A forum reply Chris posts under his own name (docs/blog.md, "Forum replies"): the prose rules, a disclosure line
-// that says he makes Duckling, at most one link, at most 250 words, and the product named no more than twice.
+// A forum reply Chris posts under his own name (docs/blog.md, "Forum replies"): the prose rules without the
+// filler-adverb and Oxford-comma checks, one paragraph of 50 to 100 words, no headings or lists, at most one link,
+// and the product named no more than twice. No disclosure line is required (Chris's decision, 2026-11-27).
 function lintReply(text, lang = 'en') {
   const problems = [];
   const prose = text.replace(/https?:\/\/\S+/g, '').replace(/\]\([^)]*\)/g, ']');
-  lintProse(text, prose, problems, lang);
-  const disclosed = lang === 'es' ? /\b(soy (el|la) creador[a]? de Duckling|yo (hago|hice|creé|desarrollo) Duckling|Duckling Tablet es (mi|nuestra) app|aclaración)\b/i : /\b(I (make|made|build|built|run|wrote)|disclosure)\b/i;
-  if (!disclosed.test(text)) problems.push(lang === 'es' ? 'no disclosure line (say that you are the maker of Duckling Tablet, for example "Soy el creador de Duckling Tablet")' : 'no disclosure line (say that you make Duckling Tablet)');
+  lintProse(text, prose, problems, lang, true);
+  if (/^(#{1,6} |[-*] |\d+\. )/m.test(text)) problems.push('a heading or a list (a reply is one plain paragraph)');
+  if (text.trim().split(/\n\s*\n/).length > 1) problems.push('more than one paragraph');
   const links = (text.match(/https?:\/\/\S+/g) || []);
   if (links.length > 1) problems.push(`${links.length} links (at most one)`);
   if (links.some((l) => !/^https:\/\/(www\.)?(ducklingtablet\.com|parents\.ducklingtablet\.com)/.test(l))) problems.push('a link to a site other than ducklingtablet.com');
   const words = prose.split(/\s+/).filter(Boolean).length;
-  if (words > 250) problems.push(`${words} words (at most 250)`);
-  if (words < 40) problems.push(`${words} words (at least 40)`);
+  if (words > 100) problems.push(`${words} words (at most 100)`);
+  if (words < 50) problems.push(`${words} words (at least 50)`);
   const names = (text.match(/\bDuckling\b/g) || []).length;
   if (names > 2) problems.push(`Duckling named ${names} times (at most twice)`);
   return problems;
