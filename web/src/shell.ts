@@ -99,6 +99,10 @@ export interface Shell {
   // Empty where the shell has none.
   readonly signInProviders: SignInProvider[];
   signIn(provider: SignInProvider, nonce: string, clientId: string): Promise<SignInResult>;
+  // The provider's own button drawn by the shell over the page (Apple's on the iPad, which App Review requires), at a
+  // rectangle in page coordinates; null takes it away. A tap fires the window event duckling:signinbutton.
+  readonly nativeSignInButton: boolean;
+  placeSignInButton(rect: { x: number; y: number; w: number; h: number } | null, enabled: boolean): void;
   readonly windows: WindowsShell | null;
 }
 
@@ -166,6 +170,7 @@ interface NativeShell {
   // Results arrive at DucklingWeb.onSignIn(status, idToken, message).
   signInProviders?(): string;
   signIn?(provider: string, nonce: string, clientId: string): void;
+  placeSignInButton?(x: number, y: number, w: number, h: number, enabled: boolean): void;
   // Windows only (results arrive at DucklingWeb.onWindows(kind, ok, message))
   setChildAccount?(name: string, fullName: string): void;
   restartDevice?(): void;
@@ -180,7 +185,7 @@ interface NativeShell {
 }
 
 declare global {
-  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void; onOtherApps(): void; onBilling(status: string, message: string): void; onSignIn(status: string, idToken: string, message: string): void; onWindows(kind: string, ok: boolean, message: string): void } }
+  interface Window { DucklingShell?: NativeShell; DucklingWeb?: { onInstall(id: string, ok: boolean, message: string): void; onResume(): void; onPush(): void; onOtherApp(pkg: string, seconds: number, reason: string): void; onOtherApps(): void; onBilling(status: string, message: string): void; onSignIn(status: string, idToken: string, message: string): void; onSignInButton(): void; onWindows(kind: string, ok: boolean, message: string): void } }
 }
 
 // Messages the Android, iPad and Windows shells send in English, shown in the tablet's language. The dictionary is
@@ -211,6 +216,8 @@ window.DucklingWeb = {
   onBilling(status, message) { const w = billingWait; billingWait = null; w?.({ status, message: nativeText(message) }); },
   // The end of a sign-in with the device's account: one at a time, like billing.
   onSignIn(status, idToken, message) { const w = signInWait; signInWait = null; w?.({ status, idToken, message: nativeText(message) }); },
+  // The shell's own sign-in button was tapped.
+  onSignInButton() { window.dispatchEvent(new Event('duckling:signinbutton')); },
   // Windows: the end of a lockdown step, a Wi-Fi scan or join, the parent browser closing.
   onWindows(kind, ok, message) {
     const w = windowsWaits.get(kind); windowsWaits.delete(kind);
@@ -301,6 +308,8 @@ function native(n: NativeShell): Shell {
     setAppAccountToken: (t) => { try { n.setAppAccountToken?.(t); } catch { /* older shell */ } },
     signInProviders: (() => { try { return (n.signInProviders?.() || '').split(',').filter((p): p is SignInProvider => PROVIDERS.includes(p as SignInProvider)); } catch { return []; } })(),
     signIn: (provider, nonce, clientId) => signInCall(() => n.signIn!(provider, nonce, clientId)),
+    nativeSignInButton: typeof n.placeSignInButton === 'function',
+    placeSignInButton: (r, enabled) => { try { n.placeSignInButton?.(r ? Math.round(r.x) : 0, r ? Math.round(r.y) : 0, r ? Math.round(r.w) : 0, r ? Math.round(r.h) : 0, enabled); } catch { /* older shell */ } },
     windows: n.platform() === 'windows' ? windowsShell(n) : null,
   };
 }
@@ -361,6 +370,10 @@ function browser(): Shell {
     // Tests put {"provider", "idToken"} under this key to stand in for a shell with a signed-in account.
     signInProviders: (() => { try { const f = JSON.parse(get('signInFake') || 'null'); return f && PROVIDERS.includes(f.provider) ? [f.provider as SignInProvider] : []; } catch { return []; } })(),
     async signIn() { try { const f = JSON.parse(get('signInFake') || 'null'); return f ? { status: 'ok', idToken: String(f.idToken), message: '' } : { status: 'failed', idToken: '', message: '' }; } catch { return { status: 'failed', idToken: '', message: '' }; } },
+    // With {"nativeButton": true} in the same key, tests stand in for a shell that draws the button: the last
+    // rectangle asked for is kept on window.__signInButton.
+    nativeSignInButton: (() => { try { return !!JSON.parse(get('signInFake') || 'null')?.nativeButton; } catch { return false; } })(),
+    placeSignInButton(r, enabled) { (window as unknown as { __signInButton: unknown }).__signInButton = r ? { ...r, enabled } : null; },
     windows: null,
   };
 }

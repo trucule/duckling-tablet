@@ -1,3 +1,4 @@
+import AuthenticationServices
 import AVFoundation
 import SwiftUI
 import UIKit
@@ -10,6 +11,9 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     private var web: WKWebView!
     private let prefs = Prefs.shared
     private let appleSignIn = AppleSignIn()
+    /// Apple's own Continue with Apple button, laid over the setup page where the page leaves room for it
+    /// (placeSignInButton). App Review requires Apple's artwork, which only this button carries.
+    private var appleButton: ASAuthorizationAppleIDButton?
     private let homePill = UIButton(configuration: .filled())
     private let videoPill = UIButton(configuration: .filled())
     /// Hosts refused without the Video blocked button: advertising and analytics, and those a parent kept blocked.
@@ -105,6 +109,33 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     }
 
     @objc private func goHome() { leave(to: Self.webApp) }
+
+    // ---- Continue with Apple: Apple's button in the space the setup page keeps for it -----------------------------
+
+    /// The rectangle is in page coordinates, so the button sits in the web view's scroll view and scrolls with the
+    /// page. An empty rectangle takes it away.
+    private func placeAppleButton(_ r: CGRect, enabled: Bool) {
+        guard r.width >= 140, r.height >= 30, onOwnPage else { removeAppleButton(); return }
+        if appleButton == nil {
+            let b = ASAuthorizationAppleIDButton(authorizationButtonType: .continue, authorizationButtonStyle: .black)
+            b.addTarget(self, action: #selector(appleButtonTapped), for: .touchUpInside)
+            web.scrollView.addSubview(b)
+            appleButton = b
+        }
+        appleButton?.frame = r
+        appleButton?.cornerRadius = min(r.height / 2, 28)
+        appleButton?.isEnabled = enabled
+        appleButton?.alpha = enabled ? 1 : 0.5
+    }
+
+    private func removeAppleButton() {
+        appleButton?.removeFromSuperview()
+        appleButton = nil
+    }
+
+    @objc private func appleButtonTapped() {
+        js("window.DucklingWeb && DucklingWeb.onSignInButton && DucklingWeb.onSignInButton()")
+    }
 
     /// The Video blocked button: the parent area (behind the PIN) at the list of refused hosts.
     @objc private func openRefused() { leave(to: URL(string: Self.webApp.absoluteString + "#/parent-blocked")!) }
@@ -342,6 +373,8 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
                 guard let self else { return }
                 self.js("window.DucklingWeb && DucklingWeb.onSignIn && DucklingWeb.onSignIn(\(self.q(status)), \(self.q(token)), \(self.q(message)))")
             }
+        case "placeSignInButton":
+            placeAppleButton(CGRect(x: Double(str(0)) ?? 0, y: Double(str(1)) ?? 0, width: Double(str(2)) ?? 0, height: Double(str(3)) ?? 0), enabled: str(4) != "0")
         case "reload": web.reload()
         default: break
         }
@@ -424,6 +457,10 @@ final class MainViewController: UIViewController, WKNavigationDelegate, WKUIDele
     private func isSignIn(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
         return prefs.signInHosts.contains { host == $0 || host.hasSuffix(".\($0)") }
+    }
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        if webView === web { removeAppleButton() }
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {

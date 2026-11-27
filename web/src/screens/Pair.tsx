@@ -1,5 +1,5 @@
 import { tr } from '../i18n';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { pair, pairWithCode, pairWithProvider } from '../state';
 import { shell, type SignInProvider } from '../shell';
 import { api } from '../api';
@@ -19,6 +19,41 @@ function useDeviceSignIn() {
     }).catch(() => {});
   }, []);
   return offer;
+}
+
+// The space for a sign-in button the shell draws itself (Apple's own Continue with Apple on the iPad). The shell is
+// told where the space is on the page whenever the layout changes, and takes the button away when this goes.
+function NativeSignInButton({ enabled, onPress }: { enabled: boolean; onPress: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const press = useRef(onPress);
+  press.current = onPress;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      shell.placeSignInButton(r.width && r.height ? { x: r.left + window.scrollX, y: r.top + window.scrollY, w: r.width, h: r.height } : null, enabledRef.current);
+    };
+    const tapped = () => press.current();
+    const ro = new ResizeObserver(place);
+    ro.observe(el);
+    ro.observe(document.body);
+    window.addEventListener('resize', place);
+    window.addEventListener('duckling:signinbutton', tapped);
+    placeRef.current = place;
+    place();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', place);
+      window.removeEventListener('duckling:signinbutton', tapped);
+      placeRef.current = null;
+      shell.placeSignInButton(null, false);
+    };
+  }, []);
+  const enabledRef = useRef(enabled);
+  const placeRef = useRef<(() => void) | null>(null);
+  useEffect(() => { enabledRef.current = enabled; placeRef.current?.(); }, [enabled]);
+  return <div ref={ref} class="signin-native" aria-label={tr('Continue with Apple')} />;
 }
 
 // First run. Three short screens on this tablet and nothing else: the parent's email, the six-digit code from that
@@ -63,7 +98,9 @@ export function Pair() {
           <h2>{tr('Set up Duckling')}</h2>
           <p>{tr("Takes about three minutes, all on this tablet. Type a parent's email; we send a six-digit code to it.")}</p>
           {offer && <>
-            <button type="button" class={`pill primary signin ${offer.provider}`} disabled={busy} onClick={deviceSignIn}>{CONTINUE_WITH[offer.provider]()}</button>
+            {offer.provider === 'apple' && shell.nativeSignInButton
+              ? <NativeSignInButton enabled={!busy} onPress={deviceSignIn} />
+              : <button type="button" class={`pill primary signin ${offer.provider}`} disabled={busy} onClick={deviceSignIn}>{CONTINUE_WITH[offer.provider]()}</button>}
             <p class="muted">{tr('Or type an email:')}</p>
           </>}
           <input type="email" required autoFocus placeholder={tr('parent@example.com')} value={email} onInput={(e) => setEmail((e.target as HTMLInputElement).value)} {...input} />

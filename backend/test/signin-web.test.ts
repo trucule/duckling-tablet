@@ -62,6 +62,12 @@ const FAKE_SHELL = `(() => {
   };
 })();`;
 
+// An iPad shell: Continue with Apple, with Apple's own button drawn by the shell where the page leaves room for it.
+// Every placement is kept on window.__placed.
+const IPAD_SHELL = FAKE_SHELL
+  .replace("platform: () => 'android'", "platform: () => 'ios'")
+  .replace("signInProviders: () => 'google',", "signInProviders: () => 'apple', placeSignInButton: (x, y, w, h, enabled) => { (window.__placed = window.__placed || []).push({ x, y, w, h, enabled }); },");
+
 beforeAll(async () => {
   if (!ready) return;
   cluster = await startCluster();
@@ -70,7 +76,7 @@ beforeAll(async () => {
   const [apiPort, webPort, portalPort] = [await freePort(), await freePort(), await freePort()];
   api = `http://127.0.0.1:${apiPort}`; web = `http://127.0.0.1:${webPort}`; portal = `http://127.0.0.1:${portalPort}`;
   const cfg = loadConfig({ NODE_ENV: 'test', RATE_LIMIT_PER_MINUTE: 5000, STORAGE: 'local', LOCAL_STORAGE_DIR: join(dir, 'files'), PUBLIC_URL: api, APP_URL: web, PORTAL_URL: portal,
-    GOOGLE_SIGNIN_CLIENT_IDS: AUD.google, MICROSOFT_SIGNIN_CLIENT_IDS: AUD.microsoft });
+    GOOGLE_SIGNIN_CLIENT_IDS: AUD.google, MICROSOFT_SIGNIN_CLIENT_IDS: AUD.microsoft, APPLE_SIGNIN_CLIENT_IDS: 'com.ducklingtablet.app' });
   ({ app } = await buildServer(cfg, { db, logger: false, fetchJwks, mailer: { async send() {} }, synth: async () => null, createTicket: async () => null }));
   await app.listen({ port: apiPort, host: '127.0.0.1' });
   servers = [serve(WEB_DIST, webPort), serve(PORTAL_DIST, portalPort)];
@@ -176,6 +182,42 @@ describe.skipIf(!ready)('Continue with Google and Sign-in methods', () => {
     await tab.goto(web);
     await tab.getByRole('button', { name: 'Continue with Google' }).waitFor();
     expect(await tab.evaluate(() => localStorage.getItem('b.token'))).toBe('');
+    expect(errors).toEqual([]);
+    await browser.close();
+  }, 120_000);
+
+  it("draws Apple's own button on the iPad and signs in when it is tapped", async () => {
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+    await ctx.route('https://api.ducklingtablet.com/**', async (route) => {
+      const req = route.request();
+      const r = await fetch(req.url().replace('https://api.ducklingtablet.com', api), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() ?? undefined });
+      await route.fulfill({ status: r.status, headers: Object.fromEntries(r.headers), body: Buffer.from(await r.arrayBuffer()) });
+    });
+    const tab = await ctx.newPage();
+    const errors: string[] = [];
+    tab.on('pageerror', (e) => errors.push(e.message));
+    await tab.addInitScript(IPAD_SHELL);
+    await tab.goto(web);
+    await tab.getByRole('heading', { name: 'Set up Duckling' }).waitFor();
+    type Placed = { x: number; y: number; w: number; h: number; enabled: boolean };
+    const placed = () => tab.evaluate(() => (window as unknown as { __placed?: Placed[] }).__placed ?? []);
+    await tab.waitForFunction(() => ((window as unknown as { __placed?: { w: number }[] }).__placed ?? []).some((p) => p.w > 0));
+    // The page draws no Apple button of its own; the shell is told where its button goes, below the heading.
+    expect(await tab.getByRole('button', { name: 'Continue with Apple' }).count()).toBe(0);
+    const slot = await tab.locator('.signin-native').boundingBox();
+    const last = (await placed()).at(-1)!;
+    expect(last).toMatchObject({ x: Math.round(slot!.x), y: Math.round(slot!.y), w: Math.round(slot!.width), h: 56, enabled: true });
+    // A tap on the shell's button starts the sign-in with Apple.
+    await tab.evaluate(() => (window as unknown as { DucklingWeb: { onSignInButton(): void } }).DucklingWeb.onSignInButton());
+    await tab.waitForFunction(() => (window as unknown as { __signIns: unknown[] }).__signIns.length === 1);
+    const asked = await tab.evaluate(() => (window as unknown as { __signIns: { provider: string }[] }).__signIns[0]);
+    expect(asked.provider).toBe('apple');
+    await tab.evaluate(() => (window as unknown as { DucklingWeb: { onSignIn(s: string, t: string, m: string): void } }).DucklingWeb.onSignIn('cancelled', '', ''));
+    // Leaving the screen takes the button away.
+    await tab.getByRole('button', { name: 'I have a code from the website' }).click();
+    await tab.waitForFunction(() => { const p = (window as unknown as { __placed: { w: number }[] }).__placed; return p.at(-1)!.w === 0; });
     expect(errors).toEqual([]);
     await browser.close();
   }, 120_000);
