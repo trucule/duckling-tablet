@@ -1,0 +1,10 @@
+The files in this folder are made by tools/build-lab-look.py from assets published by Poly Haven (polyhaven.com)
+under CC0 1.0 (public domain, https://creativecommons.org/publicdomain/zero/1.0/). Checked on each asset's page on
+2026-11-26.
+
+env.png                          Studio Small 08 (HDRI), by Sergej Majboroda            https://polyhaven.com/a/studio_small_08
+oak.jpg, oak-n.jpg, oak-r.jpg    Oak Veneer 01 (texture), by Jenelle van Heerden        https://polyhaven.com/a/oak_veneer_01
+tile-n.jpg, tile-r.jpg           Tiled Floor 001 (texture), by Dimitrios Savva and Rob Tuytel   https://polyhaven.com/a/tiled_floor_001
+set.glb                          Chemistry Set (model), by Jiří Ptáček                  https://polyhaven.com/a/chemistry_set
+
+Kitchen Lab carries the first three; Chemistry Lab carries env.png, the tile pictures and set.glb.
